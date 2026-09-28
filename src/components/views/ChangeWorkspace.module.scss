@@ -21,12 +21,12 @@
 }
 
 .topBarMeta {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
   color: var(--cds-text-secondary);
 }
 
 .topBarTitle {
-  @include tokens.role('title-lg');
+  @include tokens.role('label-md');
 }
 
 .topBarActions {
@@ -38,7 +38,7 @@
 .stageStrip {
   padding: $spacing-06 $spacing-07 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
   gap: $spacing-03;
 }
 
@@ -48,19 +48,39 @@
   flex-direction: column;
   gap: $spacing-02;
   padding: $spacing-03 !important;
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-sm);
+  color: var(--at-ink);
+
+  // The stage currently in flight (the human checkpoint until approved)
+  // is the one signature-coral moment on the page.
+  &.current {
+    background: var(--at-signature-coral);
+    border-color: var(--at-signature-coral);
+    color: var(--at-on-primary);
+
+    .stageKind,
+    .stageStatus {
+      color: var(--at-on-primary);
+      opacity: 0.85;
+    }
+  }
 }
 
 .stageKind {
-  @include tokens.role('caption');
-  opacity: 0.85;
+  @include tokens.role('meta');
+  color: var(--cds-text-secondary);
 }
 
 .stageName {
   @include tokens.role('body-md');
+  font-weight: 500;
 }
 
 .stageStatus {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
+  color: var(--cds-text-secondary);
 }
 
 .body {
@@ -76,7 +96,7 @@
 .checkpointTile {
   background: var(--cds-background-inverse);
   color: var(--cds-text-inverse);
-  border-radius: 0.75rem;
+  border-radius: var(--at-radius-lg);
   padding: $spacing-05 $spacing-06 !important;
   display: flex;
   align-items: center;
@@ -85,7 +105,7 @@
 }
 
 .checkpointLabel {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
   color: var(--cds-text-inverse);
   opacity: 0.75;
 }
@@ -108,12 +128,57 @@
 }
 
 .specTitle {
-  @include tokens.role('title-sm');
+  @include tokens.role('label-md');
 }
 
 .specMeta {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
   color: var(--cds-text-secondary);
+}
+
+// DataTable framed as a white rounded.md card with hairline dividers —
+// no gray header band, 12px header labels, medium-weight system column.
+.specTable {
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  overflow: hidden;
+  background: var(--at-canvas);
+
+  :global(.cds--data-table) {
+    th,
+    td {
+      background: var(--at-canvas);
+      border-color: var(--at-hairline);
+      color: var(--at-ink);
+    }
+
+    thead th {
+      block-size: 2.25rem;
+      border-bottom: 1px solid var(--at-hairline);
+    }
+
+    th :global(.cds--table-header-label) {
+      @include tokens.role('meta');
+      color: var(--cds-text-secondary);
+    }
+
+    td {
+      @include tokens.role('body-md');
+    }
+
+    td:first-child {
+      font-weight: 500;
+    }
+
+    tbody tr:hover td {
+      background: var(--at-surface-soft);
+      color: var(--at-ink);
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+  }
 }
 
 .rightRail {
@@ -130,21 +195,49 @@
   padding: $spacing-06;
   display: flex;
   flex-direction: column;
-  gap: $spacing-04;
+  gap: $spacing-03;
+}
+
+.railHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-03;
 }
 
 .railSectionTitle {
-  @include tokens.role('title-sm');
+  @include tokens.role('label-md');
+}
+
+// Ghost button dressed as an inline text link (Link isn't in the
+// design-system registry).
+.railLink {
+  min-block-size: 0 !important;
+  block-size: auto !important;
+  padding: 0 !important;
+  color: var(--at-link) !important;
+  @include tokens.role('body-md');
+
+  &:hover {
+    background: transparent !important;
+    color: var(--at-link-active) !important;
+    text-decoration: underline;
+  }
 }
 
 .entityTile {
   display: flex;
   flex-direction: column;
   gap: $spacing-02;
+  padding: $spacing-03 !important;
+  min-block-size: 0 !important;
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
 }
 
 .entityMeta {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
   color: var(--cds-text-secondary);
 }
 
@@ -157,10 +250,18 @@
 
 .entityName {
   @include tokens.role('body-md');
+  font-weight: 500;
+}
+
+// Pinned to the bottom of the rail, separated from the entity list.
+.connectors {
+  margin-top: auto;
+  border-top: 1px solid var(--at-hairline);
 }
 
 .connectorsHeading {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
+  font-weight: 500;
   color: var(--cds-text-secondary);
   padding: $spacing-05 $spacing-06 0;
 }
@@ -190,7 +291,7 @@
   border-radius: 50%;
 
   &.ok {
-    background: var(--cds-support-success);
+    background: var(--at-success-border);
   }
 
   &.warn {

@@ -19,7 +19,7 @@ const headers = [
   { key: 'basis', header: 'Basis' },
 ];
 
-export default function ChangeWorkspace({ approved, verified, onOpenPackets }) {
+export default function ChangeWorkspace({ approved, verified, onOpenPackets, onOpenGraph }) {
   const stages = STAGES_BASE.map((s) => {
     if (s.state === 'checkpoint') {
       return { ...s, status: approved ? 'Approved' : verified ? 'Ready to approve' : 'Awaiting you', state: approved ? 'done' : 'now' };
@@ -46,14 +46,14 @@ export default function ChangeWorkspace({ approved, verified, onOpenPackets }) {
             <div className={styles.topBarTitle}>Add Contractor worker type to hiring flow</div>
           </div>
           <div className={styles.topBarActions}>
-            <Button kind="secondary" size="md">Pause agents</Button>
-            <Button kind="secondary" size="md">Share</Button>
+            <Button kind="secondary" size="sm">Pause agents</Button>
+            <Button kind="secondary" size="sm">Share</Button>
           </div>
         </div>
 
         <div className={styles.stageStrip}>
           {stages.map((s) => (
-            <Tile key={s.name} className={styles.stageTile}>
+            <Tile key={s.name} className={`${styles.stageTile} ${s.state === 'now' ? styles.current : ''}`}>
               <div className={styles.stageKind}>{s.kind}</div>
               <div className={styles.stageName}>{s.name}</div>
               {s.status && <div className={styles.stageStatus}>{s.status}</div>}
@@ -69,7 +69,7 @@ export default function ChangeWorkspace({ approved, verified, onOpenPackets }) {
                 Design agent proposes 8 changes across 4 systems. One relies on an inferred rule.
               </div>
             </div>
-            <Button kind="tertiary" onClick={onOpenPackets}>
+            <Button kind="tertiary" size="md" onClick={onOpenPackets}>
               Review packet
             </Button>
           </Tile>
@@ -79,37 +79,44 @@ export default function ChangeWorkspace({ approved, verified, onOpenPackets }) {
               <div className={styles.specTitle}>Design spec</div>
               <div className={styles.specMeta}>Generated 09:42 · context snapshot ctx-7f3a</div>
             </div>
-            <DataTable rows={rows} headers={headers} isSortable={false}>
-              {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
-                <Table {...getTableProps()} size="lg">
-                  <TableHead>
-                    <TableRow>
-                      {headers.map((header) => (
-                        <TableHeader {...getHeaderProps({ header })} key={header.key}>
-                          {header.header}
-                        </TableHeader>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {rows.map((row) => (
-                      <TableRow {...getRowProps({ row })} key={row.id}>
-                        {row.cells.map((cell) => (
-                          <TableCell key={cell.id}>{cell.value}</TableCell>
+            <div className={styles.specTable}>
+              <DataTable rows={rows} headers={headers} isSortable={false}>
+                {({ rows, headers, getTableProps, getHeaderProps, getRowProps }) => (
+                  <Table {...getTableProps()} size="md">
+                    <TableHead>
+                      <TableRow>
+                        {headers.map((header) => (
+                          <TableHeader {...getHeaderProps({ header })} key={header.key}>
+                            {header.header}
+                          </TableHeader>
                         ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              )}
-            </DataTable>
+                    </TableHead>
+                    <TableBody>
+                      {rows.map((row) => (
+                        <TableRow {...getRowProps({ row })} key={row.id}>
+                          {row.cells.map((cell) => (
+                            <TableCell key={cell.id}>{cell.value}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+              </DataTable>
+            </div>
           </div>
         </div>
       </div>
 
       <div className={styles.rightRail}>
         <div className={styles.railSection}>
-          <div className={styles.railSectionTitle}>Entities in scope</div>
+          <div className={styles.railHeader}>
+            <div className={styles.railSectionTitle}>Entities in scope</div>
+            <Button kind="ghost" size="sm" className={styles.railLink} onClick={onOpenGraph}>
+              Open graph
+            </Button>
+          </div>
           {ENTITIES.map((e) => (
             <Tile key={e.name} className={styles.entityTile}>
               <div className={styles.entityMeta}>{e.sys} · {e.type}</div>
@@ -120,17 +127,19 @@ export default function ChangeWorkspace({ approved, verified, onOpenPackets }) {
             </Tile>
           ))}
         </div>
-        <div className={styles.connectorsHeading}>Connectors · read-only</div>
-        <div className={styles.connectorList}>
-          {CONNECTORS.map((c) => (
-            <div key={c.name} className={styles.connectorRow}>
-              <span className={styles.connectorName}>
-                <span className={`${styles.dot} ${styles[c.status]}`} />
-                {c.name}
-              </span>
-              <span className={styles.connectorWhen}>{c.when}</span>
-            </div>
-          ))}
+        <div className={styles.connectors}>
+          <div className={styles.connectorsHeading}>Connectors · read-only</div>
+          <div className={styles.connectorList}>
+            {CONNECTORS.map((c) => (
+              <div key={c.name} className={styles.connectorRow}>
+                <span className={styles.connectorName}>
+                  <span className={`${styles.dot} ${styles[c.status]}`} />
+                  {c.name}
+                </span>
+                <span className={styles.connectorWhen}>{c.when}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </>

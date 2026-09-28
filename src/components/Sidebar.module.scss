@@ -13,7 +13,7 @@
 }
 
 .wordmark {
-  @include tokens.role('title-sm');
+  @include tokens.role('title-md');
   padding: 0 $spacing-03;
   color: var(--cds-text-primary);
 }
@@ -24,21 +24,34 @@
   gap: $spacing-01;
 }
 
+// Ghost buttons in every state; the active view gets the surface-strong
+// fill (Airtable's selected-row gray) instead of Carbon's tertiary outline.
 .navItem {
   justify-content: space-between !important;
+  align-items: center !important;
   width: 100%;
   max-width: none !important;
+  padding-inline: $spacing-03 !important;
+  border-radius: var(--at-radius-sm) !important;
+  @include tokens.role('body-md');
+  color: var(--at-ink) !important;
+
+  &.active,
+  &.active:hover {
+    background: var(--at-surface-strong);
+  }
 }
 
 .navBadge {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
   color: var(--cds-text-secondary);
 }
 
 .domainsHeading {
-  @include tokens.role('caption');
+  @include tokens.role('meta');
+  font-weight: 500;
   color: var(--cds-text-secondary);
-  padding: 0 $spacing-03 $spacing-02;
+  padding: 0 $spacing-03 $spacing-03;
 }
 
 .domains {
@@ -53,12 +66,16 @@
   justify-content: space-between;
   height: 2rem;
   padding: 0 $spacing-03;
-  border-radius: 0.5rem;
+  border-radius: var(--at-radius-sm);
   @include tokens.role('body-md');
-  color: var(--cds-text-secondary);
+  color: var(--cds-text-primary);
+
+  span {
+    @include tokens.role('meta');
+    color: var(--cds-text-secondary);
+  }
 
   &.active {
     background: var(--cds-layer);
-    color: var(--cds-text-primary);
   }
 }

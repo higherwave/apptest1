@@ -94,19 +94,71 @@
   --cds-support-warning: var(--at-signature-mustard);
 }
 
-// -- Buttons: rounded.lg, button type role, 24px inline padding ---------
-// Carbon ships buttons perfectly square; DESIGN.md's button-primary /
-// button-secondary both call for rounded.lg (12px) and 16x24 padding.
+// -- Buttons -------------------------------------------------------------
+// Carbon ships buttons square with blue/gray fills. Mapped per kind onto
+// DESIGN.md's button pair, at app density (button-sm type, rounded.md):
+// - primary   → button-primary (near-black, one per viewport)
+// - secondary → button-secondary (white, ink text, hairline outline)
+// - tertiary  → button-secondary-on-dark (same white button; it stays
+//               white on dark surfaces like the checkpoint card)
+// - ghost     → quiet ink text, soft fill on hover (nav rows, inline links)
 .cds--btn {
-  border-radius: var(--at-radius-lg);
-  padding-inline: var(--at-space-lg);
-  @include tokens.role('button');
+  border-radius: var(--at-radius-md);
+  padding-inline: var(--at-space-md);
+  @include tokens.role('button-sm');
 }
 
-// -- Tags: rounded.md instead of Carbon's default near-pill shape -------
-// DESIGN.md: "Don't use rounded.pill outside the pricing surface."
+.cds--btn--sm {
+  padding-inline: var(--at-space-sm);
+}
+
+.cds--btn--primary {
+  background: var(--at-primary);
+  color: var(--at-on-primary);
+
+  &:hover {
+    background: var(--at-primary-active);
+  }
+}
+
+.cds--btn--secondary,
+.cds--btn--tertiary {
+  background: var(--at-canvas);
+  color: var(--at-ink);
+  border: 1px solid var(--at-hairline);
+
+  &:hover {
+    background: var(--at-surface-soft);
+    color: var(--at-ink);
+    border-color: var(--at-border-strong);
+  }
+
+  &:active {
+    background: var(--at-surface-strong);
+    color: var(--at-ink);
+  }
+}
+
+.cds--btn--ghost {
+  color: var(--at-ink);
+
+  &:hover {
+    background: var(--at-surface-soft);
+    color: var(--at-ink);
+  }
+
+  &:active {
+    background: var(--at-surface-strong);
+  }
+}
+
+// -- Tags → badges: rounded.sm chips in the 12px meta role ---------------
+// DESIGN.md: "Don't use rounded.pill outside the pricing surface." At
+// badge height rounded.md still reads as a pill, so badges use sm.
 .cds--tag {
-  border-radius: var(--at-radius-md);
+  border-radius: var(--at-radius-sm);
+  @include tokens.role('meta');
+  font-weight: 500;
 }
 
 // -- Tabs, restyled as a segmented switcher (rounded.sm, not pill) ------

@@ -20,7 +20,9 @@ export default function App() {
       <Sidebar view={view} onSelectView={setView} openChangeCount={approved ? 0 : 1} />
       <div className={styles.main}>
         {view === 'workspace' && (
-          <ChangeWorkspace verified={verified} approved={approved} onOpenPackets={() => setView('packets')} />
+          <ChangeWorkspace verified={verified} approved={approved} onOpenPackets={() => setView('packets')}
+            onOpenGraph={() => setView('graph')}
+          />
         )}
         {view === 'knowledge' && (
           <KnowledgeBase

@@ -10,9 +10,9 @@ export default function Sidebar({ view, onSelectView, openChangeCount }) {
         {NAV_ITEMS.map((item) => (
           <Button
             key={item.key}
-            kind={item.key === view ? 'tertiary' : 'ghost'}
+            kind="ghost"
             size="md"
-            className={styles.navItem}
+            className={`${styles.navItem} ${item.key === view ? styles.active : ''}`}
             onClick={() => onSelectView(item.key)}
           >
             {item.label}

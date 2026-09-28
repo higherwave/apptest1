@@ -28,12 +28,22 @@
   } @else if $name == 'button' {
     font: 500 1rem/1.4 var(--at-font-text);
     letter-spacing: 0;
+  } @else if $name == 'button-sm' {
+    // App-density addition: DESIGN.md's button role is sized for marketing
+    // heroes (16px); in-app actions run one step down at body size.
+    font: 500 0.875rem/1.25 var(--at-font-text);
+    letter-spacing: 0;
   } @else if $name == 'body-md' {
     font: 400 0.875rem/1.25 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'caption' {
     font: 500 0.875rem/1.35 var(--at-font-text);
     letter-spacing: 0.16px;
+  } @else if $name == 'meta' {
+    // App-density addition: 12px meta line (stage status, table headers,
+    // badges, group headings) below DESIGN.md's 14px caption.
+    font: 400 0.75rem/1.35 var(--at-font-text);
+    letter-spacing: 0;
   } @else {
     @error 'Unknown Airtable typography role: #{$name}';
   }
