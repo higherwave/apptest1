@@ -53,7 +53,7 @@
   justify-content: space-between;
   height: 2rem;
   padding: 0 $spacing-03;
-  border-radius: $spacing-02;
+  border-radius: 0.5rem;
   @include type.type-style('body-compact-01');
   color: var(--cds-text-secondary);
 

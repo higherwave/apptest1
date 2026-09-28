@@ -1,0 +1,63 @@
+// Aesthetic layer on top of Carbon's token/component system, approximating
+// the Airtable-style reference (softer corners, pill-shaped tab switchers,
+// a friendlier type stack) without touching Carbon's color/spacing/type
+// tokens or swapping out any governed component.
+
+// -- Typography --------------------------------------------------------
+// Carbon's type-style() mixins (used throughout the app) still control
+// size/weight/line-height/letter-spacing; this only swaps the typeface
+// those mixins render in for a rounder, more neutral sans.
+body {
+  font-family:
+    'Inter',
+    -apple-system,
+    'Segoe UI',
+    system-ui,
+    sans-serif;
+}
+
+// -- Buttons -------------------------------------------------------------
+// Carbon buttons ship perfectly square by default. Round them so every
+// button reads as a pill, matching the reference.
+.cds--btn {
+  border-radius: 0.5rem;
+}
+
+// -- Tabs, restyled as a segmented pill switcher -------------------------
+// Carbon's Tabs use an underline indicator by default; the reference uses
+// a filled-pill segmented control instead.
+.cds--tabs .cds--tab--list {
+  display: inline-flex;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  background: var(--cds-layer);
+  border-radius: 0.625rem;
+}
+
+.cds--tabs .cds--tabs__nav-link {
+  border-radius: 0.5rem;
+  padding-inline: 1rem;
+}
+
+.cds--tabs .cds--tabs__nav-item {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.cds--tabs .cds--tabs__nav-item--selected {
+  border-block-end: none !important;
+  box-shadow: none !important;
+  background: var(--cds-background-inverse);
+  border-radius: 0.5rem;
+}
+
+.cds--tabs .cds--tabs__nav-item--selected .cds--tabs__nav-link,
+.cds--tabs .cds--tabs__nav-item--selected:hover .cds--tabs__nav-link {
+  color: var(--cds-text-inverse) !important;
+  background: transparent;
+}
+
+.cds--tabs .cds--tabs__nav-item:not(.cds--tabs__nav-item--selected):hover {
+  background: color-mix(in srgb, var(--cds-text-primary) 6%, transparent);
+  border-radius: 0.5rem;
+}

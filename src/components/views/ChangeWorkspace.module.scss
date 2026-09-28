@@ -76,7 +76,7 @@
 .checkpointTile {
   background: var(--cds-background-inverse);
   color: var(--cds-text-inverse);
-  border-radius: $spacing-02;
+  border-radius: 0.75rem;
   padding: $spacing-05 $spacing-06 !important;
   display: flex;
   align-items: center;
