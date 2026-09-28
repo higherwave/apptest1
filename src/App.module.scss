@@ -1,0 +1,14 @@
+.shell {
+  height: 100vh;
+  display: flex;
+  background: var(--cds-background);
+  overflow: hidden;
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

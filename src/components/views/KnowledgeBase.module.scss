@@ -1,0 +1,182 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.page {
+  flex: 1;
+  min-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  padding: $spacing-07 $spacing-08 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+}
+
+.breadcrumbText {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
+
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: $spacing-06;
+  flex-wrap: wrap;
+}
+
+.title {
+  @include type.type-style('heading-04');
+}
+
+.subtitle {
+  @include type.type-style('body-compact-01');
+  color: var(--cds-text-secondary);
+  margin-top: $spacing-03;
+}
+
+.askInput {
+  margin-bottom: $spacing-05;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: $spacing-06 $spacing-08;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-04;
+  overflow: auto;
+}
+
+.bodyTitle {
+  @include type.type-style('heading-compact-01');
+}
+
+.lensLabel {
+  color: var(--cds-text-secondary);
+  font-weight: 400;
+}
+
+.factTile {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-04;
+  border: 1px solid var(--cds-border-subtle);
+
+  &.ask {
+    border-color: var(--cds-support-warning);
+    background: var(--cds-support-warning-inverse, var(--cds-layer));
+  }
+}
+
+.factTop {
+  display: flex;
+  gap: $spacing-05;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.factLeft {
+  display: flex;
+  gap: $spacing-05;
+  align-items: flex-start;
+}
+
+.factNumber {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--cds-background-inverse);
+  color: var(--cds-text-inverse);
+  @include type.type-style('label-01');
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.factText {
+  @include type.type-style('body-01');
+}
+
+.factSource {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+  margin-top: $spacing-02;
+}
+
+.factActions {
+  display: flex;
+  gap: $spacing-03;
+  padding-left: 2.5rem;
+}
+
+.rightRail {
+  width: 21.25rem;
+  flex: none;
+  border-left: 1px solid var(--cds-border-subtle);
+  padding: $spacing-07 $spacing-06;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+  overflow: auto;
+}
+
+.usedByTile {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+}
+
+.usedByLabel {
+  @include type.type-style('label-01');
+  font-weight: 600;
+}
+
+.usedByLink {
+  padding-left: 0 !important;
+  max-width: none !important;
+}
+
+.usedByNote {
+  @include type.type-style('body-compact-01');
+  color: var(--cds-text-secondary);
+}
+
+.historySection {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+}
+
+.historyTitle {
+  @include type.type-style('heading-compact-01');
+}
+
+.historyRow {
+  display: flex;
+  gap: $spacing-04;
+}
+
+.historyDot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--cds-border-subtle-selected);
+  margin-top: $spacing-02;
+  flex: none;
+}
+
+.historyWhat {
+  @include type.type-style('body-compact-01');
+}
+
+.historyMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}

@@ -1,0 +1,203 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.page {
+  flex: 1;
+  min-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.topBar {
+  min-height: 4rem;
+  flex: none;
+  border-bottom: 1px solid var(--cds-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-05;
+  padding: $spacing-04 $spacing-07;
+}
+
+.topBarMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
+
+.topBarTitle {
+  @include type.type-style('heading-compact-02');
+}
+
+.topBarActions {
+  display: flex;
+  gap: $spacing-03;
+  flex: none;
+}
+
+.stageStrip {
+  padding: $spacing-06 $spacing-07 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(7.5rem, 1fr));
+  gap: $spacing-03;
+}
+
+.stageTile {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+  padding: $spacing-03 !important;
+}
+
+.stageKind {
+  @include type.type-style('label-01');
+  opacity: 0.85;
+}
+
+.stageName {
+  @include type.type-style('body-compact-02');
+}
+
+.stageStatus {
+  @include type.type-style('label-01');
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: $spacing-06 $spacing-07;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+  overflow: auto;
+}
+
+.checkpointTile {
+  background: var(--cds-background-inverse);
+  color: var(--cds-text-inverse);
+  border-radius: $spacing-02;
+  padding: $spacing-05 $spacing-06 !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-06;
+}
+
+.checkpointLabel {
+  @include type.type-style('label-01');
+  color: var(--cds-text-inverse);
+  opacity: 0.75;
+}
+
+.checkpointText {
+  @include type.type-style('heading-compact-01');
+  max-width: 40rem;
+}
+
+.specSection {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+}
+
+.specHeader {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.specTitle {
+  @include type.type-style('heading-compact-01');
+}
+
+.specMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
+
+.rightRail {
+  width: 20rem;
+  flex: none;
+  border-left: 1px solid var(--cds-border-subtle);
+  background: var(--cds-layer);
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+}
+
+.railSection {
+  padding: $spacing-06;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-04;
+}
+
+.railSectionTitle {
+  @include type.type-style('heading-compact-01');
+}
+
+.entityTile {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+}
+
+.entityMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
+
+.entityRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-03;
+}
+
+.entityName {
+  @include type.type-style('body-compact-01');
+}
+
+.connectorsHeading {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+  padding: $spacing-05 $spacing-06 0;
+}
+
+.connectorList {
+  padding: $spacing-03 $spacing-06 $spacing-06;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-03;
+}
+
+.connectorRow {
+  display: flex;
+  justify-content: space-between;
+  @include type.type-style('body-compact-01');
+}
+
+.connectorName {
+  display: flex;
+  align-items: center;
+  gap: $spacing-03;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+
+  &.ok {
+    background: var(--cds-support-success);
+  }
+
+  &.warn {
+    background: var(--cds-support-warning);
+  }
+}
+
+.connectorWhen {
+  color: var(--cds-text-secondary);
+}

@@ -1,0 +1,205 @@
+@use '@carbon/react/scss/spacing' as *;
+@use '@carbon/react/scss/type' as type;
+
+.page {
+  flex: 1;
+  min-width: 40rem;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.header {
+  padding: $spacing-06 $spacing-07 0;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: $spacing-06;
+}
+
+.headerMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
+
+.headerTitle {
+  @include type.type-style('heading-03');
+}
+
+.headerActions {
+  display: flex;
+  gap: $spacing-03;
+  flex: none;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  padding: $spacing-05 $spacing-07;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-05;
+  overflow: auto;
+}
+
+.gate {
+  border-radius: $spacing-02;
+  padding: $spacing-04 $spacing-05;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-05;
+  @include type.type-style('body-compact-01');
+  border: 1px solid var(--cds-border-subtle);
+
+  &.ready {
+    border-color: var(--cds-support-success);
+    background: color-mix(in srgb, var(--cds-support-success) 12%, var(--cds-background));
+  }
+
+  &.blocked {
+    border-color: var(--cds-support-warning);
+    background: color-mix(in srgb, var(--cds-support-warning) 16%, var(--cds-background));
+  }
+}
+
+.diff {
+  border: 1px solid var(--cds-border-subtle);
+  border-radius: $spacing-02;
+  overflow: hidden;
+}
+
+.diffHead {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: $spacing-03 $spacing-05;
+  background: var(--cds-layer);
+  border-bottom: 1px solid var(--cds-border-subtle);
+}
+
+.diffTitle {
+  @include type.type-style('body-compact-02');
+}
+
+.diffLines {
+  font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  @include type.type-style('code-01');
+  padding: $spacing-03 0;
+}
+
+.diffLine {
+  display: flex;
+  padding: 0 $spacing-05;
+
+  &.add {
+    background: color-mix(in srgb, var(--cds-support-success) 14%, var(--cds-background));
+  }
+
+  &.remove {
+    background: color-mix(in srgb, var(--cds-support-error) 14%, var(--cds-background));
+  }
+}
+
+.diffSign {
+  width: $spacing-06;
+  flex: none;
+  color: var(--cds-text-secondary);
+}
+
+.diffEvidence {
+  border-top: 1px solid var(--cds-border-subtle);
+  padding: $spacing-04 $spacing-05;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+  @include type.type-style('label-01');
+}
+
+.diffEvidenceLabel {
+  color: var(--cds-text-secondary);
+}
+
+.diffComment {
+  border-top: 1px solid var(--cds-border-subtle);
+  padding: $spacing-04 $spacing-05;
+  display: flex;
+  gap: $spacing-04;
+  @include type.type-style('label-01');
+}
+
+.commentAvatar {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: var(--cds-support-success);
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}
+
+.commentAuthor {
+  font-weight: 600;
+}
+
+.rightRail {
+  width: 20rem;
+  flex: none;
+  border-left: 1px solid var(--cds-border-subtle);
+  background: var(--cds-layer);
+  padding: $spacing-06;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-06;
+  overflow: auto;
+}
+
+.railTitle {
+  @include type.type-style('heading-compact-01');
+}
+
+.handoffTile {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-02;
+  margin-top: $spacing-03;
+}
+
+.handoffTitle {
+  @include type.type-style('body-compact-02');
+}
+
+.handoffMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
+
+.handoffNote {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+  margin-top: $spacing-03;
+}
+
+.auditRow {
+  padding-bottom: $spacing-04;
+  border-bottom: 1px solid var(--cds-border-subtle);
+  margin-top: $spacing-04;
+}
+
+.auditWhat {
+  @include type.type-style('label-01');
+}
+
+.auditMeta {
+  @include type.type-style('label-01');
+  color: var(--cds-text-secondary);
+}
