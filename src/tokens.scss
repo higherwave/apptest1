@@ -1,0 +1,40 @@
+// Typography-role mixin only (no selectors/rules emitted here) — safe to
+// `@use` from every CSS module without duplicating output. The color/
+// radius/spacing custom properties and global Carbon overrides live in
+// theme.scss, imported once globally.
+
+@mixin role($name) {
+  @if $name == 'display-xl' {
+    font: 500 3rem/1.1 var(--at-font-display);
+    letter-spacing: 0;
+  } @else if $name == 'display-lg' {
+    font: 400 2.5rem/1.2 var(--at-font-display);
+    letter-spacing: 0;
+  } @else if $name == 'display-md' {
+    font: 400 2rem/1.2 var(--at-font-display);
+    letter-spacing: 0;
+  } @else if $name == 'title-lg' {
+    font: 400 1.5rem/1.35 var(--at-font-display);
+    letter-spacing: 0.12px;
+  } @else if $name == 'title-md' {
+    font: 400 1.25rem/1.5 var(--at-font-display);
+    letter-spacing: 0;
+  } @else if $name == 'title-sm' {
+    font: 500 1.125rem/1.4 var(--at-font-text);
+    letter-spacing: 0;
+  } @else if $name == 'label-md' {
+    font: 500 1rem/1.4 var(--at-font-text);
+    letter-spacing: 0;
+  } @else if $name == 'button' {
+    font: 500 1rem/1.4 var(--at-font-text);
+    letter-spacing: 0;
+  } @else if $name == 'body-md' {
+    font: 400 0.875rem/1.25 var(--at-font-text);
+    letter-spacing: 0;
+  } @else if $name == 'caption' {
+    font: 500 0.875rem/1.35 var(--at-font-text);
+    letter-spacing: 0.16px;
+  } @else {
+    @error 'Unknown Airtable typography role: #{$name}';
+  }
+}

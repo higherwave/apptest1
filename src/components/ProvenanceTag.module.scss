@@ -1,0 +1,23 @@
+// Carbon Tag's `type` prop only ships a fixed internal palette; these
+// classes re-point the three provenance states at the exact DESIGN.md
+// tokens (info/success/signature-cream+mustard) instead of Carbon's
+// generic blue/green/gray tag colors. Still the same <Tag> component —
+// only the three color properties are overridden.
+
+.config {
+  background-color: var(--at-canvas) !important;
+  color: var(--at-info) !important;
+  border: 1px solid var(--at-info-border) !important;
+}
+
+.confirmed {
+  background-color: var(--at-canvas) !important;
+  color: var(--at-success) !important;
+  border: 1px solid var(--at-success-border) !important;
+}
+
+.inferred {
+  background-color: var(--at-signature-cream) !important;
+  color: var(--at-ink) !important;
+  border: 1px solid var(--at-signature-mustard) !important;
+}

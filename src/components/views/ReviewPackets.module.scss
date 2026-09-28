@@ -1,5 +1,6 @@
 @use '@carbon/react/scss/spacing' as *;
 @use '@carbon/react/scss/type' as type;
+@use '../../tokens' as tokens;
 
 .page {
   flex: 1;
@@ -25,12 +26,12 @@
 }
 
 .headerMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
 .headerTitle {
-  @include type.type-style('heading-03');
+  @include tokens.role('title-lg');
 }
 
 .headerActions {
@@ -56,7 +57,7 @@
   align-items: center;
   justify-content: space-between;
   gap: $spacing-05;
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   border: 1px solid var(--cds-border-subtle);
 
   &.ready {
@@ -65,8 +66,8 @@
   }
 
   &.blocked {
-    border-color: var(--cds-support-warning);
-    background: color-mix(in srgb, var(--cds-support-warning) 16%, var(--cds-background));
+    border-color: var(--at-signature-mustard);
+    background: var(--at-signature-cream);
   }
 }
 
@@ -86,7 +87,7 @@
 }
 
 .diffTitle {
-  @include type.type-style('body-compact-02');
+  @include tokens.role('body-md');
 }
 
 .diffLines {
@@ -120,7 +121,7 @@
   display: flex;
   flex-direction: column;
   gap: $spacing-02;
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
 }
 
 .diffEvidenceLabel {
@@ -132,7 +133,7 @@
   padding: $spacing-04 $spacing-05;
   display: flex;
   gap: $spacing-04;
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
 }
 
 .commentAvatar {
@@ -164,7 +165,7 @@
 }
 
 .railTitle {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
 }
 
 .handoffTile {
@@ -175,16 +176,16 @@
 }
 
 .handoffTitle {
-  @include type.type-style('body-compact-02');
+  @include tokens.role('body-md');
 }
 
 .handoffMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
 .handoffNote {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
   margin-top: $spacing-03;
 }
@@ -196,10 +197,10 @@
 }
 
 .auditWhat {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
 }
 
 .auditMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }

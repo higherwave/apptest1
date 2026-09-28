@@ -2,9 +2,9 @@
 // Design Component (Whirl App.dc.html) into plain data consumed by React views.
 
 export const PROVENANCE = {
-  config: { label: 'From config', tagType: 'blue' },
-  confirmed: { label: 'Confirmed', tagType: 'green' },
-  inferred: { label: 'Inferred', tagType: 'gray' },
+  config: { label: 'From config' },
+  confirmed: { label: 'Confirmed' },
+  inferred: { label: 'Inferred' },
 };
 
 export const NAV_ITEMS = [

@@ -1,5 +1,5 @@
 @use '@carbon/react/scss/spacing' as *;
-@use '@carbon/react/scss/type' as type;
+@use '../tokens' as tokens;
 
 .sidebar {
   width: 16rem;
@@ -13,7 +13,7 @@
 }
 
 .wordmark {
-  @include type.type-style('heading-compact-02');
+  @include tokens.role('title-sm');
   padding: 0 $spacing-03;
   color: var(--cds-text-primary);
 }
@@ -31,12 +31,12 @@
 }
 
 .navBadge {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
 .domainsHeading {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
   padding: 0 $spacing-03 $spacing-02;
 }
@@ -54,7 +54,7 @@
   height: 2rem;
   padding: 0 $spacing-03;
   border-radius: 0.5rem;
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
 
   &.active {

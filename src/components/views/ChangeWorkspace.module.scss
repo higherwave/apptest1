@@ -1,5 +1,5 @@
 @use '@carbon/react/scss/spacing' as *;
-@use '@carbon/react/scss/type' as type;
+@use '../../tokens' as tokens;
 
 .page {
   flex: 1;
@@ -21,12 +21,12 @@
 }
 
 .topBarMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
 .topBarTitle {
-  @include type.type-style('heading-compact-02');
+  @include tokens.role('title-lg');
 }
 
 .topBarActions {
@@ -51,16 +51,16 @@
 }
 
 .stageKind {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   opacity: 0.85;
 }
 
 .stageName {
-  @include type.type-style('body-compact-02');
+  @include tokens.role('body-md');
 }
 
 .stageStatus {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
 }
 
 .body {
@@ -85,13 +85,13 @@
 }
 
 .checkpointLabel {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-inverse);
   opacity: 0.75;
 }
 
 .checkpointText {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
   max-width: 40rem;
 }
 
@@ -108,11 +108,11 @@
 }
 
 .specTitle {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
 }
 
 .specMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
@@ -134,7 +134,7 @@
 }
 
 .railSectionTitle {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
 }
 
 .entityTile {
@@ -144,7 +144,7 @@
 }
 
 .entityMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
@@ -156,11 +156,11 @@
 }
 
 .entityName {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
 }
 
 .connectorsHeading {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
   padding: $spacing-05 $spacing-06 0;
 }
@@ -175,7 +175,7 @@
 .connectorRow {
   display: flex;
   justify-content: space-between;
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
 }
 
 .connectorName {

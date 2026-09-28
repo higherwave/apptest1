@@ -1,5 +1,5 @@
 @use '@carbon/react/scss/spacing' as *;
-@use '@carbon/react/scss/type' as type;
+@use '../../tokens' as tokens;
 
 .page {
   flex: 1;
@@ -17,7 +17,7 @@
 }
 
 .breadcrumbText {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
@@ -30,11 +30,11 @@
 }
 
 .title {
-  @include type.type-style('heading-04');
+  @include tokens.role('title-lg');
 }
 
 .subtitle {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
   margin-top: $spacing-03;
 }
@@ -54,7 +54,7 @@
 }
 
 .bodyTitle {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
 }
 
 .lensLabel {
@@ -69,8 +69,8 @@
   border: 1px solid var(--cds-border-subtle);
 
   &.ask {
-    border-color: var(--cds-support-warning);
-    background: var(--cds-support-warning-inverse, var(--cds-layer));
+    border-color: var(--at-signature-mustard);
+    background: var(--at-signature-cream);
   }
 }
 
@@ -94,18 +94,18 @@
   border-radius: 50%;
   background: var(--cds-background-inverse);
   color: var(--cds-text-inverse);
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .factText {
-  @include type.type-style('body-01');
+  @include tokens.role('body-md');
 }
 
 .factSource {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
   margin-top: $spacing-02;
 }
@@ -131,10 +131,12 @@
   display: flex;
   flex-direction: column;
   gap: $spacing-03;
+  background: var(--at-signature-cream) !important;
+  border-radius: 0.625rem;
 }
 
 .usedByLabel {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   font-weight: 600;
 }
 
@@ -144,7 +146,7 @@
 }
 
 .usedByNote {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
 }
 
@@ -155,7 +157,7 @@
 }
 
 .historyTitle {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
 }
 
 .historyRow {
@@ -173,10 +175,10 @@
 }
 
 .historyWhat {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
 }
 
 .historyMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }

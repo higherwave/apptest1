@@ -1,42 +1,126 @@
-// Aesthetic layer on top of Carbon's token/component system, approximating
-// the Airtable-style reference (softer corners, pill-shaped tab switchers,
-// a friendlier type stack) without touching Carbon's color/spacing/type
-// tokens or swapping out any governed component.
+// Airtable design tokens (DESIGN.md), applied on top of Carbon's
+// component/architecture layer. Every hex value in this system lives here,
+// exactly once, as a named custom property — component code (and the
+// design-system-mcp validator) only ever sees `var(--at-*)` /
+// `var(--cds-*)` references, never a literal hex. Imported once, globally,
+// via index.scss.
+//
+// Mapping notes (fine-tune later per the DESIGN.md iteration guide):
+// - Carbon's own --cds-* tokens are re-pointed at the matching --at-*
+//   token wherever a direct match exists, so every Carbon component
+//   (Tile, Tag, DataTable, Tabs, Button…) picks up the palette without
+//   per-component overrides.
+// - Typography roles (tokens.scss's role() mixin) map DESIGN.md's type
+//   scale onto this app's existing text hierarchy.
+// - `rounded.pill` is reserved for the pricing sub-system per DESIGN.md's
+//   Don'ts — this app uses `rounded.md`/`rounded.sm` for tags/tabs instead
+//   of Carbon's default pill shapes.
 
-// -- Typography --------------------------------------------------------
-// Carbon's type-style() mixins (used throughout the app) still control
-// size/weight/line-height/letter-spacing; this only swaps the typeface
-// those mixins render in for a rounder, more neutral sans.
-body {
-  font-family:
-    'Inter',
-    -apple-system,
-    'Segoe UI',
-    system-ui,
-    sans-serif;
+@use './tokens' as tokens;
+
+:root {
+  // -- Color ---------------------------------------------------------
+  --at-primary: #181d26;
+  --at-primary-active: #0d1218;
+  --at-ink: #181d26;
+  --at-body: #333840;
+  --at-muted: #41454d;
+  --at-hairline: #dddddd;
+  --at-border-strong: #9297a0;
+  --at-canvas: #ffffff;
+  --at-surface-soft: #f8fafc;
+  --at-surface-strong: #e0e2e6;
+  --at-surface-dark: #181d26;
+  --at-surface-dark-elevated: #1d1f25;
+  --at-signature-coral: #aa2d00;
+  --at-signature-forest: #0a2e0e;
+  --at-signature-cream: #f5e9d4;
+  --at-signature-peach: #fcab79;
+  --at-signature-mint: #a8d8c4;
+  --at-signature-yellow: #f4d35e;
+  --at-signature-mustard: #d9a441;
+  --at-on-primary: #ffffff;
+  --at-on-dark: #ffffff;
+  --at-link: #1b61c9;
+  --at-link-active: #1a3866;
+  --at-info: #254fad;
+  --at-info-border: #458fff;
+  --at-success: #006400;
+  --at-success-border: #39bf45;
+
+  // -- Radius ----------------------------------------------------------
+  --at-radius-xs: 2px;
+  --at-radius-sm: 6px;
+  --at-radius-md: 10px;
+  --at-radius-lg: 12px;
+  --at-radius-pill: 9999px; // pricing sub-system only — do not use elsewhere
+  --at-radius-full: 9999px; // circular avatars / icon buttons
+
+  // -- Spacing (4px base) ----------------------------------------------
+  --at-space-xxs: 4px;
+  --at-space-xs: 8px;
+  --at-space-sm: 12px;
+  --at-space-md: 16px;
+  --at-space-lg: 24px;
+  --at-space-xl: 32px;
+  --at-space-xxl: 48px;
+  --at-space-section: 96px;
+
+  // -- Type ------------------------------------------------------------
+  --at-font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  --at-font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+
+  // -- Re-point Carbon's own tokens at the Airtable palette ------------
+  // Everything built from @carbon/react (Tile, Tag, DataTable, Tabs, Button,
+  // borders…) reads color through these --cds-* custom properties, so
+  // remapping them here is enough to reskin Carbon's internals too.
+  --cds-background: var(--at-canvas);
+  --cds-background-inverse: var(--at-surface-dark);
+  --cds-text-inverse: var(--at-on-dark);
+  --cds-text-primary: var(--at-ink);
+  --cds-text-secondary: var(--at-muted);
+  --cds-layer: var(--at-surface-soft);
+  --cds-border-subtle: var(--at-hairline);
+  --cds-border-subtle-00: var(--at-hairline);
+  --cds-border-subtle-01: var(--at-hairline);
+  --cds-border-strong: var(--at-border-strong);
+  --cds-border-strong-01: var(--at-border-strong);
+  --cds-link-primary: var(--at-link);
+  --cds-link-primary-hover: var(--at-link-active);
+  --cds-support-error: var(--at-signature-coral);
+  --cds-support-success: var(--at-success);
+  --cds-support-warning: var(--at-signature-mustard);
 }
 
-// -- Buttons -------------------------------------------------------------
-// Carbon buttons ship perfectly square by default. Round them so every
-// button reads as a pill, matching the reference.
+// -- Buttons: rounded.lg, button type role, 24px inline padding ---------
+// Carbon ships buttons perfectly square; DESIGN.md's button-primary /
+// button-secondary both call for rounded.lg (12px) and 16x24 padding.
 .cds--btn {
-  border-radius: 0.5rem;
+  border-radius: var(--at-radius-lg);
+  padding-inline: var(--at-space-lg);
+  @include tokens.role('button');
 }
 
-// -- Tabs, restyled as a segmented pill switcher -------------------------
-// Carbon's Tabs use an underline indicator by default; the reference uses
-// a filled-pill segmented control instead.
+// -- Tags: rounded.md instead of Carbon's default near-pill shape -------
+// DESIGN.md: "Don't use rounded.pill outside the pricing surface."
+.cds--tag {
+  border-radius: var(--at-radius-md);
+}
+
+// -- Tabs, restyled as a segmented switcher (rounded.sm, not pill) ------
 .cds--tabs .cds--tab--list {
   display: inline-flex;
   gap: 0.125rem;
-  padding: 0.25rem;
-  background: var(--cds-layer);
-  border-radius: 0.625rem;
+  padding: var(--at-space-xxs);
+  background: var(--at-surface-soft);
+  border-radius: var(--at-radius-md);
 }
 
 .cds--tabs .cds--tabs__nav-link {
-  border-radius: 0.5rem;
-  padding-inline: 1rem;
+  border-radius: var(--at-radius-sm);
+  padding-inline: var(--at-space-md);
 }
 
 .cds--tabs .cds--tabs__nav-item {
@@ -47,17 +131,32 @@ body {
 .cds--tabs .cds--tabs__nav-item--selected {
   border-block-end: none !important;
   box-shadow: none !important;
-  background: var(--cds-background-inverse);
-  border-radius: 0.5rem;
+  background: var(--at-surface-dark);
+  border-radius: var(--at-radius-sm);
 }
 
 .cds--tabs .cds--tabs__nav-item--selected .cds--tabs__nav-link,
 .cds--tabs .cds--tabs__nav-item--selected:hover .cds--tabs__nav-link {
-  color: var(--cds-text-inverse) !important;
+  color: var(--at-on-dark) !important;
   background: transparent;
 }
 
 .cds--tabs .cds--tabs__nav-item:not(.cds--tabs__nav-item--selected):hover {
-  background: color-mix(in srgb, var(--cds-text-primary) 6%, transparent);
-  border-radius: 0.5rem;
+  background: color-mix(in srgb, var(--at-ink) 6%, transparent);
+  border-radius: var(--at-radius-sm);
+}
+
+// -- Text inputs: rounded.sm, 44px height --------------------------------
+.cds--text-input,
+.cds--text-area {
+  border-radius: var(--at-radius-sm);
+}
+
+.cds--text-input__field-outer-wrapper .cds--text-input,
+.cds--form-item .cds--text-input {
+  block-size: 2.75rem; // 44px
+}
+
+body {
+  font-family: var(--at-font-text);
 }

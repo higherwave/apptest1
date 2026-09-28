@@ -1,5 +1,5 @@
 @use '@carbon/react/scss/spacing' as *;
-@use '@carbon/react/scss/type' as type;
+@use '../../tokens' as tokens;
 
 .page {
   flex: 1;
@@ -26,7 +26,7 @@
 }
 
 .titleWord {
-  @include type.type-style('heading-compact-01');
+  @include tokens.role('title-sm');
 }
 
 .scopeChip {
@@ -36,11 +36,11 @@
   border: 1px solid var(--cds-border-strong);
   display: flex;
   align-items: center;
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
 }
 
 .scopeMeta {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
 }
 
@@ -48,7 +48,7 @@
   display: flex;
   gap: $spacing-06;
   align-items: center;
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
@@ -94,7 +94,7 @@
   background: var(--cds-layer);
   border-radius: 0.5rem;
   padding: $spacing-04 $spacing-05;
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
 }
 
@@ -118,12 +118,12 @@
 }
 
 .nodeType {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   opacity: 0.8;
 }
 
 .nodeName {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   line-height: 1.3;
 }
 
@@ -139,12 +139,12 @@
 }
 
 .selMeta {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
 .selName {
-  @include type.type-style('heading-03');
+  @include tokens.role('title-md');
 }
 
 .impactTile {
@@ -154,27 +154,27 @@
 }
 
 .impactLabel {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   font-weight: 600;
 }
 
 .impactText {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
 }
 
 .evidenceLabel {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
 }
 
 .evidenceText {
-  @include type.type-style('body-compact-01');
+  @include tokens.role('body-md');
   color: var(--cds-text-secondary);
 }
 
 .hint {
-  @include type.type-style('label-01');
+  @include tokens.role('caption');
   color: var(--cds-text-secondary);
   margin-top: auto;
 }
