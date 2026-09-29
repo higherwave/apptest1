@@ -52,6 +52,23 @@ Per the design-system schema (`list_components` / `list_design_tokens`):
 - Spacing and typography come from Carbon's Sass spacing scale and
   `type.type-style()` mixins rather than hardcoded `px`/`font-size` values.
 
+## Deep links
+
+Each view has a hash URL, so links can point past the home page:
+
+| View | Link |
+| --- | --- |
+| Change workspace (default) | `/#/workspace` |
+| Knowledge base | `/#/knowledge` |
+| Integration graph | `/#/graph` |
+| Review packets | `/#/packets` |
+
+The hash is the source of truth (see `App.jsx`): clicking the sidebar
+updates it, and back/forward and pasted links restore the view. No server
+rewrites are needed. An unknown hash falls back to the Change workspace.
+In-page state (selected tab, selected graph node, verify/approve progress)
+is not in the URL yet.
+
 ## Develop
 
 ```bash
