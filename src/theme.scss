@@ -187,10 +187,17 @@
   border-radius: var(--at-radius-sm);
 }
 
-.cds--tabs .cds--tabs__nav-item--selected .cds--tabs__nav-link,
-.cds--tabs .cds--tabs__nav-item--selected:hover .cds--tabs__nav-link {
+// Carbon puts --selected and __nav-link on the same <button>, so the text
+// color has to target that button (and its label span) directly — a
+// descendant `.--selected .__nav-link` selector never matches.
+.cds--tabs .cds--tabs__nav-item--selected,
+.cds--tabs .cds--tabs__nav-item--selected:hover,
+.cds--tabs .cds--tabs__nav-item--selected .cds--tabs__nav-item-label {
   color: var(--at-on-dark) !important;
-  background: transparent;
+}
+
+.cds--tabs .cds--tabs__nav-item--selected:hover {
+  background: var(--at-surface-dark);
 }
 
 .cds--tabs .cds--tabs__nav-item:not(.cds--tabs__nav-item--selected):hover {
