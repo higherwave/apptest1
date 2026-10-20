@@ -12,9 +12,11 @@ Deletes are hard deletes; foreign keys cascade.
 
 ## Apply to Neon
 
-1. In Vercel, open the `apptest1` project, then Settings, then Environment Variables. The Neon integration adds the
-   connection strings (names such as `DATABASE_URL` and `DATABASE_URL_UNPOOLED`). Reveal and copy them.
-2. Create `db/.env.local` (gitignored by the `*.local` rule). Never commit it or paste it into chat:
+1. In Vercel, open the `apptest1` project, then Settings, then Environment Variables. The Neon integration manages
+   the connection strings; here they carry a custom prefix (for example `bizprocess..._DATABASE_URL_UNPOOLED`).
+   Do not delete or edit them. Reveal and copy the `..._DATABASE_URL_UNPOOLED` value and the `..._DATABASE_URL` value.
+2. Create `db/.env.local` (gitignored by the `*.local` rule). Never commit it or paste it into chat. Any prefix works,
+   because the runner matches by suffix:
 
         DATABASE_URL_UNPOOLED=postgres://...
         DATABASE_URL=postgres://...

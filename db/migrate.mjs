@@ -23,6 +23,18 @@ function loadEnvFile() {
   }
 }
 
+// The Neon integration can add a custom prefix to its variable names (for example
+// <PREFIX>_DATABASE_URL_UNPOOLED), so match by suffix. Direct (unpooled) connections come first,
+// because migrations are DDL and should not go through the pooler.
+export function findConnectionString(env) {
+  const suffixes = ['DATABASE_URL_UNPOOLED', 'POSTGRES_URL_NON_POOLING', 'DATABASE_URL', 'POSTGRES_URL'];
+  for (const suffix of suffixes) {
+    const key = Object.keys(env).find((k) => k === suffix || k.endsWith('_' + suffix));
+    if (key && /^postgres(ql)?:\/\//.test(env[key] || '')) return env[key];
+  }
+  return undefined;
+}
+
 export function migrationFiles() {
   return readdirSync(dir)
     .filter((f) => /^\d{4}_.+\.sql$/.test(f) && !f.endsWith('.down.sql'))
@@ -34,9 +46,9 @@ const yes = flags.includes('--yes');
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   loadEnvFile();
-  const url = process.env.DATABASE_URL_UNPOOLED || process.env.DATABASE_URL;
+  const url = findConnectionString(process.env);
   if (!url) {
-    console.error('No DATABASE_URL found. Put it in db/.env.local (see db/README.md).');
+    console.error('No connection string found. Put it in db/.env.local (see db/README.md).');
     process.exit(1);
   }
   const host = new URL(url).host;
