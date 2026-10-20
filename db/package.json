@@ -1,0 +1,19 @@
+{
+  "name": "signalflow-db",
+  "private": true,
+  "type": "module",
+  "description": "Schema migrations and tests for the Signal Flow database (Neon Postgres).",
+  "scripts": {
+    "check": "node check-deps.mjs",
+    "test": "node test.mjs",
+    "migrate": "node migrate.mjs up",
+    "migrate:down": "node migrate.mjs down",
+    "status": "node migrate.mjs status"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.0"
+  }
+}
