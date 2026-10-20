@@ -52,7 +52,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     process.exit(1);
   }
   const host = new URL(url).host;
-  const client = new pg.Client({ connectionString: url });
+  // Make the TLS mode explicit (it is what pg already does for sslmode=require) and silence its warning.
+  const client = new pg.Client({ connectionString: url.replace('sslmode=require', 'sslmode=verify-full') });
   await client.connect();
   try {
     // `status` is read-only: it must not create the bookkeeping table.
