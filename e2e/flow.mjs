@@ -389,20 +389,18 @@ try {
   // The panel on the right is always there, showing a selected card (the first in To Do until another is picked).
   ok('the detail panel is already showing a card on arrival', await page.evaluate(() => !!document.querySelector('aside[aria-label="Story details"] h2')))
   ok('it has a Create Jira Ticket button, which needs no function yet', await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === 'Create Jira Ticket')))
-  // The card panel: details, move, priority, owner, checklist.
+  // The card panel: details, move, and open-ended acceptance criteria. No owner or priority: it is context for a tracker.
   await page.click(`[data-testid="card-${thirdKey}"] button`)
-  await page.waitForSelector('#story-new-item', { visible: true }) // the panel has loaded, not just opened
-  ok('opening a card shows its details and checklist', (await text()).toLowerCase().includes('checklist') && (await text()).includes('Move to'))
-  await page.click('#story-new-item')
-  await page.type('#story-new-item', 'Works with a screen reader')
-  await clickText('Add item')
+  await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === '+ Add criterion'), { timeout: 8000 }) // the panel has loaded, not just opened
+  ok('opening a card shows its details and acceptance criteria', (await text()).toLowerCase().includes('acceptance criteria') && (await text()).includes('Move to'))
+  ok('the panel has no owner, owner team or priority', await page.evaluate(() => { const t = document.querySelector('aside[aria-label="Story details"]').innerText; return !/^(owner( team)?|priority)$/im.test(t) && !/\b(high|medium|low) priority\b/i.test(t) && !t.includes('Save owner') && !document.querySelector('#story-owner') && !document.querySelector('#story-priority') }))
+  ok('criteria have no Criterion/Task switch', await page.evaluate(() => ![...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => ['Criterion', 'Task', 'Add item'].includes(b.innerText.trim()))))
+  await clickText('+ Add criterion')
+  await page.waitForFunction(() => document.activeElement?.id?.startsWith('criterion-'), { timeout: 4000 })
+  await page.keyboard.type('Works with a screen reader')
+  await page.keyboard.press('Tab') // leaving the field saves it
   await new Promise((r) => setTimeout(r, 800))
-  ok('adding a checklist item saves it', (await (await fetch(`${API}/api/v1/stories/${(await storyOf(thirdKey)).id}`)).json()).checklist.some((c) => c.text === 'Works with a screen reader'))
-  await page.click('#story-owner')
-  await page.type('#story-owner', 'Platform team')
-  await clickText('Save owner')
-  await new Promise((r) => setTimeout(r, 800))
-  ok('saving the owner team shows it on the card', (await storyOf(thirdKey)).ownerTeam === 'Platform team')
+  ok('adding a criterion saves it', (await (await fetch(`${API}/api/v1/stories/${(await storyOf(thirdKey)).id}`)).json()).checklist.some((c) => c.text === 'Works with a screen reader'))
   ok('the panel follows the selected card', await page.evaluate((k) => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith(k), thirdKey))
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))

@@ -247,6 +247,7 @@ $column-min: 14rem;
 
 .panelTitle {
   @include tokens.role('title-lg');
+  font-size: 1.375rem; // a step below the role's 1.5rem, so a long title leaves room for the details
   margin: 0;
   color: var(--at-ink);
   font-weight: 500;
@@ -320,16 +321,9 @@ $column-min: 14rem;
   gap: var(--at-space-md);
 }
 
-.ownerField,
-.add {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-}
-
-.addActions {
-  display: flex;
-  gap: var(--at-space-xs);
+.addLink {
+  align-self: flex-start;
+  color: var(--at-link);
 }
 
 .sub {
@@ -350,9 +344,23 @@ $column-min: 14rem;
 
 .item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--at-space-sm);
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+
+  > :first-child {
+    flex: none;
+    inline-size: auto;
+  }
+
+  > :nth-child(2) {
+    flex: 1 1 0;
+    min-width: 0;
+
+    :global(.cds--text-area__wrapper),
+    :global(.cds--text-area) {
+      inline-size: 100%;
+    }
+  }
 }
 
 .footer {

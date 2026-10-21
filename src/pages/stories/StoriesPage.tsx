@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, type BoardStory, type ChecklistInput, type Priority, type StoryStatus } from '../../api/client'
-import { useBoard, useMe, useMoveStory, usePatchStory, useProject, useSaveChecklist, useStory, useUndoMove } from '../../api/hooks'
+import { useBoard, useMe, useMoveStory, useProject, useSaveChecklist, useStory, useUndoMove } from '../../api/hooks'
 import { StoriesView } from './StoriesView'
 
 // Container: binds the board to the view, holds the filters and the open card, and sends moves and edits.
@@ -13,7 +13,6 @@ export function StoriesPage() {
   const me = useMe()
   const move = useMoveStory(projectId)
   const undo = useUndoMove(projectId)
-  const patch = usePatchStory(projectId)
   const checklist = useSaveChecklist(projectId)
   const [pickedId, setPickedId] = useState<string | null>(null)
   // The panel always shows a card: the one picked, or else the first in To Do (so it is never empty on arrival).
@@ -67,9 +66,9 @@ export function StoriesPage() {
       priority={priority}
       openId={openId}
       detail={openId ? detail.data : undefined}
-      detailBusy={patch.isPending || checklist.isPending}
+      detailBusy={checklist.isPending}
       undoing={undo.isPending}
-      saving={moving.size > 0 || patch.isPending || checklist.isPending || undo.isPending}
+      saving={moving.size > 0 || checklist.isPending || undo.isPending}
       savedAt={savedAt}
       errorText={board.isError && !noBoard ? friendlyMessage(board.error) : error}
       onSearch={setSearch}
@@ -79,11 +78,6 @@ export function StoriesPage() {
       onUndo={() => {
         setError(undefined)
         if (board.data) undo.mutate(board.data.specId, { onError: fail, onSuccess: markSaved })
-      }}
-      onPatch={(body) => {
-        if (!detail.data) return
-        setError(undefined)
-        patch.mutate({ id: detail.data.id, version: detail.data.version, body }, { onError: fail, onSuccess: markSaved })
       }}
       onChecklist={(items: ChecklistInput[]) => {
         if (!detail.data) return

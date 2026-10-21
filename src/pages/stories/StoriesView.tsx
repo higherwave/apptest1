@@ -1,6 +1,7 @@
-import { Button, Checkbox, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextInput } from '@carbon/react'
-import { useState } from 'react'
+import { Button, Checkbox, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
+import { useRef, useState } from 'react'
 import { COLUMNS } from '../../../shared/board.mjs'
+import { Close } from '@carbon/icons-react'
 import type { Board, BoardStory, ChecklistInput, Priority, ProjectDetail, StoryDetail, StoryStatus } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { STATUS_HINT, STATUS_LABEL } from './labels'
@@ -32,7 +33,6 @@ export type StoriesViewProps = {
   onOpen: (id: string) => void
   onMove: (story: BoardStory, status: StoryStatus, beforeId: string | null) => void
   onUndo: () => void
-  onPatch: (body: { ownerTeam?: string | null; priority?: Priority }) => void
   onChecklist: (items: ChecklistInput[]) => void
   onGoRequirements: () => void
 }
@@ -105,15 +105,16 @@ function Card({ story, canEdit, busy, over, selected, onOpen, onMove, onDragOver
   )
 }
 
-type PanelProps = Pick<StoriesViewProps, 'canEdit' | 'onPatch' | 'onChecklist'> & {
+type PanelProps = Pick<StoriesViewProps, 'canEdit' | 'onChecklist'> & {
   story: BoardStory
   detail?: StoryDetail
   busy: boolean
   onMove: (status: StoryStatus) => void
 }
 
-// The static panel on the right: whatever card is selected, with its owner, priority, status and checklist to edit.
-function Panel({ story, detail, canEdit, busy, onPatch, onChecklist, onMove }: PanelProps) {
+// The static panel on the right: whatever card is selected, with its status and acceptance criteria to edit. It is context to
+// carry into a tracker such as Jira, so it holds no owner or priority.
+function Panel({ story, detail, canEdit, busy, onChecklist, onMove }: PanelProps) {
   return (
     <div className={styles.panelBody}>
       <p className={styles.panelKicker}>
@@ -131,9 +132,6 @@ function Panel({ story, detail, canEdit, busy, onPatch, onChecklist, onMove }: P
             {story.theme.title}
           </Tag>
         )}
-        <Tag size="md" type={story.priority === 'high' ? 'red' : 'outline'}>
-          {PRIORITY_LABEL[story.priority]} priority
-        </Tag>
         {story.kind === 'open_question' && (
           <Tag size="md" type="purple">
             Open question
@@ -141,30 +139,31 @@ function Panel({ story, detail, canEdit, busy, onPatch, onChecklist, onMove }: P
         )}
       </div>
       {!detail && <Loading small withOverlay={false} description="Loading the story" />}
-      {detail && <Editable key={detail.id} detail={detail} canEdit={canEdit} busy={busy} onPatch={onPatch} onChecklist={onChecklist} onMove={onMove} />}
+      {detail && <Editable key={detail.id} detail={detail} canEdit={canEdit} busy={busy} onChecklist={onChecklist} onMove={onMove} />}
     </div>
   )
 }
 
-function Editable({ detail, canEdit, busy, onPatch, onChecklist, onMove }: Pick<StoriesViewProps, 'canEdit' | 'onPatch' | 'onChecklist'> & { detail: StoryDetail; busy: boolean; onMove: (status: StoryStatus) => void }) {
-  const [owner, setOwner] = useState(detail.ownerTeam ?? '')
-  const [text, setText] = useState('')
-  const [kind, setKind] = useState<'criterion' | 'task'>('criterion')
-  const items: ChecklistInput[] = detail.checklist.map((c) => ({ id: c.id, kind: c.kind, text: c.text, met: c.met }))
-  const set = (next: ChecklistInput[]) => onChecklist(next)
+function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesViewProps, 'canEdit' | 'onChecklist'> & { detail: StoryDetail; busy: boolean; onMove: (status: StoryStatus) => void }) {
+  const saved: ChecklistInput[] = detail.checklist.map((c) => ({ id: c.id, kind: c.kind, text: c.text, met: c.met }))
+  // The rows on screen: the saved ones, plus any blank row just added (a blank row is never saved).
+  const [rows, setRows] = useState<ChecklistInput[]>(saved)
+  const [seen, setSeen] = useState(detail.checklist)
+  if (seen !== detail.checklist) {
+    setSeen(detail.checklist)
+    setRows(saved)
+  }
+  const focusRow = useRef<number | null>(null)
+  const commit = (next: ChecklistInput[]) => {
+    const kept = next.filter((r) => r.text.trim()).map((r) => ({ ...r, text: r.text.trim() }))
+    if (JSON.stringify(kept) !== JSON.stringify(saved)) onChecklist(kept)
+  }
+  const edit = (i: number, change: Partial<ChecklistInput>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...change } : r)))
   const met = detail.checklist.filter((c) => c.met).length
   return (
     <>
       {detail.summary && <p className={styles.summary}>{detail.summary}</p>}
       <div className={styles.facts}>
-        <div className={styles.fact}>
-          <span className={styles.factLabel}>Owner</span>
-          <span className={styles.factValue}>{detail.ownerTeam || 'Unassigned'}</span>
-        </div>
-        <div className={styles.fact}>
-          <span className={styles.factLabel}>Priority</span>
-          <span className={styles.factValue}>{PRIORITY_LABEL[detail.priority]}</span>
-        </div>
         {detail.theme && (
           <div className={styles.fact}>
             <span className={styles.factLabel}>Raised by</span>
@@ -207,66 +206,74 @@ function Editable({ detail, canEdit, busy, onPatch, onChecklist, onMove }: Pick<
           disabled={!canEdit || busy}
           onChange={({ selectedItem }: { selectedItem: StoryStatus | null | undefined }) => selectedItem && selectedItem !== detail.status && onMove(selectedItem)}
         />
-        <Dropdown
-          id="story-priority"
-          titleText="Priority"
-          label="Priority"
-          items={['high', 'medium', 'low'] as Priority[]}
-          itemToString={(p: Priority | null) => (p ? PRIORITY_LABEL[p] : '')}
-          selectedItem={detail.priority}
-          disabled={!canEdit || busy}
-          onChange={({ selectedItem }: { selectedItem: Priority | null | undefined }) => selectedItem && selectedItem !== detail.priority && onPatch({ priority: selectedItem })}
-        />
-        <div className={styles.ownerField}>
-          <TextInput id="story-owner" labelText="Owner team" value={owner} readOnly={!canEdit} onChange={(e) => setOwner(e.target.value)} />
-          {canEdit && (
-            <Button kind="tertiary" size="md" disabled={busy || owner.trim() === (detail.ownerTeam ?? '')} onClick={() => onPatch({ ownerTeam: owner })}>
-              Save owner
-            </Button>
-          )}
-        </div>
       </div>
 
-      <h3 className={styles.sub}>Checklist</h3>
-      {items.length === 0 && <p className={styles.noteText}>No acceptance criteria or tasks yet.</p>}
+      <h3 className={styles.sub}>Acceptance criteria</h3>
+      {rows.length === 0 && <p className={styles.noteText}>No acceptance criteria yet.</p>}
       <ul className={styles.list}>
-        {detail.checklist.map((c, i) => (
-          <li key={c.id} className={styles.item}>
+        {rows.map((r, i) => (
+          <li key={r.id ?? `new-${i}`} className={styles.item}>
             <Checkbox
-              id={`check-${c.id}`}
-              labelText={`${c.kind === 'criterion' ? 'Criterion' : 'Task'}: ${c.text}`}
-              checked={c.met}
-              disabled={!canEdit || busy}
-              onChange={(_, { checked }) => set(items.map((it, j) => (j === i ? { ...it, met: checked } : it)))}
+              id={`check-${r.id ?? `new-${i}`}`}
+              labelText={`Criterion ${i + 1} met`}
+              hideLabel
+              checked={r.met}
+              disabled={!canEdit || busy || !r.text.trim()}
+              onChange={(_, { checked }) => {
+                const next = rows.map((x, j) => (j === i ? { ...x, met: checked } : x))
+                setRows(next)
+                commit(next)
+              }}
+            />
+            <TextArea
+              id={`criterion-${i}`}
+              labelText={`Criterion ${i + 1}`}
+              hideLabel
+              rows={2}
+              placeholder="Describe what must be true"
+              readOnly={!canEdit}
+              value={r.text}
+              ref={(el: HTMLTextAreaElement | null) => {
+                if (el && focusRow.current === i) {
+                  focusRow.current = null
+                  el.focus()
+                }
+              }}
+              onChange={(e) => edit(i, { text: e.target.value })}
+              onBlur={() => commit(rows)}
             />
             {canEdit && (
-              <Button kind="ghost" size="sm" disabled={busy} onClick={() => set(items.filter((_, j) => j !== i))}>
-                Remove
-              </Button>
+              <Button
+                kind="ghost"
+                size="sm"
+                hasIconOnly
+                renderIcon={Close}
+                iconDescription={`Remove criterion ${i + 1}`}
+                tooltipPosition="left"
+                disabled={busy}
+                onClick={() => {
+                  const next = rows.filter((_, j) => j !== i)
+                  setRows(next)
+                  commit(next)
+                }}
+              />
             )}
           </li>
         ))}
       </ul>
       {canEdit && (
-        <div className={styles.add}>
-          <TextInput id="story-new-item" labelText="New item" value={text} onChange={(e) => setText(e.target.value)} />
-          <div className={styles.addActions}>
-            <Button kind="tertiary" size="md" onClick={() => setKind(kind === 'criterion' ? 'task' : 'criterion')}>
-              {kind === 'criterion' ? 'Criterion' : 'Task'}
-            </Button>
-            <Button
-              kind="secondary"
-              size="md"
-              disabled={busy || !text.trim()}
-              onClick={() => {
-                set([...items, { kind, text: text.trim(), met: false }])
-                setText('')
-              }}
-            >
-              Add item
-            </Button>
-          </div>
-        </div>
+        <Button
+          className={styles.addLink}
+          kind="ghost"
+          size="sm"
+          disabled={busy || rows.some((r) => !r.text.trim())}
+          onClick={() => {
+            focusRow.current = rows.length
+            setRows([...rows, { kind: 'criterion', text: '', met: false }])
+          }}
+        >
+          + Add criterion
+        </Button>
       )}
 
       <div className={styles.footer}>
@@ -397,7 +404,6 @@ export function StoriesView(props: StoriesViewProps) {
                   detail={detail && detail.id === opened.id ? detail : undefined}
                   canEdit={canEdit}
                   busy={detailBusy}
-                  onPatch={props.onPatch}
                   onChecklist={props.onChecklist}
                   onMove={(status) => props.onMove(opened, status, null)}
                 />
