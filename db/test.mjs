@@ -48,10 +48,10 @@ await test('dependency rule holds', async () => {
 });
 
 // Fixture ----------------------------------------------------------------------------------
-let ws, user, project, run, spec, theme;
+let ws, project, run, spec, theme;
 await test('fixture inserts', async () => {
   ws = (await one(db, `insert into core.workspaces (name, slug) values ('Demo', 'demo') returning id`)).id;
-  user = (await one(db, `insert into core.users (email, display_name) values ('d@example.com', 'D') returning id`)).id;
+  await db.query(`insert into core.users (email, display_name) values ('d@example.com', 'D')`);
   project = (await one(db, `insert into core.projects (workspace_id, name) values ($1, 'Clinic booking') returning id`, [ws])).id;
   run = (await one(db, `insert into core.agent_runs (workspace_id, project_id, kind) values ($1, $2, 'spec') returning id`, [ws, project])).id;
   spec = (await one(db, `insert into delivery.specs (workspace_id, project_id, name, agent_run_id) values ($1, $2, 'Spec', $3) returning id`, [ws, project, run])).id;

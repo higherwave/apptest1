@@ -1,0 +1,15 @@
+@use '../tokens' as tokens;
+
+.content {
+  margin-inline-start: 16rem;
+  padding: var(--at-space-xl);
+  min-height: 100vh;
+  background: var(--at-canvas);
+}
+
+.groupLabel {
+  @include tokens.role('caption');
+  margin: var(--at-space-lg) var(--at-space-md) var(--at-space-xs);
+  color: var(--at-muted);
+  text-transform: uppercase;
+}

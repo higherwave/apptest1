@@ -1,0 +1,89 @@
+openapi: 3.1.0
+info:
+  title: Signal Flow API
+  version: 0.1.0
+  description: >
+    The spec is the contract: handlers are checked against it (server/app.test.ts), and the MCP server
+    will check that every page binds to an operation listed here. Phase 2 covers the shell only.
+servers:
+  - url: /api/v1
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Liveness. Never touches the database.
+      responses:
+        '200':
+          description: The API is running.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+  /health/db:
+    get:
+      operationId: getDatabaseHealth
+      summary: Reaches the database. Needs the same access as data routes, because it can wake a suspended compute.
+      responses:
+        '200':
+          description: The database is reachable.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DatabaseHealth' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /me:
+    get:
+      operationId: getMe
+      summary: The user and workspace this request acts as.
+      responses:
+        '200':
+          description: The current context.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+components:
+  responses:
+    Error:
+      description: >
+        Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
+        workspace_not_found, not_found, internal_error.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Health:
+      type: object
+      required: [status, time, version]
+      properties:
+        status: { type: string, enum: [ok] }
+        time: { type: string }
+        version: { type: string }
+    DatabaseHealth:
+      type: object
+      required: [status, database, migrations]
+      properties:
+        status: { type: string, enum: [ok] }
+        database: { type: string, enum: [reachable] }
+        migrations: { type: integer }
+    Me:
+      type: object
+      required: [userId, email, displayName, workspaceId, workspaceName, role]
+      properties:
+        userId: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+        workspaceId: { type: string }
+        workspaceName: { type: string }
+        role: { type: string, enum: [owner, editor, viewer] }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            field: { type: string }
