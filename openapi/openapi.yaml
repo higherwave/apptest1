@@ -33,13 +33,29 @@ paths:
   /me:
     get:
       operationId: getMe
-      summary: The user and workspace this request acts as.
+      summary: >
+        The user and workspace this request acts as. Without a token the role is viewer (the demo is read-only);
+        with the token it is the demo owner.
       responses:
         '200':
           description: The current context.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Me' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects:
+    get:
+      operationId: listProjects
+      summary: >
+        Research projects in the workspace, with the figures shown on a project card. Open to anyone for
+        reading (viewer role); cached for a minute so repeated requests do not reach the database.
+      responses:
+        '200':
+          description: The projects, newest first, then by name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectList' }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
 components:
@@ -66,6 +82,35 @@ components:
         status: { type: string, enum: [ok] }
         database: { type: string, enum: [reachable] }
         migrations: { type: integer }
+    ProjectList:
+      type: object
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/ProjectSummary' }
+        next_cursor:
+          type: [string, 'null']
+    ProjectSummary:
+      type: object
+      required: [id, name, color, template, status, sessions, themes, highPriority, createdAt, version]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        color:
+          type: string
+          description: A tint token name; the page maps it to var(--at-tint-<color>).
+          enum: [cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand]
+        template: { type: [string, 'null'] }
+        status:
+          type: string
+          description: Derived, not stored. draft means the current analysis has no themes.
+          enum: [draft, analyzed]
+        sessions: { type: integer, description: Transcripts in the project. }
+        themes: { type: integer, description: Themes in the current analysis. }
+        highPriority: { type: integer, description: Themes whose suggested priority is high. }
+        createdAt: { type: string }
+        version: { type: integer }
     Me:
       type: object
       required: [userId, email, displayName, workspaceId, workspaceName, role]

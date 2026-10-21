@@ -14,13 +14,16 @@
     "test": "npm run test:api && npm run test:db",
     "test:db": "npm --prefix db test",
     "validate:pages": "node --experimental-strip-types --no-warnings scripts/validate-pages.mjs",
-    "check:all": "npm run typecheck && npm test && npm run validate:pages"
+    "check:all": "npm run typecheck && npm test && npm run validate:pages",
+    "gen:api": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o src/api/schema.d.ts",
+    "check:api-types": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o /tmp/signalflow-schema.check.d.ts && diff -q /tmp/signalflow-schema.check.d.ts src/api/schema.d.ts"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.89.0",
     "@carbon/react": "^1.117.0",
     "@carbon/styles": "^1.116.0",
     "@hono/node-server": "^2.1.5",
+    "@tanstack/react-query": "^5.104.5",
     "hono": "^4.13.13",
     "pg": "^8.23.1",
     "react": "^19.2.8",

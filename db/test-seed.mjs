@@ -50,6 +50,12 @@ await test('project 1 reproduces the prototype analysis: 9 themes in the same or
   eq(r.map((x) => [x.title, x.ppl, x.total, x.m, x.p, x.e]), expected, 'themes');
 });
 
+await test('cards use tint names, never hex', async () => {
+  eq(await rows(db, `select name, color from core.projects order by name`), [{ name: 'Check-in diary study', color: 'lavender' }, { name: 'Clinic booking, round 2', color: 'mint' }, { name: 'Clinic booking, usability round 1', color: 'cream' }, { name: 'New patient intake (draft)', color: 'coral' }], 'project colours');
+  eq(await val(db, `select count(*)::int from insights.case_studies where color like '#%'`), 0, 'hex left in case studies');
+  try { await db.query(`update core.projects set color = '#ffffff'`); throw new Error('hex was accepted'); } catch (e) { if (e.message === 'hex was accepted') throw e; }
+});
+
 await test('project 4 is a draft: a plan and no transcripts or themes', async () => {
   eq(await val(db, `select count(*)::int from research.transcripts where project_id = $1`, [uid('project:p4')]), 0, 'transcripts');
   eq(await val(db, `select count(*)::int from research.themes where project_id = $1`, [uid('project:p4')]), 0, 'themes');

@@ -37,6 +37,14 @@ function resolve(schema: any): any {
 function conforms(schema: any, value: unknown, path = '$'): string[] {
   const s = resolve(schema)
   const problems: string[] = []
+  if (Array.isArray(s.type)) {
+    const ok = s.type.some((t: string) => (t === 'null' ? value === null : conforms({ ...s, type: t }, value, path).length === 0))
+    return ok ? [] : [`${path}: ${JSON.stringify(value)} is not one of ${JSON.stringify(s.type)}`]
+  }
+  if (s.type === 'array') {
+    if (!Array.isArray(value)) return [`${path}: expected array`]
+    return value.flatMap((v, i) => conforms(s.items, v, `${path}[${i}]`))
+  }
   if (s.type === 'object') {
     if (typeof value !== 'object' || value === null) return [`${path}: expected object`]
     for (const k of s.required ?? []) if (!(k in (value as object))) problems.push(`${path}.${k}: missing`)
@@ -84,15 +92,46 @@ test('a different demo user can be chosen with DEV_USER_EMAIL (viewer role)', as
   assert.equal(body.role, 'viewer')
 })
 
-test('DEV_TOKEN: data routes need the token; /health stays open', async () => {
+test('DEV_TOKEN: reads are open to the read-only demo viewer; the token gives the owner', async () => {
   await demoDb()
   const app = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => db })
-  const noToken = await app.request('/api/v1/me')
-  assert.equal(noToken.status, 401)
-  assert.equal((await expectSpec(noToken, '/me')).error.code, 'unauthorized')
-  assert.equal((await app.request('/api/v1/me', { headers: { authorization: 'Bearer wrong' } })).status, 401)
-  assert.equal((await app.request('/api/v1/me', { headers: { authorization: 'Bearer s3cret' } })).status, 200)
+  const anon = await app.request('/api/v1/me')
+  assert.equal(anon.status, 200)
+  assert.equal((await expectSpec(anon, '/me')).role, 'viewer')
+  const authed = await app.request('/api/v1/me', { headers: { authorization: 'Bearer s3cret' } })
+  assert.equal((await expectSpec(authed, '/me')).role, 'owner')
   assert.equal((await app.request('/api/v1/health')).status, 200)
+})
+
+test('a wrong token is always refused, even for reads', async () => {
+  await demoDb()
+  const app = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => db })
+  for (const path of ['/api/v1/me', '/api/v1/projects']) {
+    const res = await app.request(path, { headers: { authorization: 'Bearer wrong' } })
+    assert.equal(res.status, 401)
+    assert.equal((await res.json()).error.code, 'unauthorized')
+  }
+})
+
+test('diagnostics stay behind the token: /health/db cannot be used to wake the database anonymously', async () => {
+  const app = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => forbiddenDb })
+  const res = await app.request('/api/v1/health/db')
+  assert.equal(res.status, 401)
+  assert.equal((await expectSpec(res, '/health/db')).error.code, 'unauthorized')
+})
+
+test('writes are never open: a non-GET request without the token is refused', async () => {
+  const app = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => forbiddenDb })
+  // No write routes exist yet; the guard must still hold for any that are added behind the read context.
+  const { requestContext } = await import('./context.js')
+  const { Hono } = await import('hono')
+  const { ApiError } = await import('./errors.js')
+  const probe = new Hono()
+  probe.onError((err, c) => (err instanceof ApiError ? c.json({ error: { code: err.code } }, err.status) : c.text('error', 500)))
+  probe.post('/x', requestContext({ env: { DEV_TOKEN: 's3cret' }, getDb: () => db }, 'read'), (c) => c.text('ok'))
+  const res = await probe.request('/x', { method: 'POST' })
+  assert.equal(res.status, 401)
+  assert.ok(app)
 })
 
 test('a production deployment with no DEV_TOKEN refuses data routes', async () => {
@@ -164,4 +203,49 @@ test('connection string cleaning keeps a valid query string whatever the paramet
     assert.equal(out.username, 'user')
   }
   assert.equal(new URL(cleanConnectionString(plain)).search, '')
+})
+
+test('GET /projects returns the seeded projects with derived status and card figures', async () => {
+  await demoDb()
+  const app = createApp({ env: {}, getDb: () => db })
+  const res = await app.request('/api/v1/projects')
+  const body = await expectSpec(res, '/projects')
+  assert.equal(body.next_cursor, null)
+  const byName = Object.fromEntries(body.data.map((p: any) => [p.name, p]))
+  assert.deepEqual(Object.keys(byName).sort(), ['Check-in diary study', 'Clinic booking, round 2', 'Clinic booking, usability round 1', 'New patient intake (draft)'])
+  const pick = (n: string) => { const p = byName[n]; return [p.status, p.sessions, p.themes, p.highPriority, p.color, p.template] }
+  assert.deepEqual(pick('Clinic booking, usability round 1'), ['analyzed', 3, 9, 6, 'cream', 'Usability test'])
+  assert.deepEqual(pick('Clinic booking, round 2'), ['analyzed', 4, 5, 4, 'mint', 'Usability test'])
+  assert.deepEqual(pick('Check-in diary study'), ['analyzed', 6, 3, 2, 'lavender', 'Discovery interviews'])
+  assert.deepEqual(pick('New patient intake (draft)'), ['draft', 0, 0, 0, 'coral', 'Concept test'])
+})
+
+test('project status follows the current analysis run: a superseded run leaves the project as a draft', async () => {
+  await demoDb()
+  const app = createApp({ env: {}, getDb: () => db })
+  await pglite.query(`update core.agent_runs set superseded_at = now() where kind = 'analysis' and project_id = (select id from core.projects where name = 'Check-in diary study')`)
+  const body = await (await app.request('/api/v1/projects')).json()
+  const p = body.data.find((x: any) => x.name === 'Check-in diary study')
+  assert.deepEqual([p.status, p.themes], ['draft', 0])
+  await pglite.query(`update core.agent_runs set superseded_at = null where kind = 'analysis'`)
+})
+
+test('projects are scoped to the workspace', async () => {
+  await demoDb()
+  const other = (await pglite.query(`insert into core.workspaces (name, slug) values ('Other', 'other-ws') returning id`)).rows[0] as { id: string }
+  await pglite.query(`insert into core.projects (workspace_id, name) values ($1, 'Not yours')`, [other.id])
+  const app = createApp({ env: {}, getDb: () => db })
+  const names = (await (await app.request('/api/v1/projects')).json()).data.map((p: any) => p.name)
+  assert.ok(!names.includes('Not yours'))
+  await pglite.query(`delete from core.workspaces where slug = 'other-ws'`)
+})
+
+test('cache headers: anonymous reads are cacheable for a minute, token requests never', async () => {
+  await demoDb()
+  const app = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => db })
+  const anon = await app.request('/api/v1/projects')
+  assert.match(anon.headers.get('cache-control') ?? '', /public, s-maxage=60/)
+  assert.equal(anon.headers.get('vary'), 'Authorization')
+  const authed = await app.request('/api/v1/projects', { headers: { authorization: 'Bearer s3cret' } })
+  assert.equal(authed.headers.get('cache-control'), 'private, no-store')
 })

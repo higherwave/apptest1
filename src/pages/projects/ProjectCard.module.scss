@@ -1,0 +1,65 @@
+@use '../../tokens' as tokens;
+
+// The card's fill is one of the --at-tint-* tokens, chosen by the project's tint name.
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  min-height: 12rem;
+  padding: var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+
+  @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
+    &[data-tint='#{$name}'] { background: var(--at-tint-#{$name}); }
+  }
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-sm);
+}
+
+.name {
+  @include tokens.role('title-md');
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.status {
+  flex: none;
+  max-inline-size: none;
+  margin: 0;
+}
+
+.template {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.stats {
+  display: flex;
+  gap: var(--at-space-lg);
+  margin: auto 0 0;
+  padding-top: var(--at-space-lg);
+
+  dd,
+  dt {
+    margin: 0;
+  }
+}
+
+.value {
+  @include tokens.role('title-lg');
+  color: var(--at-ink);
+}
+
+.label {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}

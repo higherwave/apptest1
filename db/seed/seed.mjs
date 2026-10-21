@@ -35,6 +35,8 @@ const sha = (s) => createHash('sha256').update(s).digest('hex');
 const catEnum = { 'Pain point': 'pain_point', Need: 'need', Expectation: 'expectation', Delight: 'delight' };
 const platEnum = { Zoom: 'zoom', Meet: 'meet', Teams: 'teams' };
 const lower = (s) => String(s).toLowerCase();
+// The prototype's pastel fills, by the tint token that replaces each hex (see src/theme.scss).
+const TINT = { '#faf3e6': 'cream', '#e4f3ec': 'mint', '#fbf3cf': 'yellow', '#fbe9e0': 'coral', '#eeeafa': 'lavender', '#e6f2fa': 'sky', '#eef2fa': 'blue', '#fae6ed': 'rose', '#fddcc6': 'peach', '#faf1df': 'sand' };
 
 async function insert(db, table, rows) {
   if (!rows.length) return;
@@ -79,21 +81,21 @@ const INTAKE = [
 ];
 
 const PROJECTS = [
-  { key: 'p1', name: 'Clinic booking, usability round 1', color: '#faf3e6', tpl: 'usability', participants: SAMPLE_PARTICIPANTS,
+  { key: 'p1', name: 'Clinic booking, usability round 1', color: 'cream', tpl: 'usability', participants: SAMPLE_PARTICIPANTS,
     study: { what: 'Whether patients can find a provider, book, and manage an appointment without calling the clinic',
       jWhen: 'I need to see a doctor soon', jWant: 'to find an available, covered provider and book quickly', jSo: 'I can plan my day around the visit',
       outcomes: ['Task completion rate above 80%', 'Top barriers ranked by severity'], methods: ['Moderated usability test', 'Survey follow-up'] } },
-  { key: 'p2', name: 'Clinic booking, round 2', color: '#e4f3ec', tpl: 'usability', participants: ROUND2, platforms: ['zoom', 'meet', 'teams', 'zoom'],
+  { key: 'p2', name: 'Clinic booking, round 2', color: 'mint', tpl: 'usability', participants: ROUND2, platforms: ['zoom', 'meet', 'teams', 'zoom'],
     synth: { counts: { 0: 3, 1: 3, 2: 4, 3: 3, 4: 2 }, offset: 1 },
     study: { what: 'Whether the changes from round 1 let patients find a provider, book and reschedule without calling the clinic',
       jWhen: 'I need to move an appointment', jWant: 'to change it in the app without calling', jSo: 'I can keep my day on track',
       outcomes: ['Fewer calls to the clinic', 'Reschedule completed in the app'], methods: ['Moderated usability test'] } },
-  { key: 'p3', name: 'Check-in diary study', color: '#eeeafa', tpl: 'discovery', participants: DIARY,
+  { key: 'p3', name: 'Check-in diary study', color: 'lavender', tpl: 'discovery', participants: DIARY,
     synth: { counts: { 0: 5, 2: 3, 3: 4 }, offset: 2, diary: true },
     study: { what: 'How patients prepare for, travel to and follow up on a visit over a week',
       jWhen: 'I have an appointment coming up', jWant: 'to know what to bring and when to leave', jSo: 'I arrive prepared',
       outcomes: ['Map of current workflow', 'Top unmet needs'], methods: ['Diary study'] } },
-  { key: 'p4', name: 'New patient intake (draft)', color: '#fbe9e0', tpl: 'concept', participants: INTAKE, draft: true,
+  { key: 'p4', name: 'New patient intake (draft)', color: 'coral', tpl: 'concept', participants: INTAKE, draft: true,
     study: { what: R.TEMPLATES.concept.what, jWhen: null, jWant: null, jSo: null, outcomes: R.TEMPLATES.concept.outcomes, methods: R.TEMPLATES.concept.methods } },
 ];
 
@@ -361,7 +363,7 @@ export async function seed(db) {
 
     await insert(db, 'insights.recommendations', I.R.map((r, i) => ({ id: uid('rec:' + i), workspace_id: WS, title: r.title, why: r.why, priority: lower(r.prio) })));
     await insert(db, 'insights.recommendation_themes', I.R.flatMap((r, i) => r.th.map((k) => ({ recommendation_id: uid('rec:' + i), platform_theme_id: PT[k].id, workspace_id: WS }))));
-    await insert(db, 'insights.case_studies', I.C.map((c, i) => ({ id: uid('case:' + i), workspace_id: WS, title: c.title, summary: c.summary, outcome: c.outcome, owner_team: c.owner, occurred_on: monthToDate(c.date), color: c.bg })));
+    await insert(db, 'insights.case_studies', I.C.map((c, i) => ({ id: uid('case:' + i), workspace_id: WS, title: c.title, summary: c.summary, outcome: c.outcome, owner_team: c.owner, occurred_on: monthToDate(c.date), color: TINT[c.bg.toLowerCase()] || 'cream' })));
     await insert(db, 'insights.case_study_themes', I.C.flatMap((c, i) => c.th.map((k) => ({ case_study_id: uid('case:' + i), platform_theme_id: PT[k].id, workspace_id: WS }))));
   }
 
