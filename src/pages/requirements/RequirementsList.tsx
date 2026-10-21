@@ -1,6 +1,5 @@
 import { Add } from '@carbon/icons-react'
-import { Button, ClickableTile, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag, TextArea, TextInput } from '@carbon/react'
-import { useState } from 'react'
+import { Button, ClickableTile, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag } from '@carbon/react'
 import type { ProjectDetail, SpecSummary } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import styles from './RequirementsList.module.scss'
@@ -9,7 +8,6 @@ export type RequirementsListProps = {
   state: 'loading' | 'error' | 'ready'
   project?: ProjectDetail
   specs: SpecSummary[]
-  standalone: SpecSummary[]
   canEdit: boolean
   busy: boolean
   errorText?: string
@@ -17,7 +15,6 @@ export type RequirementsListProps = {
   removeError?: string
   onOpen: (spec: SpecSummary) => void
   onNew: () => void
-  onNewStandalone: (name: string, what: string) => void
   onRemove: (spec: SpecSummary) => void
   onConfirmRemove: () => void
   onCancelRemove: () => void
@@ -49,17 +46,8 @@ function SpecCard({ spec, canEdit, onOpen, onRemove }: { spec: SpecSummary; canE
   )
 }
 
-// Presentational: this project's requirements documents, a way to start one, and stand-alone documents.
-export function RequirementsList({ state, project, specs, standalone, canEdit, busy, errorText, removing, removeError, onOpen, onNew, onNewStandalone, onRemove, onConfirmRemove, onCancelRemove }: RequirementsListProps) {
-  const [dialog, setDialog] = useState(false)
-  const [name, setName] = useState('')
-  const [what, setWhat] = useState('')
-  const close = () => {
-    setDialog(false)
-    setName('')
-    setWhat('')
-  }
-
+// Presentational: this project's requirements documents, and a way to start another from its themes.
+export function RequirementsList({ state, project, specs, canEdit, busy, errorText, removing, removeError, onOpen, onNew, onRemove, onConfirmRemove, onCancelRemove }: RequirementsListProps) {
   return (
     <div className={styles.page}>
       {project && <ProjectHeader title="Requirements" description="Turn the themes into a reviewed product brief and requirements, then publish them to the board." />}
@@ -83,40 +71,8 @@ export function RequirementsList({ state, project, specs, standalone, canEdit, b
               ))}
             </div>
           </section>
-
-          <section className={styles.section}>
-            <div className={styles.head}>
-              <h2 className={styles.heading}>Stand-alone documents</h2>
-              <Button kind="secondary" size="md" disabled={!canEdit || busy} onClick={() => setDialog(true)}>
-                Write a stand-alone document
-              </Button>
-            </div>
-            <p className={styles.hint}>A document with no research behind it, drafted from your description alone.</p>
-            <div className={styles.grid}>
-              {standalone.map((s) => (
-                <SpecCard key={s.id} spec={s} canEdit={canEdit} onOpen={onOpen} onRemove={onRemove} />
-              ))}
-            </div>
-          </section>
         </>
       )}
-
-      <Modal
-        open={dialog}
-        size="sm"
-        modalHeading="Stand-alone document"
-        primaryButtonText={busy ? 'Starting…' : 'Start'}
-        secondaryButtonText="Cancel"
-        primaryButtonDisabled={!name.trim() || !what.trim() || busy}
-        onRequestClose={close}
-        onRequestSubmit={() => {
-          onNewStandalone(name.trim(), what.trim())
-          close()
-        }}
-      >
-        <TextInput id="standalone-name" labelText="Document name" value={name} onChange={(e) => setName(e.target.value)} />
-        <TextArea id="standalone-what" labelText="What are you specifying?" rows={3} placeholder="The feature or change, and who it is for" value={what} onChange={(e) => setWhat(e.target.value)} />
-      </Modal>
 
       <Modal
         open={removing !== null}

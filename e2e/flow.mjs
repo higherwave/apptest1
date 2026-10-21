@@ -438,7 +438,7 @@ try {
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 
-  // The list shows it; a published document is read-only; a stand-alone one starts from a description.
+  // The list shows it, and a published document is read-only.
   await navTo('Requirements')
   await waitText('8 of 8 steps approved')
   ok('the list shows the published document with 8 of 8 approved', (await text()).includes('Published'))
@@ -446,28 +446,9 @@ try {
   await waitText('Agent reasoning')
   ok('a published document has no Approve, Redo or Edit', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => ['Approve', 'Redo with instructions', 'Edit'].includes(b.innerText.trim()))))
   await clickText('← Requirements')
-  await waitText('Stand-alone documents')
-  await clickText('Write a stand-alone document')
-  await page.waitForSelector('#standalone-name', { visible: true })
-  await page.type('#standalone-name', 'Saved searches')
-  await page.type('#standalone-what', 'Let people save a search and get alerts')
-  await clickText('Start')
-  await page.waitForFunction(() => /^\/requirements\/[0-9a-f-]{36}$/.test(location.pathname), { timeout: 10000 })
-  await waitText('Stand-alone document, drafted from a description.')
-  await waitApprove()
-  ok('a stand-alone document is drafted from the description alone', (await text()).includes('No research is attached, so the problem statement rests on your description'))
-  ok('it is not in the research projects list', !(await (await fetch(`${API}/api/v1/projects`)).json()).data.some((p) => p.name === 'Saved searches'))
-  await page.goBack()
-  await waitText('Saved searches')
-
-  // Delete the stand-alone document, then the published one: its stories go and Stories locks again.
-  await page.click('[aria-label="Actions for Saved searches"]')
-  await clickText('Delete document', 'button')
-  await waitText('Delete this document?')
-  await clickText('Delete permanently')
-  await page.waitForFunction(() => !document.body.innerText.includes('Saved searches') || document.querySelectorAll('[aria-label="Actions for Saved searches"]').length === 0, { timeout: 8000 })
-  ok('a stand-alone document can be deleted, after confirming', !(await text()).includes('Saved searches'))
-  await new Promise((r) => setTimeout(r, 800)) // let the closing dialog finish
+  await waitText('New document from these themes')
+  ok('the list no longer offers a stand-alone document', !(await text()).includes('Stand-alone') && !(await text()).includes('stand-alone'))
+  ok('it still offers a new document from these themes', (await text()).includes('New document from these themes'))
   await page.click('[aria-label="Actions for Intake v2"]')
   await clickText('Delete document', 'button')
   await waitText('and the requirements and stories it created on the board')

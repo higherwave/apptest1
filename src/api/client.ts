@@ -81,7 +81,6 @@ export const listSpecs = (filter: { projectId?: string; standalone?: boolean } =
   request<{ data: SpecSummary[] }>(`/specs${filter.projectId ? `?projectId=${filter.projectId}` : filter.standalone ? '?standalone=true' : ''}`).then((r) => r.data)
 export const getSpec = (id: string) => request<SpecDetail>(`/specs/${id}`)
 export const createSpec = (projectId: string, name?: string) => request<SpecDetail>(`/projects/${projectId}/specs`, { method: 'POST', body: name ? { name } : {} })
-export const createStandaloneSpec = (name: string, what: string) => request<SpecDetail>('/specs/standalone', { method: 'POST', body: { name, what } })
 export const setSpecTheme = (specId: string, themeId: string, version: number, included: boolean) => request<SpecDetail>(`/specs/${specId}/themes/${themeId}`, { method: 'PUT', body: { included }, version })
 // Step actions carry the step's own version, so two people reviewing the same step cannot both succeed.
 export const approveStep = (stepId: string, version: number) => request<SpecDetail>(`/agent-steps/${stepId}/approve`, { method: 'POST', version })
