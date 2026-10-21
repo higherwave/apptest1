@@ -230,7 +230,7 @@ try {
     fire(src, 'dragstart'); fire(dst, 'dragenter'); fire(dst, 'dragover'); fire(dst, 'drop'); fire(src, 'dragend')
   }, fromFn.toString(), toFn.toString())
 
-  await waitText('What was said')
+  await waitText('Evidence')
   ok('Themes lists the 9 themes found, with an All count', (await text()).includes('All 9'))
   ok('the first theme is selected and its quotes show', await page.evaluate(() => document.querySelectorAll('blockquote').length > 0))
   await clickText('Delight 1')

@@ -1,4 +1,4 @@
-import { Button, ClickableTile, InlineNotification, Loading, TextInput } from '@carbon/react'
+import { Button, ClickableTile, InlineNotification, Loading, TextArea } from '@carbon/react'
 import { Dropdown } from '@carbon/react'
 import { useState } from 'react'
 import type { ProjectDetail, Theme, ThemeCategory, ThemePatch } from '../../api/client'
@@ -84,31 +84,51 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
               {!selected && <p className={styles.none}>Select a theme to see what was said.</p>}
               {selected && (
                 <>
-                  <div className={styles.detailHead}>
+                  <div className={styles.tags}>
                     <CategoryBadge category={selected.category} />
+                    <span className={styles.priority} data-level={selected.priority}>
+                      {LEVEL_LABEL[selected.priority as Level]} priority
+                    </span>
                   </div>
-                  <TextInput
+                  <TextArea
                     id="theme-title"
+                    className={styles.name}
                     labelText="Theme name"
+                    hideLabel
+                    rows={2}
+                    maxLength={60}
                     readOnly={!canEdit}
                     value={draft}
-                    helperText={selected.title !== selected.originalTitle ? `Originally: ${selected.originalTitle}` : undefined}
-                    onChange={(e) => setDraft(e.target.value)}
+                    onChange={(e) => setDraft(e.target.value.replace(/\n/g, ' '))}
                     onBlur={() => canEdit && draft.trim() !== selected.title && onEdit(selected, { title: draft.trim() || null })}
-                    onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        ;(e.target as HTMLTextAreaElement).blur()
+                      }
+                    }}
                   />
-                  <p className={styles.facts}>
-                    {participantsLabel(selected)} · {selected.mentionCount} {selected.mentionCount === 1 ? 'mention' : 'mentions'} · {LEVEL_LABEL[selected.priority as Level]} priority
-                  </p>
+                  {canEdit && (
+                    <p className={styles.hint}>
+                      <span>Click to rename. Two lines max, Enter to apply.</span>
+                      <span>{draft.length}/60</span>
+                    </p>
+                  )}
+                  {selected.title !== selected.originalTitle && <p className={styles.facts}>Originally: {selected.originalTitle}</p>}
                   {selected.description && <p className={styles.text}>{selected.description}</p>}
+                  <p className={styles.facts}>
+                    {participantsLabel(selected)} · {selected.mentionCount} {selected.mentionCount === 1 ? 'mention' : 'mentions'}
+                  </p>
                   {selected.opportunity && (
                     <>
                       <h3 className={styles.label}>Opportunity</h3>
                       <p className={styles.text}>{selected.opportunity}</p>
                     </>
                   )}
+                  <div className={styles.stage}>
                   <Dropdown
                     id="theme-stage"
+                    type="inline"
                     titleText="Journey stage"
                     label="Choose a stage"
                     disabled={!canEdit || pending.has(selected.id)}
@@ -117,10 +137,13 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                     selectedItem={stages.find((s) => s.position === selected.stagePosition) ?? null}
                     onChange={({ selectedItem }) => selectedItem && selectedItem.position !== selected.stagePosition && onEdit(selected, { stagePosition: selectedItem.position })}
                   />
-                  <h3 className={styles.label}>What was said</h3>
+                  </div>
+                  <h3 className={styles.label}>
+                    Evidence · {(selected.quotes ?? []).length} {(selected.quotes ?? []).length === 1 ? 'quote' : 'quotes'}
+                  </h3>
                   <ul className={styles.quotes}>
                     {(selected.quotes ?? []).map((q) => (
-                      <li key={q.id}>
+                      <li key={q.id} className={styles.quoteCard}>
                         <blockquote className={styles.quote}>“{q.text}”</blockquote>
                         <p className={styles.cite}>
                           {q.speaker} · {q.session}

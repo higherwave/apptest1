@@ -65,14 +65,72 @@
   flex-direction: column;
   gap: var(--at-space-md);
   padding: var(--at-space-lg);
-  border: 1px solid var(--at-hairline);
+  background: var(--at-surface-soft);
   border-radius: var(--at-radius-lg);
 }
 
-.detailHead {
+.tags {
   display: flex;
-  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+}
+
+// Sits beside the category badge, in the same size; the tint follows the level.
+.priority {
+  @include tokens.role('meta');
+  padding: var(--at-space-xxs) var(--at-space-xs);
+  border-radius: var(--at-radius-sm);
+  background: var(--at-surface-hover);
+  color: var(--at-ink);
+  font-weight: 500;
+
+  &[data-level='high'] { background: var(--at-tint-peach); }
+  &[data-level='medium'] { background: var(--at-tint-cream); }
+}
+
+// The hint under the name, with the length so far at the right.
+.hint {
+  @include tokens.role('body-md');
+  display: flex;
   justify-content: space-between;
+  gap: var(--at-space-md);
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// "Journey stage" and its menu side by side, the label first.
+.stage {
+  :global(.cds--dropdown__wrapper--inline) {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: var(--at-space-md);
+  }
+
+  :global(.cds--dropdown) {
+    inline-size: 16rem;
+  }
+}
+
+// The name reads as a heading until it is used: no border at rest, a hairline on hover, the strong border when focused.
+.name {
+  :global(.cds--text-area) {
+    @include tokens.role('display-md');
+    font-size: 1.75rem;
+    min-block-size: 0;
+    padding-inline: var(--at-space-xs);
+    border-color: transparent;
+    color: var(--at-ink);
+    resize: none;
+  }
+
+  :global(.cds--text-area):hover:not(:focus) {
+    border-color: var(--at-hairline);
+  }
+
+  :global(.cds--text-area):focus {
+    border-color: var(--cds-border-strong);
+  }
 }
 
 .facts {
@@ -98,25 +156,29 @@
 .quotes {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-md);
+  gap: var(--at-space-sm);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.quoteCard {
+  padding: var(--at-space-md);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+}
+
 .quote {
   @include tokens.role('label-md');
   margin: 0;
-  padding-inline-start: var(--at-space-md);
-  border-inline-start: var(--at-space-xxs) solid var(--at-hairline);
   color: var(--at-ink);
   font-weight: 400;
 }
 
 .cite {
-  @include tokens.role('meta');
-  margin: var(--at-space-xxs) 0 0;
-  padding-inline-start: var(--at-space-md);
+  @include tokens.role('body-md');
+  margin: var(--at-space-xs) 0 0;
   color: var(--at-muted);
 }
 
