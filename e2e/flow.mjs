@@ -104,8 +104,8 @@ try {
   await waitText('Test Plan')
   const projectId = page.url().match(/projects\/([0-9a-f-]{36})/)[1]
   ok('a draft project opens on its Test Plan', true)
-  await page.waitForFunction(() => document.querySelector('.cds--side-nav a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
-  const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.cds--side-nav a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.innerText.trim(), { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
+  await page.waitForFunction(() => document.querySelector('[data-nav] a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
+  const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-nav] a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.dataset.label, { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
   ok('Plan steps are open and Analyze and Deliver steps are locked with a hint',
     !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Journey Map', 'Priorities', 'Requirements', 'Stories'].every((k) => navState[k].disabled && navState[k].hint),
     JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
@@ -156,7 +156,7 @@ try {
   ok('a new participant is added and the others keep their ids', after.length === 3 && after[2].name === 'Zed Zeta' && before.every((id, i) => after[i].id === id))
 
   // Task List.
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Task List').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Task List').click())
   await waitText('Task 1')
   ok('the Task List shows the template’s starter tasks', await page.evaluate(() => document.querySelector('#task-0').value.length > 0 && document.querySelector('#task-0-followup-0')?.value.length > 0))
   await clickText('Add task')
@@ -175,8 +175,8 @@ try {
   const samples = JSON.parse(readFileSync(new URL('../db/seed/data/research.json', import.meta.url), 'utf8')).SAMPLES
   const dir = mkdtempSync(join(tmpdir(), 'sf-transcripts-'))
   const files = samples.map((smp) => { const f = join(dir, smp.name); writeFileSync(f, smp.text); return f })
-  const navLocked = async (label) => page.evaluate((l) => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === l)?.getAttribute('aria-disabled') === 'true', label)
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
+  const navLocked = async (label) => page.evaluate((l) => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === l)?.getAttribute('aria-disabled') === 'true', label)
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
   await waitText('Add a transcript')
   ok('a project with no transcripts says so', (await text()).includes('No transcripts yet'))
   ok('Themes is still locked before analysis', await navLocked('Themes'))
@@ -197,7 +197,7 @@ try {
 
   // Themes, Journey Map and Priorities, on the analysis just made.
   const apiThemes = async () => (await (await fetch(`${API}/api/v1/projects/${projectId}/themes`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).data
-  const navTo = async (label) => { await page.evaluate((l) => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === l).click(), label) }
+  const navTo = async (label) => { await page.evaluate((l) => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === l).click(), label) }
   const choose = async (id, option) => {
     await page.click(`#${id}`)
     await page.waitForSelector('[role=option]', { visible: true })
@@ -390,7 +390,7 @@ try {
   await page.waitForSelector('[data-testid^="card-"]')
 
   // Platform Insights: themes across projects, where one comes from, case studies, onboarding.
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Platform Insights').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Platform Insights').click())
   await page.waitForSelector('[data-testid^="platform-theme-"]')
   const insights = await (await fetch(`${API}/api/v1/insights/themes`)).json()
   const shown = await page.$$eval('[data-testid^="platform-theme-"]', (els) => els.map((e) => e.innerText))
@@ -404,7 +404,7 @@ try {
   await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, second.title)
   ok('picking a theme shows where it comes from, with quotes', (await page.$$eval('aside[aria-label="Where this comes from"] blockquote', (q) => q.length)) >= 1 && (await text()).includes(`Raised by ${second.participantCount} of ${insights.totalParticipants} participants`))
   ok('the choice is in the address, so it can be shared', await page.evaluate((id) => location.search === `?theme=${id}`, second.id))
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Case Studies').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Case Studies').click())
   await page.waitForSelector('[data-testid="case-study"]')
   const cases = (await (await fetch(`${API}/api/v1/insights/case-studies`)).json()).data
   ok('Case Studies shows each study with its outcome and owner', (await page.$$('[data-testid="case-study"]')).length === cases.length && (await text()).includes(cases[0].outcome) && (await text()).includes('Sep 2026'))
@@ -413,7 +413,7 @@ try {
   await page.waitForFunction((id) => location.pathname === '/insights/themes' && location.search === `?theme=${id}`, { timeout: 8000 }, chip.id)
   await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, chip.title)
   ok('a case study’s theme chip opens that theme', true)
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Onboarding').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Onboarding').click())
   await waitText('Onboarding content coming soon')
   ok('Onboarding is a placeholder, as in the prototype', true)
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
@@ -454,10 +454,10 @@ try {
   await waitText('and the requirements and stories it created on the board')
   await clickText('Delete permanently')
   await waitText('No documents yet')
-  await page.waitForFunction(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Stories')?.getAttribute('aria-disabled') === 'true', { timeout: 8000 }).catch(() => undefined) // the stage refetches after the delete
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Stories')?.getAttribute('aria-disabled') === 'true', { timeout: 8000 }).catch(() => undefined) // the stage refetches after the delete
   ok('deleting the published document removes it and locks Stories again', (await apiSpecs()).length === 0 && await navLocked('Stories'))
 
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
   await page.waitForSelector('#transcript-name-2')
   await waitText('All changes saved')
   ok('saved transcripts show line counts and matched speakers', (await text()).includes('lines') && (await text()).toLowerCase().includes('no matching participant'))
@@ -473,7 +473,7 @@ try {
   await clickText('Save and analyze')
   await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 20000 })
   ok('editing a transcript and saving re-analyzes and returns to Themes', await mine().then((p) => p.themes === 9))
-  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
   await page.waitForSelector('#transcript-name-2')
   ok('the edited transcript kept its place and gained a line', await page.evaluate(() => document.querySelector('#transcript-name-1').value.startsWith('Session 2')))
 

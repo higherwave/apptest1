@@ -1,21 +1,159 @@
 @use '../tokens' as tokens;
 
+// Dark icon rail (areas) + light step panel (inside a project or Insights), after the Airtable app chrome.
+$rail-width: 5rem;
+$panel-width: 13.5rem;
+
+.rail {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: 0;
+  inline-size: $rail-width;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-sm) var(--at-space-xs);
+  background: var(--at-rail);
+}
+
+.railLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-sm) var(--at-space-xxs);
+  border-radius: var(--at-radius-md);
+  color: var(--at-rail-text);
+  text-align: center;
+  text-decoration: none;
+  @include tokens.role('meta');
+  font-weight: 500;
+  line-height: 1.2;
+
+  svg {
+    fill: currentColor;
+  }
+
+  &:hover {
+    background: var(--at-rail-hover);
+    color: var(--at-on-dark);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--at-on-dark);
+    outline-offset: -2px;
+  }
+}
+
+.railActive {
+  background: var(--at-rail-active);
+  color: var(--at-on-dark);
+}
+
+.panel {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-start: $rail-width;
+  inline-size: $panel-width;
+  z-index: 1;
+  overflow-y: auto;
+  padding: var(--at-space-md) var(--at-space-sm);
+  background: var(--at-surface-soft);
+  border-inline-end: 1px solid var(--at-hairline);
+}
+
+.group {
+  margin-block-end: var(--at-space-lg);
+}
+
+.groupLabel {
+  @include tokens.role('meta');
+  margin: var(--at-space-xs) var(--at-space-xs) var(--at-space-xs);
+  color: var(--at-muted);
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  min-block-size: 2.5rem;
+  padding: var(--at-space-xxs) var(--at-space-xs);
+  border-radius: var(--at-radius-md);
+  color: var(--at-ink);
+  text-decoration: none;
+  @include tokens.role('button-sm');
+  font-size: 0.9375rem;
+
+  &:hover {
+    background: var(--at-surface-strong);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--at-ink);
+    outline-offset: 2px;
+  }
+}
+
+.stepLabel {
+  flex: 1;
+}
+
+.number {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: var(--at-radius-full);
+  color: var(--at-muted);
+  @include tokens.role('body-md');
+  font-weight: 500;
+}
+
+.stepActive {
+  background: var(--at-surface-dark);
+  color: var(--at-on-dark);
+
+  &:hover {
+    background: var(--at-surface-dark);
+  }
+
+  .number {
+    background: var(--at-on-dark);
+    color: var(--at-ink);
+  }
+}
+
+// A step that is not open yet: muted, with a lock, and not clickable. The reason is in the link's title.
+.locked {
+  color: var(--at-text-disabled);
+  cursor: not-allowed;
+
+  &:hover {
+    background: transparent;
+  }
+
+  .number {
+    color: var(--at-text-disabled);
+  }
+}
+
+.lock {
+  flex: none;
+  fill: currentColor;
+}
+
 .content {
-  margin-inline-start: 16rem;
+  margin-inline-start: $rail-width;
   padding: var(--at-space-xl);
   min-height: 100vh;
   background: var(--at-canvas);
 }
 
-.groupLabel {
-  @include tokens.role('caption');
-  margin: var(--at-space-lg) var(--at-space-md) var(--at-space-xs);
-  color: var(--at-muted);
-  text-transform: uppercase;
-}
-
-// A step that is not open yet: muted and not clickable. The reason is in the link's title.
-.locked {
-  color: var(--at-text-disabled);
-  cursor: not-allowed;
+.withPanel {
+  margin-inline-start: calc(#{$rail-width} + #{$panel-width});
 }

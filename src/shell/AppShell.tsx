@@ -1,5 +1,5 @@
-import { Content, Header, HeaderName, SideNav, SideNavItems, SideNavLink } from '@carbon/react'
-import type { MouseEvent } from 'react'
+import { ChartColumn, Folders, Locked } from '@carbon/icons-react'
+import type { MouseEvent, ReactNode } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
@@ -7,6 +7,10 @@ import type { StepKey } from '../api/client'
 import { INSIGHT_SECTIONS, STEPS, STEP_GROUPS } from './nav'
 import styles from './AppShell.module.scss'
 
+const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
+
+// Two navigation levels: a dark icon rail for the app's areas, and (inside a project or Platform Insights) a light
+// panel for that area's steps. Links carry data-label so tests and scripts find them by name, not by their markup.
 export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
@@ -21,65 +25,74 @@ export function AppShell() {
   const insights = pathname.startsWith('/insights')
   // The server says which steps are open; until it answers, none are shown as locked.
   const stage = useProjectStage(projectId ?? undefined)
+  const hasPanel = !!projectId || insights
+
+  const railLink = (to: string, label: string, icon: ReactNode, active: boolean) => (
+    <a href={to} data-label={label} aria-current={active ? 'page' : undefined} className={cx(styles.railLink, active && styles.railActive)} onClick={go(to)}>
+      {icon}
+      <span>{label}</span>
+    </a>
+  )
 
   return (
-    <>
-      <Header aria-label="Signal Flow">
-        <HeaderName href="/projects" prefix="" onClick={go('/projects')}>
-          Signal Flow
-        </HeaderName>
-      </Header>
+    <div className={styles.shell}>
+      <nav className={styles.rail} aria-label="Navigation" data-nav>
+        {railLink('/projects', 'Research Projects', <Folders size={24} aria-hidden />, !insights)}
+        {railLink('/insights/themes', 'Platform Insights', <ChartColumn size={24} aria-hidden />, insights)}
+      </nav>
 
-      <SideNav aria-label="Navigation" isFixedNav expanded isChildOfHeader={false}>
-        <SideNavItems>
-          <SideNavLink href="/projects" isActive={!insights} onClick={go('/projects')}>
-            Research Projects
-          </SideNavLink>
-          <SideNavLink href="/insights/themes" isActive={insights} onClick={go('/insights/themes')}>
-            Platform Insights
-          </SideNavLink>
-        </SideNavItems>
+      {hasPanel && (
+        <nav className={styles.panel} aria-label={insights ? 'Insights' : 'Project steps'} data-nav>
+          {projectId &&
+            STEP_GROUPS.map((group) => (
+              <div key={group} className={styles.group}>
+                <p className={styles.groupLabel}>{group}</p>
+                {STEPS.filter((s) => s.group === group).map((s) => {
+                  const tab = stage.data?.tabs[s.key as StepKey]
+                  const locked = tab ? !tab.enabled : false
+                  const active = project?.[2] === s.key
+                  const to = `/projects/${projectId}/${s.key}`
+                  return (
+                    <a
+                      key={s.key}
+                      href={to}
+                      data-label={s.label}
+                      aria-current={active ? 'page' : undefined}
+                      aria-disabled={locked || undefined}
+                      title={locked ? (tab?.hint ?? undefined) : undefined}
+                      className={cx(styles.step, active && styles.stepActive, locked && styles.locked)}
+                      onClick={locked ? (e: MouseEvent) => e.preventDefault() : go(to)}
+                    >
+                      <span className={styles.number} aria-hidden>{STEPS.indexOf(s) + 1}</span>
+                      <span className={styles.stepLabel}>{s.label}</span>
+                      {locked && <Locked size={16} className={styles.lock} aria-hidden />}
+                    </a>
+                  )
+                })}
+              </div>
+            ))}
 
-        {projectId &&
-          STEP_GROUPS.map((group) => (
-            <SideNavItems key={group}>
-              <p className={styles.groupLabel}>{group}</p>
-              {STEPS.filter((s) => s.group === group).map((s) => {
-                const tab = stage.data?.tabs[s.key as StepKey]
-                const locked = tab ? !tab.enabled : false
+          {insights && (
+            <div className={styles.group}>
+              <p className={styles.groupLabel}>Insights</p>
+              {INSIGHT_SECTIONS.map((s) => {
+                const to = `/insights/${s.key}`
+                const active = pathname === to
                 return (
-                  <SideNavLink
-                    key={s.key}
-                    href={`/projects/${projectId}/${s.key}`}
-                    isActive={project?.[2] === s.key}
-                    aria-disabled={locked || undefined}
-                    title={locked ? (tab?.hint ?? undefined) : undefined}
-                    className={locked ? styles.locked : undefined}
-                    onClick={locked ? (e: MouseEvent) => e.preventDefault() : go(`/projects/${projectId}/${s.key}`)}
-                  >
-                    {s.label}
-                  </SideNavLink>
+                  <a key={s.key} href={to} data-label={s.label} aria-current={active ? 'page' : undefined} className={cx(styles.step, active && styles.stepActive)} onClick={go(to)}>
+                    <span className={styles.stepLabel}>{s.label}</span>
+                  </a>
                 )
               })}
-            </SideNavItems>
-          ))}
+            </div>
+          )}
+        </nav>
+      )}
 
-        {insights && (
-          <SideNavItems>
-            <p className={styles.groupLabel}>Insights</p>
-            {INSIGHT_SECTIONS.map((s) => (
-              <SideNavLink key={s.key} href={`/insights/${s.key}`} isActive={pathname === `/insights/${s.key}`} onClick={go(`/insights/${s.key}`)}>
-                {s.label}
-              </SideNavLink>
-            ))}
-          </SideNavItems>
-        )}
-      </SideNav>
-
-      <Content className={styles.content}>
+      <main className={cx(styles.content, hasPanel && styles.withPanel)}>
         <AccessBar />
         <Outlet />
-      </Content>
-    </>
+      </main>
+    </div>
   )
 }

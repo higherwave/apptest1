@@ -32,6 +32,11 @@
   --at-surface-strong: #e0e2e6;
   --at-surface-dark: #181d26;
   --at-surface-dark-elevated: #1d1f25;
+  // App navigation rail (the dark grey icon column), after the Airtable app chrome.
+  --at-rail: #2d2f36;
+  --at-rail-hover: #3a3c44;
+  --at-rail-active: #4b4e57;
+  --at-rail-text: #e3e4e8;
   --at-signature-coral: #aa2d00;
   --at-signature-forest: #0a2e0e;
   --at-signature-cream: #f5e9d4;
@@ -67,10 +72,10 @@
   --at-space-section: 96px;
 
   // -- Type ------------------------------------------------------------
-  --at-font-display: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-  --at-font-text: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
-    Oxygen, Ubuntu, Cantarell, 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+  // Airtable's faces (Haas Groot Disp, Haas) are licensed, so they are named first and used if installed. Helvetica Neue is the
+  // nearest installed face on Apple devices; Arimo (Helvetica-metric, loaded from Google Fonts) stands in elsewhere.
+  --at-font-display: 'Haas Groot Disp', 'Haas', 'Helvetica Neue', Helvetica, 'Arimo', Arial, sans-serif;
+  --at-font-text: 'Haas', 'Helvetica Neue', Helvetica, 'Arimo', Arial, sans-serif;
 
   // -- Re-point Carbon's own tokens at the Airtable palette ------------
   // Everything built from @carbon/react (Tile, Tag, DataTable, Tabs, Button,
