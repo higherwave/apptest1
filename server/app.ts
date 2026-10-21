@@ -17,15 +17,17 @@ import {
   SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
+import { aiMode, makeAi, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, refreshPlatformMatches } from './insights.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
   const getDb = options.getDb ?? lazyPgDb(env)
+  const ai = makeAi(env, options.provider)
   const app = new Hono().basePath('/api/v1')
 
   app.onError((err, c) => {
@@ -47,6 +49,17 @@ export function createApp(options: AppOptions = {}) {
   app.get('/health', (c) =>
     c.json({ status: 'ok', time: new Date().toISOString(), version: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev' }),
   )
+
+  // Whether AI is live or simulated, for the header indicator. Never touches the database for the anonymous viewer; the
+  // token holder also sees this month's spend against the budget.
+  app.get('/ai/status', withReadContext, async (c) => {
+    const ctx = c.get('ctx')
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    const mode = aiMode(ai)
+    if (ctx.anonymous || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false' })
+    return c.json({ mode, enabled: true, budgetUsd: monthlyBudgetUsd(env), spentUsd: await spentThisMonthUsd(getDb(), ctx.workspaceId) })
+  })
 
   // Reaches the database, so it needs the same access as the data routes.
   app.get('/health/db', withContext, async (c) => {
@@ -187,9 +200,9 @@ export function createApp(options: AppOptions = {}) {
       c,
       z.object({}).passthrough(),
       async (id, v) => {
-        const result = await runAnalysis(getDb(), c.get('ctx'), id, v)
+        const result = await runAnalysis(getDb(), ai, c.get('ctx'), id, v)
         // The simulated matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails.
-        await refreshPlatformMatches(getDb(), c.get('ctx').workspaceId).catch(() => undefined)
+        await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
         return result
       },
       'raw',
@@ -277,7 +290,7 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(createSpecSchema, await readJson(c))
     let created: string
     try {
-      created = await createProjectSpec(getDb(), c.get('ctx'), id, input.name)
+      created = await createProjectSpec(getDb(), ai, c.get('ctx'), id, input.name)
     } catch (err) {
       return specError(err)
     }
@@ -288,7 +301,7 @@ export function createApp(options: AppOptions = {}) {
   app.post('/specs/standalone', withContext, async (c) => {
     requireEditor(c)
     const input = parseBody(standaloneSpecSchema, await readJson(c))
-    const created = await createStandaloneSpec(getDb(), c.get('ctx'), input)
+    const created = await createStandaloneSpec(getDb(), ai, c.get('ctx'), input)
     c.header('Cache-Control', 'no-store')
     return c.json(await specDetail(c, created), 201)
   })
@@ -330,8 +343,8 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     return c.json(await specDetail(c, id))
   }
-  app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), c.get('ctx'), stepId, v)))
-  app.post('/agent-steps/:id/redo', withContext, (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), c.get('ctx'), stepId, v, input.instructions)))
+  app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), ai, c.get('ctx'), stepId, v)))
+  app.post('/agent-steps/:id/redo', withContext, (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), ai, c.get('ctx'), stepId, v, input.instructions)))
   app.patch('/agent-steps/:id', withContext, (c) => stepAction(c, editStepSchema, (stepId, v, input) => editStep(getDb(), c.get('ctx'), stepId, v, input.text)))
 
   app.post('/specs/:id/publish', withContext, async (c) => {

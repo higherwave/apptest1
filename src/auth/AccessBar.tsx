@@ -2,13 +2,14 @@ import { Button, InlineNotification, Modal, Tag, TextInput } from '@carbon/react
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { friendlyMessage, getMe } from '../api/client'
-import { useMe } from '../api/hooks'
+import { useAiStatus, useMe } from '../api/hooks'
 import { setToken } from '../api/token'
 import styles from './AccessBar.module.scss'
 
 // Shows whether this tab can edit, and asks for the access token to unlock editing.
 export function AccessBar() {
   const me = useMe()
+  const ai = useAiStatus()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
@@ -52,6 +53,11 @@ export function AccessBar() {
       <Tag size="sm" type={editing ? 'green' : 'gray'}>
         {editing ? 'Editing unlocked' : 'Read-only demo'}
       </Tag>
+      {ai.data && (
+        <Tag size="sm" type={ai.data.mode === 'live' ? 'blue' : 'gray'}>
+          {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
+        </Tag>
+      )}
       {editing ? (
         <Button kind="ghost" size="sm" onClick={lock}>
           Lock

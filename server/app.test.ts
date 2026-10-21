@@ -6,6 +6,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { createDemoDatabase, pgliteDb } from './test-utils.js'
 import { parse } from 'yaml'
 import { createApp } from './app.js'
+import { getProvider, makeAi, simulatedProvider, type AiProvider } from './ai.js'
 import { cleanConnectionString, databaseUnavailable, findConnectionString, wrapDb, type Db } from './db.js'
 // @ts-expect-error plain ESM helpers shared with the db/ tooling
 import { migrationFiles } from '../db/migrate.mjs'
@@ -583,9 +584,9 @@ const PROTOTYPE_THEMES = [
 ]
 
 // A new project (with the three sample participants) and helpers that carry the version along.
-async function newStudy() {
+async function newStudy(provider?: AiProvider, env: Record<string, string> = {}) {
   const { pglite: pg, db: d } = await createDemoDatabase()
-  const app = createApp({ env: TOKEN, getDb: () => d })
+  const app = createApp({ env: { ...TOKEN, ...env }, getDb: () => d, provider })
   const created = await (await post(app, newProject({ name: 'Transcript study', participants: SAMPLE_PEOPLE }))).json()
   const id: string = created.id
   const version = async () => ((await pg.query<any>(`select version from core.projects where id = $1`, [id])).rows[0] as { version: number }).version
@@ -1461,7 +1462,7 @@ test('the matcher is repeatable: running it again changes nothing, and hand-made
   const before = await overview()
   const manualBefore = (await pg.query<any>(`select count(*)::int n from insights.platform_theme_sources where match_method = 'manual'`)).rows[0].n
   const { refreshPlatformMatches } = await import('./insights.js')
-  const result = await refreshPlatformMatches(d, ws)
+  const result = await refreshPlatformMatches(d, makeAi({}), ws)
   assert.ok(result.matched > 0)
   assert.deepEqual(await overview(), before)
   assert.equal((await pg.query<any>(`select count(*)::int n from insights.platform_theme_sources where match_method = 'manual'`)).rows[0].n, manualBefore)
@@ -1495,4 +1496,62 @@ test('a project with no analysis is not in Insights; deleting one takes its numb
   assert.deepEqual(after.projects.map((p: any) => p.name), ['Clinic booking, usability round 1', 'Clinic booking, round 2'])
   assert.equal(after.totalParticipants, 7)
   assert.ok(after.themes.every((t: any) => t.sources.every((s: any) => s.projectId !== diary)))
+})
+
+// AI seam: provider choice, spend ledger, budget guard, one running run ----------------------------------------------
+
+// A live-looking provider that gives the simulation's answers but charges `cost` dollars per call.
+const costly = (cost: number): AiProvider => ({
+  name: 'fake',
+  live: true,
+  analyze: async (...a) => ({ ...(await simulatedProvider.analyze(...a)), usage: { inputTokens: 1000, outputTokens: 500, costUsd: cost, model: 'fake-1' } }),
+  buildSteps: async (...a) => ({ ...(await simulatedProvider.buildSteps(...a)), usage: { inputTokens: 1000, outputTokens: 500, costUsd: cost, model: 'fake-1' } }),
+  matchThemes: async (...a) => ({ ...(await simulatedProvider.matchThemes(...a)), usage: { inputTokens: 1000, outputTokens: 500, costUsd: cost, model: 'fake-1' } }),
+})
+
+test('getProvider is the simulation unless a live provider is configured, and AI_ENABLED=false always wins', () => {
+  assert.equal(getProvider({}), simulatedProvider)
+  assert.equal(getProvider({ AI_PROVIDER: 'anthropic' }), simulatedProvider)
+  assert.equal(getProvider({ AI_ENABLED: 'false', AI_PROVIDER: 'anthropic' }), simulatedProvider)
+  assert.equal(makeAi({}).provider.live, false)
+})
+
+test('the simulation records no spend and the status says simulated', async () => {
+  const { app, pg, putTranscripts, samples, analyze } = await newStudy()
+  assert.equal((await putTranscripts(samples)).status, 200)
+  assert.equal((await analyze()).status, 201)
+  assert.equal(((await pg.query<any>(`select count(*)::int n from core.ai_usage`)).rows[0] as { n: number }).n, 0)
+  const status = await expectSpec(await app.request('/api/v1/ai/status'), '/ai/status')
+  assert.deepEqual(status, { mode: 'simulated', enabled: true })
+  const off = await newStudy(undefined, { AI_ENABLED: 'false' })
+  assert.deepEqual(await (await off.app.request('/api/v1/ai/status')).json(), { mode: 'simulated', enabled: false })
+})
+
+test('a costly provider is recorded and stopped at the monthly budget with 503 ai_budget_reached', async () => {
+  const { app, pg, id, putTranscripts, samples, analyze } = await newStudy(costly(6), { AI_MONTHLY_BUDGET_USD: '10' })
+  assert.equal((await putTranscripts(samples)).status, 200)
+  assert.equal((await analyze()).status, 201) // analysis costs 6, the follow-up platform match costs 6: 12 spent
+  const spent = ((await pg.query<any>(`select sum(cost_usd)::float8 s, count(*)::int n from core.ai_usage`)).rows[0]) as { s: number; n: number }
+  assert.equal(spent.n, 2)
+  assert.equal(spent.s, 12)
+  const before = ((await pg.query<any>(`select version from core.projects where id = $1`, [id])).rows[0] as { version: number }).version
+  const res = await analyze(before)
+  assert.equal(res.status, 503)
+  assert.equal((await expectSpec(res, '/projects/{id}/analysis-runs', 'post')).error.code, 'ai_budget_reached')
+  const runs = (await pg.query<any>(`select status::text s, count(*)::int n from core.agent_runs where project_id = $1 and kind = 'analysis' group by 1`, [id])).rows
+  assert.deepEqual(Object.fromEntries(runs.map((r: any) => [r.s, r.n])), { complete: 1, failed: 1 }, 'the refused run is marked failed, none left running')
+  const status = await (await app.request('/api/v1/ai/status', { headers: auth })).json()
+  assert.deepEqual(status, { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 12 })
+  assert.deepEqual(await (await app.request('/api/v1/ai/status')).json(), { mode: 'live', enabled: true })
+})
+
+test('only one analysis may run per project; a run that never finished stops blocking after ten minutes', async () => {
+  const { pg, id, putTranscripts, samples, analyze } = await newStudy()
+  assert.equal((await putTranscripts(samples)).status, 200)
+  await pg.query(`insert into core.agent_runs (workspace_id, project_id, kind, status) select workspace_id, id, 'analysis', 'running' from core.projects where id = $1`, [id])
+  const blocked = await analyze()
+  assert.equal(blocked.status, 409)
+  assert.equal((await expectSpec(blocked, '/projects/{id}/analysis-runs', 'post')).error.code, 'run_in_progress')
+  await pg.query(`update core.agent_runs set started_at = now() - interval '20 minutes' where project_id = $1 and status = 'running'`, [id])
+  assert.equal((await analyze()).status, 201)
 })

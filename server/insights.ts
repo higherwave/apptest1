@@ -1,5 +1,5 @@
 import { PLATFORM_KEYWORDS } from '../shared/platform-keywords.mjs'
-import { matchThemes } from '../shared/providers.mjs'
+import { callAi, type Ai } from './ai.js'
 import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 
@@ -201,7 +201,7 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
 // The simulated matcher: re-reads every project's current themes and tags each with the platform theme whose keywords it
 // matches best. Automatic tags are replaced; a tag someone set by hand is never touched. Run after each analysis,
 // so the Insights numbers follow the projects.
-export async function refreshPlatformMatches(db: Db, workspaceId: string): Promise<{ matched: number }> {
+export async function refreshPlatformMatches(db: Db, ai: Ai, workspaceId: string): Promise<{ matched: number }> {
   return db.transaction(async (tx) => {
     const platform = (await tx.query(`select id, title from insights.platform_themes where workspace_id = $1`, [workspaceId])).rows
       .map((p) => ({ id: p.id as string, keywords: PLATFORM_KEYWORDS[p.title as string] ?? [] }))
@@ -214,7 +214,7 @@ export async function refreshPlatformMatches(db: Db, workspaceId: string): Promi
     ).rows.map((t) => ({ id: t.id as string, title: t.title as string, description: t.description ?? '', opportunity: t.opportunity ?? '' }))
     const manual = new Set((await tx.query(`select theme_id from insights.platform_theme_sources where workspace_id = $1 and match_method = 'manual'`, [workspaceId])).rows.map((r) => r.theme_id as string))
     await tx.query(`delete from insights.platform_theme_sources where workspace_id = $1 and match_method = 'auto'`, [workspaceId])
-    const matches = matchThemes(themes.filter((t) => !manual.has(t.id)), platform)
+    const matches = await callAi(tx, ai, workspaceId, 'theme_match', (p) => p.matchThemes(themes.filter((t) => !manual.has(t.id)), platform))
     await insertMany(
       tx,
       'insights.platform_theme_sources',

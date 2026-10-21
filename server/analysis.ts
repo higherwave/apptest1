@@ -1,8 +1,9 @@
-import { analyze } from '../shared/providers.mjs'
 import { EFFORT, STEP_TITLES, THEMES } from '../shared/stub-config.mjs'
+import { callAi, type Ai, type AiProvider } from './ai.js'
 import type { Db } from './db.js'
+import { ApiError } from './errors.js'
 import { insertMany } from './sql.js'
-import { claimVersion, type Actor } from './versioning.js'
+import { claimVersion, ProjectNotFound, VersionConflict, type Actor } from './versioning.js'
 import { transcriptsKey } from './transcripts.js'
 
 // The simulated analysis: the prototype's keyword matching over the project's transcripts. Its theme
@@ -13,29 +14,53 @@ const CATEGORY: Record<string, string> = { 'Pain point': 'pain_point', Need: 'ne
 export type AnalysisResult = { runId: string; themes: number; steps: string[] }
 export class NoTranscripts extends Error {}
 
+// A run still "running" after this long is treated as dead (the function was cut off), so it cannot block the project forever.
+const STALE_RUN_MINUTES = 10
+
 // Runs one analysis over every transcript in the project and stores it as a new run. The previous run is kept
 // but retired, so a published requirements document that cites its themes is flagged stale, not broken. The
 // person's pins and edits belong to a run, so the new run starts clean, as in the prototype.
-export async function runAnalysis(db: Db, ctx: Actor, projectId: string, expected: number): Promise<AnalysisResult> {
+// The model call happens before the transaction opens, so a slow call never holds a database connection, and the run is
+// recorded as 'running' first: a second start on the same project is refused (409 run_in_progress) rather than paid for twice.
+export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string, expected: number): Promise<AnalysisResult> {
+  const project = (await db.query(`select version from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])).rows[0]
+  if (!project) throw new ProjectNotFound()
+  if (project.version !== expected) throw new VersionConflict(project.version as number)
+  const transcripts = (await db.query(`select id, name, raw_text, content_hash from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
+  if (!transcripts.length) throw new NoTranscripts()
+  const participants = (await db.query(`select name from research.participants where project_id = $1 order by position`, [projectId])).rows as { name: string }[]
+
+  const runId = crypto.randomUUID()
+  await db.query(`update core.agent_runs set status = 'failed' where project_id = $1 and kind = 'analysis' and status = 'running' and started_at < now() - make_interval(mins => $2)`, [projectId, STALE_RUN_MINUTES])
+  try {
+    await db.query(
+      `insert into core.agent_runs (id, workspace_id, project_id, kind, status, input_hash, provider, prompt_version, created_by, updated_by)
+       values ($1, $2, $3, 'analysis', 'running', $4, $5, $6, $7, $7)`,
+      [runId, ctx.workspaceId, projectId, transcriptsKey(transcripts as { name: string; content_hash: string }[]), ai.provider.name, ai.provider.live ? 'analysis-v1' : 'keyword-v1', ctx.userId],
+    )
+  } catch (err) {
+    if ((err as { code?: string }).code === '23505') throw new ApiError(409, 'run_in_progress', 'An analysis is already running for this project.')
+    throw err
+  }
+
+  try {
+    const themes = await callAi(
+      db, ai, ctx.workspaceId, 'analysis',
+      (p) => p.analyze(transcripts.map((t) => ({ name: t.name as string, text: t.raw_text as string })), participants, THEMES, EFFORT),
+      runId,
+    )
+    return await store(db, ctx, projectId, expected, runId, themes)
+  } catch (err) {
+    await db.query(`update core.agent_runs set status = 'failed' where id = $1`, [runId]).catch(() => undefined)
+    throw err
+  }
+}
+
+async function store(db: Db, ctx: Actor, projectId: string, expected: number, runId: string, themes: Awaited<ReturnType<AiProvider['analyze']>>['value']): Promise<AnalysisResult> {
   return db.transaction(async (tx) => {
     await claimVersion(tx, ctx, projectId, expected)
-    const transcripts = (await tx.query(`select id, name, raw_text, content_hash from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
-    if (!transcripts.length) throw new NoTranscripts()
-    const participants = (await tx.query(`select name from research.participants where project_id = $1 order by position`, [projectId])).rows as { name: string }[]
-
-    const themes = analyze(
-      transcripts.map((t) => ({ name: t.name as string, text: t.raw_text as string })),
-      participants,
-      THEMES,
-      EFFORT,
-    )
-
-    const runId = crypto.randomUUID()
-    await tx.query(
-      `insert into core.agent_runs (id, workspace_id, project_id, kind, status, input_hash, provider, prompt_version, finished_at, created_by, updated_by)
-       values ($1, $2, $3, 'analysis', 'complete', $4, 'stub', 'keyword-v1', now(), $5, $5)`,
-      [runId, ctx.workspaceId, projectId, transcriptsKey(transcripts as { name: string; content_hash: string }[]), ctx.userId],
-    )
+    const transcripts = (await tx.query(`select id from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
+    await tx.query(`update core.agent_runs set status = 'complete', finished_at = now() where id = $1`, [runId])
     await insertMany(
       tx,
       'core.agent_steps',

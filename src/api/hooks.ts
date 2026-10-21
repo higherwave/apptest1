@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getInsightsThemes, getPlatformTheme, listCaseStudies,
+  getAiStatus, getInsightsThemes, getPlatformTheme, listCaseStudies,
   getBoard, getStory, moveStory, undoMove, patchStory, saveChecklist,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
@@ -18,6 +18,11 @@ export const useTemplates = () => useQuery({ queryKey: ['templates'], queryFn: l
 export const useMe = () => {
   const token = useToken()
   return useQuery({ queryKey: ['me', token], queryFn: () => getMe() })
+}
+
+export const useAiStatus = () => {
+  const token = useToken()
+  return useQuery({ queryKey: ['ai-status', token], queryFn: getAiStatus, staleTime: 60_000 })
 }
 
 export const useCreateProject = () => {

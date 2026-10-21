@@ -1,4 +1,4 @@
-import { buildSteps } from '../shared/providers.mjs'
+import { callAi, type Ai } from './ai.js'
 import type { Db, Queryable } from './db.js'
 import { ApiError } from './errors.js'
 import { currentAnalysisRun } from './transcripts.js'
@@ -232,9 +232,9 @@ export async function listSpecs(db: Queryable, workspaceId: string, filter: { pr
 // Writing -----------------------------------------------------------------------------------------------------
 
 // Writes one step's drafted content: its reasoning, output, evidence and the alternatives it considered.
-async function generateStep(tx: Queryable, ctx: Actor, spec: Record<string, any>, stepId: string, position: number, redoNote?: string): Promise<void> {
+async function generateStep(tx: Queryable, ai: Ai, ctx: Actor, spec: Record<string, any>, stepId: string, position: number, redoNote?: string): Promise<void> {
   const { ctx: draft, inc, items } = await draftingContext(tx, spec)
-  const s = (buildSteps(draft, inc) as { t: string; r: string; ev: string[]; alts: { title: string; reason: string }[]; out: [string, (string | string[])?, (string[])?] }[])[position - 1]
+  const s = ((await callAi(tx, ai, ctx.workspaceId, 'spec_step', (p) => p.buildSteps(draft, inc), spec.agent_run_id)) as { t: string; r: string; ev: string[]; alts: { title: string; reason: string }[]; out: [string, (string | string[])?, (string[])?] }[])[position - 1]
   const [heading, second, third] = s.out
   await tx.query(
     `update core.agent_steps set reasoning = $2, edited_text = null, status = 'review', redo_note = $3, revision = revision + $4, output = $5::jsonb, approved_by = null, approved_at = null, updated_by = $6 where id = $1`,
@@ -251,7 +251,7 @@ async function generateStep(tx: Queryable, ctx: Actor, spec: Record<string, any>
   await insertMany(tx, 'core.agent_step_alternatives', s.alts.map((a, i) => ({ workspace_id: ctx.workspaceId, step_id: stepId, position: i, title: a.title, reason: a.reason })))
 }
 
-async function createSpecRows(tx: Queryable, ctx: Actor, projectId: string, name: string, themeIds: string[]): Promise<string> {
+async function createSpecRows(tx: Queryable, ai: Ai, ctx: Actor, projectId: string, name: string, themeIds: string[]): Promise<string> {
   const runId = crypto.randomUUID()
   const specId = crypto.randomUUID()
   await tx.query(`insert into core.agent_runs (id, workspace_id, project_id, kind, status, provider, prompt_version, created_by, updated_by) values ($1, $2, $3, 'spec', 'running', 'stub', $4, $5, $5)`, [runId, ctx.workspaceId, projectId, SPEC_PROMPT_VERSION, ctx.userId])
@@ -260,29 +260,29 @@ async function createSpecRows(tx: Queryable, ctx: Actor, projectId: string, name
   await insertMany(tx, 'core.agent_steps', steps)
   await insertMany(tx, 'delivery.spec_themes', themeIds.map((id) => ({ spec_id: specId, theme_id: id, workspace_id: ctx.workspaceId, included: true })))
   const spec = await specRow(tx, ctx.workspaceId, specId)
-  await generateStep(tx, ctx, spec!, steps[0].id, 1) // step 1 starts at once; each approval starts the next
+  await generateStep(tx, ai, ctx, spec!, steps[0].id, 1) // step 1 starts at once; each approval starts the next
   await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'created', after: { name } }])
   return specId
 }
 
-export async function createProjectSpec(db: Db, ctx: Actor, projectId: string, name?: string): Promise<string> {
+export async function createProjectSpec(db: Db, ai: Ai, ctx: Actor, projectId: string, name?: string): Promise<string> {
   return db.transaction(async (tx) => {
     const p = (await tx.query(`select id, name from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])).rows[0]
     if (!p) throw new SpecNotFound()
     const run = await currentAnalysisRun(tx, projectId)
     const themeIds = run ? (await tx.query(`select id from research.themes where project_id = $1 and run_id = $2`, [projectId, run.id])).rows.map((r) => r.id as string) : []
     if (!themeIds.length) throw new NoAnalysis()
-    return createSpecRows(tx, ctx, projectId, name?.trim() || p.name, themeIds)
+    return createSpecRows(tx, ai, ctx, projectId, name?.trim() || p.name, themeIds)
   })
 }
 
 // A stand-alone document has no research behind it: it is drafted from the description alone, so it lives in a project of
 // its own kind and never appears in the research projects list.
-export async function createStandaloneSpec(db: Db, ctx: Actor, input: { name: string; what: string }): Promise<string> {
+export async function createStandaloneSpec(db: Db, ai: Ai, ctx: Actor, input: { name: string; what: string }): Promise<string> {
   return db.transaction(async (tx) => {
     const projectId = (await tx.query(`insert into core.projects (workspace_id, name, kind, owner_id, created_by, updated_by) values ($1, $2, 'standalone', $3, $3, $3) returning id`, [ctx.workspaceId, input.name, ctx.userId])).rows[0].id as string
     await insertMany(tx, 'research.studies', [{ project_id: projectId, workspace_id: ctx.workspaceId, what_testing: input.what, created_by: ctx.userId, updated_by: ctx.userId }])
-    return createSpecRows(tx, ctx, projectId, input.name, [])
+    return createSpecRows(tx, ai, ctx, projectId, input.name, [])
   })
 }
 
@@ -303,23 +303,23 @@ async function lockStep(tx: Queryable, ctx: Actor, stepId: string, expected: num
 }
 
 // Approving a step starts the next one, in order. The next step is drafted from the themes included at that moment.
-export async function approveStep(db: Db, ctx: Actor, stepId: string, expected: number): Promise<string> {
+export async function approveStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number): Promise<string> {
   return db.transaction(async (tx) => {
     const { step, spec } = await lockStep(tx, ctx, stepId, expected)
     if (step.status !== 'review') throw new StepOutOfOrder()
     await tx.query(`update core.agent_steps set status = 'approved', approved_by = $2, approved_at = now(), updated_by = $2 where id = $1`, [stepId, ctx.userId])
     const next = (await tx.query(`select id, position, status from core.agent_steps where run_id = $1 and position = $2`, [spec.agent_run_id, step.position + 1])).rows[0]
-    if (next && next.status === 'pending') await generateStep(tx, ctx, spec, next.id, next.position)
+    if (next && next.status === 'pending') await generateStep(tx, ai, ctx, spec, next.id, next.position)
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.agent_steps', entity_id: stepId, verb: 'approved' }])
     return spec.id as string
   })
 }
 
-export async function redoStep(db: Db, ctx: Actor, stepId: string, expected: number, instructions: string): Promise<string> {
+export async function redoStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number, instructions: string): Promise<string> {
   return db.transaction(async (tx) => {
     const { step, spec } = await lockStep(tx, ctx, stepId, expected)
     if (step.status === 'pending') throw new StepOutOfOrder()
-    await generateStep(tx, ctx, spec, stepId, step.position, instructions)
+    await generateStep(tx, ai, ctx, spec, stepId, step.position, instructions)
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.agent_steps', entity_id: stepId, verb: 'redone', after: { instructions } }])
     return spec.id as string
   })

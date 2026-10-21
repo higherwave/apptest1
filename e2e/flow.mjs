@@ -454,6 +454,7 @@ try {
   await waitText('and the requirements and stories it created on the board')
   await clickText('Delete permanently')
   await waitText('No documents yet')
+  await page.waitForFunction(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Stories')?.getAttribute('aria-disabled') === 'true', { timeout: 8000 }).catch(() => undefined) // the stage refetches after the delete
   ok('deleting the published document removes it and locks Stories again', (await apiSpecs()).length === 0 && await navLocked('Stories'))
 
   await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())

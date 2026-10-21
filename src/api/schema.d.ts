@@ -21,6 +21,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether AI runs are live or simulated (the header indicator). The token holder also gets this month's spend and the budget when live. Open to read as the viewer. */
+        get: operations["getAiStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health/db": {
         parameters: {
             query?: never;
@@ -169,7 +186,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Runs the analysis over every transcript and stores the themes as a new run; the previous run is kept but retired, and requirements documents of the project are flagged stale. Phase 1 is simulated and finishes inline (201); a real model would answer 202 and be polled. Needs the token and If-Match. */
+        /** Runs the analysis over every transcript and stores the themes as a new run; the previous run is kept but retired, and requirements documents of the project are flagged stale. Phase 1 is simulated and finishes inline (201); a real model would answer 202 and be polled. Needs the token and If-Match. 409 run_in_progress if an analysis is already running for the project; 503 ai_budget_reached once the monthly AI budget is spent. */
         post: operations["startAnalysis"];
         delete?: never;
         options?: never;
@@ -1130,6 +1147,14 @@ export interface components {
             createdAt: string;
             version: number;
         };
+        AiStatus: {
+            /** @enum {string} */
+            mode: "live" | "simulated";
+            /** @description False when the AI_ENABLED=false kill switch is set. */
+            enabled: boolean;
+            budgetUsd?: number;
+            spentUsd?: number;
+        };
         Me: {
             userId: string;
             email: string;
@@ -1184,7 +1209,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -1221,6 +1246,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    getAiStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The AI mode. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AiStatus"];
                 };
             };
         };
@@ -1545,7 +1590,7 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            409: components["responses"]["VersionConflict"];
+            409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
             503: components["responses"]["Error"];

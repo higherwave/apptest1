@@ -44,6 +44,8 @@ export type DatabaseHealth = { status: 'ok'; database: 'reachable'; migrations: 
 
 export const getHealth = () => request<Health>('/health')
 export const getDatabaseHealth = () => request<DatabaseHealth>('/health/db')
+export type AiStatus = components['schemas']['AiStatus']
+export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
 export type Template = components['schemas']['Template']
 export type CreateProjectRequest = components['schemas']['CreateProjectRequest']
