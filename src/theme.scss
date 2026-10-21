@@ -92,6 +92,13 @@
   --cds-support-error: var(--at-signature-coral);
   --cds-support-success: var(--at-success);
   --cds-support-warning: var(--at-signature-mustard);
+  // Focus rings and the pressed/hover fills of Carbon's outlined buttons default to Carbon blue; keep them in the palette.
+  --cds-focus: var(--at-ink);
+  --cds-button-tertiary: var(--at-ink);
+  --cds-button-tertiary-hover: var(--at-surface-soft);
+  --cds-button-tertiary-active: var(--at-surface-strong);
+  --cds-button-secondary-hover: var(--at-surface-soft);
+  --cds-button-secondary-active: var(--at-surface-strong);
 }
 
 // -- Signal Flow additions -------------------------------------------------
@@ -264,4 +271,23 @@
 
 body {
   font-family: var(--at-font-text);
+}
+
+// -- Modal close button: quiet icon button in ink, soft fill on hover -----------------
+.cds--modal .cds--modal-close {
+  background: transparent;
+  color: var(--at-ink);
+
+  &:hover {
+    background: var(--at-surface-soft);
+  }
+
+  &:active {
+    background: var(--at-surface-strong);
+  }
+
+  .cds--modal-close__icon,
+  svg {
+    fill: var(--at-ink);
+  }
 }
