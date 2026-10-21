@@ -5,10 +5,13 @@
   "description": "Schema migrations and tests for the Signal Flow database (Neon Postgres).",
   "scripts": {
     "check": "node check-deps.mjs",
-    "test": "node test.mjs",
+    "test": "node test.mjs && node test-seed.mjs",
     "migrate": "node migrate.mjs up",
     "migrate:down": "node migrate.mjs down",
-    "status": "node migrate.mjs status"
+    "status": "node migrate.mjs status",
+    "test:seed": "node test-seed.mjs",
+    "seed": "node seed/seed.mjs",
+    "seed:extract": "node seed/extract-from-prototype.mjs"
   },
   "dependencies": {
     "pg": "^8.13.0"

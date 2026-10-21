@@ -14,7 +14,7 @@ import pg from 'pg';
 const here = dirname(fileURLToPath(import.meta.url));
 const dir = join(here, 'migrations');
 
-function loadEnvFile() {
+export function loadEnvFile() {
   const file = join(here, '.env.local');
   if (!existsSync(file)) return;
   for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
