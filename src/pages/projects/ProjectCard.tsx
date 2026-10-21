@@ -17,11 +17,9 @@ export function ProjectCard({ project, onOpen, onRemove }: ProjectCardProps) {
     <ClickableTile className={styles.card} data-tint={project.color} onClick={() => onOpen(project)}>
       <div className={styles.top}>
         <p className={styles.name}>{project.name}</p>
-        <Tag className={styles.status} size="sm" type={analyzed ? 'green' : 'gray'}>
-          {analyzed ? 'Analyzed' : 'Draft'}
-        </Tag>
       </div>
       <p className={styles.template}>{project.template ?? 'No template'}</p>
+      <div className={styles.bottom}>
       <dl className={styles.stats}>
         <div>
           <dd className={styles.value}>{project.sessions}</dd>
@@ -36,6 +34,10 @@ export function ProjectCard({ project, onOpen, onRemove }: ProjectCardProps) {
           <dt className={styles.label}>High priority</dt>
         </div>
       </dl>
+      <Tag className={styles.status} size="sm" type={analyzed ? 'green' : 'gray'}>
+        {analyzed ? 'Analyzed' : 'Draft'}
+      </Tag>
+      </div>
     </ClickableTile>
     {onRemove && (
       <div className={styles.menu}>
