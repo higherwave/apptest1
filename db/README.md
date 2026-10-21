@@ -33,3 +33,19 @@ Deletes are hard deletes; foreign keys cascade.
 
 Compute suspends after 5 minutes idle. Run tests and daily work with `npm test` (in-memory), and use Neon only for the
 deployed demo. Do not add health checks or pings that query the database.
+
+## Demo data
+
+Built from the prototype's own sample data (extracted to `seed/data/*.json`, never retyped):
+4 projects (3 analysed, 1 draft), 13 transcripts, 17 themes, one published board (10 stories), and the Platform Insights rows.
+
+    npm run test:seed             # in-memory check, no Neon compute
+    node seed/seed.mjs            # dry run against Neon: shows what would change
+    node seed/seed.mjs --yes      # reset and reload the demo workspace (one transaction)
+    npm run seed:extract          # re-extract from the prototype when it changes
+
+The reset touches only the workspace `higherwave-demo` and users at `@demo.signalflow.example`. Ids are derived from
+names, so links stay stable across resets.
+
+Participant counts for a platform theme must count distinct people per project. Summing per-theme counts double-counts when
+two themes in one project roll up into the same platform theme (project 1 has two prep-checklist themes).
