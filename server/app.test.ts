@@ -353,6 +353,24 @@ test('writes need the token: anonymous and wrong-token requests are refused', as
   assert.equal(del.status, 401)
 })
 
+test('OPEN_EDITING=true lets a visitor with no token write, as the owner; a wrong token is still refused', async () => {
+  await demoDb()
+  const open = createApp({ env: { ...TOKEN, OPEN_EDITING: 'true' }, getDb: () => db })
+  const json = { 'content-type': 'application/json' }
+  const me = await (await open.request('/api/v1/me')).json()
+  assert.equal(me.role, 'owner')
+  assert.equal((await post(open, newProject({ name: 'Open editing' }), json)).status, 201)
+  assert.equal((await post(open, newProject({ name: 'Wrong token' }), { authorization: 'Bearer wrong', ...json })).status, 401)
+  // Off (the default), the same visitor is a read-only viewer.
+  const closed = createApp({ env: TOKEN, getDb: () => db })
+  assert.equal((await (await closed.request('/api/v1/me')).json()).role, 'viewer')
+  assert.equal((await post(closed, newProject({ name: 'Closed' }), json)).status, 401)
+  // A production deployment with no DEV_TOKEN is refused unless editing was opened on purpose.
+  const prod = { VERCEL_ENV: 'production' }
+  assert.equal((await post(createApp({ env: prod, getDb: () => db }), newProject(), json)).status, 401)
+  assert.equal((await post(createApp({ env: { ...prod, OPEN_EDITING: 'true' }, getDb: () => db }), newProject({ name: 'Prod open' }), json)).status, 201)
+})
+
 test('a viewer role cannot write even with a valid token (403 forbidden)', async () => {
   await demoDb()
   const app = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => db })

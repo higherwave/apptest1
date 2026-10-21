@@ -32,6 +32,7 @@ The Neon integration adds the database variables (with a custom prefix; the code
 | Name | Purpose |
 | --- | --- |
 | `DEV_TOKEN` | Until sign-in exists, data routes require `Authorization: Bearer <DEV_TOKEN>`. If it is unset on a production deployment they are refused (`auth_not_configured`). `/api/v1/health` is always open and never touches the database |
+| `OPEN_EDITING` | Set to `true` only for a demo shared with named people: a request with no token acts as the demo owner and can edit and delete anything (a wrong token is still refused). Off by default, when a visitor with no token is a read-only viewer. Turn it off before real data or a live AI provider is added, because anyone with the link could then start runs and change data |
 | `DEMO_WORKSPACE_SLUG`, `DEV_USER_EMAIL` | Which demo workspace and user the API acts as. Defaults: `higherwave-demo`, `david@demo.signalflow.example` |
 
 ## Cost limits

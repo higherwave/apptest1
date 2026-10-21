@@ -33,6 +33,8 @@ const IDENTITY_SQL = `
 //     and every write) refuse.
 //   - DEV_TOKEN unset on a production deployment: everything refused, so an open production API cannot
 //     happen by accident. Unset elsewhere (local development, tests): open, acting as the demo owner.
+//   - OPEN_EDITING=true (set on purpose, for a demo shared with named people): a request with no token acts as the
+//     demo owner and can write, whether or not DEV_TOKEN is set. A wrong token is still refused.
 // Role checks and row-level security come later and slot in here as one guard.
 export type Access = 'strict' | 'read'
 
@@ -42,16 +44,19 @@ export function requestContext(deps: { env: Env; getDb: () => Db }, access: Acce
     const { env } = deps
     const token = env.DEV_TOKEN
     const bearer = c.req.header('authorization')
+    const openEditing = env.OPEN_EDITING === 'true'
     let anonymous = false
     if (token) {
       if (bearer === `Bearer ${token}`) {
         /* full access */
+      } else if (!bearer && openEditing) {
+        /* open editing: no token needed */
       } else if (!bearer && access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
         anonymous = true
       } else {
         throw new ApiError(401, 'unauthorized', 'Missing or invalid token.')
       }
-    } else if (env.VERCEL_ENV === 'production') {
+    } else if (env.VERCEL_ENV === 'production' && !openEditing) {
       throw new ApiError(401, 'auth_not_configured', 'Sign-in is not set up yet, and this deployment has no DEV_TOKEN.')
     }
 
