@@ -882,3 +882,269 @@ test('after a re-analysis the new themes start clean and an old theme can no lon
   assert.equal(stale.status, 409)
   assert.equal((await stale.json()).error.code, 'theme_superseded')
 })
+
+// Requirements documents ---------------------------------------------------------------------------------
+
+const SPEC_STEP_TITLES = ['Frame the problem', 'Identify users and jobs', 'Define goals and success metrics', 'Set scope', 'Draft requirements', 'Assess risks and dependencies', 'Plan the rollout', 'List open questions']
+
+async function specFixture() {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const idOf = async (name: string) => ((await pg.query<any>(`select id from core.projects where name = $1`, [name])).rows[0] as { id: string }).id
+  const call = (method: string, path: string, body?: unknown, version?: number | string, headers: Record<string, string> = auth) =>
+    app.request(`/api/v1${path}`, { method, headers: { ...headers, ...(version === undefined ? {} : { 'if-match': String(version) }) }, body: body === undefined ? undefined : JSON.stringify(body) })
+  const round2 = await idOf('Clinic booking, round 2')
+  const create = async () => (await call('POST', `/projects/${round2}/specs`, {})).json()
+  const get = async (id: string) => (await app.request(`/api/v1/specs/${id}`)).json()
+  const approve = async (spec: any, n: number) => call('POST', `/agent-steps/${spec.steps[n - 1].id}/approve`, undefined, spec.steps[n - 1].version)
+  // Approves steps 1..n in order, returning the document as it is afterwards.
+  const approveThrough = async (id: string, n: number) => {
+    let spec = await get(id)
+    for (let i = 1; i <= n; i++) {
+      if (spec.steps[i - 1].status === 'approved') continue
+      const r = await approve(spec, i)
+      assert.equal(r.status, 200, `approve step ${i}`)
+      spec = await r.json()
+    }
+    return spec
+  }
+  return { app, pg, idOf, call, round2, create, get, approve, approveThrough }
+}
+
+test('the seeded document reads back whole: eight approved steps, the brief, the document, and the redo', async () => {
+  const { app, pg, idOf } = await specFixture()
+  const p1 = await idOf('Clinic booking, usability round 1')
+  const list = await expectSpec(await app.request(`/api/v1/specs?projectId=${p1}`), '/specs')
+  assert.deepEqual(list.data.map((s: any) => [s.status, s.approved, s.total, s.standalone]), [['published', 8, 8, false]])
+  const res = await app.request(`/api/v1/specs/${list.data[0].id}`)
+  const spec = await expectSpec(res, '/specs/{id}')
+  assert.equal(res.headers.get('etag'), `"${spec.version}"`)
+  assert.deepEqual(spec.steps.map((s: any) => s.title), SPEC_STEP_TITLES)
+  assert.ok(spec.steps.every((s: any) => s.status === 'approved' && s.text))
+  assert.deepEqual([spec.brief.locked, !!spec.brief.problem, !!spec.brief.users, spec.brief.goals.length > 0], [true, true, true, true])
+  assert.deepEqual(spec.document.map((b: any) => b.heading), ['Scope', 'Requirements', 'Risks and dependencies', 'Rollout', 'Open questions'])
+  const scope = spec.steps[3]
+  assert.deepEqual([scope.redoNote, scope.revision], ['Focus on the new-patient flow', 1])
+  assert.match(scope.text, /Revised to account for: Focus on the new-patient flow\./)
+  assert.ok(scope.evidence.length > 0 && scope.alternatives.length > 0)
+  assert.equal(spec.themes.length, 9)
+  assert.deepEqual([spec.canPublish, spec.stale], [false, false])
+})
+
+test('starting a document drafts step 1 and leaves seven waiting; it needs analysis, the token and an editing role', async () => {
+  const { app, pg, idOf, call, round2 } = await specFixture()
+  const res = await call('POST', `/projects/${round2}/specs`, { name: 'Round 2 requirements' })
+  assert.equal(res.status, 201)
+  const spec = await expectSpec(res, '/projects/{id}/specs', 'post')
+  assert.deepEqual([spec.name, spec.status, spec.standalone, spec.steps.map((s: any) => s.status)], ['Round 2 requirements', 'draft', false, ['review', ...Array(7).fill('pending')]])
+  assert.deepEqual([spec.sessions, spec.themes.length, spec.themes.every((t: any) => t.included)], [4, 5, true])
+  assert.match(spec.steps[0].text, /Across 4 sessions, participants raised/)
+  assert.ok(spec.steps[0].evidence.length > 0 && spec.steps[0].alternatives.length === 2)
+  assert.deepEqual([spec.brief.problem, spec.brief.locked, spec.document, spec.approved, spec.canPublish], [null, false, [], 0, false])
+  assert.equal(spec.steps[1].text, null, 'a waiting step has no text yet')
+  assert.deepEqual([spec.preview.requirements, spec.preview.openQuestions], [3, 2])
+  // Refusals.
+  const draft = await idOf('New patient intake (draft)')
+  const none = await call('POST', `/projects/${draft}/specs`, {})
+  assert.equal(none.status, 409)
+  assert.equal((await expectSpec(none, '/projects/{id}/specs', 'post')).error.code, 'no_analysis')
+  assert.equal((await call('POST', `/projects/${round2}/specs`, {}, undefined, { 'content-type': 'application/json' })).status, 401)
+  assert.equal((await call('POST', `/projects/00000000-0000-4000-8000-000000000000/specs`, {})).status, 404)
+  const viewer = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => (undefined as never) })
+  void viewer
+  void app; void pg
+})
+
+test('approving a step starts the next, in order; the brief builds from steps 1 to 3', async () => {
+  const { create, approve, approveThrough, get } = await specFixture()
+  const first = await create()
+  const after1 = await (await approve(first, 1)).json()
+  assert.deepEqual(after1.steps.map((s: any) => s.status), ['approved', 'review', ...Array(6).fill('pending')])
+  assert.ok(after1.steps[0].approvedAt)
+  assert.deepEqual([after1.brief.problem !== null, after1.brief.users, after1.brief.locked], [true, null, false])
+  const after3 = await approveThrough(first.id, 3)
+  assert.deepEqual([after3.brief.locked, after3.brief.users !== null, Array.isArray(after3.brief.goals), after3.approved], [true, true, true, 3])
+  assert.deepEqual(after3.document, [], 'the document starts with step 4')
+  const all = await approveThrough((await create()).id, 8)
+  assert.deepEqual([all.approved, all.canPublish, all.document.length], [8, true, 5])
+  assert.equal((await get(first.id)).approved, 3, 'the other document is untouched')
+})
+
+test('a step cannot be approved out of order, twice, or from a stale version', async () => {
+  const { create, call, approve } = await specFixture()
+  const spec = await create()
+  const waiting = await call('POST', `/agent-steps/${spec.steps[2].id}/approve`, undefined, spec.steps[2].version)
+  assert.equal(waiting.status, 409)
+  assert.equal((await expectSpec(waiting, '/agent-steps/{id}/approve', 'post')).error.code, 'step_not_ready')
+  assert.equal((await approve(spec, 1)).status, 200)
+  const again = await approve(spec, 1) // the same version a second person still holds
+  assert.equal(again.status, 409)
+  const err = await expectSpec(again, '/agent-steps/{id}/approve', 'post')
+  assert.deepEqual([err.error.code, err.current.version > spec.steps[0].version], ['version_conflict', true])
+  assert.equal((await call('POST', `/agent-steps/${spec.steps[0].id}/approve`)).status, 428)
+})
+
+test('redo redraws a step with the instructions, and an approved step goes back under review', async () => {
+  const { create, call, approve, approveThrough } = await specFixture()
+  const spec = await create()
+  const redone = await call('POST', `/agent-steps/${spec.steps[0].id}/redo`, { instructions: 'Focus on the reschedule flow' }, spec.steps[0].version)
+  assert.equal(redone.status, 200)
+  const body = await expectSpec(redone, '/agent-steps/{id}/redo', 'post')
+  const s1 = body.steps[0]
+  assert.deepEqual([s1.status, s1.revision, s1.redoNote], ['review', 1, 'Focus on the reschedule flow'])
+  assert.match(s1.text, /Revised to account for: Focus on the reschedule flow\.$/)
+  assert.equal((await call('POST', `/agent-steps/${s1.id}/redo`, { instructions: '  ' }, s1.version)).status, 422)
+  // Redo after approval: the step is no longer approved, so the document cannot publish.
+  const done = await approveThrough((await create()).id, 8)
+  const back = await (await call('POST', `/agent-steps/${done.steps[4].id}/redo`, { instructions: 'Shorter' }, done.steps[4].version)).json()
+  assert.deepEqual([back.steps[4].status, back.approved, back.canPublish], ['review', 7, false])
+  assert.equal((await call('POST', `/agent-steps/${spec.steps[3].id}/redo`, { instructions: 'x' }, spec.steps[3].version)).status, 409, 'a waiting step cannot be redone')
+  void approve
+})
+
+test('editing a step keeps the draft, sends it back for approval, and the edit survives approving again', async () => {
+  const { create, call, approve } = await specFixture()
+  const spec = await create()
+  const edited = await call('PATCH', `/agent-steps/${spec.steps[0].id}`, { text: '  My own framing of the problem.  ' }, spec.steps[0].version)
+  assert.equal(edited.status, 200)
+  const body = await expectSpec(edited, '/agent-steps/{id}', 'patch')
+  const s1 = body.steps[0]
+  assert.deepEqual([s1.text, s1.edited, s1.status], ['My own framing of the problem.', true, 'review'])
+  assert.equal(s1.originalText, spec.steps[0].originalText, 'the draft is kept')
+  const ok = await (await approve(body, 1)).json()
+  assert.deepEqual([ok.steps[0].status, ok.steps[0].text], ['approved', 'My own framing of the problem.'])
+  // Editing an approved step sends it back; it needs approving again.
+  const again = await (await call('PATCH', `/agent-steps/${ok.steps[0].id}`, { text: 'Second edit.' }, ok.steps[0].version)).json()
+  assert.deepEqual([again.steps[0].status, again.approved], ['review', 0])
+  assert.equal((await call('PATCH', `/agent-steps/${again.steps[0].id}`, { text: '   ' }, again.steps[0].version)).status, 422)
+  assert.equal((await call('PATCH', `/agent-steps/${spec.steps[4].id}`, { text: 'x' }, spec.steps[4].version)).status, 409, 'a waiting step cannot be edited')
+})
+
+test('excluding a theme changes what later steps and the board are built from; drafted steps keep theirs', async () => {
+  const { create, call, approveThrough } = await specFixture()
+  const spec = await create()
+  const insurance = spec.themes.find((t: any) => t.title === 'Insurance coverage is unclear up front')
+  assert.equal(insurance.effort, 3)
+  const res = await call('PUT', `/specs/${spec.id}/themes/${insurance.id}`, { included: false }, spec.version)
+  assert.equal(res.status, 200)
+  const body = await expectSpec(res, '/specs/{id}/themes/{themeId}', 'put')
+  assert.equal(body.themes.find((t: any) => t.id === insurance.id).included, false)
+  assert.deepEqual([body.preview.requirements, body.preview.openQuestions], [3, 1], 'one fewer open question')
+  assert.equal(body.steps[0].text, spec.steps[0].text, 'step 1 was already drafted')
+  const stale = await call('PUT', `/specs/${spec.id}/themes/${insurance.id}`, { included: true }, spec.version)
+  assert.equal(stale.status, 409)
+  const done = await approveThrough(spec.id, 8)
+  assert.ok(!JSON.stringify(done.document).toLowerCase().includes('insurance coverage'), 'later steps were written without it')
+  assert.equal((await call('PUT', `/specs/${spec.id}/themes/not-a-uuid`, { included: true }, body.version)).status, 404)
+  assert.equal((await call('PUT', `/specs/${spec.id}/themes/${insurance.id}`, {}, body.version)).status, 422)
+})
+
+test('a theme the person renamed or re-prioritised is drafted from as they changed it', async () => {
+  const { pg, call, round2 } = await specFixture()
+  const t = (await pg.query<any>(`select id from research.themes where project_id = $1 and title = 'Reminders build confidence'`, [round2])).rows[0] as { id: string }
+  assert.equal((await call('PATCH', `/themes/${t.id}`, { title: 'Reminders reassure people', priority: 'high' }, 0)).status, 200)
+  const spec = await (await call('POST', `/projects/${round2}/specs`, {})).json()
+  const theme = spec.themes.find((x: any) => x.id === t.id)
+  assert.deepEqual([theme.title, theme.priority], ['Reminders reassure people', 'high'])
+})
+
+test('publishing needs every step approved, then makes requirements and stories in the order step 5 listed them', async () => {
+  const { app, pg, call, create, approveThrough, round2 } = await specFixture()
+  const spec = await create()
+  const early = await call('POST', `/specs/${spec.id}/publish`, undefined, spec.version)
+  assert.equal(early.status, 409)
+  assert.equal((await expectSpec(early, '/specs/{id}/publish', 'post')).error.code, 'steps_not_approved')
+  const ready = await approveThrough(spec.id, 8)
+  assert.equal(ready.canPublish, true)
+  const res = await call('POST', `/specs/${spec.id}/publish`, undefined, ready.version)
+  assert.equal(res.status, 201)
+  const out = await expectSpec(res, '/specs/{id}/publish', 'post')
+  assert.deepEqual([out.requirements, out.openQuestions, out.projectId], [3, 2, round2])
+
+  const stories = (await pg.query<any>(`select key, kind, title, status, position, priority, owner_team, theme_id, requirement_id, why_it_matters, next_step from delivery.stories where spec_id = $1 order by position`, [spec.id])).rows as any[]
+  assert.deepEqual(stories.map((s) => s.key), ['R1', 'R2', 'R3', 'Q1', 'Q2'])
+  assert.ok(stories.every((s) => s.status === 'todo' && s.theme_id && s.owner_team === null), 'everything starts in To Do, unassigned, linked to a theme')
+  assert.ok(stories.slice(0, 3).every((s) => s.kind === 'requirement' && s.requirement_id))
+  assert.ok(stories.slice(3).every((s) => s.kind === 'open_question' && !s.requirement_id && /^Should ".+" move into scope\?$/.test(s.title)))
+  assert.match(stories[0].why_it_matters, /was raised by \d of \d participants\.$/)
+  // The numbering matches what step 5 told the reader.
+  const step5 = ready.document.find((b: any) => b.heading === 'Requirements').lines
+  assert.deepEqual(step5.map((l: string) => l.split(':')[0]), ['R1', 'R2', 'R3'])
+  assert.deepEqual(step5.map((l: string) => l.replace(/^R\d+: /, '').replace(/ \(\d of \d participants\)$/, '')), stories.slice(0, 3).map((s) => s.title))
+  const reqs = (await pg.query<any>(`select title, category, priority, effort, opportunity, supporting_quote from delivery.requirements where spec_id = $1`, [spec.id])).rows as any[]
+  assert.equal(reqs.length, 3)
+  assert.ok(reqs.every((r) => r.effort <= 2 && r.opportunity && r.category))
+  // Published: the document is final and the project's Stories step opens.
+  const published = await (await app.request(`/api/v1/specs/${spec.id}`)).json()
+  assert.deepEqual([published.status, !!published.publishedAt, published.canPublish], ['published', true, false])
+  const tabs = (await (await app.request(`/api/v1/projects/${round2}/stage`)).json()).tabs
+  assert.equal(tabs.stories.enabled, true)
+  assert.equal((await call('POST', `/specs/${spec.id}/publish`, undefined, published.version)).status, 409, 'cannot publish twice')
+})
+
+test('a published document is read-only: no approving, redoing, editing or changing themes', async () => {
+  const { app, idOf, call } = await specFixture()
+  const p1 = await idOf('Clinic booking, usability round 1')
+  const spec = (await (await app.request(`/api/v1/specs?projectId=${p1}`)).json()).data[0]
+  const detail = await (await app.request(`/api/v1/specs/${spec.id}`)).json()
+  const step = detail.steps[0]
+  for (const [method, path, body] of [['POST', `/agent-steps/${step.id}/approve`, undefined], ['POST', `/agent-steps/${step.id}/redo`, { instructions: 'x' }], ['PATCH', `/agent-steps/${step.id}`, { text: 'x' }]] as const) {
+    const res = await call(method, path, body, step.version)
+    assert.equal(res.status, 409, path)
+    assert.equal((await res.json()).error.code, 'spec_published')
+  }
+  const theme = await call('PUT', `/specs/${spec.id}/themes/${detail.themes[0].id}`, { included: false }, detail.version)
+  assert.equal(theme.status, 409)
+  assert.equal((await theme.json()).error.code, 'spec_published')
+})
+
+test('a stand-alone document is drafted from a description alone, stays out of the projects list, and publishes no stories', async () => {
+  const { app, pg, call, get, approveThrough } = await specFixture()
+  const res = await call('POST', '/specs/standalone', { name: 'Saved searches', what: 'Let people save a search and get alerts' })
+  assert.equal(res.status, 201)
+  const spec = await expectSpec(res, '/specs/standalone', 'post')
+  assert.deepEqual([spec.standalone, spec.themes.length, spec.sessions, spec.name], [true, 0, 0, 'Saved searches'])
+  assert.match(spec.steps[0].text, /No research is attached, so the problem statement rests on your description: "Let people save a search and get alerts"/)
+  const projects = (await (await app.request('/api/v1/projects')).json()).data.map((p: any) => p.name)
+  assert.ok(!projects.includes('Saved searches'), 'not a research project')
+  const standalone = await expectSpec(await app.request('/api/v1/specs?standalone=true'), '/specs')
+  assert.deepEqual(standalone.data.map((s: any) => s.name), ['Saved searches'])
+  const done = await approveThrough(spec.id, 8)
+  const out = await (await call('POST', `/specs/${spec.id}/publish`, undefined, done.version)).json()
+  assert.deepEqual([out.requirements, out.openQuestions], [0, 0])
+  assert.equal((await get(spec.id)).status, 'published')
+  assert.equal((await call('POST', '/specs/standalone', { name: '', what: '' })).status, 422)
+  assert.equal((await call('POST', '/specs/standalone', { name: 'x', what: '  ' })).status, 422)
+  assert.ok((await pg.query<any>(`select count(*)::int n from core.projects where kind = 'standalone'`)).rows[0].n === 1)
+})
+
+test('deleting a document removes its steps and stories; a stand-alone one takes its project with it', async () => {
+  const { app, pg, idOf, call, create } = await specFixture()
+  const mine = await create()
+  assert.equal((await call('DELETE', `/specs/${mine.id}`)).status, 204)
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.agent_steps where id = any($1::uuid[])`, [mine.steps.map((s: any) => s.id)])).rows[0].n, 0)
+  const again = await call('DELETE', `/specs/${mine.id}`)
+  assert.equal(again.status, 404)
+  assert.equal((await expectSpec(again, '/specs/{id}', 'delete')).error.code, 'not_found')
+  // The seeded, published document: its stories go with it.
+  const p1 = await idOf('Clinic booking, usability round 1')
+  const seeded = (await (await app.request(`/api/v1/specs?projectId=${p1}`)).json()).data[0]
+  assert.equal((await call('DELETE', `/specs/${seeded.id}`)).status, 204)
+  assert.equal((await pg.query<any>(`select count(*)::int n from delivery.stories where spec_id = $1`, [seeded.id])).rows[0].n, 0)
+  assert.equal((await (await app.request(`/api/v1/projects/${p1}/stage`)).json()).tabs.stories.enabled, false, 'Stories locks again')
+  const sa = await (await call('POST', '/specs/standalone', { name: 'Temp', what: 'x' })).json()
+  assert.equal((await call('DELETE', `/specs/${sa.id}`)).status, 204)
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.projects where kind = 'standalone'`)).rows[0].n, 0)
+  assert.equal((await call('DELETE', `/specs/${mine.id}`, undefined, undefined, { 'content-type': 'application/json' })).status, 401)
+  assert.ok((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'deleted' and entity = 'delivery.specs'`)).rows[0].n >= 3)
+})
+
+test('anyone can read documents as the viewer; a viewer role cannot start or change one even with the token', async () => {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const open = createApp({ env: TOKEN, getDb: () => d })
+  const viewer = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => d })
+  const p2 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, round 2'`)).rows[0] as { id: string }).id
+  assert.equal((await open.request('/api/v1/specs')).status, 200)
+  const res = await viewer.request(`/api/v1/projects/${p2}/specs`, { method: 'POST', headers: auth, body: '{}' })
+  assert.equal(res.status, 403)
+})

@@ -72,6 +72,22 @@ export const listThemes = (projectId: string) => request<ThemeList>(`/projects/$
 // An edit is checked against the version of that theme's edits, so edits to other themes never conflict.
 export const updateTheme = (themeId: string, version: number, body: ThemePatch) => request<Theme>(`/themes/${themeId}`, { method: 'PATCH', body, version })
 export const resetPriorityOverrides = (projectId: string) => request<{ data: Theme[] }>(`/projects/${projectId}/priority-overrides`, { method: 'DELETE' })
+export type SpecDetail = components['schemas']['SpecDetail']
+export type SpecSummary = components['schemas']['SpecSummary']
+export type SpecStep = SpecDetail['steps'][number]
+export type PublishResult = components['schemas']['PublishResult']
+export const listSpecs = (filter: { projectId?: string; standalone?: boolean } = {}) =>
+  request<{ data: SpecSummary[] }>(`/specs${filter.projectId ? `?projectId=${filter.projectId}` : filter.standalone ? '?standalone=true' : ''}`).then((r) => r.data)
+export const getSpec = (id: string) => request<SpecDetail>(`/specs/${id}`)
+export const createSpec = (projectId: string, name?: string) => request<SpecDetail>(`/projects/${projectId}/specs`, { method: 'POST', body: name ? { name } : {} })
+export const createStandaloneSpec = (name: string, what: string) => request<SpecDetail>('/specs/standalone', { method: 'POST', body: { name, what } })
+export const setSpecTheme = (specId: string, themeId: string, version: number, included: boolean) => request<SpecDetail>(`/specs/${specId}/themes/${themeId}`, { method: 'PUT', body: { included }, version })
+// Step actions carry the step's own version, so two people reviewing the same step cannot both succeed.
+export const approveStep = (stepId: string, version: number) => request<SpecDetail>(`/agent-steps/${stepId}/approve`, { method: 'POST', version })
+export const redoStep = (stepId: string, version: number, instructions: string) => request<SpecDetail>(`/agent-steps/${stepId}/redo`, { method: 'POST', body: { instructions }, version })
+export const editStep = (stepId: string, version: number, text: string) => request<SpecDetail>(`/agent-steps/${stepId}`, { method: 'PATCH', body: { text }, version })
+export const publishSpec = (specId: string, version: number) => request<PublishResult>(`/specs/${specId}/publish`, { method: 'POST', version })
+export const deleteSpec = (specId: string) => request<null>(`/specs/${specId}`, { method: 'DELETE' })
 export const listProjects = () => request<components['schemas']['ProjectList']>('/projects').then((r) => r.data)
 
 // What to tell a person for each error code the API can return.
@@ -84,6 +100,10 @@ export function friendlyMessage(err: unknown): string {
     if (err.code === 'version_conflict') return 'Someone else changed this project since you opened it.'
     if (err.code === 'not_found') return 'That project no longer exists.'
     if (err.code === 'no_transcripts') return 'Add at least one transcript before analyzing.'
+    if (err.code === 'no_analysis') return 'Analyze the transcripts first: a document is built from the themes.'
+    if (err.code === 'spec_published') return 'This document is published and can no longer be changed.'
+    if (err.code === 'step_not_ready') return 'That step is not ready for this action yet.'
+    if (err.code === 'steps_not_approved') return 'Every step must be approved before publishing.'
     if (err.code === 'theme_superseded') return 'These themes are from an earlier analysis. They have been reloaded.'
     if (err.code === 'workspace_not_found') return 'The demo data is not loaded yet.'
     return err.message

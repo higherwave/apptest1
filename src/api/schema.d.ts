@@ -228,6 +228,160 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/specs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requirements documents, newest first. Filter to one project, or to stand-alone documents. Open to read as the viewer. */
+        get: operations["listSpecs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/specs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Starts a requirements document from the project's themes: a run with the eight fixed steps, the first one already drafted and waiting for review. 409 no_analysis if the project has no themes. Needs the token. */
+        post: operations["createSpec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/specs/standalone": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Starts a document with no research behind it, drafted from a description alone. It lives in a project of its own kind, so it never appears in the research projects list. Needs the token. */
+        post: operations["createStandaloneSpec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/specs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One document with its themes, the eight steps (text, evidence, alternatives), the product brief and the requirements document built from approved steps. The ETag is the document's version. Open to read as the viewer. */
+        get: operations["getSpec"];
+        put?: never;
+        post?: never;
+        /** Permanently deletes the document, its steps and, if published, its stories (a hard delete after the page's confirmation). Needs the token. */
+        delete: operations["deleteSpec"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/specs/{id}/themes/{themeId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Includes or excludes a theme. It applies to steps not yet started; drafted steps keep what they were written from. If-Match is the document's version. Needs the token. */
+        put: operations["setSpecTheme"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-steps/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approves the step under review, and starts the next one. If-Match is the step's version. Needs the token. */
+        post: operations["approveStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-steps/{id}/redo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Redraws a step with the person's instructions ("Revised to account for ..."), back under review. If-Match is the step's version. Needs the token. */
+        post: operations["redoStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-steps/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Replaces the step's text. The step goes back under review and cannot count as approved until approved again. If-Match is the step's version. Needs the token. */
+        patch: operations["editStep"];
+        trace?: never;
+    };
+    "/specs/{id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publishes the document: every step must be approved (409 steps_not_approved otherwise). Each in-scope theme (effort 1 or 2) becomes a requirement and a story R1, R2 ... in the order step 5 listed them, each held-out theme (effort 3) becomes an open question Q1, Q2 ..., and every card starts in To Do. If-Match is the document's version. Needs the token. */
+        post: operations["publishSpec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/tasks": {
         parameters: {
             query?: never;
@@ -368,6 +522,114 @@ export interface components {
                 email: string;
                 sessionDate?: string | null;
             }[];
+        };
+        SpecSummary: {
+            id: string;
+            projectId: string;
+            projectName: string;
+            standalone: boolean;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            publishedAt: string | null;
+            /** @description The project was analysed again after this document was drafted. */
+            stale: boolean;
+            approved: number;
+            total: number;
+            createdAt: string;
+        };
+        SpecList: {
+            data: components["schemas"]["SpecSummary"][];
+        };
+        SpecDetail: {
+            id: string;
+            projectId: string;
+            projectName: string;
+            standalone: boolean;
+            name: string;
+            /** @enum {string} */
+            status: "draft" | "published";
+            publishedAt: string | null;
+            stale: boolean;
+            version: number;
+            sessions: number;
+            themes: {
+                id: string;
+                title: string;
+                /** @enum {string} */
+                category: "pain_point" | "need" | "expectation" | "delight";
+                /** @enum {string} */
+                priority: "low" | "medium" | "high";
+                effort: number;
+                participantCount: number;
+                totalParticipants: number;
+                included: boolean;
+            }[];
+            steps: {
+                id: string;
+                position: number;
+                key: string;
+                title: string;
+                /** @enum {string} */
+                status: "pending" | "review" | "approved";
+                /** @description The text shown, which is the person's edit if there is one, else the draft. */
+                text: string | null;
+                originalText: string | null;
+                edited: boolean;
+                redoNote: string | null;
+                revision: number;
+                version: number;
+                evidence: {
+                    themeId: string;
+                    title: string;
+                    label: string;
+                }[];
+                alternatives: {
+                    title: string;
+                    reason: string;
+                }[];
+                approvedAt: string | null;
+            }[];
+            brief: {
+                problem: string | null;
+                users: string | null;
+                goals: string[] | null;
+                /** @description Steps 1 to 3 are approved. */
+                locked: boolean;
+            };
+            document: {
+                heading: string;
+                lines: string[];
+            }[];
+            approved: number;
+            total: number;
+            canPublish: boolean;
+            preview: {
+                requirements: number;
+                openQuestions: number;
+            };
+        };
+        PublishResult: {
+            specId: string;
+            requirements: number;
+            openQuestions: number;
+            projectId: string;
+        };
+        CreateSpecRequest: {
+            name?: string;
+        };
+        StandaloneSpecRequest: {
+            name: string;
+            what: string;
+        };
+        IncludeThemeRequest: {
+            included: boolean;
+        };
+        RedoRequest: {
+            instructions: string;
+        };
+        EditStepRequest: {
+            text: string;
         };
         Quote: {
             id: string;
@@ -556,6 +818,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description The document as it is now. */
+        SpecSaved: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["SpecDetail"];
+            };
+        };
         /** @description Saved. The project as it is now, with its new version. */
         ProjectSaved: {
             headers: {
@@ -574,7 +845,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -1032,6 +1303,293 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listSpecs: {
+        parameters: {
+            query?: {
+                projectId?: string;
+                standalone?: "true";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The documents. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createSpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSpecRequest"];
+            };
+        };
+        responses: {
+            /** @description The new document. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createStandaloneSpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StandaloneSpecRequest"];
+            };
+        };
+        responses: {
+            /** @description The new document. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getSpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The document. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    deleteSpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    setSpecTheme: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+                themeId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IncludeThemeRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["SpecSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    approveStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SpecSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    redoStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RedoRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["SpecSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    editStep: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditStepRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["SpecSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    publishSpec: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublishResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

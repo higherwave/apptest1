@@ -3,6 +3,8 @@ import { AppShell } from './shell/AppShell'
 import { Placeholder } from './pages/Placeholder'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { TaskListPage } from './pages/project/TaskListPage'
+import { RequirementsListPage } from './pages/requirements/RequirementsListPage'
+import { WriterPage } from './pages/requirements/WriterPage'
 import { JourneyPage } from './pages/themes/JourneyPage'
 import { PrioritiesPage } from './pages/themes/PrioritiesPage'
 import { ThemesPage } from './pages/themes/ThemesPage'
@@ -24,6 +26,9 @@ export function App() {
         <Route path="projects/:projectId/themes" element={<ThemesPage />} />
         <Route path="projects/:projectId/journey" element={<JourneyPage />} />
         <Route path="projects/:projectId/prio" element={<PrioritiesPage />} />
+        <Route path="projects/:projectId/requirements" element={<RequirementsListPage />} />
+        <Route path="projects/:projectId/requirements/:specId" element={<WriterPage />} />
+        <Route path="requirements/:specId" element={<WriterPage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="insights/:section" element={<Placeholder />} />
         <Route path="*" element={<Placeholder title="Page not found" />} />

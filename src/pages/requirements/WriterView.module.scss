@@ -1,0 +1,134 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 90rem;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  align-items: flex-start;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.title {
+  @include tokens.role('display-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 300;
+}
+
+.source {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-muted);
+  font-weight: 400;
+}
+
+.context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+}
+
+.label {
+  @include tokens.role('caption');
+  margin: 0;
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+}
+
+.help {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--at-space-lg);
+  align-items: start;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.output {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  position: sticky;
+  inset-block-start: var(--at-space-lg);
+}
+
+.brief,
+.document,
+.ready {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+}
+
+.brief { background: var(--at-tint-cream); }
+.document { border: 1px solid var(--at-hairline); }
+.ready { background: var(--at-tint-mint); align-items: flex-start; }
+
+.blockTitle {
+  @include tokens.role('caption');
+  margin: 0;
+  color: var(--at-ink);
+  text-transform: uppercase;
+}
+
+.small {
+  @include tokens.role('meta');
+  margin: var(--at-space-sm) 0 0;
+  color: var(--at-muted);
+  font-weight: 500;
+}
+
+.para {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+.list {
+  @include tokens.role('label-md');
+  margin: 0;
+  padding-inline-start: var(--at-space-md);
+  color: var(--at-ink);
+  font-weight: 400;
+}
+
+.muted {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}

@@ -1,0 +1,107 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 75rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.heading {
+  @include tokens.role('title-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.hint,
+.empty {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
+  gap: var(--at-space-md);
+}
+
+.wrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  inset-block-end: var(--at-space-xs);
+  inset-inline-end: var(--at-space-xs);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  min-height: 8rem;
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-tint-cream);
+}
+
+.top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-sm);
+}
+
+.name {
+  @include tokens.role('title-sm');
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.status {
+  flex: none;
+  max-inline-size: none;
+  margin: 0;
+}
+
+.meta {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.stale {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-signature-coral);
+}
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0 0 var(--at-space-md);
+  color: var(--at-body);
+}
+
+// A button with an icon and a long label must size to its text, or the icon overlaps it.
+.wide {
+  max-inline-size: none;
+  inline-size: auto;
+  white-space: nowrap;
+}

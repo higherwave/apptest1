@@ -319,6 +319,210 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /specs:
+    get:
+      operationId: listSpecs
+      summary: Requirements documents, newest first. Filter to one project, or to stand-alone documents. Open to read as the viewer.
+      parameters:
+        - { name: projectId, in: query, required: false, schema: { type: string } }
+        - { name: standalone, in: query, required: false, schema: { type: string, enum: ['true'] } }
+      responses:
+        '200':
+          description: The documents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/specs:
+    post:
+      operationId: createSpec
+      summary: >
+        Starts a requirements document from the project's themes: a run with the eight fixed steps, the first one already
+        drafted and waiting for review. 409 no_analysis if the project has no themes. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSpecRequest' }
+      responses:
+        '201':
+          description: The new document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /specs/standalone:
+    post:
+      operationId: createStandaloneSpec
+      summary: >
+        Starts a document with no research behind it, drafted from a description alone. It lives in a project of its own kind,
+        so it never appears in the research projects list. Needs the token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StandaloneSpecRequest' }
+      responses:
+        '201':
+          description: The new document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /specs/{id}:
+    get:
+      operationId: getSpec
+      summary: >
+        One document with its themes, the eight steps (text, evidence, alternatives), the product brief and the requirements
+        document built from approved steps. The ETag is the document's version. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The document.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteSpec
+      summary: Permanently deletes the document, its steps and, if published, its stories (a hard delete after the page's confirmation). Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /specs/{id}/themes/{themeId}:
+    put:
+      operationId: setSpecTheme
+      summary: Includes or excludes a theme. It applies to steps not yet started; drafted steps keep what they were written from. If-Match is the document's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { name: themeId, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/IncludeThemeRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SpecSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /agent-steps/{id}/approve:
+    post:
+      operationId: approveStep
+      summary: Approves the step under review, and starts the next one. If-Match is the step's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      responses:
+        '200': { $ref: '#/components/responses/SpecSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /agent-steps/{id}/redo:
+    post:
+      operationId: redoStep
+      summary: Redraws a step with the person's instructions ("Revised to account for ..."), back under review. If-Match is the step's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RedoRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SpecSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /agent-steps/{id}:
+    patch:
+      operationId: editStep
+      summary: Replaces the step's text. The step goes back under review and cannot count as approved until approved again. If-Match is the step's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EditStepRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/SpecSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /specs/{id}/publish:
+    post:
+      operationId: publishSpec
+      summary: >
+        Publishes the document: every step must be approved (409 steps_not_approved otherwise). Each in-scope theme (effort 1 or 2)
+        becomes a requirement and a story R1, R2 ... in the order step 5 listed them, each held-out theme (effort 3) becomes an
+        open question Q1, Q2 ..., and every card starts in To Do. If-Match is the document's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      responses:
+        '201':
+          description: Published.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PublishResult' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /projects/{id}/tasks:
     put:
       operationId: saveTasks
@@ -367,6 +571,11 @@ components:
       description: The version the person was looking at (the ETag of the last read), for example "3".
       schema: { type: string }
   responses:
+    SpecSaved:
+      description: The document as it is now.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/SpecDetail' }
     ProjectSaved:
       description: Saved. The project as it is now, with its new version.
       content:
@@ -382,7 +591,7 @@ components:
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, internal_error.
+        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -538,6 +747,153 @@ components:
               role: { type: [string, 'null'] }
               email: { type: string }
               sessionDate: { type: [string, 'null'] }
+    SpecSummary:
+      type: object
+      required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, approved, total, createdAt]
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        standalone: { type: boolean }
+        name: { type: string }
+        status: { type: string, enum: [draft, published] }
+        publishedAt: { type: [string, 'null'] }
+        stale: { type: boolean, description: The project was analysed again after this document was drafted. }
+        approved: { type: integer }
+        total: { type: integer }
+        createdAt: { type: string }
+    SpecList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/SpecSummary' }
+    SpecDetail:
+      type: object
+      required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, version, sessions, themes, steps, brief, document, approved, total, canPublish, preview]
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        standalone: { type: boolean }
+        name: { type: string }
+        status: { type: string, enum: [draft, published] }
+        publishedAt: { type: [string, 'null'] }
+        stale: { type: boolean }
+        version: { type: integer }
+        sessions: { type: integer }
+        themes:
+          type: array
+          items:
+            type: object
+            required: [id, title, category, priority, effort, participantCount, totalParticipants, included]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              category: { type: string, enum: [pain_point, need, expectation, delight] }
+              priority: { type: string, enum: [low, medium, high] }
+              effort: { type: integer }
+              participantCount: { type: integer }
+              totalParticipants: { type: integer }
+              included: { type: boolean }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [id, position, key, title, status, text, originalText, edited, redoNote, revision, version, evidence, alternatives, approvedAt]
+            properties:
+              id: { type: string }
+              position: { type: integer }
+              key: { type: string }
+              title: { type: string }
+              status: { type: string, enum: [pending, review, approved] }
+              text: { type: [string, 'null'], description: "The text shown, which is the person's edit if there is one, else the draft." }
+              originalText: { type: [string, 'null'] }
+              edited: { type: boolean }
+              redoNote: { type: [string, 'null'] }
+              revision: { type: integer }
+              version: { type: integer }
+              evidence:
+                type: array
+                items:
+                  type: object
+                  required: [themeId, title, label]
+                  properties:
+                    themeId: { type: string }
+                    title: { type: string }
+                    label: { type: string }
+              alternatives:
+                type: array
+                items:
+                  type: object
+                  required: [title, reason]
+                  properties:
+                    title: { type: string }
+                    reason: { type: string }
+              approvedAt: { type: [string, 'null'] }
+        brief:
+          type: object
+          required: [problem, users, goals, locked]
+          properties:
+            problem: { type: [string, 'null'] }
+            users: { type: [string, 'null'] }
+            goals:
+              type: [array, 'null']
+              items: { type: string }
+            locked: { type: boolean, description: Steps 1 to 3 are approved. }
+        document:
+          type: array
+          items:
+            type: object
+            required: [heading, lines]
+            properties:
+              heading: { type: string }
+              lines:
+                type: array
+                items: { type: string }
+        approved: { type: integer }
+        total: { type: integer }
+        canPublish: { type: boolean }
+        preview:
+          type: object
+          required: [requirements, openQuestions]
+          properties:
+            requirements: { type: integer }
+            openQuestions: { type: integer }
+    PublishResult:
+      type: object
+      required: [specId, requirements, openQuestions, projectId]
+      properties:
+        specId: { type: string }
+        requirements: { type: integer }
+        openQuestions: { type: integer }
+        projectId: { type: string }
+    CreateSpecRequest:
+      type: object
+      properties:
+        name: { type: string }
+    StandaloneSpecRequest:
+      type: object
+      required: [name, what]
+      properties:
+        name: { type: string }
+        what: { type: string }
+    IncludeThemeRequest:
+      type: object
+      required: [included]
+      properties:
+        included: { type: boolean }
+    RedoRequest:
+      type: object
+      required: [instructions]
+      properties:
+        instructions: { type: string }
+    EditStepRequest:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string }
     Quote:
       type: object
       required: [id, speaker, participant, session, timestamp, text]

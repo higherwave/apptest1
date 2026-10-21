@@ -1,0 +1,111 @@
+@use '../../tokens' as tokens;
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+
+  &[data-state='pending'] { opacity: 0.55; }
+  &[data-state='review'] { border-color: var(--at-ink); }
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.dot {
+  @include tokens.role('meta');
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: var(--at-space-lg);
+  block-size: var(--at-space-lg);
+  border-radius: var(--at-radius-full);
+  background: var(--at-border-strong);
+  color: var(--at-on-primary);
+  font-weight: 500;
+
+  .card[data-state='review'] & { background: var(--at-ink); }
+  .card[data-state='approved'] & { background: var(--at-signature-forest); }
+}
+
+.title {
+  @include tokens.role('label-md');
+  flex: 1;
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 500;
+}
+
+.state {
+  @include tokens.role('meta');
+  font-weight: 500;
+  color: var(--at-muted);
+
+  &[data-state='approved'] { color: var(--at-signature-forest); }
+  &[data-state='review'] { color: var(--at-ink); }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  line-height: 1.6;
+}
+
+.flags,
+.evidence,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.label {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+.alternatives {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.alternative {
+  @include tokens.role('meta');
+  margin: 0;
+  padding-inline-start: var(--at-space-sm);
+  border-inline-start: var(--at-space-xxs) solid var(--at-hairline);
+  color: var(--at-muted);
+}
+
+.struck {
+  color: var(--at-muted);
+  font-weight: 500;
+  text-decoration: line-through;
+}
+
+// Evidence names are long; let them wrap rather than be cut off.
+.tag {
+  max-inline-size: 100%;
+  block-size: auto;
+
+  span {
+    white-space: normal;
+    overflow: visible;
+  }
+}

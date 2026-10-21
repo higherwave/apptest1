@@ -294,7 +294,7 @@ export async function seed(db) {
     const steps = buildSteps(ctx, Object.fromEntries(themes.map((t) => [t.id, true])));
 
     // Keep the "Draft requirements" step in step with the board's R-numbers.
-    const reqStories = B.defaultData.filter((s) => s.id.startsWith('r'));
+    const reqStories = B.defaultData.filter((s) => s.id.startsWith('r')).sort((a, b) => Number(a.id.slice(1)) - Number(b.id.slice(1)));
     steps[4].out = ['Requirements', reqStories.map((s) => {
       const t = byId[STORY_THEME[s.id]];
       return `${s.id.toUpperCase()}: ${t.opp} (${t.ppl} of ${t.total} participants)`;

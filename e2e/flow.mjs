@@ -104,6 +104,7 @@ try {
   await waitText('Test Plan')
   const projectId = page.url().match(/projects\/([0-9a-f-]{36})/)[1]
   ok('a draft project opens on its Test Plan', true)
+  await page.waitForFunction(() => document.querySelector('.cds--side-nav a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
   const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.cds--side-nav a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.innerText.trim(), { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
   ok('Plan steps are open and Analyze and Deliver steps are locked with a hint',
     !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Journey Map', 'Priorities', 'Requirements', 'Stories'].every((k) => navState[k].disabled && navState[k].hint),
@@ -273,6 +274,101 @@ try {
   await clickText('Reset all')
   await page.waitForFunction(() => !document.body.innerText.includes('Edited'), { timeout: 8000 })
   ok('Reset all clears every importance and effort edit', (await apiThemes()).every((t) => !t.edited))
+
+  // Requirements: start a document, review the eight steps (redo, edit, exclude a theme), approve, publish, then delete.
+  const apiSpecs = async () => (await (await fetch(`${API}/api/v1/specs?projectId=${projectId}`)).json()).data
+  const apiSpec = async (id) => (await (await fetch(`${API}/api/v1/specs/${id}`)).json())
+  const approvedCount = () => page.evaluate(() => document.querySelectorAll('article[data-state="approved"]').length)
+  const waitApprove = () => page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Approve' && !b.disabled), { timeout: 20000 })
+  const approveNext = async () => { const n = await approvedCount(); await waitApprove(); await clickText('Approve'); await page.waitForFunction((k) => document.querySelectorAll('article[data-state="approved"]').length === k, { timeout: 10000 }, n + 1) }
+
+  await navTo('Requirements')
+  await waitText('Documents from this project')
+  ok('Requirements starts empty, with a way to start a document', (await text()).includes('No documents yet'))
+  await clickText('New document from these themes')
+  await page.waitForFunction(() => /\/requirements\/[0-9a-f-]{36}$/.test(location.pathname), { timeout: 10000 })
+  const specId = page.url().match(/requirements\/([0-9a-f-]{36})/)[1]
+  await waitText('Agent reasoning')
+  ok('the writer opens with step 1 under review and the rest waiting', await page.evaluate(() => [...document.querySelectorAll('article')].map((a) => a.dataset.state).join(',') === 'review,pending,pending,pending,pending,pending,pending,pending'))
+  ok('the source line names the project, sessions and themes', (await text()).includes('Built from Intake v2 · 3 sessions · 9 themes'))
+  await waitApprove()
+  ok('the first step is being written, then offers Approve and Redo', (await text()).includes('Redo with instructions'))
+
+  // Exclude a theme; then redo step 1 with instructions.
+  await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.innerText.trim() === 'Insurance coverage is unclear up front').click())
+  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.innerText.trim() === 'Insurance coverage is unclear up front')?.getAttribute('aria-pressed') === 'false', { timeout: 8000 })
+  ok('clicking a theme excludes it', (await apiSpec(specId)).themes.find((t) => t.title === 'Insurance coverage is unclear up front').included === false)
+  await clickText('Redo with instructions')
+  await page.waitForSelector('#redo-instructions', { visible: true })
+  await page.type('#redo-instructions', 'Focus on rescheduling')
+  await clickText('Submit')
+  await page.waitForFunction(() => document.body.innerText.includes('Revised to account for: Focus on rescheduling.'), { timeout: 15000 })
+  await waitText('Redone once')
+  ok('redo redraws the step with the instructions', (await apiSpec(specId)).steps[0].revision === 1)
+
+  // Edit step 1: it goes back under review and keeps my words.
+  await waitApprove()
+  await clickText('Edit')
+  await page.waitForSelector('#step-text-1')
+  await retype('#step-text-1', 'Patients cannot reschedule without a phone call.')
+  await clickText('Save edit')
+  await waitText('Patients cannot reschedule without a phone call.')
+  await waitText('Edited')
+  ok('editing a step keeps my text and leaves it under review', await page.evaluate(() => document.querySelector('article[data-state="review"]') !== null) && (await apiSpec(specId)).steps[0].edited === true)
+
+  await approveNext() // step 1
+  ok('approving step 1 starts step 2', await page.evaluate(() => [...document.querySelectorAll('article')].slice(0, 3).map((a) => a.dataset.state).join(',') === 'approved,review,pending'))
+  await approveNext() // step 2
+  await approveNext() // step 3
+  await waitText('Brief locked. Drafting begins.')
+  ok('after steps 1 to 3 the product brief is locked and filled', (await text()).includes('Problem') && (await text()).includes('Goals'))
+  for (let i = 4; i <= 8; i++) await approveNext()
+  await waitText('Ready to publish')
+  ok('with all eight approved, the document is ready to publish', (await text()).toLowerCase().includes('requirements document'))
+  const preview = (await apiSpec(specId)).preview
+  ok('and says what the board will get', (await text()).includes(`creates ${preview.requirements} requirements and ${preview.openQuestions} open questions`), JSON.stringify(preview))
+  await clickText('Publish')
+  await page.waitForFunction(() => /\/stories$/.test(location.pathname), { timeout: 15000 })
+  ok('publishing opens Stories', true)
+  ok('the project’s Stories step is now unlocked', !(await navLocked('Stories')))
+  ok('the document is Published', (await apiSpec(specId)).status === 'published')
+
+  // The list shows it; a published document is read-only; a stand-alone one starts from a description.
+  await navTo('Requirements')
+  await waitText('8 of 8 steps approved')
+  ok('the list shows the published document with 8 of 8 approved', (await text()).includes('Published'))
+  await page.evaluate(() => document.querySelector('.cds--tile--clickable, a.cds--tile').click())
+  await waitText('Agent reasoning')
+  ok('a published document has no Approve, Redo or Edit', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => ['Approve', 'Redo with instructions', 'Edit'].includes(b.innerText.trim()))))
+  await clickText('← Requirements')
+  await waitText('Stand-alone documents')
+  await clickText('Write a stand-alone document')
+  await page.waitForSelector('#standalone-name', { visible: true })
+  await page.type('#standalone-name', 'Saved searches')
+  await page.type('#standalone-what', 'Let people save a search and get alerts')
+  await clickText('Start')
+  await page.waitForFunction(() => /^\/requirements\/[0-9a-f-]{36}$/.test(location.pathname), { timeout: 10000 })
+  await waitText('Stand-alone document, drafted from a description.')
+  await waitApprove()
+  ok('a stand-alone document is drafted from the description alone', (await text()).includes('No research is attached, so the problem statement rests on your description'))
+  ok('it is not in the research projects list', !(await (await fetch(`${API}/api/v1/projects`)).json()).data.some((p) => p.name === 'Saved searches'))
+  await page.goBack()
+  await waitText('Saved searches')
+
+  // Delete the stand-alone document, then the published one: its stories go and Stories locks again.
+  await page.click('[aria-label="Actions for Saved searches"]')
+  await clickText('Delete document', 'button')
+  await waitText('Delete this document?')
+  await clickText('Delete permanently')
+  await page.waitForFunction(() => !document.body.innerText.includes('Saved searches') || document.querySelectorAll('[aria-label="Actions for Saved searches"]').length === 0, { timeout: 8000 })
+  ok('a stand-alone document can be deleted, after confirming', !(await text()).includes('Saved searches'))
+  await new Promise((r) => setTimeout(r, 800)) // let the closing dialog finish
+  await page.click('[aria-label="Actions for Intake v2"]')
+  await clickText('Delete document', 'button')
+  await waitText('and the requirements and stories it created on the board')
+  await clickText('Delete permanently')
+  await waitText('No documents yet')
+  ok('deleting the published document removes it and locks Stories again', (await apiSpecs()).length === 0 && await navLocked('Stories'))
 
   await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
   await page.waitForSelector('#transcript-name-2')

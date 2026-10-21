@@ -77,6 +77,12 @@ await test('the board is published, with 8 approved steps and a redo recorded', 
   eq(await val(db, `select count(*)::int from delivery.spec_step_evidence`) > 0, true, 'evidence');
 });
 
+await test('step 5 of the published document lists R1 to R7 in order, matching the board', async () => {
+  const out = await val(db, `select output->'items' from core.agent_steps where key = 'requirements' and run_id = $1`, [uid('run:spec:p1')]);
+  const keys = out.map((l) => l.split(':')[0]);
+  eq(keys, ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'], 'requirement order');
+});
+
 await test('stories: 10 cards in the right columns, all with a theme link except the fee policy', async () => {
   const c = await rows(db, `select status, count(*)::int n from delivery.stories group by 1 order by 1`);
   eq(c.map((x) => [x.status, x.n]), [['todo', 5], ['in_progress', 3], ['in_review', 1], ['done', 1]], 'columns (enum order)');

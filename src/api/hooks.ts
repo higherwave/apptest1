@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  createProject, deleteProject, getMe, getProject, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
+  createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type CreateProjectRequest, type ProjectDetail,
 } from './client'
 import { getToken, subscribeToken } from './token'
@@ -49,3 +49,6 @@ export const useSaveTasks = (id: string) => useSave(id, saveTasks)
 export const useTranscripts = (id: string | undefined) => useQuery({ queryKey: ['transcripts', id], queryFn: () => getTranscripts(id!), enabled: !!id })
 // Transcript and analysis calls change the project's version, so the caller reads the project again afterwards.
 export const transcriptApi = { save: saveTranscripts, analyze: startAnalysis, project: getProject }
+
+export const useSpecs = (filter: { projectId?: string; standalone?: boolean }) => useQuery({ queryKey: ['specs', filter], queryFn: () => listSpecs(filter) })
+export const useSpec = (id: string | undefined) => useQuery({ queryKey: ['spec', id], queryFn: () => getSpec(id!), enabled: !!id })

@@ -90,3 +90,13 @@ export const themePatchSchema = z
   .refine((v) => Object.keys(v).length > 0, 'Send at least one change.')
 export type ThemePatchInput = z.infer<typeof themePatchSchema>
 export const THEME_CATEGORIES = ['pain_point', 'need', 'expectation', 'delight'] as const
+
+// Requirements documents -----------------------------------------------------------------------------------
+export const createSpecSchema = z.object({ name: text(120).optional() })
+export const standaloneSpecSchema = z.object({
+  name: text(120).min(1, 'Enter a name for the document.'),
+  what: text(1000).min(1, 'Describe what you are specifying.'),
+})
+export const includeThemeSchema = z.object({ included: z.boolean() })
+export const redoSchema = z.object({ instructions: text(500).min(1, 'Tell the agent what to change.') })
+export const editStepSchema = z.object({ text: z.string().trim().min(1, 'The text cannot be empty.').max(5000, 'The text is too long.') })

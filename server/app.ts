@@ -7,7 +7,12 @@ import {
   createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveParticipants, saveTasks,
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
-import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema } from './schemas.js'
+import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
+  createSpecSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema } from './schemas.js'
+import {
+  approveStep, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
+  SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
+} from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
@@ -216,6 +221,122 @@ export function createApp(options: AppOptions = {}) {
     await resetPriorityOverrides(getDb(), c.get('ctx'), id)
     c.header('Cache-Control', 'no-store')
     return c.json({ data: await listThemes(getDb(), id) })
+  })
+
+  // Requirements documents --------------------------------------------------------------------------------
+
+  // Domain errors from the specs module become the API's answers.
+  const specError = (err: unknown): never => {
+    if (err instanceof SpecNotFound) throw new ApiError(404, 'not_found', 'No such document.')
+    if (err instanceof SpecPublished) throw new ApiError(409, 'spec_published', 'This document is published and can no longer be changed.')
+    if (err instanceof NoAnalysis) throw new ApiError(409, 'no_analysis', 'Analyze the transcripts first: a document is built from the themes.')
+    if (err instanceof StepOutOfOrder) throw new ApiError(409, 'step_not_ready', 'That step is not ready for this action yet.')
+    if (err instanceof NotAllApproved) throw new ApiError(409, 'steps_not_approved', 'Every step must be approved before publishing.')
+    if (err instanceof StepConflict || err instanceof SpecConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this since you opened it.', undefined, { current: { version: err.current } })
+    throw err
+  }
+  const specDetail = async (c: Context, id: string) => {
+    const detail = await getSpec(getDb(), c.get('ctx').workspaceId, id)
+    if (!detail) throw new ApiError(404, 'not_found', 'No such document.')
+    c.header('ETag', `"${detail.version}"`)
+    return detail
+  }
+  const specId = (c: Context, name = 'id') => {
+    const id = c.req.param(name) ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such document.')
+    return id
+  }
+
+  app.get('/specs', withReadContext, async (c) => {
+    const projectId = c.req.query('projectId')
+    if (projectId && !UUID.test(projectId)) throw new ApiError(422, 'validation_failed', 'Not a project id.', 'projectId')
+    const data = await listSpecs(getDb(), c.get('ctx').workspaceId, { projectId, standalone: c.req.query('standalone') === 'true' })
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json({ data })
+  })
+
+  app.post('/projects/:id/specs', withContext, async (c) => {
+    requireEditor(c)
+    const id = projectId(c)
+    const input = parseBody(createSpecSchema, await readJson(c))
+    let created: string
+    try {
+      created = await createProjectSpec(getDb(), c.get('ctx'), id, input.name)
+    } catch (err) {
+      return specError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await specDetail(c, created), 201)
+  })
+
+  app.post('/specs/standalone', withContext, async (c) => {
+    requireEditor(c)
+    const input = parseBody(standaloneSpecSchema, await readJson(c))
+    const created = await createStandaloneSpec(getDb(), c.get('ctx'), input)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await specDetail(c, created), 201)
+  })
+
+  app.get('/specs/:id', withReadContext, async (c) => {
+    const detail = await specDetail(c, specId(c))
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(detail)
+  })
+
+  app.put('/specs/:id/themes/:themeId', withContext, async (c) => {
+    requireEditor(c)
+    const id = specId(c)
+    const themeId = specId(c, 'themeId')
+    const expected = expectedVersion(c)
+    const { included } = parseBody(includeThemeSchema, await readJson(c))
+    try {
+      await setThemeIncluded(getDb(), c.get('ctx'), id, themeId, included, expected)
+    } catch (err) {
+      return specError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await specDetail(c, id))
+  })
+
+  // A step action carries the version of that step, so two people reviewing the same step cannot both succeed.
+  const stepAction = async (c: Context, schema: Parameters<typeof parseBody>[0] | null, run: (stepId: string, expected: number, input: any) => Promise<string>) => {
+    requireEditor(c)
+    const stepId = specId(c)
+    const expected = expectedVersion(c)
+    const input = schema ? parseBody(schema, await readJson(c)) : undefined
+    let id: string
+    try {
+      id = await run(stepId, expected, input)
+    } catch (err) {
+      return specError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await specDetail(c, id))
+  }
+  app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), c.get('ctx'), stepId, v)))
+  app.post('/agent-steps/:id/redo', withContext, (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), c.get('ctx'), stepId, v, input.instructions)))
+  app.patch('/agent-steps/:id', withContext, (c) => stepAction(c, editStepSchema, (stepId, v, input) => editStep(getDb(), c.get('ctx'), stepId, v, input.text)))
+
+  app.post('/specs/:id/publish', withContext, async (c) => {
+    requireEditor(c)
+    const id = specId(c)
+    let result
+    try {
+      result = await publishSpec(getDb(), c.get('ctx'), id, expectedVersion(c))
+    } catch (err) {
+      return specError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json({ specId: id, ...result }, 201)
+  })
+
+  app.delete('/specs/:id', withContext, async (c) => {
+    requireEditor(c)
+    if (!(await deleteSpec(getDb(), c.get('ctx'), specId(c)))) throw new ApiError(404, 'not_found', 'No such document.')
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
   })
 
   app.put('/projects/:id/tasks', withContext, (c) => save(c, saveTasksSchema, (id, v, input) => saveTasks(getDb(), c.get('ctx'), id, v, input)))
