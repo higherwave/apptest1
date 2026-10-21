@@ -3,7 +3,7 @@ import { Button, Dropdown, FileUploaderDropContainer, InlineNotification, Loadin
 import { useState } from 'react'
 import type { ProjectDetail, TranscriptList } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
-import { SaveBar, type SaveBarProps } from '../project/SaveBar'
+import { SaveAlerts, type SaveBarProps } from '../project/SaveBar'
 import { AnalysisProgress } from './AnalysisProgress'
 import type { Platform, TranscriptErrors, TranscriptItem } from './form'
 import { ACCEPTED_FILES, PLATFORM_DROP, PLATFORM_HELP, PLATFORM_LABEL, PLATFORM_SHORT } from './platformHelp'
@@ -45,8 +45,8 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
 
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Transcripts" description={`${methods} · ${plural(project.participants.length, 'participant')} · ${plural(items.length, 'transcript')}`} />
-      <SaveBar {...save} />
+      <ProjectHeader title="Transcripts" description={`${methods} · ${plural(project.participants.length, 'participant')} · ${plural(items.length, 'transcript')}`} save={save} />
+      <SaveAlerts {...save} />
       {notice && <InlineNotification kind="info" lowContrast hideCloseButton title="Analysis" subtitle={notice} />}
 
       {!readOnly && (

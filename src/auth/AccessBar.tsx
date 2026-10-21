@@ -6,6 +6,10 @@ import { useAiStatus, useMe } from '../api/hooks'
 import { setToken } from '../api/token'
 import styles from './AccessBar.module.scss'
 
+// The "Editing unlocked" badge and the Lock button are hidden unless VITE_SHOW_ACCESS_CONTROLS=true, so a shared demo looks
+// clean; editing itself works the same either way. A read-only visitor still sees how to unlock.
+const showAccess = import.meta.env.VITE_SHOW_ACCESS_CONTROLS === 'true'
+
 // Shows whether this tab can edit, and asks for the access token to unlock editing.
 export function AccessBar() {
   const me = useMe()
@@ -50,18 +54,22 @@ export function AccessBar() {
 
   return (
     <div className={styles.bar}>
-      <Tag size="sm" type={editing ? 'green' : 'gray'}>
-        {editing ? 'Editing unlocked' : 'Read-only demo'}
-      </Tag>
+      {showAccess || !editing ? (
+        <Tag size="sm" type={editing ? 'green' : 'gray'}>
+          {editing ? 'Editing unlocked' : 'Read-only demo'}
+        </Tag>
+      ) : null}
       {ai.data && (
         <Tag size="sm" type={ai.data.mode === 'live' ? 'blue' : 'gray'}>
           {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
         </Tag>
       )}
       {editing ? (
-        <Button kind="ghost" size="sm" onClick={lock}>
-          Lock
-        </Button>
+        showAccess && (
+          <Button kind="ghost" size="sm" onClick={lock}>
+            Lock
+          </Button>
+        )
       ) : (
         <Button kind="ghost" size="sm" onClick={() => setOpen(true)}>
           Unlock editing

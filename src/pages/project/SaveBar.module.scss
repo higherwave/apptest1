@@ -6,10 +6,32 @@
   gap: var(--at-space-sm);
 }
 
-.bar {
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--at-space-xs);
+}
+
+.status {
+  @include tokens.role('body-md');
   display: flex;
   align-items: center;
-  gap: var(--at-space-sm);
+  gap: var(--at-space-xs);
+  margin: 0;
+  color: var(--at-body);
+  white-space: nowrap;
+}
+
+.dot {
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+  border-radius: var(--at-radius-full);
+  background: var(--at-signature-forest);
+
+  &[data-state='dirty'] {
+    background: var(--at-signature-mustard);
+  }
 }
 
 .note {

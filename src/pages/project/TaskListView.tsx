@@ -3,7 +3,7 @@ import { Button, InlineNotification, Loading, TextInput } from '@carbon/react'
 import type { ProjectDetail } from '../../api/client'
 import type { TaskForm } from '../testplan/form'
 import { ProjectHeader } from './ProjectHeader'
-import { SaveBar, type SaveBarProps } from './SaveBar'
+import { SaveAlerts, type SaveBarProps } from './SaveBar'
 import styles from './TaskListView.module.scss'
 
 export type TaskListViewProps = {
@@ -24,8 +24,8 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
 
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Task List" description="The questions and tasks you will take participants through, with follow-ups." />
-      <SaveBar {...save} />
+      <ProjectHeader title="Task List" description="The questions and tasks you will take participants through, with follow-ups." save={save} />
+      <SaveAlerts {...save} />
 
       {tasks.length === 0 && <p className={styles.empty}>No tasks yet. Add the first question.</p>}
 

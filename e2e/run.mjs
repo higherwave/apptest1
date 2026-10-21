@@ -26,7 +26,7 @@ async function waitFor(url, label, ms = 60_000) {
 }
 
 start('npx', ['tsx', 'server/dev-memory.ts'], { DEV_TOKEN: TOKEN, API_PORT: '8791' })
-start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791' })
+start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791', VITE_SHOW_ACCESS_CONTROLS: 'true' }) // the tests lock and unlock editing, so the controls are shown
 await waitFor('http://localhost:8791/api/v1/health', 'The API')
 await waitFor('http://localhost:5198/', 'The app')
 

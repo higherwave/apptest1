@@ -20,23 +20,32 @@ export type SaveBarProps = {
   onOverwrite: () => void
 }
 
-// Presentational: the save state, the Save button, and the choices offered after a conflict.
-export function SaveBar({ dirty, saving, canEdit, conflict, error, savedAt, saveLabel = 'Save', actionable, note, onSave, onReload, onOverwrite }: SaveBarProps) {
+// The Save button with the save state under it, for the right-hand end of a page's title row.
+export function SaveControls({ dirty, saving, canEdit, savedAt, saveLabel = 'Save', actionable, note, onSave }: SaveBarProps) {
+  const status = dirty ? 'Unsaved changes' : savedAt ? `All changes saved at ${savedAt}` : 'All changes saved'
+  return (
+    <div className={styles.controls}>
+      <Button kind="primary" size="md" disabled={!canEdit || !(dirty || actionable) || saving} onClick={onSave}>
+        {saving ? 'Working…' : saveLabel}
+      </Button>
+      <p className={styles.status} role="status">
+        <span className={styles.dot} data-state={dirty ? 'dirty' : 'saved'} aria-hidden />
+        {status}
+      </p>
+      {note && (
+        <Tag size="sm" type="warm-gray">
+          {note}
+        </Tag>
+      )}
+    </div>
+  )
+}
+
+// What can go wrong under the title row: editing locked, a conflict with someone else's save, or a failed save.
+export function SaveAlerts({ canEdit, conflict, error, onReload, onOverwrite }: SaveBarProps) {
+  if (canEdit && !conflict && !error) return null
   return (
     <div className={styles.wrap}>
-      <div className={styles.bar}>
-        <Tag size="sm" type={dirty ? 'warm-gray' : 'green'}>
-          {dirty ? 'Unsaved changes' : savedAt ? `All changes saved at ${savedAt}` : 'All changes saved'}
-        </Tag>
-        {note && (
-          <Tag size="sm" type="warm-gray">
-            {note}
-          </Tag>
-        )}
-        <Button kind="primary" size="md" disabled={!canEdit || !(dirty || actionable) || saving} onClick={onSave}>
-          {saving ? 'Working…' : saveLabel}
-        </Button>
-      </div>
       {!canEdit && <p className={styles.note}>Editing is locked. Use &quot;Unlock editing&quot; at the top of the page.</p>}
       {conflict && (
         <>
