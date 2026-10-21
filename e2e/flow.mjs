@@ -239,6 +239,13 @@ try {
   await clickText('All 9')
   await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 5000 })
 
+  // Coming back to Themes with the data already loaded must still fill the name box (it was empty once).
+  await navTo('Journey Map')
+  await waitText('Journey Map')
+  await navTo('Themes')
+  await page.waitForFunction(() => document.querySelector('#theme-title')?.value.length > 0, { timeout: 8000 })
+  ok('returning to Themes shows the selected theme’s name in the name box', true)
+
   // Choose the theme about availability; rename it and move it to another stage.
   await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Themes"] li')].find((li) => li.innerText.includes('Provider availability is hard to see')).querySelector('a, button').click())
   await waitText('Theme name')

@@ -29,7 +29,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
   const shown = category === 'all' ? themes : themes.filter((t) => t.category === category)
   const count = (c: ThemeCategory | 'all') => (c === 'all' ? themes.length : themes.filter((t) => t.category === c).length)
   // The rename box holds what is being typed; it is saved when the person leaves the box.
-  const [draft, setDraft] = useState('')
+  const [draft, setDraft] = useState(selected?.title ?? '') // the themes may already be loaded when the page opens
   const [draftFor, setDraftFor] = useState(`${selected?.id}|${selected?.title}`)
   if (draftFor !== `${selected?.id}|${selected?.title}`) {
     setDraftFor(`${selected?.id}|${selected?.title}`)
