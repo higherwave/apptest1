@@ -348,11 +348,6 @@ $column-min: 14rem;
   gap: var(--at-space-xs);
 
   > :first-child {
-    flex: none;
-    inline-size: auto;
-  }
-
-  > :nth-child(2) {
     flex: 1 1 0;
     min-width: 0;
 

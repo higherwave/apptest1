@@ -1,4 +1,4 @@
-import { Button, Checkbox, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
 import { useRef, useState } from 'react'
 import { COLUMNS } from '../../../shared/board.mjs'
 import { Close } from '@carbon/icons-react'
@@ -213,18 +213,6 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
       <ul className={styles.list}>
         {rows.map((r, i) => (
           <li key={r.id ?? `new-${i}`} className={styles.item}>
-            <Checkbox
-              id={`check-${r.id ?? `new-${i}`}`}
-              labelText={`Criterion ${i + 1} met`}
-              hideLabel
-              checked={r.met}
-              disabled={!canEdit || busy || !r.text.trim()}
-              onChange={(_, { checked }) => {
-                const next = rows.map((x, j) => (j === i ? { ...x, met: checked } : x))
-                setRows(next)
-                commit(next)
-              }}
-            />
             <TextArea
               id={`criterion-${i}`}
               labelText={`Criterion ${i + 1}`}
