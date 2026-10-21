@@ -263,10 +263,61 @@
   border-radius: var(--at-radius-sm);
 }
 
-// -- Text inputs: rounded.sm, 44px height --------------------------------
+// -- Form fields: white, outlined on all sides, 4px corners ----------------
+// Carbon's fields are gray-filled with only a bottom border. Here the fill is gone and the same strong border
+// (--cds-border-strong, the colour Carbon draws under its fields) runs round the whole field, with 4px (0.25rem) corners.
 .cds--text-input,
-.cds--text-area {
-  border-radius: var(--at-radius-sm);
+.cds--text-area,
+.cds--select-input,
+.cds--search-input,
+.cds--number input[type='number'],
+.cds--date-picker__input,
+.cds--list-box,
+.cds--list-box__field {
+  background: transparent;
+  border-radius: 0.25rem;
+}
+
+.cds--text-input,
+.cds--text-area,
+.cds--select-input,
+.cds--search-input,
+.cds--number input[type='number'],
+.cds--date-picker__input {
+  border: 1px solid var(--cds-border-strong);
+}
+
+.cds--list-box {
+  border: 1px solid var(--cds-border-strong);
+}
+
+// The list box paints its own bottom rule and fill; the outer box carries the outline now.
+.cds--list-box .cds--list-box__field {
+  border: 0;
+}
+
+.cds--list-box__menu {
+  border-radius: 0 0 0.25rem 0.25rem;
+}
+
+// Read-only and disabled fields stay quiet: a hairline, no emphasis.
+.cds--text-input[readonly],
+.cds--text-area[readonly],
+.cds--text-input:disabled,
+.cds--text-area:disabled,
+.cds--select-input:disabled,
+.cds--search-input:disabled,
+.cds--list-box--disabled,
+.cds--list-box--disabled .cds--list-box__field {
+  border-color: var(--at-hairline);
+  background: transparent;
+}
+
+// Invalid fields keep Carbon's red outline, drawn over the border.
+.cds--text-input--invalid,
+.cds--text-area--invalid,
+.cds--list-box--invalid {
+  border-color: var(--cds-support-error);
 }
 
 .cds--text-input__field-outer-wrapper .cds--text-input,
