@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--at-space-xl);
+  margin-block-end: var(--at-space-md); // a little air before the page content
 }
 
 .text {

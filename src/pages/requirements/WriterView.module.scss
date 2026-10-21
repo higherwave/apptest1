@@ -12,6 +12,7 @@
   flex-direction: column;
   gap: var(--at-space-xs);
   align-items: flex-start;
+  margin-block-end: var(--at-space-md); // a little air before the page content
 }
 
 .titleRow {

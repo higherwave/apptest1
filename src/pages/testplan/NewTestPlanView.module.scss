@@ -17,6 +17,7 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--at-space-md);
+  margin-block-end: var(--at-space-md); // a little air before the page content
 }
 
 .title {
