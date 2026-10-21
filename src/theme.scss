@@ -94,6 +94,52 @@
   --cds-support-warning: var(--at-signature-mustard);
 }
 
+// -- Signal Flow additions -------------------------------------------------
+// Tokens the Signal Flow prototype needs beyond DESIGN.md's core palette. Same rule as above:
+// every hex lives here once; components and pages use only var(--at-*). The registry in
+// design-system-mcp (registry/tokens.json) documents these names and maps the prototype's
+// raw hex values to them; `scripts/check-tokens.mjs` keeps the two in step.
+:root {
+  // Pastel fills: project cards, theme chips, recommendation panels, board columns.
+  --at-tint-cream: #faf3e6;
+  --at-tint-mint: #e4f3ec;
+  --at-tint-yellow: #fbf3cf;
+  --at-tint-coral: #fbe9e0;
+  --at-tint-lavender: #eeeafa;
+  --at-tint-sky: #e6f2fa;
+  --at-tint-blue: #eef2fa;
+  --at-tint-rose: #fae6ed;
+  --at-tint-peach: #fddcc6;
+  --at-tint-sand: #faf1df;
+  // Text that sits on a tint (category badges). Expectation and Delight reuse
+  // --at-signature-forest and --at-ink.
+  --at-on-tint-coral: #7a1f00;   // Pain point
+  --at-on-tint-cream: #5a3d00;   // Need
+  --at-on-tint-yellow: #8a6d00;
+
+  // Neutral states
+  --at-surface-hover: #f2f3f5;
+  --at-surface-hover-strong: #e8eaed;
+  --at-text-tertiary: #6b7078;
+  --at-text-disabled: var(--at-border-strong);
+
+  // Left application rail (the 88px toolbar)
+  --at-rail: #2b2f36;
+  --at-rail-hover: #3a3e46;
+  --at-rail-active: #4a4f58;
+  --at-rail-text: #c9ccd2;
+
+  // Board status accents. Fill = the column's card edge; strong = progress bar and selection ring.
+  --at-status-todo: #d0d3d9;
+  --at-status-todo-strong: #7d828c;
+  --at-status-progress: var(--at-tint-yellow);
+  --at-status-progress-strong: #c9a400;
+  --at-status-review: var(--at-tint-mint);
+  --at-status-review-strong: #4a9c7c;
+  --at-status-done: var(--at-tint-cream);
+  --at-status-done-strong: var(--at-signature-mustard);
+}
+
 // -- Buttons -------------------------------------------------------------
 // Carbon ships buttons square with blue/gray fills. Mapped per kind onto
 // DESIGN.md's button pair, at app density (button-sm type, rounded.md):
