@@ -59,6 +59,11 @@ export const getProjectStage = (id: string) => request<StageInfo>(`/projects/${i
 export const saveStudy = (id: string, version: number, body: components['schemas']['SavePlanRequest']) => request<ProjectDetail>(`/projects/${id}/study`, { method: 'PUT', body, version })
 export const saveParticipants = (id: string, version: number, body: components['schemas']['SaveParticipantsRequest']) => request<ProjectDetail>(`/projects/${id}/participants`, { method: 'PUT', body, version })
 export const saveTasks = (id: string, version: number, body: components['schemas']['SaveTasksRequest']) => request<ProjectDetail>(`/projects/${id}/tasks`, { method: 'PUT', body, version })
+export type TranscriptList = components['schemas']['TranscriptList']
+export type AnalysisRunResult = components['schemas']['AnalysisRunResult']
+export const getTranscripts = (id: string) => request<TranscriptList>(`/projects/${id}/transcripts`)
+export const saveTranscripts = (id: string, version: number, body: components['schemas']['SaveTranscriptsRequest']) => request<TranscriptList>(`/projects/${id}/transcripts`, { method: 'PUT', body, version })
+export const startAnalysis = (id: string, version: number) => request<AnalysisRunResult>(`/projects/${id}/analysis-runs`, { method: 'POST', body: {}, version })
 export const listProjects = () => request<components['schemas']['ProjectList']>('/projects').then((r) => r.data)
 
 // What to tell a person for each error code the API can return.
@@ -70,6 +75,7 @@ export function friendlyMessage(err: unknown): string {
     if (err.code === 'forbidden') return 'Your role cannot make changes.'
     if (err.code === 'version_conflict') return 'Someone else changed this project since you opened it.'
     if (err.code === 'not_found') return 'That project no longer exists.'
+    if (err.code === 'no_transcripts') return 'Add at least one transcript before analyzing.'
     if (err.code === 'workspace_not_found') return 'The demo data is not loaded yet.'
     return err.message
   }

@@ -1,6 +1,9 @@
 // Drives the real app in Chrome against an in-memory API: read-only visitor, unlock with a wrong then the
 // right token, the wizard's validation, create, remove with confirmation, and lock. Started by e2e/run.mjs.
 import puppeteer from 'puppeteer-core'
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 const BASE = process.env.E2E_BASE || 'http://localhost:5199'
 const TOKEN = process.env.E2E_TOKEN || 'abc123'
 const API = process.env.E2E_API || 'http://localhost:8787'
@@ -166,6 +169,58 @@ try {
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('#task-2')
   ok('a new task and its follow-up survive a reload', await page.evaluate(() => document.querySelector('#task-2').value === 'What would you do next?' && document.querySelector('#task-2-followup-0').value === 'What made you choose that?'))
+
+  // Transcripts: upload files, run the analysis, see the Analyze steps unlock, edit, then remove everything.
+  const samples = JSON.parse(readFileSync(new URL('../db/seed/data/research.json', import.meta.url), 'utf8')).SAMPLES
+  const dir = mkdtempSync(join(tmpdir(), 'sf-transcripts-'))
+  const files = samples.map((smp) => { const f = join(dir, smp.name); writeFileSync(f, smp.text); return f })
+  const navLocked = async (label) => page.evaluate((l) => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === l)?.getAttribute('aria-disabled') === 'true', label)
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
+  await waitText('Add a transcript')
+  ok('a project with no transcripts says so', (await text()).includes('No transcripts yet'))
+  ok('Themes is still locked before analysis', await navLocked('Themes'))
+  await (await page.$('input[type=file]')).uploadFile(...files)
+  await page.waitForSelector('#transcript-name-2')
+  ok('three uploaded files become three transcripts', await page.evaluate(() => document.querySelector('#transcript-name-0').value.startsWith('Session 1')))
+  ok('the button says Save and analyze', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save and analyze')))
+  await clickText('Save and analyze')
+  await waitText('Analyzing transcripts')
+  ok('a progress dialog shows the analysis steps', (await text()).includes('Clustering statements'))
+  await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 20000 })
+  ok('when it finishes, the person lands on Themes', true)
+  ok('Themes, Journey Map, Priorities and Requirements are now open; Stories is still locked',
+    !(await navLocked('Themes')) && !(await navLocked('Journey Map')) && !(await navLocked('Priorities')) && !(await navLocked('Requirements')) && (await navLocked('Stories')))
+  const apiProjects = async () => (await (await fetch(`${API}/api/v1/projects`)).json()).data
+  const mine = async () => (await apiProjects()).find((p) => p.id === projectId)
+  ok('the project is Analyzed with 3 sessions and 9 themes', await mine().then((p) => p.status === 'analyzed' && p.sessions === 3 && p.themes === 9))
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
+  await page.waitForSelector('#transcript-name-2')
+  await waitText('All changes saved')
+  ok('saved transcripts show line counts and matched speakers', (await text()).includes('lines') && (await text()).toLowerCase().includes('no matching participant'))
+  ok('and nothing is out of date', !(await text()).includes('Analysis is out of date'))
+
+  // Edit one transcript's text: the page is dirty, the analysis re-runs on save.
+  await page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.innerText.trim() === 'Edit text')[1].click())
+  await page.waitForSelector('#transcript-text-1')
+  await page.focus('#transcript-text-1')
+  await page.keyboard.down('Control'); await page.keyboard.press('End'); await page.keyboard.up('Control')
+  await page.keyboard.type('\n00:09:00 Daniel Ortiz: I still cannot see the calendar for all providers at once.')
+  await waitText('Unsaved changes')
+  await clickText('Save and analyze')
+  await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 20000 })
+  ok('editing a transcript and saving re-analyzes and returns to Themes', await mine().then((p) => p.themes === 9))
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
+  await page.waitForSelector('#transcript-name-2')
+  ok('the edited transcript kept its place and gained a line', await page.evaluate(() => document.querySelector('#transcript-name-1').value.startsWith('Session 2')))
+
+  // Remove them all: the analysis is retired, the project is a draft, and the steps lock again.
+  for (let i = 0; i < 3; i++) await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Remove').click())
+  await waitText('No transcripts yet')
+  ok('with nothing to analyze the button just says Save', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save')))
+  await clickText('Save')
+  await waitText('All changes saved at')
+  ok('removing every transcript makes the project a Draft again', await mine().then((p) => p.status === 'draft' && p.sessions === 0 && p.themes === 0))
+  ok('and the Analyze steps lock again', await navLocked('Themes'))
 
   // Locked, the same screens are read-only.
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })

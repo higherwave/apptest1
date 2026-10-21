@@ -4,6 +4,7 @@ import { Placeholder } from './pages/Placeholder'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { TaskListPage } from './pages/project/TaskListPage'
 import { TestPlanPage } from './pages/project/TestPlanPage'
+import { TranscriptsPage } from './pages/transcripts/TranscriptsPage'
 import { NewProjectPage } from './pages/wizard/NewProjectPage'
 
 // Routes follow the prototype's handoff. Each placeholder is replaced by a real screen in its slice.
@@ -16,6 +17,7 @@ export function App() {
         <Route path="projects/new" element={<NewProjectPage />} />
         <Route path="projects/:projectId/plan" element={<TestPlanPage />} />
         <Route path="projects/:projectId/tasks" element={<TaskListPage />} />
+        <Route path="projects/:projectId/transcripts" element={<TranscriptsPage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="insights/:section" element={<Placeholder />} />
         <Route path="*" element={<Placeholder title="Page not found" />} />

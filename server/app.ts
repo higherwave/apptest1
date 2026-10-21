@@ -1,4 +1,5 @@
 import { Hono, type Context } from 'hono'
+import { z } from 'zod'
 import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, type Db, type Env } from './db.js'
 import { requestContext } from './context.js'
@@ -6,7 +7,9 @@ import {
   createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveParticipants, saveTasks,
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
-import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema } from './schemas.js'
+import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema } from './schemas.js'
+import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
+import { NoTranscripts, runAnalysis } from './analysis.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db }
 
@@ -132,27 +135,46 @@ export function createApp(options: AppOptions = {}) {
     if (!Number.isInteger(n)) throw new ApiError(428, 'precondition_required', 'Send the version you are editing in the If-Match header.')
     return n
   }
-  const save = async (c: Context, schema: Parameters<typeof parseBody>[0], run: (id: string, expected: number, input: any) => Promise<void>) => {
+  const save = async (c: Context, schema: Parameters<typeof parseBody>[0], run: (id: string, expected: number, input: any) => Promise<unknown>, respond: 'project' | 'transcripts' | 'raw' = 'project', status: 200 | 201 = 200) => {
     requireEditor(c)
     const id = projectId(c)
     const expected = expectedVersion(c)
     const input = parseBody(schema, await readJson(c))
+    let result: unknown
     try {
-      await run(id, expected, input)
+      result = await run(id, expected, input)
     } catch (err) {
       if (err instanceof ProjectNotFound) throw new ApiError(404, 'not_found', 'No such project.')
       if (err instanceof VersionConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this project since you opened it.', undefined, { current: { version: err.current } })
       if (err instanceof UnknownParticipant) throw new ApiError(422, 'validation_failed', 'That participant does not belong to this project.', 'participants')
+      if (err instanceof UnknownTranscript) throw new ApiError(422, 'validation_failed', 'That transcript does not belong to this project.', 'transcripts')
+      if (err instanceof NoTranscripts) throw new ApiError(422, 'no_transcripts', 'Add at least one transcript before analyzing.', 'transcripts')
       throw err
     }
     const detail = await getProjectDetail(getDb(), c.get('ctx').workspaceId, id)
     c.header('Cache-Control', 'no-store')
     c.header('ETag', `"${detail!.version}"`)
+    if (respond === 'transcripts') return c.json(await listTranscripts(getDb(), id))
+    if (respond === 'raw') return c.json(result, status)
     return c.json(detail)
   }
 
   app.put('/projects/:id/study', withContext, (c) => save(c, savePlanSchema, (id, v, input) => savePlan(getDb(), c.get('ctx'), id, v, input)))
   app.put('/projects/:id/participants', withContext, (c) => save(c, saveParticipantsSchema, (id, v, input) => saveParticipants(getDb(), c.get('ctx'), id, v, input)))
+  app.get('/projects/:id/transcripts', withReadContext, async (c) => {
+    const id = projectId(c)
+    const detail = await getProjectDetail(getDb(), c.get('ctx').workspaceId, id)
+    if (!detail) throw new ApiError(404, 'not_found', 'No such project.')
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    c.header('ETag', `"${detail.version}"`)
+    return c.json(await listTranscripts(getDb(), id))
+  })
+  app.put('/projects/:id/transcripts', withContext, (c) => save(c, saveTranscriptsSchema, (id, v, input) => saveTranscripts(getDb(), c.get('ctx'), id, v, input), 'transcripts'))
+  // Phase 1 runs the simulated analysis inline and answers 201 with the finished run; a real model would answer 202 and be polled.
+  app.post('/projects/:id/analysis-runs', withContext, (c) =>
+    save(c, z.object({}).passthrough(), (id, v) => runAnalysis(getDb(), c.get('ctx'), id, v), 'raw', 201),
+  )
   app.put('/projects/:id/tasks', withContext, (c) => save(c, saveTasksSchema, (id, v, input) => saveTasks(getDb(), c.get('ctx'), id, v, input)))
 
   return app

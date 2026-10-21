@@ -142,6 +142,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/transcripts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's transcripts with their text, speakers and line counts, and whether the current analysis is out of date (the transcripts changed since it ran). Open to read as the viewer. */
+        get: operations["getTranscripts"];
+        /** Saves the transcript list. One with an id is kept (and re-read if its text changed), one without is added, and one left out is removed. Each is split into speakers and lines; a speaker is matched to a participant by name. Saving an empty list retires the current analysis, so the Analyze steps lock again. Needs the token and If-Match. */
+        put: operations["saveTranscripts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/analysis-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Runs the analysis over every transcript and stores the themes as a new run; the previous run is kept but retired, and requirements documents of the project are flagged stale. Phase 1 is simulated and finishes inline (201); a real model would answer 202 and be polled. Needs the token and If-Match. */
+        post: operations["startAnalysis"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/tasks": {
         parameters: {
             query?: never;
@@ -283,6 +318,41 @@ export interface components {
                 sessionDate?: string | null;
             }[];
         };
+        TranscriptList: {
+            transcripts: {
+                id: string;
+                name: string;
+                /** @enum {string|null} */
+                platform: "zoom" | "meet" | "teams" | null;
+                rawText: string;
+                lineCount: number;
+                speakers: {
+                    name: string;
+                    /** @enum {string} */
+                    role: "participant" | "moderator";
+                    /** @description The matched participant's name. */
+                    participant: string | null;
+                }[];
+            }[];
+            hasAnalysis: boolean;
+            /** @description True when there are transcripts and the current analysis did not read exactly these. */
+            needsAnalysis: boolean;
+            analyzedAt: string | null;
+        };
+        SaveTranscriptsRequest: {
+            transcripts: {
+                id?: string | null;
+                name: string;
+                /** @enum {string|null} */
+                platform?: "zoom" | "meet" | "teams" | null;
+                rawText: string;
+            }[];
+        };
+        AnalysisRunResult: {
+            runId: string;
+            themes: number;
+            steps: string[];
+        };
         SaveTasksRequest: {
             tasks: {
                 prompt: string;
@@ -395,7 +465,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -653,6 +723,105 @@ export interface operations {
         };
         responses: {
             200: components["responses"]["ProjectSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getTranscripts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The transcripts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveTranscripts: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveTranscriptsRequest"];
+            };
+        };
+        responses: {
+            /** @description The transcripts as saved. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscriptList"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    startAnalysis: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description The finished run. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AnalysisRunResult"];
+                };
+            };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];

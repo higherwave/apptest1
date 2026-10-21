@@ -1,5 +1,5 @@
 // Phase 1 stand-ins for the three AI interfaces, ported from the prototype so the database
-// reproduces what the prototype shows. Each takes plain data and returns plain data, so a real
+// reproduces what the prototype shows. Shared by the API (server/) and the demo seed (db/seed/). Each takes plain data and returns plain data, so a real
 // model can replace any of them later without touching the schema, API or screens.
 //
 //   analyze()        AnalysisProvider  transcripts -> themes with quotes

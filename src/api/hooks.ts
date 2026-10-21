@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  createProject, deleteProject, getMe, getProject, getProjectStage, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks,
+  createProject, deleteProject, getMe, getProject, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type CreateProjectRequest, type ProjectDetail,
 } from './client'
 import { getToken, subscribeToken } from './token'
@@ -45,3 +45,7 @@ function useSave<B>(id: string, save: (id: string, version: number, body: B) => 
 export const useSaveStudy = (id: string) => useSave(id, saveStudy)
 export const useSaveParticipants = (id: string) => useSave(id, saveParticipants)
 export const useSaveTasks = (id: string) => useSave(id, saveTasks)
+
+export const useTranscripts = (id: string | undefined) => useQuery({ queryKey: ['transcripts', id], queryFn: () => getTranscripts(id!), enabled: !!id })
+// Transcript and analysis calls change the project's version, so the caller reads the project again afterwards.
+export const transcriptApi = { save: saveTranscripts, analyze: startAnalysis, project: getProject }

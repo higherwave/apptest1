@@ -1,0 +1,21 @@
+@use '../../tokens' as tokens;
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  @include tokens.role('label-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  color: var(--at-text-disabled);
+
+  &[data-state='active'] { color: var(--at-ink); }
+  &[data-state='done'] { color: var(--at-signature-forest); }
+}

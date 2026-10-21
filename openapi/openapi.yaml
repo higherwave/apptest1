@@ -172,6 +172,81 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/transcripts:
+    get:
+      operationId: getTranscripts
+      summary: >
+        The project's transcripts with their text, speakers and line counts, and whether the current analysis
+        is out of date (the transcripts changed since it ran). Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The transcripts.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranscriptList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: saveTranscripts
+      summary: >
+        Saves the transcript list. One with an id is kept (and re-read if its text changed), one without is added,
+        and one left out is removed. Each is split into speakers and lines; a speaker is matched to a participant by
+        name. Saving an empty list retires the current analysis, so the Analyze steps lock again. Needs the token
+        and If-Match.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveTranscriptsRequest' }
+      responses:
+        '200':
+          description: The transcripts as saved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TranscriptList' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/analysis-runs:
+    post:
+      operationId: startAnalysis
+      summary: >
+        Runs the analysis over every transcript and stores the themes as a new run; the previous run is kept but
+        retired, and requirements documents of the project are flagged stale. Phase 1 is simulated and finishes
+        inline (201); a real model would answer 202 and be polled. Needs the token and If-Match.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '201':
+          description: The finished run.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AnalysisRunResult' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /projects/{id}/tasks:
     put:
       operationId: saveTasks
@@ -235,7 +310,7 @@ components:
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, internal_error.
+        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -391,6 +466,56 @@ components:
               role: { type: [string, 'null'] }
               email: { type: string }
               sessionDate: { type: [string, 'null'] }
+    TranscriptList:
+      type: object
+      required: [transcripts, hasAnalysis, needsAnalysis, analyzedAt]
+      properties:
+        transcripts:
+          type: array
+          items:
+            type: object
+            required: [id, name, platform, rawText, lineCount, speakers]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              platform: { type: [string, 'null'], enum: [zoom, meet, teams] }
+              rawText: { type: string }
+              lineCount: { type: integer }
+              speakers:
+                type: array
+                items:
+                  type: object
+                  required: [name, role, participant]
+                  properties:
+                    name: { type: string }
+                    role: { type: string, enum: [participant, moderator] }
+                    participant: { type: [string, 'null'], description: The matched participant's name. }
+        hasAnalysis: { type: boolean }
+        needsAnalysis: { type: boolean, description: True when there are transcripts and the current analysis did not read exactly these. }
+        analyzedAt: { type: [string, 'null'] }
+    SaveTranscriptsRequest:
+      type: object
+      required: [transcripts]
+      properties:
+        transcripts:
+          type: array
+          items:
+            type: object
+            required: [name, rawText]
+            properties:
+              id: { type: [string, 'null'] }
+              name: { type: string }
+              platform: { type: [string, 'null'], enum: [zoom, meet, teams] }
+              rawText: { type: string }
+    AnalysisRunResult:
+      type: object
+      required: [runId, themes, steps]
+      properties:
+        runId: { type: string }
+        themes: { type: integer }
+        steps:
+          type: array
+          items: { type: string }
     SaveTasksRequest:
       type: object
       required: [tasks]

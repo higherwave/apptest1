@@ -11,7 +11,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { analyze, buildSteps, matchThemes, parseTranscript, scoreTheme } from './lib/providers.mjs';
+import { analyze, buildSteps, matchThemes, parseTranscript, scoreTheme } from '../../shared/providers.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const json = (f) => JSON.parse(readFileSync(join(here, 'data', f), 'utf8'));
@@ -31,6 +31,8 @@ export function uid(key) {
   const x = h.subarray(0, 16).toString('hex');
   return `${x.slice(0, 8)}-${x.slice(8, 12)}-${x.slice(12, 16)}-${x.slice(16, 20)}-${x.slice(20, 32)}`;
 }
+// The analysis is identified by the transcripts it read: names and content hashes, in order. The API computes the
+// same fingerprint (server/transcripts.ts), so a seeded project is not flagged as out of date.
 const sha = (s) => createHash('sha256').update(s).digest('hex');
 const catEnum = { 'Pain point': 'pain_point', Need: 'need', Expectation: 'expectation', Delight: 'delight' };
 const platEnum = { Zoom: 'zoom', Meet: 'meet', Teams: 'teams' };
@@ -217,7 +219,7 @@ export async function seed(db) {
     const trRows = [], spkRows = [], uttRows = [];
     transcripts.forEach((t, ti) => {
       const TR = uid(`transcript:${proj.key}:${ti}`);
-      trRows.push({ id: TR, workspace_id: WS, project_id: P, name: t.name, platform: t.platform, raw_text: t.text, content_hash: sha(t.text) });
+      trRows.push({ id: TR, workspace_id: WS, project_id: P, position: ti, name: t.name, platform: t.platform, raw_text: t.text, content_hash: sha(t.text) });
       const seen = new Set();
       parsed[ti].forEach((l, ui) => {
         const sk = lower(l.who);
@@ -235,7 +237,7 @@ export async function seed(db) {
 
     // Analysis run (simulated) and its themes
     const RUN = uid('run:analysis:' + proj.key);
-    await insert(db, 'core.agent_runs', [{ id: RUN, workspace_id: WS, project_id: P, kind: 'analysis', status: 'complete', input_hash: sha(transcripts.map((t) => t.name + ':' + t.text.length).join('|')), provider: 'stub', prompt_version: 'keyword-v1', finished_at: new Date() }]);
+    await insert(db, 'core.agent_runs', [{ id: RUN, workspace_id: WS, project_id: P, kind: 'analysis', status: 'complete', input_hash: sha(transcripts.map((t) => `${t.name}:${sha(t.text)}`).join('|')), provider: 'stub', prompt_version: 'keyword-v1', finished_at: new Date() }]);
     await insert(db, 'core.agent_steps', R.BUSY.map((title, i) => ({ id: uid(`step:analysis:${proj.key}:${i}`), workspace_id: WS, run_id: RUN, position: i + 1, key: lower(title).replace(/[^a-z]+/g, '_'), title, status: 'approved' })));
 
     let themes; // { id, def, quotes: [{ t, u, text }], ppl, total, mentions, score, prio, eff, effNote }

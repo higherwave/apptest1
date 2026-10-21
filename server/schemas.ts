@@ -61,3 +61,18 @@ export const saveTasksSchema = z.object({
   tasks: z.array(z.object({ prompt: text(500).min(1, 'Enter the question.'), followUps: z.array(text(500)).default([]).transform((a) => a.filter(Boolean)) })).max(50),
 })
 export type SaveTasksInput = z.infer<typeof saveTasksSchema>
+
+export const PLATFORMS = ['zoom', 'meet', 'teams'] as const
+export const saveTranscriptsSchema = z.object({
+  transcripts: z
+    .array(
+      z.object({
+        id: z.uuid().nullish().transform((v) => v ?? null),
+        name: text(200).min(1, 'Enter a name.'),
+        platform: z.enum(PLATFORMS).nullish().transform((v) => v ?? null),
+        rawText: z.string().min(1, 'Paste or upload the transcript text.').max(500_000, 'This transcript is too long (500,000 characters at most).'),
+      }),
+    )
+    .max(20, 'A project can hold up to 20 transcripts.'),
+})
+export type SaveTranscriptsInput = z.infer<typeof saveTranscriptsSchema>

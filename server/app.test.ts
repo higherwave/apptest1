@@ -570,3 +570,168 @@ test('every kind of save bumps the version by exactly one', async () => {
     assert.equal(await version(), v0 + 3)
   })
 })
+
+// Transcripts and the simulated analysis ---------------------------------------------------------------
+
+import research from '../db/seed/data/research.json' with { type: 'json' }
+
+const SAMPLES = research.SAMPLES as { name: string; platform: string; text: string }[]
+const SAMPLE_PEOPLE = [{ name: 'Maya Chen', email: 'maya@example.com' }, { name: 'Daniel Ortiz', email: 'daniel@example.com' }, { name: 'Priya Nair', email: 'priya@example.com' }]
+const PROTOTYPE_THEMES = [
+  'Insurance coverage is unclear up front', 'Reminders build confidence', 'Provider availability is hard to see', 'Rescheduling forces a phone call',
+  'Booking form repeats questions', 'Price surprises at confirmation', 'Follow-up instructions get lost', 'Reviews and ratings drive trust', 'Wants to know what to prepare',
+]
+
+// A new project (with the three sample participants) and helpers that carry the version along.
+async function newStudy() {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const created = await (await post(app, newProject({ name: 'Transcript study', participants: SAMPLE_PEOPLE }))).json()
+  const id: string = created.id
+  const version = async () => ((await pg.query<any>(`select version from core.projects where id = $1`, [id])).rows[0] as { version: number }).version
+  const putTranscripts = async (transcripts: unknown[], v?: number) => put(app, `/projects/${id}/transcripts`, { transcripts }, v ?? (await version()))
+  const analyze = async (v?: number) => app.request(`/api/v1/projects/${id}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(v ?? (await version())) }, body: '{}' })
+  const samples = SAMPLES.map((s) => ({ name: s.name, platform: s.platform.toLowerCase(), rawText: s.text }))
+  return { app, pg, id, version, putTranscripts, analyze, samples }
+}
+
+test('a new project has no transcripts and needs no analysis', async () => {
+  const { app, id } = await newStudy()
+  const body = await expectSpec(await app.request(`/api/v1/projects/${id}/transcripts`), '/projects/{id}/transcripts')
+  assert.deepEqual([body.transcripts.length, body.hasAnalysis, body.needsAnalysis, body.analyzedAt], [0, false, false, null])
+})
+
+test('PUT transcripts splits each into speakers and lines, matches participants by name, and keeps the order', async () => {
+  const { app, id, putTranscripts, samples } = await newStudy()
+  const res = await putTranscripts(samples)
+  assert.equal(res.status, 200)
+  const body = await expectSpec(res, '/projects/{id}/transcripts', 'put')
+  assert.deepEqual(body.transcripts.map((t: any) => [t.name, t.platform]), [['Session 1 - Maya Chen.vtt', 'zoom'], ['Session 2 - Daniel Ortiz.txt', 'meet'], ['Session 3 - Priya Nair.vtt', 'teams']])
+  const first = body.transcripts[0]
+  assert.ok(first.lineCount > 3)
+  assert.deepEqual(first.speakers.map((s: any) => [s.name, s.role, s.participant]), [['Moderator', 'moderator', null], ['Maya Chen', 'participant', 'Maya Chen']])
+  assert.deepEqual(body.transcripts[2].speakers.map((s: any) => s.participant), [null, 'Priya Nair'], 'teams format with <v Name> tags parses too')
+  assert.deepEqual([body.hasAnalysis, body.needsAnalysis], [false, true], 'transcripts exist but nothing has analysed them')
+  // Reading it back gives the same.
+  assert.deepEqual((await (await app.request(`/api/v1/projects/${id}/transcripts`)).json()).transcripts.map((t: any) => t.id), body.transcripts.map((t: any) => t.id))
+})
+
+test('transcript text with no speaker lines is a 422 naming the field', async () => {
+  const { putTranscripts } = await newStudy()
+  const res = await putTranscripts([{ name: 'Notes', rawText: 'just some prose with no speakers at all' }])
+  assert.equal(res.status, 422)
+  const err = (await expectSpec(res, '/projects/{id}/transcripts', 'put')).error
+  assert.deepEqual([err.code, err.field], ['validation_failed', 'transcripts.0.rawText'])
+  assert.equal((await putTranscripts([{ name: '', rawText: 'A: b' }])).status, 422)
+  assert.equal((await putTranscripts([{ name: 'x', rawText: 'A: b', platform: 'skype' }])).status, 422)
+})
+
+test('the simulated analysis reproduces the prototype: 9 themes, same order, same counts and priorities', async () => {
+  const { app, pg, id, putTranscripts, analyze, samples } = await newStudy()
+  await putTranscripts(samples)
+  const res = await analyze()
+  assert.equal(res.status, 201)
+  const run = await expectSpec(res, '/projects/{id}/analysis-runs', 'post')
+  assert.deepEqual([run.themes, run.steps.length], [9, 5])
+  const rows = (await pg.query<any>(`select t.title, t.suggested_priority p, t.suggested_effort e, s.participant_count::int ppl, s.total_participants::int total, s.mention_count::int m
+    from research.themes t join research.theme_stats s on s.theme_id = t.id where t.project_id = $1 order by t.score desc, t.title`, [id])).rows as any[]
+  assert.deepEqual(rows.map((r) => r.title), PROTOTYPE_THEMES)
+  assert.deepEqual(rows.slice(0, 5).map((r) => [r.ppl, r.total, r.m, r.p]), Array(5).fill([3, 3, 3, 'high']))
+  assert.deepEqual(rows.slice(5).map((r) => [r.ppl, r.m, r.p]), [[2, 2, 'high'], [2, 2, 'medium'], [2, 2, 'medium'], [2, 2, 'medium']])
+  // Now the project is analysed, and its steps are open.
+  const list = (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === id)
+  assert.deepEqual([list.status, list.themes, list.sessions, list.highPriority], ['analyzed', 9, 3, 6])
+  const tabs = (await (await app.request(`/api/v1/projects/${id}/stage`)).json()).tabs
+  assert.deepEqual([tabs.themes.enabled, tabs.requirements.enabled, tabs.stories.enabled], [true, true, false])
+  const after = await (await app.request(`/api/v1/projects/${id}/transcripts`)).json()
+  assert.deepEqual([after.hasAnalysis, after.needsAnalysis], [true, false])
+  assert.ok(after.analyzedAt)
+})
+
+test('analysing without transcripts is a 422 no_transcripts', async () => {
+  const { analyze } = await newStudy()
+  const res = await analyze()
+  assert.equal(res.status, 422)
+  assert.equal((await expectSpec(res, '/projects/{id}/analysis-runs', 'post')).error.code, 'no_transcripts')
+})
+
+test('editing a transcript makes the analysis out of date; unchanged ones are left alone', async () => {
+  const { id, pg, putTranscripts, analyze, samples, app } = await newStudy()
+  const saved = await (await putTranscripts(samples)).json()
+  await analyze()
+  const idsBefore = (await pg.query<any>(`select id from research.utterances where transcript_id = $1 order by position`, [saved.transcripts[0].id])).rows.map((r: any) => r.id)
+  const edited = saved.transcripts.map((t: any, i: number) => ({ id: t.id, name: t.name, platform: t.platform, rawText: i === 1 ? t.rawText + '\n00:09:00 Daniel Ortiz: One more thought about the calendar.' : t.rawText }))
+  const res = await putTranscripts(edited)
+  const body = await res.json()
+  assert.deepEqual([body.hasAnalysis, body.needsAnalysis], [true, true])
+  assert.deepEqual(body.transcripts.map((t: any) => t.id), saved.transcripts.map((t: any) => t.id), 'ids kept')
+  assert.deepEqual((await pg.query<any>(`select id from research.utterances where transcript_id = $1 order by position`, [saved.transcripts[0].id])).rows.map((r: any) => r.id), idsBefore, 'the unchanged transcript was not re-read')
+  assert.equal(body.transcripts[1].lineCount, saved.transcripts[1].lineCount + 1)
+  void app; void id
+})
+
+test('re-analysing keeps the old run, retires it, shows only the new themes, and flags requirements documents stale', async () => {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
+  const v = async () => ((await pg.query<any>(`select version from core.projects where id = $1`, [p1])).rows[0] as { version: number }).version
+  const before = (await pg.query<any>(`select count(*)::int n from research.themes where project_id = $1`, [p1])).rows[0].n
+  assert.equal((await pg.query<any>(`select stale from delivery.specs where project_id = $1`, [p1])).rows[0].stale, false)
+  const res = await app.request(`/api/v1/projects/${p1}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(await v()) }, body: '{}' })
+  assert.equal(res.status, 201)
+  const runs = (await pg.query<any>(`select count(*)::int total, count(*) filter (where superseded_at is null)::int current from core.agent_runs where project_id = $1 and kind = 'analysis'`, [p1])).rows[0]
+  assert.deepEqual([runs.total, runs.current], [2, 1])
+  assert.equal((await pg.query<any>(`select count(*)::int n from research.themes where project_id = $1`, [p1])).rows[0].n, before + 9, 'old themes are kept')
+  const card = (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === p1)
+  assert.equal(card.themes, 9, 'the card counts the current run only')
+  assert.equal((await pg.query<any>(`select stale from delivery.specs where project_id = $1`, [p1])).rows[0].stale, true)
+  // The published board's stories still point at their original themes.
+  assert.equal((await pg.query<any>(`select count(*)::int n from delivery.stories s join research.themes t on t.id = s.theme_id where s.spec_id in (select id from delivery.specs where project_id = $1)`, [p1])).rows[0].n, 9)
+})
+
+test('removing every transcript retires the analysis: the project is a draft again and the Analyze steps lock', async () => {
+  const { app, id, putTranscripts, analyze, samples } = await newStudy()
+  await putTranscripts(samples)
+  await analyze()
+  const res = await putTranscripts([])
+  const body = await expectSpec(res, '/projects/{id}/transcripts', 'put')
+  assert.deepEqual([body.transcripts.length, body.hasAnalysis, body.needsAnalysis], [0, false, false])
+  const card = (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === id)
+  assert.deepEqual([card.status, card.themes, card.sessions], ['draft', 0, 0])
+  const tabs = (await (await app.request(`/api/v1/projects/${id}/stage`)).json()).tabs
+  assert.equal(tabs.themes.enabled, false)
+})
+
+test('transcript and analysis writes are versioned, audited and need the token', async () => {
+  const { app, id, pg, putTranscripts, analyze, samples } = await newStudy()
+  const v0 = ((await pg.query<any>(`select version from core.projects where id = $1`, [id])).rows[0] as { version: number }).version
+  assert.equal((await putTranscripts(samples, v0 + 5)).status, 409, 'stale version')
+  assert.equal((await put(app, `/projects/${id}/transcripts`, { transcripts: [] }, null)).status, 428)
+  assert.equal((await put(app, `/projects/${id}/transcripts`, { transcripts: samples }, v0, { 'content-type': 'application/json' })).status, 401)
+  assert.equal((await putTranscripts(samples, v0)).status, 200)
+  assert.equal((await analyze(v0 + 1)).status, 201)
+  const verbs = (await pg.query<any>(`select verb from core.audit_log where entity_id = $1`, [id])).rows.map((r: any) => r.verb)
+  assert.ok(verbs.includes('transcripts_saved') && verbs.includes('analysis_run'))
+  const anonymous = await app.request(`/api/v1/projects/${id}/analysis-runs`, { method: 'POST', headers: { 'content-type': 'application/json', 'if-match': '1' }, body: '{}' })
+  assert.equal(anonymous.status, 401)
+})
+
+test('speakers whose names differ only by case are one speaker; unmatched names stay unmatched', async () => {
+  const { putTranscripts } = await newStudy()
+  const res = await putTranscripts([{ name: 'Call', rawText: '00:01 maya chen: Hello.\n00:02 Maya Chen: Again.\n00:03 Someone New: Hi.' }])
+  const body = await res.json()
+  assert.deepEqual(body.transcripts[0].speakers.map((s: any) => [s.name, s.participant]), [['maya chen', 'Maya Chen'], ['Someone New', null]])
+})
+
+test('a freshly seeded analysed project is not flagged out of date, and editing a transcript flags it', async () => {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
+  const read = async () => (await app.request(`/api/v1/projects/${p1}/transcripts`)).json()
+  const before = await read()
+  assert.deepEqual([before.transcripts.length, before.hasAnalysis, before.needsAnalysis], [3, true, false])
+  const ver = ((await pg.query<any>(`select version from core.projects where id = $1`, [p1])).rows[0] as { version: number }).version
+  const edited = before.transcripts.map((t: any, i: number) => ({ id: t.id, name: t.name, platform: t.platform, rawText: i === 0 ? t.rawText + '\n00:09:00 Maya Chen: One more thing.' : t.rawText }))
+  assert.equal((await put(app, `/projects/${p1}/transcripts`, { transcripts: edited }, ver)).status, 200)
+  assert.deepEqual([(await read()).hasAnalysis, (await read()).needsAnalysis], [true, true])
+})

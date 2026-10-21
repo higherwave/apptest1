@@ -9,21 +9,32 @@ export type SaveBarProps = {
   conflict: boolean
   error?: string
   savedAt?: string
+  /** The button's label, for a save that does more than save. */
+  saveLabel?: string
+  /** Something other than unsaved edits makes saving worthwhile, for example an out-of-date analysis. */
+  actionable?: boolean
+  /** Shown next to the state, for example "Analysis is out of date". */
+  note?: string
   onSave: () => void
   onReload: () => void
   onOverwrite: () => void
 }
 
 // Presentational: the save state, the Save button, and the choices offered after a conflict.
-export function SaveBar({ dirty, saving, canEdit, conflict, error, savedAt, onSave, onReload, onOverwrite }: SaveBarProps) {
+export function SaveBar({ dirty, saving, canEdit, conflict, error, savedAt, saveLabel = 'Save', actionable, note, onSave, onReload, onOverwrite }: SaveBarProps) {
   return (
     <div className={styles.wrap}>
       <div className={styles.bar}>
         <Tag size="sm" type={dirty ? 'warm-gray' : 'green'}>
           {dirty ? 'Unsaved changes' : savedAt ? `All changes saved at ${savedAt}` : 'All changes saved'}
         </Tag>
-        <Button kind="primary" size="md" disabled={!canEdit || !dirty || saving} onClick={onSave}>
-          {saving ? 'Saving…' : 'Save'}
+        {note && (
+          <Tag size="sm" type="warm-gray">
+            {note}
+          </Tag>
+        )}
+        <Button kind="primary" size="md" disabled={!canEdit || !(dirty || actionable) || saving} onClick={onSave}>
+          {saving ? 'Working…' : saveLabel}
         </Button>
       </div>
       {!canEdit && <p className={styles.note}>Editing is locked. Use &quot;Unlock editing&quot; at the top of the page.</p>}
