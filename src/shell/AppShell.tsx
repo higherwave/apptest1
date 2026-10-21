@@ -23,9 +23,11 @@ export function AppShell() {
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
   const insights = pathname.startsWith('/insights')
+  // Creating a project shows the same steps, with only Test Plan open: the others need a saved project.
+  const creating = pathname === '/projects/new'
   // The server says which steps are open; until it answers, none are shown as locked.
   const stage = useProjectStage(projectId ?? undefined)
-  const hasPanel = !!projectId || insights
+  const hasPanel = !!projectId || creating || insights
 
   const railLink = (to: string, label: string, icon: ReactNode, active: boolean) => (
     <a href={to} data-label={label} aria-current={active ? 'page' : undefined} className={cx(styles.railLink, active && styles.railActive)} onClick={go(to)}>
@@ -43,15 +45,15 @@ export function AppShell() {
 
       {hasPanel && (
         <nav className={styles.panel} aria-label={insights ? 'Insights' : 'Project steps'} data-nav>
-          {projectId &&
+          {(projectId || creating) &&
             STEP_GROUPS.map((group) => (
               <div key={group} className={styles.group}>
                 <p className={styles.groupLabel}>{group}</p>
                 {STEPS.filter((s) => s.group === group).map((s) => {
-                  const tab = stage.data?.tabs[s.key as StepKey]
-                  const locked = tab ? !tab.enabled : false
-                  const active = project?.[2] === s.key
-                  const to = `/projects/${projectId}/${s.key}`
+                  const tab = projectId ? stage.data?.tabs[s.key as StepKey] : undefined
+                  const locked = creating ? s.key !== 'plan' : tab ? !tab.enabled : false
+                  const active = creating ? s.key === 'plan' : project?.[2] === s.key
+                  const to = creating ? '/projects/new' : `/projects/${projectId}/${s.key}`
                   return (
                     <a
                       key={s.key}
@@ -59,9 +61,9 @@ export function AppShell() {
                       data-label={s.label}
                       aria-current={active ? 'page' : undefined}
                       aria-disabled={locked || undefined}
-                      title={locked ? (tab?.hint ?? undefined) : undefined}
+                      title={locked ? (creating ? 'Create the project first' : (tab?.hint ?? undefined)) : undefined}
                       className={cx(styles.step, active && styles.stepActive, locked && styles.locked)}
-                      onClick={locked ? (e: MouseEvent) => e.preventDefault() : go(to)}
+                      onClick={locked || creating ? (e: MouseEvent) => e.preventDefault() : go(to)}
                     >
                       <span className={styles.number} aria-hidden>{STEPS.indexOf(s) + 1}</span>
                       <span className={styles.stepLabel}>{s.label}</span>
