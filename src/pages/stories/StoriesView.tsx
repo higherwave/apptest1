@@ -159,7 +159,6 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
     if (JSON.stringify(kept) !== JSON.stringify(saved)) onChecklist(kept)
   }
   const edit = (i: number, change: Partial<ChecklistInput>) => setRows(rows.map((r, j) => (j === i ? { ...r, ...change } : r)))
-  const met = detail.checklist.filter((c) => c.met).length
   return (
     <>
       {detail.summary && <p className={styles.summary}>{detail.summary}</p>}
@@ -172,10 +171,6 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
             </span>
           </div>
         )}
-        <div className={styles.fact}>
-          <span className={styles.factLabel}>Acceptance criteria</span>
-          <span className={styles.factValue}>{detail.checklist.length ? `${met} of ${detail.checklist.length} done` : 'Not defined yet'}</span>
-        </div>
       </div>
 
       {(detail.whyItMatters || detail.nextStep) && (
