@@ -27,9 +27,8 @@ export function TranscriptsPage() {
   const [progress, setProgress] = useState({ open: false, steps: [] as string[], current: 0 })
   const timer = useRef<ReturnType<typeof setInterval> | undefined>(undefined)
 
-  useEffect(() => {
-    if (transcripts.data && items === null) setItems(formFromList(transcripts.data))
-  }, [transcripts.data, items])
+  // The form starts from the saved list once it arrives; after that the person's edits are the form.
+  if (transcripts.data && items === null) setItems(formFromList(transcripts.data))
   useEffect(() => () => clearInterval(timer.current), [])
 
   const saved = transcripts.data

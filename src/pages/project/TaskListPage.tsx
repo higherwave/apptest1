@@ -16,9 +16,8 @@ export function TaskListPage() {
   const flow = useSaveFlow(projectId, project.data)
   const [tasks, setTasks] = useState<TaskForm | null>(null)
 
-  useEffect(() => {
-    if (project.data && tasks === null) setTasks(taskFormFromProject(project.data))
-  }, [project.data, tasks])
+  // The form starts from the saved project once it arrives; after that the person's edits are the form.
+  if (project.data && tasks === null) setTasks(taskFormFromProject(project.data))
 
   const saved = project.data
   const dirty = !!saved && !!tasks && tasksChanged(tasks, saved)

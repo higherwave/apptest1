@@ -1,7 +1,7 @@
 import { Button, ClickableTile, InlineNotification, Loading, TextInput } from '@carbon/react'
 import { Pin, PinFilled } from '@carbon/icons-react'
 import { Dropdown } from '@carbon/react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import type { ProjectDetail, Theme, ThemeCategory, ThemePatch } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { CategoryBadge } from './CategoryBadge'
@@ -32,7 +32,11 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
   const count = (c: ThemeCategory | 'all') => (c === 'all' ? themes.length : themes.filter((t) => t.category === c).length)
   // The rename box holds what is being typed; it is saved when the person leaves the box.
   const [draft, setDraft] = useState('')
-  useEffect(() => setDraft(selected?.title ?? ''), [selected?.id, selected?.title])
+  const [draftFor, setDraftFor] = useState(`${selected?.id}|${selected?.title}`)
+  if (draftFor !== `${selected?.id}|${selected?.title}`) {
+    setDraftFor(`${selected?.id}|${selected?.title}`)
+    setDraft(selected?.title ?? '')
+  }
 
   return (
     <div className={styles.page}>

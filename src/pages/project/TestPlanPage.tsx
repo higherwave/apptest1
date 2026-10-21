@@ -20,9 +20,8 @@ export function TestPlanPage() {
   const [form, setForm] = useState<WizardForm | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
 
-  useEffect(() => {
-    if (project.data && form === null) setForm(formFromProject(project.data))
-  }, [project.data, form])
+  // The form starts from the saved project once it arrives; after that the person's edits are the form.
+  if (project.data && form === null) setForm(formFromProject(project.data))
 
   const saved = project.data
   const dirty = !!saved && !!form && (planChanged(form, saved) || participantsChanged(form, saved))

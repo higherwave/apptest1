@@ -3,9 +3,9 @@ import { useState } from 'react'
 import { COLUMNS } from '../../../shared/board.mjs'
 import type { Board, BoardStory, ChecklistInput, Priority, ProjectDetail, StoryDetail, StoryStatus } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
+import { STATUS_LABEL } from './labels'
 import styles from './StoriesView.module.scss'
 
-export const STATUS_LABEL: Record<StoryStatus, string> = { todo: 'To Do', in_progress: 'In progress', in_review: 'In review', done: 'Done' }
 const PRIORITY_LABEL: Record<Priority | 'all', string> = { all: 'All priorities', high: 'High', medium: 'Medium', low: 'Low' }
 const PRIORITIES: (Priority | 'all')[] = ['all', 'high', 'medium', 'low']
 

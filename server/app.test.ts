@@ -513,7 +513,7 @@ test('saves validate: names the field, and a viewer or missing token cannot save
 test('PUT participants keeps identity: speakers stay matched, removed ones unmatch, order follows the list', async () => {
   await withFresh(async ({ app, pg, p1, version }) => {
     const detail = await (await app.request(`/api/v1/projects/${p1}`)).json()
-    const [maya, daniel, priya] = detail.participants
+    const [maya, daniel] = detail.participants
     const speakerOf = async (name: string) => ((await pg.query<any>(`select distinct participant_id from research.transcript_speakers where name = $1`, [name])).rows as any[]).map((r) => r.participant_id)
     assert.deepEqual(await speakerOf('Maya Chen'), [maya.id])
     const res = await put(app, `/projects/${p1}/participants`, {
@@ -912,7 +912,7 @@ async function specFixture() {
 }
 
 test('the seeded document reads back whole: eight approved steps, the brief, the document, and the redo', async () => {
-  const { app, pg, idOf } = await specFixture()
+  const { app, idOf } = await specFixture()
   const p1 = await idOf('Clinic booking, usability round 1')
   const list = await expectSpec(await app.request(`/api/v1/specs?projectId=${p1}`), '/specs')
   assert.deepEqual(list.data.map((s: any) => [s.status, s.approved, s.total, s.standalone]), [['published', 8, 8, false]])
