@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
+  getInsightsThemes, getPlatformTheme, listCaseStudies,
   getBoard, getStory, moveStory, undoMove, patchStory, saveChecklist,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
@@ -98,3 +99,8 @@ function useStoryEdit<V>(projectId: string, save: (v: V) => Promise<import('./cl
 }
 export const usePatchStory = (projectId: string) => useStoryEdit(projectId, (v: { id: string; version: number; body: { ownerTeam?: string | null; priority?: Priority } }) => patchStory(v.id, v.version, v.body))
 export const useSaveChecklist = (projectId: string) => useStoryEdit(projectId, (v: { id: string; version: number; items: ChecklistInput[] }) => saveChecklist(v.id, v.version, v.items))
+
+// Platform Insights: read-only, so plain queries.
+export const useInsightsThemes = () => useQuery({ queryKey: ['insights', 'themes'], queryFn: getInsightsThemes })
+export const usePlatformTheme = (id: string | null) => useQuery({ queryKey: ['insights', 'theme', id], queryFn: () => getPlatformTheme(id!), enabled: !!id })
+export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })

@@ -540,6 +540,53 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/themes:
+    get:
+      operationId: getInsightsThemes
+      summary: >
+        Platform Insights: themes across every analysed project (only each project's latest analysis counts), the participants
+        behind each, and the recommendations drawn from them. Open to read as the viewer.
+      responses:
+        '200':
+          description: The overview.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InsightsThemes' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/themes/{id}:
+    get:
+      operationId: getPlatformTheme
+      summary: One platform theme and where it comes from, per project, with some quotes. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The theme.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformThemeDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/case-studies:
+    get:
+      operationId: listCaseStudies
+      summary: What the team shipped from research, with the platform themes each was based on. Open to read as the viewer.
+      responses:
+        '200':
+          description: The case studies, newest first.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CaseStudy' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /stories/{id}:
     get:
       operationId: getStory
@@ -940,6 +987,114 @@ components:
         checklist:
           type: array
           items: { $ref: '#/components/schemas/ChecklistItem' }
+    InsightsThemes:
+      type: object
+      required: [projects, totalParticipants, themes, recommendations]
+      properties:
+        projects:
+          type: array
+          description: Projects with a current analysis, oldest first.
+          items:
+            type: object
+            required: [id, name, color, participants]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              color: { type: string }
+              participants: { type: integer }
+        totalParticipants: { type: integer }
+        themes:
+          type: array
+          items:
+            type: object
+            required: [id, title, category, participantCount, projectCount, sources]
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              category: { type: string, enum: [pain_point, need, expectation, delight] }
+              participantCount: { type: integer }
+              projectCount: { type: integer }
+              sources:
+                type: array
+                items:
+                  type: object
+                  required: [projectId, participantCount]
+                  properties:
+                    projectId: { type: string, format: uuid }
+                    participantCount: { type: integer }
+        recommendations:
+          type: array
+          items:
+            type: object
+            required: [id, title, why, priority, themes, participantCount, projectCount]
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
+              why: { type: [string, 'null'] }
+              priority: { type: string, enum: [low, medium, high] }
+              themes:
+                type: array
+                items:
+                  type: object
+                  required: [id, title]
+                  properties:
+                    id: { type: string, format: uuid }
+                    title: { type: string }
+              participantCount: { type: integer }
+              projectCount: { type: integer }
+    PlatformThemeDetail:
+      type: object
+      required: [id, title, category, participantCount, totalParticipants, projectCount, totalProjects, sources]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        category: { type: string, enum: [pain_point, need, expectation, delight] }
+        participantCount: { type: integer }
+        totalParticipants: { type: integer }
+        projectCount: { type: integer }
+        totalProjects: { type: integer }
+        sources:
+          type: array
+          items:
+            type: object
+            required: [projectId, projectName, color, participantCount, projectParticipants, matchMethod, quotes]
+            properties:
+              projectId: { type: string, format: uuid }
+              projectName: { type: string }
+              color: { type: string }
+              participantCount: { type: integer }
+              projectParticipants: { type: integer }
+              matchMethod: { type: string, enum: [auto, manual], description: 'manual when someone tagged a theme by hand.' }
+              quotes:
+                type: array
+                items:
+                  type: object
+                  required: [id, text, speaker, session, timestamp]
+                  properties:
+                    id: { type: string, format: uuid }
+                    text: { type: string }
+                    speaker: { type: string }
+                    session: { type: string }
+                    timestamp: { type: [string, 'null'] }
+    CaseStudy:
+      type: object
+      required: [id, title, summary, outcome, ownerTeam, date, color, themes]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        outcome: { type: [string, 'null'] }
+        ownerTeam: { type: [string, 'null'] }
+        date: { type: [string, 'null'], description: 'YYYY-MM-DD; only the month is shown.' }
+        color: { type: string }
+        themes:
+          type: array
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
     Board:
       type: object
       required: [specId, specName, projectId, projectName, stories, themes, lastMove]

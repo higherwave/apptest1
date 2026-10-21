@@ -131,3 +131,13 @@ export const patchStory = (id: string, version: number, body: { ownerTeam?: stri
   request<StoryDetail>(`/stories/${id}`, { method: 'PATCH', body, version })
 export const saveChecklist = (id: string, version: number, items: ChecklistInput[]) =>
   request<StoryDetail>(`/stories/${id}/checklist`, { method: 'PUT', body: { items }, version })
+
+// Platform Insights -----------------------------------------------------------------------------------
+export type InsightsThemes = components['schemas']['InsightsThemes']
+export type PlatformThemeRow = InsightsThemes['themes'][number]
+export type InsightRecommendation = InsightsThemes['recommendations'][number]
+export type PlatformThemeDetail = components['schemas']['PlatformThemeDetail']
+export type CaseStudy = components['schemas']['CaseStudy']
+export const getInsightsThemes = () => request<InsightsThemes>('/insights/themes')
+export const getPlatformTheme = (id: string) => request<PlatformThemeDetail>(`/insights/themes/${id}`)
+export const listCaseStudies = () => request<{ data: CaseStudy[] }>('/insights/case-studies').then((r) => r.data)

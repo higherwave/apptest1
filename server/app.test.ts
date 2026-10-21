@@ -1382,3 +1382,117 @@ test('publishing a document puts its cards on the board: R1.. and Q1.. in To Do,
   assert.deepEqual(board.stories.map((s: any) => s.position), [1000, 2000, 3000, 4000, 5000])
   void app; void pg
 })
+
+// Platform Insights -------------------------------------------------------------------------------------------
+
+async function insightsFixture() {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const ws = ((await pg.query<any>(`select id from core.workspaces where slug = 'higherwave-demo'`)).rows[0] as { id: string }).id
+  const overview = async () => (await app.request('/api/v1/insights/themes')).json()
+  const titled = async (t: string) => (await overview()).themes.find((x: any) => x.title === t)
+  return { app, pg, d, ws, overview, titled }
+}
+
+test('Insights themes: three analysed projects, 13 participants, themes in the chosen order with their counts', async () => {
+  const { app, pg } = await insightsFixture()
+  const res = await app.request('/api/v1/insights/themes')
+  const body = await expectSpec(res, '/insights/themes')
+  assert.match(res.headers.get('cache-control') ?? '', /public/)
+  assert.deepEqual(body.projects.map((p: any) => [p.name, p.participants]), [['Clinic booking, usability round 1', 3], ['Clinic booking, round 2', 4], ['Check-in diary study', 6]])
+  assert.equal(body.totalParticipants, 13)
+  assert.equal(body.totalParticipants, (await pg.query<any>(`select participant_count::int n from insights.workspace_stats`)).rows[0].n, 'agrees with the database view')
+  assert.deepEqual(body.themes.map((t: any) => [t.title, t.participantCount, t.projectCount]), [
+    ['Provider availability is hard to see', 11, 3],
+    ['Insurance coverage is unclear up front', 6, 2],
+    ['People expect to reschedule without calling', 10, 3],
+    ['A prep checklist before the visit is valued', 10, 3],
+    ['Fees appear late at checkout', 4, 2],
+  ])
+  for (const t of body.themes) assert.equal(t.participantCount, t.sources.reduce((n: number, s: any) => n + s.participantCount, 0))
+  assert.deepEqual(body.themes[0].sources.map((s: any) => s.participantCount), [3, 3, 5])
+  assert.deepEqual(body.recommendations.map((r: any) => [r.priority, r.themes.length, r.participantCount, r.projectCount]), [['high', 2, 12, 3], ['high', 2, 7, 2], ['high', 1, 10, 3], ['medium', 1, 10, 3]])
+  assert.match(body.recommendations[0].title, /live provider availability/)
+})
+
+test('one platform theme shows, per project, who raised it and what they said', async () => {
+  const { app, titled } = await insightsFixture()
+  const t = await titled('Provider availability is hard to see')
+  const res = await app.request(`/api/v1/insights/themes/${t.id}`)
+  const body = await expectSpec(res, '/insights/themes/{id}')
+  assert.deepEqual([body.participantCount, body.totalParticipants, body.projectCount, body.totalProjects], [11, 13, 3, 3])
+  assert.deepEqual(body.sources.map((s: any) => [s.participantCount, s.projectParticipants]), [[3, 3], [3, 4], [5, 6]])
+  for (const s of body.sources) {
+    assert.ok(s.quotes.length >= 1 && s.quotes.length <= 3)
+    assert.equal(new Set(s.quotes.map((q: any) => q.id)).size, s.quotes.length, 'no quote twice')
+    assert.ok(s.quotes.every((q: any) => q.text && q.speaker && q.session))
+  }
+  assert.equal(body.sources[0].matchMethod, 'auto')
+  const prep = await titled('A prep checklist before the visit is valued')
+  const detail = await (await app.request(`/api/v1/insights/themes/${prep.id}`)).json()
+  assert.equal(detail.sources[0].matchMethod, 'manual', 'the hand-tagged theme says so')
+  assert.equal((await app.request('/api/v1/insights/themes/00000000-0000-4000-8000-000000000000')).status, 404)
+  assert.equal((await app.request('/api/v1/insights/themes/nope')).status, 404)
+})
+
+test('case studies come newest first, each with the platform themes it was based on', async () => {
+  const { app } = await insightsFixture()
+  const body = await expectSpec(await app.request('/api/v1/insights/case-studies'), '/insights/case-studies')
+  assert.deepEqual(body.data.map((c: any) => [c.title, c.date.slice(0, 7), c.themes.length]), [
+    ['Rebuilding provider search around availability', '2026-09', 1],
+    ['Showing coverage before booking', '2026-08', 2],
+    ['Self-serve reschedule pilot', '2026-07', 1],
+    ['Visit prep checklist rollout', '2026-06', 1],
+  ])
+  assert.deepEqual(body.data[1].themes.map((t: any) => t.title), ['Insurance coverage is unclear up front', 'Fees appear late at checkout'], 'in the themes’ own order')
+  assert.ok(body.data.every((c: any) => c.ownerTeam && c.outcome))
+})
+
+test('Insights are open to visitors but follow a wrong token to a refusal', async () => {
+  const { app } = await insightsFixture()
+  for (const path of ['/insights/themes', '/insights/case-studies']) {
+    assert.equal((await app.request(`/api/v1${path}`)).status, 200, path)
+    assert.equal((await app.request(`/api/v1${path}`, { headers: { authorization: 'Bearer wrong' } })).status, 401, path)
+  }
+})
+
+test('the matcher is repeatable: running it again changes nothing, and hand-made tags stay', async () => {
+  const { overview, d, ws, pg } = await insightsFixture()
+  const before = await overview()
+  const manualBefore = (await pg.query<any>(`select count(*)::int n from insights.platform_theme_sources where match_method = 'manual'`)).rows[0].n
+  const { refreshPlatformMatches } = await import('./insights.js')
+  const result = await refreshPlatformMatches(d, ws)
+  assert.ok(result.matched > 0)
+  assert.deepEqual(await overview(), before)
+  assert.equal((await pg.query<any>(`select count(*)::int n from insights.platform_theme_sources where match_method = 'manual'`)).rows[0].n, manualBefore)
+})
+
+test('re-analysing a project keeps Insights in step: only the latest analysis counts', async () => {
+  const { app, pg, overview, titled } = await insightsFixture()
+  const before = await overview()
+  const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
+  const detail = await (await app.request(`/api/v1/projects/${p1}`, { headers: auth })).json()
+  const res = await app.request(`/api/v1/projects/${p1}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(detail.version) }, body: '{}' })
+  assert.equal(res.status, 201)
+  const after = await overview()
+  assert.equal(after.projects.length, 3)
+  assert.equal(after.totalParticipants, before.totalParticipants)
+  const avail = await titled('Provider availability is hard to see')
+  assert.equal(avail.projectCount, 3, 'the new themes were matched straight away')
+  assert.ok(avail.participantCount <= 13)
+  const stale = (await pg.query<any>(`select count(*)::int n from insights.platform_theme_sources s join research.themes t on t.id = s.theme_id join core.agent_runs r on r.id = t.run_id where r.superseded_at is not null`)).rows[0].n
+  assert.equal(stale, 0, 'no tag points at a retired analysis')
+})
+
+test('a project with no analysis is not in Insights; deleting one takes its numbers out', async () => {
+  const { app, pg, overview } = await insightsFixture()
+  const names = (await overview()).projects.map((p: any) => p.name)
+  assert.ok(!names.includes('New patient intake (draft)'), 'a draft has no analysis')
+  assert.ok(names.includes('Clinic booking, round 2'))
+  const diary = ((await pg.query<any>(`select id from core.projects where name = 'Check-in diary study'`)).rows[0] as { id: string }).id
+  assert.equal((await app.request(`/api/v1/projects/${diary}`, { method: 'DELETE', headers: auth })).status, 204)
+  const after = await overview()
+  assert.deepEqual(after.projects.map((p: any) => p.name), ['Clinic booking, usability round 1', 'Clinic booking, round 2'])
+  assert.equal(after.totalParticipants, 7)
+  assert.ok(after.themes.every((t: any) => t.sources.every((s: any) => s.projectId !== diary)))
+})

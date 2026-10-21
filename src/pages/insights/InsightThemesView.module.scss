@@ -1,0 +1,186 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xl);
+  max-width: 75rem;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  min-width: 0;
+}
+
+.label {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.empty {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.recs {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: var(--at-space-sm);
+}
+
+@mixin tinted {
+  @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
+    &[data-tint='#{$name}'] { background: var(--at-tint-#{$name}); }
+  }
+}
+
+.rec {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  @include tinted;
+}
+
+.recTitle {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.recMeta {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(20rem, 25rem);
+  gap: var(--at-space-lg);
+  align-items: start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.row {
+  display: flex;
+  gap: var(--at-space-lg);
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+
+  &[data-selected='true'] {
+    border-color: var(--at-ink);
+    box-shadow: inset 0 0 0 1px var(--at-ink); // 1px border + 1px ring: the prototype's 2px selection outline
+  }
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+}
+
+.rowTitle {
+  @include tokens.role('title-sm');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-ink);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.chip {
+  @include tokens.role('meta');
+  padding: var(--at-space-xxs) var(--at-space-xs);
+  border-radius: var(--at-radius-sm);
+  background: var(--at-surface-hover-strong);
+  color: var(--at-body);
+  font-weight: 500;
+  white-space: nowrap;
+  @include tinted;
+}
+
+.rowCount {
+  flex: 0 0 9.5rem;
+}
+
+.count {
+  @include tokens.role('body-md');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-ink);
+  font-weight: 500;
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-lg);
+  background: var(--at-surface-soft);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+}
+
+.panelTitle {
+  @include tokens.role('title-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.panelText {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding-block-start: var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+}
+
+.sourceHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.quote {
+  margin: 0;
+  padding: var(--at-space-sm);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-sm);
+}
+
+.quoteText {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.quoteMeta {
+  @include tokens.role('meta');
+  margin: var(--at-space-xxs) 0 0;
+  color: var(--at-muted);
+}

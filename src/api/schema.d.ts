@@ -399,6 +399,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Platform Insights: themes across every analysed project (only each project's latest analysis counts), the participants behind each, and the recommendations drawn from them. Open to read as the viewer. */
+        get: operations["getInsightsThemes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/themes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One platform theme and where it comes from, per project, with some quotes. Open to read as the viewer. */
+        get: operations["getPlatformTheme"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/case-studies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What the team shipped from research, with the platform themes each was based on. Open to read as the viewer. */
+        get: operations["listCaseStudies"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stories/{id}": {
         parameters: {
             query?: never;
@@ -672,6 +723,94 @@ export interface components {
             version: number;
             specId: string;
             checklist: components["schemas"]["ChecklistItem"][];
+        };
+        InsightsThemes: {
+            /** @description Projects with a current analysis, oldest first. */
+            projects: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+                color: string;
+                participants: number;
+            }[];
+            totalParticipants: number;
+            themes: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                /** @enum {string} */
+                category: "pain_point" | "need" | "expectation" | "delight";
+                participantCount: number;
+                projectCount: number;
+                sources: {
+                    /** Format: uuid */
+                    projectId: string;
+                    participantCount: number;
+                }[];
+            }[];
+            recommendations: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+                why: string | null;
+                /** @enum {string} */
+                priority: "low" | "medium" | "high";
+                themes: {
+                    /** Format: uuid */
+                    id: string;
+                    title: string;
+                }[];
+                participantCount: number;
+                projectCount: number;
+            }[];
+        };
+        PlatformThemeDetail: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** @enum {string} */
+            category: "pain_point" | "need" | "expectation" | "delight";
+            participantCount: number;
+            totalParticipants: number;
+            projectCount: number;
+            totalProjects: number;
+            sources: {
+                /** Format: uuid */
+                projectId: string;
+                projectName: string;
+                color: string;
+                participantCount: number;
+                projectParticipants: number;
+                /**
+                 * @description manual when someone tagged a theme by hand.
+                 * @enum {string}
+                 */
+                matchMethod: "auto" | "manual";
+                quotes: {
+                    /** Format: uuid */
+                    id: string;
+                    text: string;
+                    speaker: string;
+                    session: string;
+                    timestamp: string | null;
+                }[];
+            }[];
+        };
+        CaseStudy: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            summary: string | null;
+            outcome: string | null;
+            ownerTeam: string | null;
+            /** @description YYYY-MM-DD; only the month is shown. */
+            date: string | null;
+            color: string;
+            themes: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+            }[];
         };
         Board: {
             specId: string;
@@ -1815,6 +1954,77 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getInsightsThemes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The overview. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsThemes"];
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getPlatformTheme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The theme. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformThemeDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listCaseStudies: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The case studies, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CaseStudy"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

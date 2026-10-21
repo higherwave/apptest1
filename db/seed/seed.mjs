@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { analyze, buildSteps, matchThemes, parseTranscript, scoreTheme } from '../../shared/providers.mjs';
+import { PLATFORM_KEYWORDS } from '../../shared/platform-keywords.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const json = (f) => JSON.parse(readFileSync(join(here, 'data', f), 'utf8'));
@@ -105,13 +106,6 @@ const PROJECTS = [
 
 // Platform theme index (Insights data order) -> prototype theme id used for the synthetic projects.
 const PLATFORM_THEME_DEF = ['t1', 't2', 't8', 't6', 't5'];
-const PLATFORM_KEYWORDS = [
-  ['availab\\w*', 'slots?', 'calendar', 'open times'],
-  ['insurance', 'coverage', 'copay', 'in-network', 'network'],
-  ['reschedul\\w*', 'cancel\\w*', 'phone call', 'calling'],
-  ['prepar\\w*', 'checklist', 'reminders?', 'what to bring'],
-  ['fees?', 'prices?', 'surprises?', 'total cost'],
-];
 const EXTRA_QUOTES = [
   ['There is no way to see everyone’s open times in one place.', 'I only get slots after I tap into each provider, which takes forever.', 'Availability is buried, so I pick whoever I can find a time with.', 'I work shifts, so I need to see open slots across providers at once.'],
   ['The copay estimate is nowhere until the last step.'],
@@ -353,8 +347,8 @@ export async function seed(db) {
 
   // Platform Insights: themes across every analysed project ------------------------------------
   {
-    const PT = I.T.map((t, i) => ({ id: uid('pt:' + i), title: t.title, cat: t.cat, keywords: PLATFORM_KEYWORDS[i] }));
-    await insert(db, 'insights.platform_themes', PT.map((p) => ({ id: p.id, workspace_id: WS, title: p.title, category: catEnum[p.cat] })));
+    const PT = I.T.map((t, i) => ({ id: uid('pt:' + i), title: t.title, cat: t.cat, keywords: PLATFORM_KEYWORDS[t.title] }));
+    await insert(db, 'insights.platform_themes', PT.map((p) => ({ id: p.id, workspace_id: WS, title: p.title, category: catEnum[p.cat], position: PT.indexOf(p) })));
 
     const all = ['p1', 'p2', 'p3'].flatMap((k) => built[k].themes.map((t) => ({ id: t.dbId, ref: `${k}:${t.id}`, title: t.title, description: t.desc, opportunity: t.opp })));
     const matches = new Map(matchThemes(all, PT).map((m) => [m.themeId, { ...m, method: 'auto' }]));
@@ -365,7 +359,7 @@ export async function seed(db) {
       platform_theme_id: m.platformThemeId, theme_id: m.themeId, workspace_id: WS, match_method: m.method, confidence: m.confidence === null ? null : Number(m.confidence.toFixed(2)),
     })));
 
-    await insert(db, 'insights.recommendations', I.R.map((r, i) => ({ id: uid('rec:' + i), workspace_id: WS, title: r.title, why: r.why, priority: lower(r.prio) })));
+    await insert(db, 'insights.recommendations', I.R.map((r, i) => ({ id: uid('rec:' + i), workspace_id: WS, title: r.title, why: r.why, priority: lower(r.prio), position: i })));
     await insert(db, 'insights.recommendation_themes', I.R.flatMap((r, i) => r.th.map((k) => ({ recommendation_id: uid('rec:' + i), platform_theme_id: PT[k].id, workspace_id: WS }))));
     await insert(db, 'insights.case_studies', I.C.map((c, i) => ({ id: uid('case:' + i), workspace_id: WS, title: c.title, summary: c.summary, outcome: c.outcome, owner_team: c.owner, occurred_on: monthToDate(c.date), color: TINT[c.bg.toLowerCase()] || 'cream' })));
     await insert(db, 'insights.case_study_themes', I.C.flatMap((c, i) => c.th.map((k) => ({ case_study_id: uid('case:' + i), platform_theme_id: PT[k].id, workspace_id: WS }))));

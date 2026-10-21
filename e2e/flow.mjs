@@ -369,7 +369,7 @@ try {
   ok('Undo puts the dragged card back in To Do', (await storyOf(secondKey)).status === 'todo' && (await storyOf(firstKey)).status === 'in_progress')
   // The card panel: details, move, priority, owner, checklist.
   await page.click(`[data-testid="card-${thirdKey}"] button`)
-  await waitText('Checklist')
+  await page.waitForSelector('#story-new-item', { visible: true }) // the panel has loaded, not just opened
   ok('opening a card shows its details and checklist', (await text()).includes('Checklist') && (await text()).includes('Move to'))
   await page.click('#story-new-item')
   await page.type('#story-new-item', 'Works with a screen reader')
@@ -386,6 +386,36 @@ try {
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))
   ok('searching narrows the board to matching cards', (await page.$$('[data-testid^="card-"]')).length >= 1 && !(await page.$(`[data-testid="card-${firstKey}"]`)) && !!(await page.$(`[data-testid="card-${thirdKey}"]`)))
+  await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid^="card-"]')
+
+  // Platform Insights: themes across projects, where one comes from, case studies, onboarding.
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Platform Insights').click())
+  await page.waitForSelector('[data-testid^="platform-theme-"]')
+  const insights = await (await fetch(`${API}/api/v1/insights/themes`)).json()
+  const shown = await page.$$eval('[data-testid^="platform-theme-"]', (els) => els.map((e) => e.innerText))
+  ok('Platform Insights lists every platform theme with "N of M participants"',
+    shown.length === insights.themes.length && insights.themes.every((t, i) => shown[i].includes(t.title) && shown[i].includes(`${t.participantCount} of ${insights.totalParticipants} participants`)))
+  ok('the demo projects and the one analysed in this test all count', insights.projects.length >= 3 && insights.projects.some((p) => p.name === 'Intake v2'), insights.projects.map((p) => p.name).join(', '))
+  const bodyText = await text()
+  ok('every recommendation is shown, with its theme and project counts', insights.recommendations.length === 4 && insights.recommendations.every((r) => bodyText.includes(r.title) && bodyText.includes(`${r.projectCount} project`)))
+  const second = insights.themes[1]
+  await page.click(`[data-testid="platform-theme-${second.id}"]`)
+  await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, second.title)
+  ok('picking a theme shows where it comes from, with quotes', (await page.$$eval('aside[aria-label="Where this comes from"] blockquote', (q) => q.length)) >= 1 && (await text()).includes(`Raised by ${second.participantCount} of ${insights.totalParticipants} participants`))
+  ok('the choice is in the address, so it can be shared', await page.evaluate((id) => location.search === `?theme=${id}`, second.id))
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Case Studies').click())
+  await page.waitForSelector('[data-testid="case-study"]')
+  const cases = (await (await fetch(`${API}/api/v1/insights/case-studies`)).json()).data
+  ok('Case Studies shows each study with its outcome and owner', (await page.$$('[data-testid="case-study"]')).length === cases.length && (await text()).includes(cases[0].outcome) && (await text()).includes('Sep 2026'))
+  const chip = cases[1].themes[0]
+  await clickText(chip.title)
+  await page.waitForFunction((id) => location.pathname === '/insights/themes' && location.search === `?theme=${id}`, { timeout: 8000 }, chip.id)
+  await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, chip.title)
+  ok('a case study’s theme chip opens that theme', true)
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Onboarding').click())
+  await waitText('Onboarding content coming soon')
+  ok('Onboarding is a placeholder, as in the prototype', true)
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 

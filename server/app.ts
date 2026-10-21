@@ -18,6 +18,7 @@ import {
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
+import { getPlatformTheme, getThemesOverview, listCaseStudies, refreshPlatformMatches } from './insights.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db }
@@ -182,7 +183,18 @@ export function createApp(options: AppOptions = {}) {
   app.put('/projects/:id/transcripts', withContext, (c) => save(c, saveTranscriptsSchema, (id, v, input) => saveTranscripts(getDb(), c.get('ctx'), id, v, input), 'transcripts'))
   // Phase 1 runs the simulated analysis inline and answers 201 with the finished run; a real model would answer 202 and be polled.
   app.post('/projects/:id/analysis-runs', withContext, (c) =>
-    save(c, z.object({}).passthrough(), (id, v) => runAnalysis(getDb(), c.get('ctx'), id, v), 'raw', 201),
+    save(
+      c,
+      z.object({}).passthrough(),
+      async (id, v) => {
+        const result = await runAnalysis(getDb(), c.get('ctx'), id, v)
+        // The simulated matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails.
+        await refreshPlatformMatches(getDb(), c.get('ctx').workspaceId).catch(() => undefined)
+        return result
+      },
+      'raw',
+      201,
+    ),
   )
   // Themes ---------------------------------------------------------------------------------------------
 
@@ -367,6 +379,26 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json(board)
+  })
+
+  // Platform Insights ------------------------------------------------------------------------------------
+
+  app.get('/insights/themes', withReadContext, async (c) => {
+    const body = await getThemesOverview(getDb(), c.get('ctx').workspaceId)
+    cacheHeaders(c)
+    return c.json(body)
+  })
+  app.get('/insights/themes/:id', withReadContext, async (c) => {
+    const id = c.req.param('id') ?? ''
+    const theme = UUID.test(id) ? await getPlatformTheme(getDb(), c.get('ctx').workspaceId, id) : undefined
+    if (!theme) throw new ApiError(404, 'not_found', 'No such platform theme.')
+    cacheHeaders(c)
+    return c.json(theme)
+  })
+  app.get('/insights/case-studies', withReadContext, async (c) => {
+    const data = await listCaseStudies(getDb(), c.get('ctx').workspaceId)
+    cacheHeaders(c)
+    return c.json({ data })
   })
 
   const storyId = (c: Context) => {
