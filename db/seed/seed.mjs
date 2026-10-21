@@ -261,12 +261,10 @@ export async function seed(db) {
     })));
     await insert(db, 'research.theme_quotes', themes.flatMap((th) => th.quotes.map((qt) => ({ theme_id: th.dbId, utterance_id: uid(`utt:${proj.key}:${qt.t}:${qt.u + 1}`), workspace_id: WS }))));
 
-    // Demo edits on project 1: five pinned themes on the journey map and one priority/effort edit.
+    // Demo edit on project 1: one priority/effort change (every theme is already on the journey map at its suggested stage).
     if (proj.key === 'p1') {
-      const pinned = new Set(['t2', 't6', 't1', 't8', 't4', 't7']);
-      await insert(db, 'research.theme_overrides', themes.filter((th) => pinned.has(th.id)).map((th) => ({
-        theme_id: th.dbId, workspace_id: WS, pinned: true, priority: th.id === 't7' ? 'high' : null, effort: th.id === 't7' ? 2 : null,
-      })));
+      const t7 = themes.find((th) => th.id === 't7');
+      await insert(db, 'research.theme_overrides', [{ theme_id: t7.dbId, workspace_id: WS, priority: 'high', effort: 2 }]);
     }
     built[proj.key] = { P, themes, transcripts };
   }

@@ -14,15 +14,13 @@ export type JourneyViewProps = {
   pending: ReadonlySet<string>
   errorText?: string
   onEdit: (theme: Theme, patch: ThemePatch) => void
-  onGoThemes: () => void
   onGoTranscripts: () => void
   onBack: () => void
 }
 
-// Presentational: the pinned themes laid out by journey stage. A theme moves by dragging it to a stage, or with its
+// Presentational: every theme laid out by journey stage, at the stage the analysis suggested unless the person moved it. A theme moves by dragging it to a stage, or with its
 // menu, which is the way to do it without a mouse.
-export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoThemes, onGoTranscripts, onBack }: JourneyViewProps) {
-  const pinned = themes.filter((t) => t.pinned)
+export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoTranscripts, onBack }: JourneyViewProps) {
   const [over, setOver] = useState<number | null>(null)
   const stageOf = (t: Theme) => t.stagePosition ?? 0
   const drop = (position: number, id: string) => {
@@ -32,7 +30,7 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader name={project.name} status={project.status} title="Journey Map" description="Where the pinned themes fall along the customer journey." onBack={onBack} />}
+      {project && <ProjectHeader name={project.name} status={project.status} title="Journey Map" description="Where each theme falls along the customer journey. Drag a theme to another stage to move it." onBack={onBack} />}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the journey map" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Journey Map" subtitle={errorText} />}
@@ -48,20 +46,9 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
 
       {state === 'ready' && (
         <>
-          <p className={styles.summary}>
-            {pinned.length} of {themes.length} themes are on the map, placed by stage.
-          </p>
-          {pinned.length === 0 && (
-            <div className={styles.empty}>
-              <p>Pin themes on the Themes screen to place them on the map.</p>
-              <Button kind="secondary" onClick={onGoThemes}>
-                Go to Themes
-              </Button>
-            </div>
-          )}
           <div className={styles.map} data-columns={stages.length}>
             {stages.map((stage) => {
-              const here = pinned.filter((t) => stageOf(t) === stage.position)
+              const here = themes.filter((t) => stageOf(t) === stage.position)
               return (
                 <section
                   key={stage.position}
@@ -94,7 +81,6 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
                               .map((s) => (
                                 <OverflowMenuItem key={s.position} itemText={`Move to ${s.name}`} onClick={() => onEdit(t, { stagePosition: s.position })} />
                               ))}
-                            <OverflowMenuItem itemText="Unpin from map" onClick={() => onEdit(t, { pinned: false })} />
                           </OverflowMenu>
                         )}
                       </div>

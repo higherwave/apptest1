@@ -21,7 +21,6 @@ export type Theme = {
   effort: number
   suggestedEffort: number
   effortNote: string | null
-  pinned: boolean
   /** True when the person changed the priority or effort from what the analysis suggested. */
   edited: boolean
   /** The version of the person's edits to this theme (0 when there are none); sent back as If-Match. */
@@ -45,7 +44,7 @@ const THEME_SQL = `
   select t.id, t.project_id, t.title as original_title, t.category, t.stage_position, t.severity, t.description, t.opportunity,
          t.suggested_priority, t.suggested_effort, t.effort_note, t.score,
          o.title as o_title, o.stage_position as o_stage, o.priority as o_priority, o.effort as o_effort,
-         coalesce(o.pinned, false) as pinned, coalesce(o.version, 0) as override_version,
+         coalesce(o.version, 0) as override_version,
          st.participant_count::int as participant_count, st.total_participants::int as total_participants, st.mention_count::int as mention_count
   from research.themes t
   left join research.theme_overrides o on o.theme_id = t.id
@@ -69,7 +68,6 @@ function toTheme(r: Record<string, any>): Theme {
     effort,
     suggestedEffort: r.suggested_effort,
     effortNote: r.effort_note ?? null,
-    pinned: r.pinned,
     edited: priority !== r.suggested_priority || effort !== r.suggested_effort,
     overrideVersion: r.override_version,
     participantCount: r.participant_count,
@@ -126,7 +124,7 @@ export async function patchTheme(db: Db, ctx: Actor, themeId: string, expected: 
     const run = await currentAnalysisRun(tx, t.project_id)
     if (!run || run.id !== t.run_id) throw new ThemeSuperseded()
 
-    const cur = (await tx.query(`select title, stage_position, priority, effort, pinned, version from research.theme_overrides where theme_id = $1 for update`, [themeId])).rows[0]
+    const cur = (await tx.query(`select title, stage_position, priority, effort, version from research.theme_overrides where theme_id = $1 for update`, [themeId])).rows[0]
     if ((cur?.version ?? 0) !== expected) throw new ThemeConflict(cur?.version ?? 0)
 
     if (patch.stagePosition !== undefined && patch.stagePosition !== null) {
@@ -138,27 +136,26 @@ export async function patchTheme(db: Db, ctx: Actor, themeId: string, expected: 
       stage: patch.stagePosition !== undefined ? patch.stagePosition : (cur?.stage_position ?? null),
       priority: patch.priority !== undefined ? patch.priority : (cur?.priority ?? null),
       effort: patch.effort !== undefined ? patch.effort : (cur?.effort ?? null),
-      pinned: patch.pinned !== undefined ? patch.pinned : (cur?.pinned ?? false),
     }
-    if (next.title === null && next.stage === null && next.priority === null && next.effort === null && !next.pinned) {
+    if (next.title === null && next.stage === null && next.priority === null && next.effort === null) {
       if (cur) await tx.query(`delete from research.theme_overrides where theme_id = $1`, [themeId])
     } else if (cur) {
-      await tx.query(`update research.theme_overrides set title = $2, stage_position = $3, priority = $4, effort = $5, pinned = $6, updated_by = $7 where theme_id = $1`, [themeId, next.title, next.stage, next.priority, next.effort, next.pinned, ctx.userId])
+      await tx.query(`update research.theme_overrides set title = $2, stage_position = $3, priority = $4, effort = $5, updated_by = $6 where theme_id = $1`, [themeId, next.title, next.stage, next.priority, next.effort, ctx.userId])
     } else {
-      await tx.query(`insert into research.theme_overrides (theme_id, workspace_id, title, stage_position, priority, effort, pinned, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $8)`, [themeId, ctx.workspaceId, next.title, next.stage, next.priority, next.effort, next.pinned, ctx.userId])
+      await tx.query(`insert into research.theme_overrides (theme_id, workspace_id, title, stage_position, priority, effort, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $7)`, [themeId, ctx.workspaceId, next.title, next.stage, next.priority, next.effort, ctx.userId])
     }
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'research.themes', entity_id: themeId, verb: 'theme_edited', before: cur ?? null, after: next }])
   })
 }
 
-// "Reset all" in Priorities: clears every importance and effort edit in the current analysis. Pins, names and
-// stage placements are separate and stay.
+// "Reset all" in Priorities: clears every importance and effort edit in the current analysis. Names and stage
+// placements are separate and stay.
 export async function resetPriorityOverrides(db: Db, ctx: Actor, projectId: string): Promise<void> {
   await db.transaction(async (tx) => {
     const run = await currentAnalysisRun(tx, projectId)
     if (!run) return
     await tx.query(`update research.theme_overrides set priority = null, effort = null, updated_by = $3 where theme_id in (select id from research.themes where project_id = $1 and run_id = $2)`, [projectId, run.id, ctx.userId])
-    await tx.query(`delete from research.theme_overrides where title is null and stage_position is null and priority is null and effort is null and pinned = false and theme_id in (select id from research.themes where project_id = $1 and run_id = $2)`, [projectId, run.id])
+    await tx.query(`delete from research.theme_overrides where title is null and stage_position is null and priority is null and effort is null and theme_id in (select id from research.themes where project_id = $1 and run_id = $2)`, [projectId, run.id])
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.projects', entity_id: projectId, verb: 'priorities_reset' }])
   })
 }

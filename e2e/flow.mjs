@@ -219,12 +219,10 @@ try {
   await clickText('All 9')
   await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 5000 })
 
-  // Choose the theme about availability; pin it, rename it, and move it to another stage.
+  // Choose the theme about availability; rename it and move it to another stage.
   await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Themes"] li')].find((li) => li.innerText.includes('Provider availability is hard to see')).querySelector('a, button').click())
-  await waitText('Pin to journey map')
-  await clickText('Pin to journey map')
-  await waitText('Unpin from journey map')
-  ok('pinning saves to the API', (await apiThemes()).find((t) => t.originalTitle === 'Provider availability is hard to see').pinned === true)
+  await waitText('Theme name')
+  ok('there is no pin button: every theme goes on the map by itself', !(await text()).includes('Pin to journey map'))
   await retype('#theme-title', 'Hard to see who is free')
   await page.keyboard.press('Tab')
   await page.waitForFunction(() => document.body.innerText.includes('Originally: Provider availability is hard to see'), { timeout: 8000 })
@@ -233,23 +231,22 @@ try {
   await new Promise((r) => setTimeout(r, 600))
   ok('choosing a stage saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 2)
 
-  // Journey Map: it shows the pin in the stage just chosen; drag it, then use the menu, then unpin.
+  // Journey Map: every theme is already on it, with no pinning; drag the renamed one, then use its menu.
   await navTo('Journey Map')
-  await waitText('themes are on the map')
-  ok('the map counts pinned themes: 1 of 9', (await text()).includes('1 of 9 themes are on the map'))
+  await page.waitForFunction(() => document.querySelectorAll('article').length > 0, { timeout: 8000 })
   const inStage = (name) => page.evaluate((n) => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith(n))?.querySelectorAll('article').length ?? -1, name)
-  ok('the pinned theme sits in Confirm & pay', (await inStage('Confirm & pay')) === 1)
-  await dnd(() => document.querySelector('article'), () => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change')))
-  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change'))?.querySelectorAll('article').length === 1, { timeout: 8000 })
+  const stageHolds = (name, title) => page.evaluate((n, t) => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith(n))?.innerText.includes(t) ?? false, name, title)
+  ok('the Journey Map shows all 9 themes without any being pinned', (await page.evaluate(() => document.querySelectorAll('article').length)) === 9)
+  ok('the stage counts add up to 9', (await Promise.all(['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'].map(inStage))).every((n) => n >= 0))
+  ok('the renamed theme sits in Confirm & pay', await stageHolds('Confirm & pay', 'Hard to see who is free'))
+  await dnd(() => [...document.querySelectorAll('article')].find((a) => a.innerText.includes('Hard to see who is free')), () => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change')))
+  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change'))?.innerText.includes('Hard to see who is free'), { timeout: 8000 })
   ok('dragging a theme to another stage moves and saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 3)
-  await page.click('article .cds--overflow-menu')
+  await page.evaluate(() => [...document.querySelectorAll('article')].find((a) => a.innerText.includes('Hard to see who is free')).querySelector('.cds--overflow-menu').click())
   await clickText('Move to Find a provider', 'button')
-  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Find a provider'))?.querySelectorAll('article').length === 1, { timeout: 8000 })
+  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Find a provider'))?.innerText.includes('Hard to see who is free'), { timeout: 8000 })
   ok('the menu moves it too, without dragging', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 0)
-  await page.click('article .cds--overflow-menu')
-  await clickText('Unpin from map', 'button')
-  await waitText('Pin themes on the Themes screen')
-  ok('unpinning empties the map and points back to Themes', (await text()).includes('0 of 9 themes are on the map'))
+  ok('the menu has no unpin item', !(await text()).includes('Unpin'))
 
   // Priorities: change importance with the menu, move a chip by dragging, then reset.
   await navTo('Priorities')

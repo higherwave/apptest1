@@ -19,7 +19,7 @@ const STALE_RUN_MINUTES = 10
 
 // Runs one analysis over every transcript in the project and stores it as a new run. The previous run is kept
 // but retired, so a published requirements document that cites its themes is flagged stale, not broken. The
-// person's pins and edits belong to a run, so the new run starts clean, as in the prototype.
+// person's edits belong to a run, so the new run starts clean, as in the prototype.
 // The model call happens before the transaction opens, so a slow call never holds a database connection, and the run is
 // recorded as 'running' first: a second start on the same project is refused (409 run_in_progress) rather than paid for twice.
 export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string, expected: number): Promise<AnalysisResult> {

@@ -4,7 +4,7 @@ import { useMe, useProject } from '../../api/hooks'
 import { JourneyView } from './JourneyView'
 import { useThemeData } from './useThemeData'
 
-// Container: the same themes as the Themes screen, so a pin there shows here without another request.
+// Container: the same themes as the Themes screen, so an edit there shows here without another request.
 export function JourneyPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
@@ -22,7 +22,6 @@ export function JourneyPage() {
       pending={data.pending}
       errorText={data.themes.isError ? friendlyMessage(data.themes.error) : data.error}
       onEdit={data.edit}
-      onGoThemes={() => navigate(`/projects/${projectId}/themes`)}
       onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
       onBack={() => navigate('/projects')}
     />

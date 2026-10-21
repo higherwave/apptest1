@@ -85,7 +85,6 @@ export const themePatchSchema = z
     stagePosition: z.number().int().min(0, 'Choose a stage.').nullable().optional(),
     priority: level.nullable().optional(),
     effort: z.number().int().min(1).max(3).nullable().optional(),
-    pinned: z.boolean().optional(),
   })
   .refine((v) => Object.keys(v).length > 0, 'Send at least one change.')
 export type ThemePatchInput = z.infer<typeof themePatchSchema>

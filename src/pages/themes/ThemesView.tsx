@@ -1,5 +1,4 @@
 import { Button, ClickableTile, InlineNotification, Loading, TextInput } from '@carbon/react'
-import { Pin, PinFilled } from '@carbon/icons-react'
 import { Dropdown } from '@carbon/react'
 import { useState } from 'react'
 import type { ProjectDetail, Theme, ThemeCategory, ThemePatch } from '../../api/client'
@@ -40,7 +39,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader name={project.name} status={project.status} title="Themes" description="What participants said, grouped by what it means. Pin the ones that matter to place them on the journey map." onBack={onBack} />}
+      {project && <ProjectHeader name={project.name} status={project.status} title="Themes" description="What participants said, grouped by what it means. Each one is placed on the journey map and the priorities map for you to review." onBack={onBack} />}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading themes" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes" subtitle={errorText} />}
@@ -71,7 +70,6 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                   <ClickableTile className={styles.card} data-selected={t.id === selectedId} onClick={() => onSelect(t.id)}>
                     <div className={styles.cardTop}>
                       <CategoryBadge category={t.category} />
-                      {t.pinned && <PinFilled aria-label="Pinned to the journey map" />}
                     </div>
                     <p className={styles.cardTitle}>{t.title}</p>
                     <p className={styles.cardMeta}>
@@ -89,16 +87,6 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                 <>
                   <div className={styles.detailHead}>
                     <CategoryBadge category={selected.category} />
-                    <Button
-                      className={styles.pin}
-                      kind={selected.pinned ? 'secondary' : 'primary'}
-                      size="sm"
-                      renderIcon={selected.pinned ? PinFilled : Pin}
-                      disabled={!canEdit || pending.has(selected.id)}
-                      onClick={() => onEdit(selected, { pinned: !selected.pinned })}
-                    >
-                      {selected.pinned ? 'Unpin from journey map' : 'Pin to journey map'}
-                    </Button>
                   </div>
                   <TextInput
                     id="theme-title"

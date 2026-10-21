@@ -24,7 +24,6 @@ export function applyPatch(theme: Theme, patch: ThemePatch): Theme {
   if (patch.stagePosition !== undefined) next.stagePosition = patch.stagePosition ?? theme.suggestedStagePosition
   if (patch.priority !== undefined) next.priority = patch.priority ?? theme.suggestedPriority
   if (patch.effort !== undefined) next.effort = patch.effort ?? theme.suggestedEffort
-  if (patch.pinned !== undefined) next.pinned = patch.pinned
   next.edited = next.priority !== next.suggestedPriority || next.effort !== next.suggestedEffort
   return next
 }

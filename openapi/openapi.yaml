@@ -265,7 +265,7 @@ paths:
       operationId: listThemes
       summary: >
         The current analysis's themes, strongest first, with the person's edits applied (a renamed title, a stage
-        placement, importance, effort, pinned) next to what the analysis suggested. Optional category filter and
+        placement, importance, effort) next to what the analysis suggested. Optional category filter and
         quotes. Open to read as the viewer.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -1321,7 +1321,7 @@ components:
         text: { type: string }
     Theme:
       type: object
-      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, pinned, edited, overrideVersion, participantCount, totalParticipants, mentionCount, score]
+      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, edited, overrideVersion, participantCount, totalParticipants, mentionCount, score]
       properties:
         id: { type: string }
         title: { type: string, description: The person's name for the theme if they renamed it, otherwise the analysis's. }
@@ -1337,7 +1337,6 @@ components:
         effort: { type: integer }
         suggestedEffort: { type: integer }
         effortNote: { type: [string, 'null'] }
-        pinned: { type: boolean }
         edited: { type: boolean, description: Importance or effort differs from the suggestion. }
         overrideVersion: { type: integer }
         participantCount: { type: integer }
@@ -1369,7 +1368,6 @@ components:
         stagePosition: { type: [integer, 'null'] }
         priority: { type: [string, 'null'], enum: [low, medium, high] }
         effort: { type: [integer, 'null'] }
-        pinned: { type: boolean }
     TranscriptList:
       type: object
       required: [transcripts, hasAnalysis, needsAnalysis, analyzedAt]

@@ -4,13 +4,13 @@ import { applyPatch, cellKey, importanceOf, levelOf, matrixPatch, participantsLa
 
 const theme = {
   id: 't1', title: 'Provider availability is hard to see', originalTitle: 'Provider availability is hard to see', category: 'pain_point', stagePosition: 0, suggestedStagePosition: 0,
-  severity: -0.7, description: null, opportunity: null, priority: 'high', suggestedPriority: 'high', effort: 3, suggestedEffort: 3, effortNote: null, pinned: false, edited: false,
+  severity: -0.7, description: null, opportunity: null, priority: 'high', suggestedPriority: 'high', effort: 3, suggestedEffort: 3, effortNote: null, edited: false,
   overrideVersion: 0, participantCount: 3, totalParticipants: 3, mentionCount: 3, score: 0.79,
 } as const
 
 test('a patch changes only what it names; null goes back to the suggestion', () => {
-  const a = applyPatch(theme as never, { pinned: true, stagePosition: 3 })
-  assert.deepEqual([a.pinned, a.stagePosition, a.priority, a.title], [true, 3, 'high', theme.title])
+  const a = applyPatch(theme as never, { stagePosition: 3 })
+  assert.deepEqual([a.stagePosition, a.priority, a.title], [3, 'high', theme.title])
   const b = applyPatch(a, { stagePosition: null })
   assert.equal(b.stagePosition, 0, 'back to the suggested stage')
 })
@@ -26,7 +26,7 @@ test('edited means importance or effort differs from the suggestion', () => {
   const a = applyPatch(theme as never, { priority: 'low' })
   assert.deepEqual([a.priority, a.edited], ['low', true])
   assert.equal(applyPatch(a, { priority: null }).edited, false)
-  assert.equal(applyPatch(theme as never, { pinned: true, title: 'x', stagePosition: 2 }).edited, false, 'pins, names and stages are not importance edits')
+  assert.equal(applyPatch(theme as never, { title: 'x', stagePosition: 2 }).edited, false, 'names and stages are not importance edits')
 })
 
 test('moving on the matrix sends null for values equal to the suggestion', () => {

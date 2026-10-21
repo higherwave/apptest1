@@ -201,7 +201,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The current analysis's themes, strongest first, with the person's edits applied (a renamed title, a stage placement, importance, effort, pinned) next to what the analysis suggested. Optional category filter and quotes. Open to read as the viewer. */
+        /** The current analysis's themes, strongest first, with the person's edits applied (a renamed title, a stage placement, importance, effort) next to what the analysis suggested. Optional category filter and quotes. Open to read as the viewer. */
         get: operations["listThemes"];
         put?: never;
         post?: never;
@@ -1011,7 +1011,6 @@ export interface components {
             effort: number;
             suggestedEffort: number;
             effortNote: string | null;
-            pinned: boolean;
             /** @description Importance or effort differs from the suggestion. */
             edited: boolean;
             overrideVersion: number;
@@ -1034,7 +1033,6 @@ export interface components {
             /** @enum {string|null} */
             priority?: "low" | "medium" | "high" | null;
             effort?: number | null;
-            pinned?: boolean;
         };
         TranscriptList: {
             transcripts: {
