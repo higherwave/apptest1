@@ -1,9 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
+  getBoard, getStory, moveStory, undoMove, patchStory, saveChecklist,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type CreateProjectRequest, type ProjectDetail,
+  type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
+import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
 
 // One hook per operation. Pages bind to these, never to fetch.
@@ -52,3 +54,47 @@ export const transcriptApi = { save: saveTranscripts, analyze: startAnalysis, pr
 
 export const useSpecs = (filter: { projectId?: string; standalone?: boolean }) => useQuery({ queryKey: ['specs', filter], queryFn: () => listSpecs(filter) })
 export const useSpec = (id: string | undefined) => useQuery({ queryKey: ['spec', id], queryFn: () => getSpec(id!), enabled: !!id })
+
+// The Stories board. A move shows at once (the card is placed where it was dropped) and the API's answer
+// replaces the guess; if the API refuses, the board is read again.
+export const useBoard = (projectId: string | undefined) => useQuery({ queryKey: ['board', projectId], queryFn: () => getBoard(projectId!), enabled: !!projectId, retry: false })
+export const useStory = (id: string | null) => useQuery({ queryKey: ['story', id], queryFn: () => getStory(id!), enabled: !!id })
+
+export function useMoveStory(projectId: string) {
+  const queryClient = useQueryClient()
+  const key = ['board', projectId]
+  return useMutation({
+    mutationFn: (v: { story: BoardStory; status: StoryStatus; beforeId: string | null }) => moveStory(v.story.id, v.story.version, v.status, v.beforeId),
+    onMutate: async (v) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      queryClient.setQueryData<Board>(key, (b) => (b ? { ...b, stories: moved(b.stories, v.story.id, v.status, v.beforeId) } : b))
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: key })
+      queryClient.invalidateQueries({ queryKey: ['story'] })
+    },
+  })
+}
+
+export function useUndoMove(projectId: string) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (specId: string) => undoMove(specId),
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['board', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['story'] })
+    },
+  })
+}
+
+// Edits to one card. The answer is the card as it is now; it replaces the open copy and the board refreshes.
+function useStoryEdit<V>(projectId: string, save: (v: V) => Promise<import('./client').StoryDetail>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: save,
+    onSuccess: (detail) => queryClient.setQueryData(['story', detail.id], detail),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ['board', projectId] }),
+  })
+}
+export const usePatchStory = (projectId: string) => useStoryEdit(projectId, (v: { id: string; version: number; body: { ownerTeam?: string | null; priority?: Priority } }) => patchStory(v.id, v.version, v.body))
+export const useSaveChecklist = (projectId: string) => useStoryEdit(projectId, (v: { id: string; version: number; items: ChecklistInput[] }) => saveChecklist(v.id, v.version, v.items))

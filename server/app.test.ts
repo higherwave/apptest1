@@ -1148,3 +1148,237 @@ test('anyone can read documents as the viewer; a viewer role cannot start or cha
   const res = await viewer.request(`/api/v1/projects/${p2}/specs`, { method: 'POST', headers: auth, body: '{}' })
   assert.equal(res.status, 403)
 })
+
+// The Stories board ----------------------------------------------------------------------------------------
+
+async function boardFixture() {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d }) // David, the owner
+  const alex = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'alex@demo.signalflow.example' }, getDb: () => d })
+  const sam = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => d })
+  const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
+  const send = (who: ReturnType<typeof createApp>, method: string, path: string, body?: unknown, version?: number | string, headers: Record<string, string> = auth) =>
+    who.request(`/api/v1${path}`, { method, headers: { ...headers, ...(version === undefined ? {} : { 'if-match': String(version) }) }, body: body === undefined ? undefined : JSON.stringify(body) })
+  const board = async (who = app) => (await who.request(`/api/v1/projects/${p1}/board`, { headers: auth })).json()
+  const story = async (key: string) => (await board()).stories.find((s: any) => s.key === key)
+  const column = async (status: string) => (await board()).stories.filter((s: any) => s.status === status).sort((a: any, b: any) => a.position - b.position).map((s: any) => s.key)
+  const move = async (key: string, status: string, beforeKey: string | null = null, who = app) => {
+    const s = await story(key)
+    const before = beforeKey ? await story(beforeKey) : null
+    return send(who, 'POST', `/stories/${s.id}/move`, { status, beforeId: before?.id ?? null }, s.version)
+  }
+  return { app, alex, sam, pg, p1, send, board, story, column, move }
+}
+
+test('the board is the published document’s stories: 10 cards in four columns, with themes and criteria counts', async () => {
+  const { app, p1 } = await boardFixture()
+  const res = await app.request(`/api/v1/projects/${p1}/board`)
+  const body = await expectSpec(res, '/projects/{id}/board')
+  assert.match(res.headers.get('cache-control') ?? '', /public/)
+  assert.equal(body.stories.length, 10)
+  const by = (st: string) => body.stories.filter((s: any) => s.status === st).length
+  assert.deepEqual([by('todo'), by('in_progress'), by('in_review'), by('done')], [5, 3, 1, 1])
+  assert.deepEqual(body.stories.filter((s: any) => s.kind === 'open_question').map((s: any) => s.key).sort(), ['Q1', 'Q2', 'Q3'])
+  assert.deepEqual(body.stories.filter((s: any) => !s.theme).map((s: any) => s.key), ['Q3'])
+  const r3 = body.stories.find((s: any) => s.key === 'R3')
+  assert.ok(r3.criteriaTotal > 0 && r3.criteriaMet <= r3.criteriaTotal)
+  assert.match(r3.theme.title, /Price surprises/)
+  assert.deepEqual([r3.theme.participantCount, r3.theme.totalParticipants], [2, 3])
+  assert.ok(body.themes.length > 0 && body.themes.reduce((n: number, t: any) => n + t.count, 0) === 9, 'nine cards have a theme')
+  assert.equal(body.lastMove, null)
+  assert.equal(body.specName, 'Clinic booking, usability round 1')
+})
+
+test('a project with no published document has no board (404 no_board); unknown projects are 404', async () => {
+  const { app, pg } = await boardFixture()
+  for (const name of ['Clinic booking, round 2', 'New patient intake (draft)']) {
+    const id = ((await pg.query<any>(`select id from core.projects where name = $1`, [name])).rows[0] as { id: string }).id
+    const res = await app.request(`/api/v1/projects/${id}/board`)
+    assert.equal(res.status, 404, name)
+    assert.equal((await expectSpec(res, '/projects/{id}/board')).error.code, 'no_board')
+  }
+  assert.equal((await app.request('/api/v1/projects/00000000-0000-4000-8000-000000000000/board')).status, 404)
+})
+
+test('GET a card returns its checklist in order, with the version as ETag', async () => {
+  const { app, story } = await boardFixture()
+  const r3 = await story('R3')
+  const res = await app.request(`/api/v1/stories/${r3.id}`)
+  const body = await expectSpec(res, '/stories/{id}')
+  assert.equal(res.headers.get('etag'), `"${r3.version}"`)
+  assert.deepEqual(body.checklist.map((c: any) => c.position), body.checklist.map((_: any, i: number) => i))
+  assert.ok(body.checklist.some((c: any) => c.kind === 'criterion') && body.checklist.some((c: any) => c.kind === 'task'))
+  assert.equal(body.criteriaTotal, body.checklist.filter((c: any) => c.kind === 'criterion').length)
+  assert.equal((await app.request('/api/v1/stories/not-a-uuid')).status, 404)
+})
+
+test('moving a card to the end of another column changes only that card and records the move', async () => {
+  const { app, pg, board, story, column, move } = await boardFixture()
+  const before = await board()
+  const r5 = await story('R5')
+  const res = await move('R5', 'in_progress')
+  assert.equal(res.status, 200)
+  const moved = await expectSpec(res, '/stories/{id}/move', 'post')
+  const last = Math.max(...before.stories.filter((s: any) => s.status === 'in_progress').map((s: any) => s.position))
+  assert.deepEqual([moved.status, moved.position, moved.version], ['in_progress', last + 1000, r5.version + 1])
+  assert.deepEqual(await column('in_progress'), ['R1', 'R2', 'R4', 'R5'])
+  const after = await board()
+  for (const s of after.stories.filter((s: any) => s.key !== 'R5')) assert.equal(s.version, before.stories.find((b: any) => b.id === s.id).version, `${s.key} untouched`)
+  assert.equal(after.lastMove.key, 'R5')
+  assert.deepEqual([after.lastMove.from, after.lastMove.to], ['todo', 'in_progress'])
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'moved' and entity_id = $1`, [r5.id])).rows[0].n, 1)
+  void app
+})
+
+test('dropping before a card puts it just above, within a column or across columns; dropping where it is changes nothing', async () => {
+  const { pg, story, column, move } = await boardFixture()
+  assert.deepEqual(await column('todo'), ['R5', 'R6', 'Q1', 'Q2', 'Q3'])
+  assert.equal((await move('Q3', 'todo', 'R6')).status, 200)
+  assert.deepEqual(await column('todo'), ['R5', 'Q3', 'R6', 'Q1', 'Q2'])
+  assert.equal((await move('R5', 'todo', null)).status, 200)
+  assert.deepEqual(await column('todo'), ['Q3', 'R6', 'Q1', 'Q2', 'R5'])
+  assert.equal((await move('R6', 'in_review', 'R3')).status, 200)
+  assert.deepEqual(await column('in_review'), ['R6', 'R3'])
+  // Dropping a card just above the card that is already below it is no move at all.
+  const v = (await story('R5')).version
+  const audits = (await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'moved'`)).rows[0].n
+  const again = await move('R5', 'todo', null)
+  assert.equal(again.status, 200)
+  assert.equal((await again.json()).version, v, 'the version did not change')
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'moved'`)).rows[0].n, audits, 'and nothing was recorded')
+})
+
+test('a move is refused when invalid, stale, unversioned, unauthorised or from a viewer', async () => {
+  const { app, sam, story, send, move } = await boardFixture()
+  const r5 = await story('R5')
+  const other = await story('R1') // in progress
+  const wrongColumn = await send(app, 'POST', `/stories/${r5.id}/move`, { status: 'done', beforeId: other.id }, r5.version)
+  assert.equal(wrongColumn.status, 422)
+  assert.equal((await wrongColumn.json()).error.field, 'beforeId')
+  assert.equal((await send(app, 'POST', `/stories/${r5.id}/move`, { status: 'archived' }, r5.version)).status, 422)
+  assert.equal((await send(app, 'POST', `/stories/${r5.id}/move`, { status: 'done' })).status, 428)
+  assert.equal((await send(app, 'POST', `/stories/${r5.id}/move`, { status: 'done' }, r5.version, { 'content-type': 'application/json' })).status, 401)
+  assert.equal((await send(sam, 'POST', `/stories/${r5.id}/move`, { status: 'done' }, r5.version)).status, 403)
+  assert.equal((await send(app, 'POST', `/stories/00000000-0000-4000-8000-000000000000/move`, { status: 'done' }, 1)).status, 404)
+  assert.equal((await move('R5', 'done')).status, 200)
+  const stale = await send(app, 'POST', `/stories/${r5.id}/move`, { status: 'todo' }, r5.version) // the version before the move above
+  assert.equal(stale.status, 409)
+  const err = await expectSpec(stale, '/stories/{id}/move', 'post')
+  assert.deepEqual([err.error.code, err.current.version], ['version_conflict', r5.version + 1])
+})
+
+test('when neighbours are too close the column is renumbered and every card keeps its place', async () => {
+  const { pg, story, column, move } = await boardFixture()
+  const [a, b] = [await story('R5'), await story('R6')]
+  await pg.query(`update delivery.stories set position = 1000 where id = $1`, [a.id])
+  await pg.query(`update delivery.stories set position = 1000.0005 where id = $1`, [b.id])
+  assert.deepEqual((await column('todo')).slice(0, 2), ['R5', 'R6'])
+  assert.equal((await move('Q1', 'todo', 'R6')).status, 200)
+  assert.deepEqual(await column('todo'), ['R5', 'Q1', 'R6', 'Q2', 'Q3'])
+  const positions = (await pg.query<any>(`select position::float8 as p from delivery.stories where status = 'todo' order by position`)).rows.map((r: any) => r.p) as number[]
+  assert.equal(new Set(positions).size, 5, 'all distinct')
+  assert.ok(positions.every((p, i) => i === 0 || p - positions[i - 1] >= 1), 'spaced out again')
+})
+
+test('Undo reverses my last move exactly, once; it is mine alone; it fails if the card has moved again', async () => {
+  const { app, alex, pg, story, send, board, column, move } = await boardFixture()
+  const spec = (await board()).specId
+  const r5 = await story('R5')
+  assert.equal((await send(app, 'POST', `/specs/${spec}/undo`)).status, 404, 'nothing to undo yet')
+  await move('R5', 'in_review', 'R3')
+  assert.equal((await board(alex)).lastMove, null, 'Alex has not moved anything')
+  assert.equal((await send(alex, 'POST', `/specs/${spec}/undo`)).status, 404, 'and cannot undo David’s move')
+  const res = await send(app, 'POST', `/specs/${spec}/undo`)
+  assert.equal(res.status, 200)
+  const back = await expectSpec(res, '/specs/{id}/undo', 'post')
+  assert.deepEqual([back.status, back.position], [r5.status, r5.position], 'exactly where it was')
+  assert.deepEqual(await column('todo'), ['R5', 'R6', 'Q1', 'Q2', 'Q3'])
+  assert.equal((await board()).lastMove, null)
+  assert.equal((await send(app, 'POST', `/specs/${spec}/undo`)).status, 404, 'undo is once per move')
+  assert.ok((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'moved' and undone_at is not null`)).rows[0].n === 1)
+  // David moves R6; then Alex moves the same card; David's undo no longer applies.
+  await move('R6', 'in_progress')
+  const r6 = await story('R6')
+  assert.equal((await move('R6', 'done', null, alex)).status, 200)
+  const refused = await send(app, 'POST', `/specs/${spec}/undo`)
+  assert.equal(refused.status, 409)
+  assert.equal((await expectSpec(refused, '/specs/{id}/undo', 'post')).error.code, 'cannot_undo')
+  assert.equal((await story('R6')).status, 'done', 'Alex’s move stands')
+  void r6
+})
+
+test('a visitor sees the board but never anyone’s moves, and cannot undo', async () => {
+  const { app, p1, send, board, move } = await boardFixture()
+  await move('R5', 'in_progress')
+  const anon = createApp({ env: TOKEN, getDb: (app as any).getDb ?? undefined })
+  void anon
+  const res = await app.request(`/api/v1/projects/${p1}/board`) // no token: the read-only viewer
+  assert.equal((await res.json()).lastMove, null)
+  assert.equal((await board()).lastMove.key, 'R5')
+  assert.equal((await send(app, 'POST', `/specs/${(await board()).specId}/undo`, undefined, undefined, { 'content-type': 'application/json' })).status, 401)
+})
+
+test('a card’s owner team and priority can be changed; blank clears the owner', async () => {
+  const { pg, app, story, send } = await boardFixture()
+  const r5 = await story('R5')
+  const res = await send(app, 'PATCH', `/stories/${r5.id}`, { ownerTeam: '  Notifications team ', priority: 'high' }, r5.version)
+  assert.equal(res.status, 200)
+  const body = await expectSpec(res, '/stories/{id}', 'patch')
+  assert.deepEqual([body.ownerTeam, body.priority, body.version], ['Notifications team', 'high', r5.version + 1])
+  const cleared = await (await send(app, 'PATCH', `/stories/${r5.id}`, { ownerTeam: '   ' }, body.version)).json()
+  assert.deepEqual([cleared.ownerTeam, cleared.priority], [null, 'high'], 'priority untouched when only the owner is sent')
+  assert.equal((await send(app, 'PATCH', `/stories/${r5.id}`, { priority: 'urgent' }, cleared.version)).status, 422)
+  assert.equal((await send(app, 'PATCH', `/stories/${r5.id}`, {}, cleared.version)).status, 422)
+  assert.equal((await send(app, 'PATCH', `/stories/${r5.id}`, { ownerTeam: 'x' }, r5.version)).status, 409)
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'story_edited' and entity_id = $1`, [r5.id])).rows[0].n, 2)
+})
+
+test('the checklist is saved whole: ids kept, items added and removed, progress counts criteria only', async () => {
+  const { app, story, send } = await boardFixture()
+  const r5 = await story('R5')
+  const detail = await (await app.request(`/api/v1/stories/${r5.id}`)).json()
+  const [c1, c2, ...rest] = detail.checklist
+  assert.ok(c1.kind === 'criterion')
+  const items = [
+    { id: c1.id, kind: 'criterion', text: c1.text, met: true },
+    { id: c2.id, kind: c2.kind, text: 'Reworded', met: true },
+    { kind: 'criterion', text: 'A brand new criterion', met: false },
+    { kind: 'task', text: 'A new task', met: true },
+  ]
+  const res = await send(app, 'PUT', `/stories/${r5.id}/checklist`, { items }, detail.version)
+  assert.equal(res.status, 200)
+  const body = await expectSpec(res, '/stories/{id}/checklist', 'put')
+  assert.deepEqual(body.checklist.map((c: any) => c.text), ['Reworded'.length ? c1.text : '', 'Reworded', 'A brand new criterion', 'A new task'].map((t, i) => (i === 0 ? c1.text : t)))
+  assert.deepEqual([body.checklist[0].id, body.checklist[1].id], [c1.id, c2.id], 'ids kept')
+  assert.equal(body.version, detail.version + 1)
+  const criteria = body.checklist.filter((c: any) => c.kind === 'criterion')
+  assert.deepEqual([body.criteriaTotal, body.criteriaMet], [criteria.length, criteria.filter((c: any) => c.met).length])
+  assert.ok(rest.length > 0 && !body.checklist.some((c: any) => rest.some((r: any) => r.id === c.id)), 'items left out were removed')
+  const board = await (await app.request(`/api/v1/projects/${(await (await app.request(`/api/v1/specs/${detail.specId}`)).json()).projectId}/board`)).json()
+  assert.equal(board.stories.find((s: any) => s.id === r5.id).criteriaTotal, body.criteriaTotal, 'the board shows the new progress')
+})
+
+test('checklist saves validate: empty text, unknown ids, stale versions', async () => {
+  const { app, story, send } = await boardFixture()
+  const r5 = await story('R5')
+  const detail = await (await app.request(`/api/v1/stories/${r5.id}`)).json()
+  const empty = await send(app, 'PUT', `/stories/${r5.id}/checklist`, { items: [{ kind: 'task', text: '  ', met: false }] }, detail.version)
+  assert.deepEqual([empty.status, (await empty.json()).error.field], [422, 'items.0.text'])
+  const stranger = await send(app, 'PUT', `/stories/${r5.id}/checklist`, { items: [{ id: '00000000-0000-4000-8000-000000000000', kind: 'task', text: 'x', met: false }] }, detail.version)
+  assert.equal(stranger.status, 422)
+  assert.equal((await send(app, 'PUT', `/stories/${r5.id}/checklist`, { items: [] }, detail.version + 5)).status, 409)
+  assert.equal((await send(app, 'PUT', `/stories/${r5.id}/checklist`, { items: [] }, detail.version)).status, 200, 'an empty checklist is allowed')
+})
+
+test('publishing a document puts its cards on the board: R1.. and Q1.. in To Do, in the order step 5 listed them', async () => {
+  const { app, pg } = await boardFixture()
+  const sf = await specFixture()
+  const spec = await sf.create()
+  const done = await sf.approveThrough(spec.id, 8)
+  assert.equal((await sf.call('POST', `/specs/${spec.id}/publish`, undefined, done.version)).status, 201)
+  const board = await expectSpec(await sf.app.request(`/api/v1/projects/${sf.round2}/board`), '/projects/{id}/board')
+  assert.deepEqual(board.stories.map((s: any) => s.key), ['R1', 'R2', 'R3', 'Q1', 'Q2'])
+  assert.ok(board.stories.every((s: any) => s.status === 'todo' && s.criteriaTotal === 0 && s.ownerTeam === null))
+  assert.deepEqual(board.stories.map((s: any) => s.position), [1000, 2000, 3000, 4000, 5000])
+  void app; void pg
+})

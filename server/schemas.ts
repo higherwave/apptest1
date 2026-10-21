@@ -100,3 +100,27 @@ export const standaloneSpecSchema = z.object({
 export const includeThemeSchema = z.object({ included: z.boolean() })
 export const redoSchema = z.object({ instructions: text(500).min(1, 'Tell the agent what to change.') })
 export const editStepSchema = z.object({ text: z.string().trim().min(1, 'The text cannot be empty.').max(5000, 'The text is too long.') })
+
+// The board -----------------------------------------------------------------------------------------------------
+export const moveStorySchema = z.object({
+  status: z.enum(['todo', 'in_progress', 'in_review', 'done']),
+  beforeId: z.uuid().nullish().transform((v) => v ?? null),
+})
+export const patchStorySchema = z
+  .object({
+    ownerTeam: text(120).transform((v) => (v === '' ? null : v)).nullable().optional(),
+    priority: z.enum(['low', 'medium', 'high']).optional(),
+  })
+  .refine((v) => Object.keys(v).length > 0, 'Send at least one change.')
+export const checklistSchema = z.object({
+  items: z
+    .array(
+      z.object({
+        id: z.uuid().nullish().transform((v) => v ?? null),
+        kind: z.enum(['criterion', 'task']),
+        text: text(300).min(1, 'Enter the text.'),
+        met: z.boolean(),
+      }),
+    )
+    .max(50, 'A card can hold up to 50 checklist items.'),
+})

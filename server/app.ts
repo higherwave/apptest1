@@ -8,7 +8,10 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema } from './schemas.js'
+  createSpecSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+import {
+  CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
+} from './stories.js'
 import {
   approveStep, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
   SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
@@ -337,6 +340,85 @@ export function createApp(options: AppOptions = {}) {
     if (!(await deleteSpec(getDb(), c.get('ctx'), specId(c)))) throw new ApiError(404, 'not_found', 'No such document.')
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
+  })
+
+  // The Stories board ---------------------------------------------------------------------------------------
+
+  const storyError = (err: unknown): never => {
+    if (err instanceof StoryNotFound) throw new ApiError(404, 'not_found', 'No such story.')
+    if (err instanceof StoryVersionConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this card since you opened it.', undefined, { current: { version: err.current } })
+    if (err instanceof NothingToUndo) throw new ApiError(404, 'nothing_to_undo', 'There is no move of yours to undo.')
+    if (err instanceof CannotUndo) throw new ApiError(409, 'cannot_undo', 'That card has been moved again since, so the move cannot be undone.')
+    if (err instanceof UnknownChecklistItem) throw new ApiError(422, 'validation_failed', 'That checklist item does not belong to this card.', 'items')
+    throw err
+  }
+
+  app.get('/projects/:id/board', withReadContext, async (c) => {
+    const id = projectId(c)
+    const ctx = c.get('ctx')
+    if (!(await getProjectDetail(getDb(), ctx.workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    let board
+    try {
+      board = await getBoard(getDb(), ctx.workspaceId, id, ctx.anonymous ? null : ctx.userId)
+    } catch (err) {
+      if (err instanceof NoBoard) throw new ApiError(404, 'no_board', 'There is no board yet. Publish a requirements document to create one.')
+      throw err
+    }
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(board)
+  })
+
+  const storyId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such story.')
+    return id
+  }
+  const storyDetail = async (c: Context, id: string) => {
+    const story = await getStory(getDb(), c.get('ctx').workspaceId, id)
+    if (!story) throw new ApiError(404, 'not_found', 'No such story.')
+    return story
+  }
+
+  app.get('/stories/:id', withReadContext, async (c) => {
+    const story = await storyDetail(c, storyId(c))
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    c.header('ETag', `"${story.version}"`)
+    return c.json(story)
+  })
+
+  // A card action carries the version of that card, so two people changing the same card cannot both succeed.
+  const storyAction = async (c: Context, schema: Parameters<typeof parseBody>[0], run: (id: string, expected: number, input: any) => Promise<void>) => {
+    requireEditor(c)
+    const id = storyId(c)
+    const expected = expectedVersion(c)
+    const input = parseBody(schema, await readJson(c))
+    try {
+      await run(id, expected, input)
+    } catch (err) {
+      return storyError(err)
+    }
+    const story = await storyDetail(c, id)
+    c.header('Cache-Control', 'no-store')
+    c.header('ETag', `"${story.version}"`)
+    return c.json(story)
+  }
+  app.post('/stories/:id/move', withContext, (c) => storyAction(c, moveStorySchema, (id, v, input) => moveStory(getDb(), c.get('ctx'), id, v, { status: input.status, beforeId: input.beforeId })))
+  app.patch('/stories/:id', withContext, (c) => storyAction(c, patchStorySchema, (id, v, input) => patchStory(getDb(), c.get('ctx'), id, v, input)))
+  app.put('/stories/:id/checklist', withContext, (c) => storyAction(c, checklistSchema, (id, v, input) => saveChecklist(getDb(), c.get('ctx'), id, v, input.items)))
+
+  app.post('/specs/:id/undo', withContext, async (c) => {
+    requireEditor(c)
+    let id: string
+    try {
+      id = await undoMove(getDb(), c.get('ctx'), specId(c))
+    } catch (err) {
+      return storyError(err)
+    }
+    const story = await storyDetail(c, id)
+    c.header('Cache-Control', 'no-store')
+    return c.json(story)
   })
 
   app.put('/projects/:id/tasks', withContext, (c) => save(c, saveTasksSchema, (id, v, input) => saveTasks(getDb(), c.get('ctx'), id, v, input)))

@@ -382,6 +382,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/board": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Stories board of a project: the cards of its most recently published requirements document, the themes they come from, and the last move this person made (for Undo). 404 no_board when nothing is published. Open to read as the viewer. */
+        get: operations["getBoard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stories/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One card with its checklist. The ETag is the card's version. Open to read as the viewer. */
+        get: operations["getStory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Changes a card's owner team or priority. If-Match is the card's version. Needs the token. */
+        patch: operations["updateStory"];
+        trace?: never;
+    };
+    "/stories/{id}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moves a card to a column, just before another card there or last. Only that card's row changes (the column is renumbered first if the neighbours are too close). Dropping a card where it already is changes nothing. Recorded for Undo. If-Match is the card's version. Needs the token. */
+        post: operations["moveStory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stories/{id}/checklist": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Saves the card's checklist (criteria and tasks) as a whole. An item with an id is updated in place, one without is added, one left out is removed. The card's progress bar counts criteria only. If-Match is the card's version. Needs the token. */
+        put: operations["saveChecklist"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/specs/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reverses the last move this person made on the board. 404 nothing_to_undo if there is none; 409 cannot_undo if the card has been moved again since. Needs the token. */
+        post: operations["undoMove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/tasks": {
         parameters: {
             query?: never;
@@ -521,6 +607,111 @@ export interface components {
                 role?: string | null;
                 email: string;
                 sessionDate?: string | null;
+            }[];
+        };
+        BoardStory: {
+            id: string;
+            /** @description R1 */
+            key: string;
+            /** @enum {string} */
+            kind: "requirement" | "open_question";
+            title: string;
+            /** @enum {string} */
+            status: "todo" | "in_progress" | "in_review" | "done";
+            /** @description Order within the column; a card dropped between two others takes the number halfway between them. */
+            position: number;
+            /** @enum {string} */
+            priority: "low" | "medium" | "high";
+            ownerTeam: string | null;
+            summary: string | null;
+            whyItMatters: string | null;
+            nextStep: string | null;
+            theme: {
+                id: string;
+                title: string;
+                category: string;
+                participantCount: number;
+                totalParticipants: number;
+            } | null;
+            criteriaMet: number;
+            criteriaTotal: number;
+            version: number;
+        };
+        ChecklistItem: {
+            id: string;
+            /** @enum {string} */
+            kind: "criterion" | "task";
+            text: string;
+            met: boolean;
+            position: number;
+        };
+        StoryDetail: {
+            id: string;
+            key: string;
+            /** @enum {string} */
+            kind: "requirement" | "open_question";
+            title: string;
+            /** @enum {string} */
+            status: "todo" | "in_progress" | "in_review" | "done";
+            position: number;
+            /** @enum {string} */
+            priority: "low" | "medium" | "high";
+            ownerTeam: string | null;
+            summary: string | null;
+            whyItMatters: string | null;
+            nextStep: string | null;
+            theme: {
+                id: string;
+                title: string;
+                category: string;
+                participantCount: number;
+                totalParticipants: number;
+            } | null;
+            criteriaMet: number;
+            criteriaTotal: number;
+            version: number;
+            specId: string;
+            checklist: components["schemas"]["ChecklistItem"][];
+        };
+        Board: {
+            specId: string;
+            specName: string;
+            projectId: string;
+            projectName: string;
+            stories: components["schemas"]["BoardStory"][];
+            themes: {
+                id: string;
+                title: string;
+                count: number;
+            }[];
+            lastMove: {
+                storyId: string;
+                key: string;
+                title: string;
+                /** @enum {string} */
+                from: "todo" | "in_progress" | "in_review" | "done";
+                /** @enum {string} */
+                to: "todo" | "in_progress" | "in_review" | "done";
+            } | null;
+        };
+        MoveStoryRequest: {
+            /** @enum {string} */
+            status: "todo" | "in_progress" | "in_review" | "done";
+            /** @description The card in that column to drop before; null for the end of the column. */
+            beforeId?: string | null;
+        };
+        UpdateStoryRequest: {
+            ownerTeam?: string | null;
+            /** @enum {string} */
+            priority?: "low" | "medium" | "high";
+        };
+        SaveChecklistRequest: {
+            items: {
+                id?: string | null;
+                /** @enum {string} */
+                kind: "criterion" | "task";
+                text: string;
+                met: boolean;
             }[];
         };
         SpecSummary: {
@@ -818,6 +1009,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description The card as it is now, with its new version. */
+        StorySaved: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StoryDetail"];
+            };
+        };
         /** @description The document as it is now. */
         SpecSaved: {
             headers: {
@@ -845,7 +1045,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -1590,6 +1790,170 @@ export interface operations {
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The board. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Board"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getStory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The card. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    updateStory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateStoryRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["StorySaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    moveStory: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveStoryRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["StorySaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveChecklist: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveChecklistRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["StorySaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    undoMove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The card, back where it was. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StoryDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

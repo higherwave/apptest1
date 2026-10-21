@@ -523,6 +523,127 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/board:
+    get:
+      operationId: getBoard
+      summary: >
+        The Stories board of a project: the cards of its most recently published requirements document, the themes they
+        come from, and the last move this person made (for Undo). 404 no_board when nothing is published. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The board.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Board' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /stories/{id}:
+    get:
+      operationId: getStory
+      summary: One card with its checklist. The ETag is the card's version. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The card.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: updateStory
+      summary: Changes a card's owner team or priority. If-Match is the card's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateStoryRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/StorySaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /stories/{id}/move:
+    post:
+      operationId: moveStory
+      summary: >
+        Moves a card to a column, just before another card there or last. Only that card's row changes (the column is renumbered
+        first if the neighbours are too close). Dropping a card where it already is changes nothing. Recorded for Undo. If-Match
+        is the card's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MoveStoryRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/StorySaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /stories/{id}/checklist:
+    put:
+      operationId: saveChecklist
+      summary: >
+        Saves the card's checklist (criteria and tasks) as a whole. An item with an id is updated in place, one without is added,
+        one left out is removed. The card's progress bar counts criteria only. If-Match is the card's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveChecklistRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/StorySaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /specs/{id}/undo:
+    post:
+      operationId: undoMove
+      summary: >
+        Reverses the last move this person made on the board. 404 nothing_to_undo if there is none; 409 cannot_undo if the card
+        has been moved again since. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The card, back where it was.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StoryDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /projects/{id}/tasks:
     put:
       operationId: saveTasks
@@ -571,6 +692,11 @@ components:
       description: The version the person was looking at (the ETag of the last read), for example "3".
       schema: { type: string }
   responses:
+    StorySaved:
+      description: The card as it is now, with its new version.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/StoryDetail' }
     SpecSaved:
       description: The document as it is now.
       content:
@@ -591,7 +717,7 @@ components:
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, internal_error.
+        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -747,6 +873,127 @@ components:
               role: { type: [string, 'null'] }
               email: { type: string }
               sessionDate: { type: [string, 'null'] }
+    BoardStory:
+      type: object
+      required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, theme, criteriaMet, criteriaTotal, version]
+      properties:
+        id: { type: string }
+        key: { type: string, description: R1, R2 ... for requirements; Q1, Q2 ... for open questions. }
+        kind: { type: string, enum: [requirement, open_question] }
+        title: { type: string }
+        status: { type: string, enum: [todo, in_progress, in_review, done] }
+        position: { type: number, description: Order within the column; a card dropped between two others takes the number halfway between them. }
+        priority: { type: string, enum: [low, medium, high] }
+        ownerTeam: { type: [string, 'null'] }
+        summary: { type: [string, 'null'] }
+        whyItMatters: { type: [string, 'null'] }
+        nextStep: { type: [string, 'null'] }
+        theme:
+          type: [object, 'null']
+          required: [id, title, category, participantCount, totalParticipants]
+          properties:
+            id: { type: string }
+            title: { type: string }
+            category: { type: string }
+            participantCount: { type: integer }
+            totalParticipants: { type: integer }
+        criteriaMet: { type: integer }
+        criteriaTotal: { type: integer }
+        version: { type: integer }
+    ChecklistItem:
+      type: object
+      required: [id, kind, text, met, position]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [criterion, task] }
+        text: { type: string }
+        met: { type: boolean }
+        position: { type: integer }
+    StoryDetail:
+      type: object
+      required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, theme, criteriaMet, criteriaTotal, version, specId, checklist]
+      properties:
+        id: { type: string }
+        key: { type: string }
+        kind: { type: string, enum: [requirement, open_question] }
+        title: { type: string }
+        status: { type: string, enum: [todo, in_progress, in_review, done] }
+        position: { type: number }
+        priority: { type: string, enum: [low, medium, high] }
+        ownerTeam: { type: [string, 'null'] }
+        summary: { type: [string, 'null'] }
+        whyItMatters: { type: [string, 'null'] }
+        nextStep: { type: [string, 'null'] }
+        theme:
+          type: [object, 'null']
+          required: [id, title, category, participantCount, totalParticipants]
+          properties:
+            id: { type: string }
+            title: { type: string }
+            category: { type: string }
+            participantCount: { type: integer }
+            totalParticipants: { type: integer }
+        criteriaMet: { type: integer }
+        criteriaTotal: { type: integer }
+        version: { type: integer }
+        specId: { type: string }
+        checklist:
+          type: array
+          items: { $ref: '#/components/schemas/ChecklistItem' }
+    Board:
+      type: object
+      required: [specId, specName, projectId, projectName, stories, themes, lastMove]
+      properties:
+        specId: { type: string }
+        specName: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        stories:
+          type: array
+          items: { $ref: '#/components/schemas/BoardStory' }
+        themes:
+          type: array
+          items:
+            type: object
+            required: [id, title, count]
+            properties:
+              id: { type: string }
+              title: { type: string }
+              count: { type: integer }
+        lastMove:
+          type: [object, 'null']
+          required: [storyId, key, title, from, to]
+          properties:
+            storyId: { type: string }
+            key: { type: string }
+            title: { type: string }
+            from: { type: string, enum: [todo, in_progress, in_review, done] }
+            to: { type: string, enum: [todo, in_progress, in_review, done] }
+    MoveStoryRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [todo, in_progress, in_review, done] }
+        beforeId: { type: [string, 'null'], description: The card in that column to drop before; null for the end of the column. }
+    UpdateStoryRequest:
+      type: object
+      properties:
+        ownerTeam: { type: [string, 'null'] }
+        priority: { type: string, enum: [low, medium, high] }
+    SaveChecklistRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [kind, text, met]
+            properties:
+              id: { type: [string, 'null'] }
+              kind: { type: string, enum: [criterion, task] }
+              text: { type: string }
+              met: { type: boolean }
     SpecSummary:
       type: object
       required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, approved, total, createdAt]

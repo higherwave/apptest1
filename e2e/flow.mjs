@@ -308,7 +308,8 @@ try {
 
   // Edit step 1: it goes back under review and keeps my words.
   await waitApprove()
-  await clickText('Edit')
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Edit' && !b.disabled), { timeout: 10000 })
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Edit' && !b.disabled).click()) // a real click can land under the fixed header
   await page.waitForSelector('#step-text-1')
   await retype('#step-text-1', 'Patients cannot reschedule without a phone call.')
   await clickText('Save edit')
@@ -332,6 +333,61 @@ try {
   ok('publishing opens Stories', true)
   ok('the project’s Stories step is now unlocked', !(await navLocked('Stories')))
   ok('the document is Published', (await apiSpec(specId)).status === 'published')
+
+  // Stories: the board shows what the document created; move by menu, by drag, and in the card panel; Undo.
+  const apiBoard = async () => (await fetch(`${API}/api/v1/projects/${projectId}/board`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  const storyOf = async (key) => (await apiBoard()).stories.find((s) => s.key === key)
+  await page.waitForSelector('[data-testid^="card-"]')
+  const board0 = await apiBoard()
+  ok('the board shows every card the document created, all in To Do', board0.stories.length === preview.requirements + preview.openQuestions && board0.stories.every((s) => s.status === 'todo')
+    && (await page.$$('[data-testid^="card-"]')).length === board0.stories.length)
+  const firstKey = board0.stories[0].key
+  const secondKey = board0.stories[1].key
+  const thirdKey = board0.stories[2].key
+  await page.click(`[data-testid="card-${firstKey}"] [aria-label="Move ${firstKey}"]`)
+  await clickText('Move to In progress', 'li, button')
+  await page.waitForFunction((k) => document.querySelector(`section[aria-label="In progress"] [data-testid="card-${k}"]`), { timeout: 8000 }, firstKey)
+  await new Promise((r) => setTimeout(r, 600))
+  ok('"Move to" in a card’s menu moves it to the other column', (await storyOf(firstKey)).status === 'in_progress')
+  await waitText(`Undo move of ${firstKey}`)
+  // Drag the second card onto the first, in In progress (dropped before it).
+  await page.evaluate((a, b) => {
+    const dt = new DataTransfer()
+    const src = document.querySelector(`[data-testid="card-${a}"]`)
+    const target = document.querySelector(`[data-testid="card-${b}"]`)
+    src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }))
+    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }))
+    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
+  }, secondKey, firstKey)
+  await page.waitForFunction((k) => document.querySelector(`section[aria-label="In progress"] [data-testid="card-${k}"]`), { timeout: 8000 }, secondKey)
+  await new Promise((r) => setTimeout(r, 600))
+  const dragged = await apiBoard()
+  const inProgress = dragged.stories.filter((s) => s.status === 'in_progress').sort((a, b) => a.position - b.position).map((s) => s.key)
+  ok('dragging a card onto another puts it just before that card', inProgress.join() === [secondKey, firstKey].join(), inProgress.join())
+  await clickText(`Undo move of ${secondKey}`)
+  await new Promise((r) => setTimeout(r, 800))
+  ok('Undo puts the dragged card back in To Do', (await storyOf(secondKey)).status === 'todo' && (await storyOf(firstKey)).status === 'in_progress')
+  // The card panel: details, move, priority, owner, checklist.
+  await page.click(`[data-testid="card-${thirdKey}"] button`)
+  await waitText('Checklist')
+  ok('opening a card shows its details and checklist', (await text()).includes('Checklist') && (await text()).includes('Move to'))
+  await page.click('#story-new-item')
+  await page.type('#story-new-item', 'Works with a screen reader')
+  await clickText('Add item')
+  await new Promise((r) => setTimeout(r, 800))
+  ok('adding a checklist item saves it', (await (await fetch(`${API}/api/v1/stories/${(await storyOf(thirdKey)).id}`)).json()).checklist.some((c) => c.text === 'Works with a screen reader'))
+  await page.click('#story-owner')
+  await page.type('#story-owner', 'Platform team')
+  await clickText('Save owner')
+  await new Promise((r) => setTimeout(r, 800))
+  ok('saving the owner team shows it on the card', (await storyOf(thirdKey)).ownerTeam === 'Platform team')
+  await clickText('Close')
+  await new Promise((r) => setTimeout(r, 800))
+  await page.type('#story-search', thirdKey)
+  await new Promise((r) => setTimeout(r, 300))
+  ok('searching narrows the board to matching cards', (await page.$$('[data-testid^="card-"]')).length >= 1 && !(await page.$(`[data-testid="card-${firstKey}"]`)) && !!(await page.$(`[data-testid="card-${thirdKey}"]`)))
+  await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid^="card-"]')
 
   // The list shows it; a published document is read-only; a stand-alone one starts from a description.
   await navTo('Requirements')

@@ -97,16 +97,37 @@ export function friendlyMessage(err: unknown): string {
     if (err.code === 'auth_not_configured') return 'Sign-in is not set up yet, so data routes are closed on this deployment.'
     if (err.code === 'unauthorized') return 'The access token was missing or not accepted.'
     if (err.code === 'forbidden') return 'Your role cannot make changes.'
-    if (err.code === 'version_conflict') return 'Someone else changed this project since you opened it.'
+    if (err.code === 'version_conflict') return 'Someone else changed this since you opened it. It has been reloaded.'
     if (err.code === 'not_found') return 'That project no longer exists.'
     if (err.code === 'no_transcripts') return 'Add at least one transcript before analyzing.'
     if (err.code === 'no_analysis') return 'Analyze the transcripts first: a document is built from the themes.'
     if (err.code === 'spec_published') return 'This document is published and can no longer be changed.'
     if (err.code === 'step_not_ready') return 'That step is not ready for this action yet.'
     if (err.code === 'steps_not_approved') return 'Every step must be approved before publishing.'
+    if (err.code === 'no_board') return 'Publish a requirements document to put its stories on the board.'
+    if (err.code === 'nothing_to_undo') return 'There is no move of yours to undo.'
+    if (err.code === 'cannot_undo') return 'That card has moved again since, so the move cannot be undone.'
     if (err.code === 'theme_superseded') return 'These themes are from an earlier analysis. They have been reloaded.'
     if (err.code === 'workspace_not_found') return 'The demo data is not loaded yet.'
     return err.message
   }
   return 'The API did not respond.'
 }
+
+// The Stories board ---------------------------------------------------------------------------------
+export type Board = components['schemas']['Board']
+export type BoardStory = components['schemas']['BoardStory']
+export type StoryDetail = components['schemas']['StoryDetail']
+export type ChecklistItem = components['schemas']['ChecklistItem']
+export type StoryStatus = BoardStory['status']
+export type Priority = BoardStory['priority']
+export type ChecklistInput = components['schemas']['SaveChecklistRequest']['items'][number]
+export const getBoard = (projectId: string) => request<Board>(`/projects/${projectId}/board`)
+export const getStory = (id: string) => request<StoryDetail>(`/stories/${id}`)
+export const moveStory = (id: string, version: number, status: StoryStatus, beforeId: string | null) =>
+  request<StoryDetail>(`/stories/${id}/move`, { method: 'POST', body: { status, beforeId }, version })
+export const undoMove = (specId: string) => request<StoryDetail>(`/specs/${specId}/undo`, { method: 'POST' })
+export const patchStory = (id: string, version: number, body: { ownerTeam?: string | null; priority?: Priority }) =>
+  request<StoryDetail>(`/stories/${id}`, { method: 'PATCH', body, version })
+export const saveChecklist = (id: string, version: number, items: ChecklistInput[]) =>
+  request<StoryDetail>(`/stories/${id}/checklist`, { method: 'PUT', body: { items }, version })
