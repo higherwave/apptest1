@@ -102,6 +102,26 @@
   }
 }
 
+// Cells look like plain table text until they are used: no border at rest, a hairline on hover, and the field's
+// strong border plus its focus ring once the cell is selected. Errors stay visible at all times.
+.table {
+  :global(.cds--text-input) {
+    border-color: transparent;
+  }
+
+  :global(.cds--text-input):hover:not(:focus) {
+    border-color: var(--at-hairline);
+  }
+
+  :global(.cds--text-input):focus {
+    border-color: var(--cds-border-strong);
+  }
+
+  :global(.cds--text-input--invalid) {
+    border-color: var(--cds-support-error);
+  }
+}
+
 .head {
   @include tokens.role('caption');
   padding: var(--at-space-xs) var(--at-space-xs);
