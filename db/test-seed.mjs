@@ -108,6 +108,16 @@ await test('Insights counts derive from quotes: availability reaches 3 + 3 + 5 =
   eq(n, 11, 'availability participants');
 });
 
+await test('platform stats count distinct people: prep checklist is 10 of 13, not 12', async () => {
+  const r = await rows(db, `select pt.title, st.participant_count::int people, st.project_count::int projects
+    from insights.platform_theme_stats st join insights.platform_themes pt on pt.id = st.platform_theme_id order by people desc, pt.title`);
+  eq(r.map((x) => [x.title, x.people, x.projects]), [
+    ['Provider availability is hard to see', 11, 3], ['A prep checklist before the visit is valued', 10, 3],
+    ['People expect to reschedule without calling', 10, 3], ['Insurance coverage is unclear up front', 6, 2], ['Fees appear late at checkout', 4, 2]], 'platform theme stats');
+  const w = await rows(db, `select project_count::int p, participant_count::int n from insights.workspace_stats`);
+  eq(w, [{ p: 3, n: 13 }], 'workspace denominators (draft project excluded)');
+});
+
 await test('ids are deterministic and a second seed gives the same result', async () => {
   const before = await rows(db, `select id from delivery.stories order by id`);
   const again = await seed(db);
