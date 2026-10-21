@@ -386,10 +386,13 @@ try {
   await clickText(`Undo move of ${secondKey}`)
   await new Promise((r) => setTimeout(r, 800))
   ok('Undo puts the dragged card back in To Do', (await storyOf(secondKey)).status === 'todo' && (await storyOf(firstKey)).status === 'in_progress')
+  // The panel on the right is always there, showing a selected card (the first in To Do until another is picked).
+  ok('the detail panel is already showing a card on arrival', await page.evaluate(() => !!document.querySelector('aside[aria-label="Story details"] h2')))
+  ok('it has a Create Jira Ticket button, which needs no function yet', await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === 'Create Jira Ticket')))
   // The card panel: details, move, priority, owner, checklist.
   await page.click(`[data-testid="card-${thirdKey}"] button`)
   await page.waitForSelector('#story-new-item', { visible: true }) // the panel has loaded, not just opened
-  ok('opening a card shows its details and checklist', (await text()).includes('Checklist') && (await text()).includes('Move to'))
+  ok('opening a card shows its details and checklist', (await text()).toLowerCase().includes('checklist') && (await text()).includes('Move to'))
   await page.click('#story-new-item')
   await page.type('#story-new-item', 'Works with a screen reader')
   await clickText('Add item')
@@ -400,8 +403,7 @@ try {
   await clickText('Save owner')
   await new Promise((r) => setTimeout(r, 800))
   ok('saving the owner team shows it on the card', (await storyOf(thirdKey)).ownerTeam === 'Platform team')
-  await clickText('Close')
-  await new Promise((r) => setTimeout(r, 800))
+  ok('the panel follows the selected card', await page.evaluate((k) => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith(k), thirdKey))
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))
   ok('searching narrows the board to matching cards', (await page.$$('[data-testid^="card-"]')).length >= 1 && !(await page.$(`[data-testid="card-${firstKey}"]`)) && !!(await page.$(`[data-testid="card-${thirdKey}"]`)))

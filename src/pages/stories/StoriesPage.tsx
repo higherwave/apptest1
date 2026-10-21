@@ -15,8 +15,16 @@ export function StoriesPage() {
   const undo = useUndoMove(projectId)
   const patch = usePatchStory(projectId)
   const checklist = useSaveChecklist(projectId)
-  const [openId, setOpenId] = useState<string | null>(null)
+  const [pickedId, setPickedId] = useState<string | null>(null)
+  // The panel always shows a card: the one picked, or else the first in To Do (so it is never empty on arrival).
+  const firstId = useMemo(() => {
+    const all = board.data?.stories ?? []
+    return ([...all].filter((s) => s.status === 'todo').sort((a, b) => a.position - b.position)[0] ?? all[0])?.id ?? null
+  }, [board.data])
+  const openId = pickedId && board.data?.stories.some((s) => s.id === pickedId) ? pickedId : firstId
   const detail = useStory(openId)
+  const [savedAt, setSavedAt] = useState<string | undefined>()
+  const markSaved = () => setSavedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
   const [search, setSearch] = useState('')
   const [priority, setPriority] = useState<Priority | 'all'>('all')
   const [themeId, setThemeId] = useState<string | null>(null)
@@ -39,6 +47,7 @@ export function StoriesPage() {
       { story, status, beforeId },
       {
         onError: fail,
+        onSuccess: markSaved,
         onSettled: () => setMoving((m) => { const n = new Set(m); n.delete(story.id); return n }),
       },
     )
@@ -62,26 +71,27 @@ export function StoriesPage() {
       detail={openId ? detail.data : undefined}
       detailBusy={patch.isPending || checklist.isPending}
       undoing={undo.isPending}
+      saving={moving.size > 0 || patch.isPending || checklist.isPending || undo.isPending}
+      savedAt={savedAt}
       errorText={board.isError && !noBoard ? friendlyMessage(board.error) : error}
       onSearch={setSearch}
       onPriority={setPriority}
       onTheme={setThemeId}
-      onOpen={setOpenId}
-      onClose={() => setOpenId(null)}
+      onOpen={setPickedId}
       onMove={onMove}
       onUndo={() => {
         setError(undefined)
-        if (board.data) undo.mutate(board.data.specId, { onError: fail })
+        if (board.data) undo.mutate(board.data.specId, { onError: fail, onSuccess: markSaved })
       }}
       onPatch={(body) => {
         if (!detail.data) return
         setError(undefined)
-        patch.mutate({ id: detail.data.id, version: detail.data.version, body }, { onError: fail })
+        patch.mutate({ id: detail.data.id, version: detail.data.version, body }, { onError: fail, onSuccess: markSaved })
       }}
       onChecklist={(items: ChecklistInput[]) => {
         if (!detail.data) return
         setError(undefined)
-        checklist.mutate({ id: detail.data.id, version: detail.data.version, items }, { onError: fail })
+        checklist.mutate({ id: detail.data.id, version: detail.data.version, items }, { onError: fail, onSuccess: markSaved })
       }}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
     />
