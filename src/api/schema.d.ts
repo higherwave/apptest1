@@ -65,6 +65,41 @@ export interface paths {
         /** Research projects in the workspace, with the figures shown on a project card. Open to anyone for reading (viewer role); cached for a minute so repeated requests do not reach the database. */
         get: operations["listProjects"];
         put?: never;
+        /** Creates a project with its test plan, journey stages, participants and the template's starter tasks, in one transaction. Needs the token. */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Permanently deletes a project and everything under it (a hard delete; the page asks for confirmation first). The audit log keeps the name, actor and time. Needs the token. */
+        delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Study templates (usability, discovery, concept, blank) and the list of research methods. */
+        get: operations["listTemplates"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -88,6 +123,49 @@ export interface components {
             /** @enum {string} */
             database: "reachable";
             migrations: number;
+        };
+        TemplateList: {
+            data: components["schemas"]["Template"][];
+            methodOptions: string[];
+        };
+        Template: {
+            /** @enum {string} */
+            key: "usability" | "discovery" | "concept" | "blank";
+            name: string;
+            description: string | null;
+            what: string;
+            jtbd: {
+                when: string;
+                want: string;
+                so: string;
+            };
+            outcomes: string[];
+            methods: string[];
+            tasks: {
+                prompt: string;
+                followUps: string[];
+            }[];
+        };
+        CreateProjectRequest: {
+            name: string;
+            /** @enum {string} */
+            templateKey: "usability" | "discovery" | "concept" | "blank";
+            what?: string | null;
+            jtbd?: {
+                when?: string | null;
+                want?: string | null;
+                so?: string | null;
+            };
+            outcomes?: string[];
+            methods?: string[];
+            /** @description At least one. Name and a valid email are required. */
+            participants: {
+                name: string;
+                role?: string | null;
+                email: string;
+                /** @description YYYY-MM-DD */
+                sessionDate?: string | null;
+            }[];
         };
         ProjectList: {
             data: components["schemas"]["ProjectSummary"][];
@@ -134,7 +212,7 @@ export interface components {
         };
     };
     responses: {
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -231,6 +309,81 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description The new project, as it appears on a project card. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectSummary"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    deleteProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The templates, in display order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateList"];
                 };
             };
             401: components["responses"]["Error"];

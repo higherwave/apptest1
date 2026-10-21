@@ -1,5 +1,16 @@
 @use '../../tokens' as tokens;
 
+// The menu sits beside the tile, not inside it: a button must not be nested in the tile's link.
+.wrap {
+  position: relative;
+}
+
+.menu {
+  position: absolute;
+  inset-block-end: var(--at-space-xs);
+  inset-inline-end: var(--at-space-xs);
+}
+
 // The card's fill is one of the --at-tint-* tokens, chosen by the project's tint name.
 .card {
   display: flex;

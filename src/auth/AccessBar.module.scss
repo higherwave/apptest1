@@ -1,0 +1,19 @@
+@use '../tokens' as tokens;
+
+.bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--at-space-xs);
+  margin-bottom: var(--at-space-md);
+}
+
+.help {
+  @include tokens.role('body-md');
+  margin: 0 0 var(--at-space-md);
+  color: var(--at-muted);
+}
+
+.error {
+  margin-top: var(--at-space-md);
+}

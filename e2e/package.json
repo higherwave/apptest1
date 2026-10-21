@@ -1,0 +1,7 @@
+{
+  "name": "signalflow-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser flow tests. Kept separate so the app's dependencies stay small.",
+  "dependencies": { "puppeteer-core": "^24.0.0" }
+}

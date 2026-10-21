@@ -1,6 +1,7 @@
 import { Content, Header, HeaderName, SideNav, SideNavItems, SideNavLink } from '@carbon/react'
 import type { MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { AccessBar } from '../auth/AccessBar'
 import { INSIGHT_SECTIONS, STEPS, STEP_GROUPS } from './nav'
 import styles from './AppShell.module.scss'
 
@@ -65,6 +66,7 @@ export function AppShell() {
       </SideNav>
 
       <Content className={styles.content}>
+        <AccessBar />
         <Outlet />
       </Content>
     </>

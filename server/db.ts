@@ -2,7 +2,9 @@ import pg from 'pg'
 import { ApiError } from './errors.js'
 
 export type Env = Record<string, string | undefined>
-export type Db = { query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, any>[] }> }
+export type Queryable = { query(sql: string, params?: unknown[]): Promise<{ rows: Record<string, any>[] }> }
+// transaction() runs fn on one connection between BEGIN and COMMIT, and rolls back if fn throws.
+export type Db = Queryable & { transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> }
 
 // The Neon integration adds a prefix to its variable names (for example <PREFIX>_DATABASE_URL), so
 // match by suffix. Serverless functions use the pooled string; migrations use the unpooled one.
@@ -34,17 +36,26 @@ export function databaseUnavailable(detail?: string) {
   return new ApiError(503, 'db_unavailable', 'The demo database is paused or unreachable.' + (detail ? ` (${detail})` : ''))
 }
 
+function mapDbError(err: unknown): unknown {
+  const e = err as { code?: string; message?: string }
+  if ((e.code && UNREACHABLE.has(e.code)) || (e.message && UNREACHABLE_MESSAGE.test(e.message))) return databaseUnavailable(e.code)
+  return err
+}
+
 export function wrapDb(inner: Db): Db {
   return {
     async query(sql, params) {
       try {
         return await inner.query(sql, params)
       } catch (err) {
-        const e = err as { code?: string; message?: string }
-        if ((e.code && UNREACHABLE.has(e.code)) || (e.message && UNREACHABLE_MESSAGE.test(e.message))) {
-          throw databaseUnavailable(e.code)
-        }
-        throw err
+        throw mapDbError(err)
+      }
+    },
+    async transaction(fn) {
+      try {
+        return await inner.transaction(fn)
+      } catch (err) {
+        throw mapDbError(err)
       }
     },
   }
@@ -57,14 +68,29 @@ export function lazyPgDb(env: Env): () => Db {
     if (db) return db
     const url = findConnectionString(env, 'pooled')
     if (!url) {
-      return {
-        query: async () => {
-          throw databaseUnavailable('no connection string configured')
-        },
+      const unavailable = async (): Promise<never> => {
+        throw databaseUnavailable('no connection string configured')
       }
+      return { query: unavailable, transaction: unavailable }
     }
     const pool = new pg.Pool({ connectionString: cleanConnectionString(url), max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 8_000 })
-    db = wrapDb({ query: (sql, params) => pool.query(sql, params as unknown[]) })
+    db = wrapDb({
+      query: (sql, params) => pool.query(sql, params as unknown[]),
+      async transaction(fn) {
+        const client = await pool.connect()
+        try {
+          await client.query('begin')
+          const result = await fn({ query: (sql, params) => client.query(sql, params as unknown[]) })
+          await client.query('commit')
+          return result
+        } catch (err) {
+          await client.query('rollback').catch(() => undefined)
+          throw err
+        } finally {
+          client.release()
+        }
+      },
+    })
     return db
   }
 }

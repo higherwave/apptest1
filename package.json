@@ -10,13 +10,15 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
-    "test:api": "tsx --test server/*.test.ts",
+    "test:api": "tsx --test server/*.test.ts src/pages/wizard/*.test.ts",
     "test": "npm run test:api && npm run test:db",
     "test:db": "npm --prefix db test",
     "validate:pages": "node --experimental-strip-types --no-warnings scripts/validate-pages.mjs",
     "check:all": "npm run typecheck && npm test && npm run validate:pages",
     "gen:api": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o src/api/schema.d.ts",
-    "check:api-types": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o /tmp/signalflow-schema.check.d.ts && diff -q /tmp/signalflow-schema.check.d.ts src/api/schema.d.ts"
+    "check:api-types": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o /tmp/signalflow-schema.check.d.ts && diff -q /tmp/signalflow-schema.check.d.ts src/api/schema.d.ts",
+    "dev:api:memory": "tsx server/dev-memory.ts",
+    "e2e": "npm --prefix e2e install --silent && node e2e/run.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.89.0",
@@ -29,7 +31,8 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.4",
-    "sass": "^1.105.0"
+    "sass": "^1.105.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.10",

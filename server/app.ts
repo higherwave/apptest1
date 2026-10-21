@@ -2,7 +2,8 @@ import { Hono, type Context } from 'hono'
 import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, type Db, type Env } from './db.js'
 import { requestContext } from './context.js'
-import { listProjects } from './projects.js'
+import { createProject, deleteProject, getProjectSummary, listProjects, listTemplates, TemplateMissing } from './projects.js'
+import { createProjectSchema, METHOD_OPTIONS, parseBody } from './schemas.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db }
 
@@ -50,5 +51,52 @@ export function createApp(options: AppOptions = {}) {
     return c.json({ data, next_cursor: null })
   })
 
+  app.get('/templates', withReadContext, async (c) => {
+    const data = await listTemplates(getDb(), c.get('ctx').workspaceId)
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json({ data, methodOptions: METHOD_OPTIONS })
+  })
+
+  // Writes: the token is required (strict context) and the role must be able to edit.
+  const requireEditor = (c: Context) => {
+    const role = c.get('ctx').role
+    if (role !== 'owner' && role !== 'editor') throw new ApiError(403, 'forbidden', 'Your role cannot make changes.')
+  }
+  const readJson = async (c: Context) => {
+    try {
+      return await c.req.json()
+    } catch {
+      throw new ApiError(400, 'invalid_json', 'The request body must be valid JSON.')
+    }
+  }
+
+  app.post('/projects', withContext, async (c) => {
+    requireEditor(c)
+    const ctx = c.get('ctx')
+    const input = parseBody(createProjectSchema, await readJson(c))
+    let id: string
+    try {
+      id = await createProject(getDb(), ctx, input)
+    } catch (err) {
+      if (err instanceof TemplateMissing) throw new ApiError(422, 'validation_failed', 'That template does not exist in this workspace.', 'templateKey')
+      throw err
+    }
+    const summary = await getProjectSummary(getDb(), ctx.workspaceId, id)
+    c.header('Cache-Control', 'no-store')
+    return c.json(summary, 201)
+  })
+
+  app.delete('/projects/:id', withContext, async (c) => {
+    requireEditor(c)
+    const id = c.req.param('id')
+    const found = UUID.test(id) && (await deleteProject(getDb(), c.get('ctx'), id))
+    if (!found) throw new ApiError(404, 'not_found', 'No such project.')
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+
   return app
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i

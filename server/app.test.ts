@@ -3,29 +3,31 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
+import { createDemoDatabase, pgliteDb } from './test-utils.js'
 import { parse } from 'yaml'
 import { createApp } from './app.js'
 import { cleanConnectionString, databaseUnavailable, findConnectionString, wrapDb, type Db } from './db.js'
 // @ts-expect-error plain ESM helpers shared with the db/ tooling
 import { migrationFiles } from '../db/migrate.mjs'
-// @ts-expect-error plain ESM seed
-import { seed } from '../db/seed/seed.mjs'
+
+// Node's fetch types return unknown from json(); the tests inspect bodies freely.
+declare global {
+  interface Response {
+    json(): Promise<any>
+  }
+}
 
 const spec = parse(readFileSync(new URL('../openapi/openapi.yaml', import.meta.url), 'utf8'))
 
 // A Db that fails the test if anything uses it: proves a route never touches the database.
-const forbiddenDb: Db = { query: async () => { throw new Error('the database must not be used by this route') } }
+const forbidden = async (): Promise<never> => { throw new Error('the database must not be used by this route') }
+const forbiddenDb: Db = { query: forbidden, transaction: forbidden }
 
 let pglite: PGlite
 let db: Db
 async function demoDb() {
   if (db) return db
-  pglite = new PGlite()
-  for (const f of migrationFiles()) await pglite.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
-  await pglite.exec(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`)
-  for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
-  await seed(pglite)
-  db = { query: async (sql, params) => pglite.query(sql, params as unknown[]) as Promise<{ rows: Record<string, any>[] }> }
+  ;({ pglite, db } = await createDemoDatabase())
   return db
 }
 
@@ -143,7 +145,8 @@ test('a production deployment with no DEV_TOKEN refuses data routes', async () =
 })
 
 test('a paused or unreachable database becomes a 503 db_unavailable envelope', async () => {
-  const down = wrapDb({ query: async () => { throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) } })
+  const refuse = async (): Promise<never> => { throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) }
+  const down = wrapDb({ query: refuse, transaction: refuse })
   const app = createApp({ env: {}, getDb: () => down })
   const res = await app.request('/api/v1/health/db')
   assert.equal(res.status, 503)
@@ -160,7 +163,7 @@ test('no connection string configured is also db_unavailable, not a crash', asyn
 test('an unseeded database gives workspace_not_found with a hint', async () => {
   const empty = new PGlite()
   for (const f of migrationFiles()) await empty.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
-  const app = createApp({ env: {}, getDb: () => ({ query: async (s, p) => empty.query(s, p as unknown[]) as Promise<{ rows: Record<string, any>[] }> }) })
+  const app = createApp({ env: {}, getDb: () => pgliteDb(empty) })
   const res = await app.request('/api/v1/me')
   assert.equal(res.status, 503)
   assert.equal((await res.json()).error.code, 'workspace_not_found')
@@ -175,7 +178,7 @@ test('unknown routes use the error envelope', async () => {
 
 test('every operation in the spec has a route, and every route is in the spec', async () => {
   const app = createApp({ env: {}, getDb: () => forbiddenDb })
-  const routes = app.routes.filter((r) => r.method !== 'ALL').map((r) => `${r.method.toLowerCase()} ${r.path.replace('/api/v1', '')}`)
+  const routes = app.routes.filter((r) => r.method !== 'ALL').map((r) => `${r.method.toLowerCase()} ${r.path.replace('/api/v1', '').replace(/:(\w+)/g, '{$1}')}`)
   const declared = Object.entries(spec.paths).flatMap(([p, ops]: [string, any]) => Object.keys(ops).map((m) => `${m} ${p}`))
   assert.deepEqual([...new Set(routes)].sort(), declared.sort())
 })
@@ -223,21 +226,21 @@ test('GET /projects returns the seeded projects with derived status and card fig
 test('project status follows the current analysis run: a superseded run leaves the project as a draft', async () => {
   await demoDb()
   const app = createApp({ env: {}, getDb: () => db })
-  await pglite.query(`update core.agent_runs set superseded_at = now() where kind = 'analysis' and project_id = (select id from core.projects where name = 'Check-in diary study')`)
+  await pglite.query<any>(`update core.agent_runs set superseded_at = now() where kind = 'analysis' and project_id = (select id from core.projects where name = 'Check-in diary study')`)
   const body = await (await app.request('/api/v1/projects')).json()
   const p = body.data.find((x: any) => x.name === 'Check-in diary study')
   assert.deepEqual([p.status, p.themes], ['draft', 0])
-  await pglite.query(`update core.agent_runs set superseded_at = null where kind = 'analysis'`)
+  await pglite.query<any>(`update core.agent_runs set superseded_at = null where kind = 'analysis'`)
 })
 
 test('projects are scoped to the workspace', async () => {
   await demoDb()
-  const other = (await pglite.query(`insert into core.workspaces (name, slug) values ('Other', 'other-ws') returning id`)).rows[0] as { id: string }
-  await pglite.query(`insert into core.projects (workspace_id, name) values ($1, 'Not yours')`, [other.id])
+  const other = (await pglite.query<any>(`insert into core.workspaces (name, slug) values ('Other', 'other-ws') returning id`)).rows[0] as { id: string }
+  await pglite.query<any>(`insert into core.projects (workspace_id, name) values ($1, 'Not yours')`, [other.id])
   const app = createApp({ env: {}, getDb: () => db })
   const names = (await (await app.request('/api/v1/projects')).json()).data.map((p: any) => p.name)
   assert.ok(!names.includes('Not yours'))
-  await pglite.query(`delete from core.workspaces where slug = 'other-ws'`)
+  await pglite.query<any>(`delete from core.workspaces where slug = 'other-ws'`)
 })
 
 test('cache headers: anonymous reads are cacheable for a minute, token requests never', async () => {
@@ -248,4 +251,148 @@ test('cache headers: anonymous reads are cacheable for a minute, token requests 
   assert.equal(anon.headers.get('vary'), 'Authorization')
   const authed = await app.request('/api/v1/projects', { headers: { authorization: 'Bearer s3cret' } })
   assert.equal(authed.headers.get('cache-control'), 'private, no-store')
+})
+
+// Writes -------------------------------------------------------------------------------------------
+
+const TOKEN = { DEV_TOKEN: 's3cret' }
+const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json' }
+const newProject = (over: Record<string, unknown> = {}) => ({
+  name: 'Onboarding study', templateKey: 'usability', what: 'Whether new users finish setup',
+  jtbd: { when: 'I sign up', want: 'to finish setup', so: 'I can start' }, outcomes: ['Completion above 80%', ''], methods: ['Moderated usability test'],
+  participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', sessionDate: '2026-11-02' }], ...over,
+})
+const post = (app: ReturnType<typeof createApp>, body: unknown, headers: Record<string, string> = auth) =>
+  app.request('/api/v1/projects', { method: 'POST', headers, body: JSON.stringify(body) })
+
+test('GET /templates lists the four templates in order, with the method options', async () => {
+  await demoDb()
+  const app = createApp({ env: {}, getDb: () => db })
+  const body = await expectSpec(await app.request('/api/v1/templates'), '/templates')
+  assert.deepEqual(body.data.map((t: any) => t.key), ['usability', 'discovery', 'concept', 'blank'])
+  assert.equal(body.data[0].tasks[0].prompt, 'Find and book an appointment with a provider you would trust.')
+  assert.deepEqual(body.data[0].tasks[0].followUps.length, 2)
+  assert.ok(body.methodOptions.includes('Diary study'))
+})
+
+test('POST /projects creates the project, plan, stages, participants and starter tasks together', async () => {
+  await demoDb()
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  const res = await post(app, newProject())
+  assert.equal(res.status, 201)
+  const created = await expectSpec(res, '/projects', 'post')
+  assert.deepEqual([created.name, created.status, created.sessions, created.themes, created.template], ['Onboarding study', 'draft', 0, 0, 'Usability test'])
+  const id = created.id
+  const q = async (sql: string) => (await pglite.query<any>(sql, [id])).rows as any[]
+  assert.deepEqual((await q(`select what_testing w, outcomes o, methods m from research.studies where project_id = $1`))[0], { w: 'Whether new users finish setup', o: ['Completion above 80%'], m: ['Moderated usability test'] })
+  assert.equal((await q(`select count(*)::int n from research.study_stages where study_id = $1`))[0].n, 5)
+  assert.deepEqual((await q(`select name, email, session_date::text d from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', d: '2026-11-02' })
+  assert.deepEqual((await q(`select count(*) filter (where parent_task_id is null)::int q, count(*) filter (where parent_task_id is not null)::int f from research.tasks where project_id = $1`))[0], { q: 2, f: 3 })
+  assert.equal((await q(`select verb from core.audit_log where entity_id = $1`))[0].verb, 'created')
+  // It shows up in the list as a draft, in a tint no other project in the workspace uses yet.
+  const list = (await (await app.request('/api/v1/projects')).json()).data
+  const mine = list.find((p: any) => p.id === id)
+  assert.equal(mine.status, 'draft')
+  assert.equal(list.filter((p: any) => p.color === mine.color).length, 1)
+})
+
+test('POST /projects with the blank template starts with no tasks', async () => {
+  await demoDb()
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  const created = await (await post(app, newProject({ name: 'Blank one', templateKey: 'blank' }))).json()
+  assert.equal((await pglite.query<any>(`select count(*)::int n from research.tasks where project_id = $1`, [created.id])).rows[0].n, 0)
+})
+
+test('POST /projects validates, naming the field: 422 validation_failed', async () => {
+  await demoDb()
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  const cases: [Record<string, unknown>, string][] = [
+    [newProject({ name: '  ' }), 'name'],
+    [newProject({ participants: [] }), 'participants'],
+    [newProject({ participants: [{ name: 'Ada', email: 'not-an-email' }] }), 'participants.0.email'],
+    [newProject({ participants: [{ name: '', email: 'a@b.co' }] }), 'participants.0.name'],
+    [newProject({ methods: ['Mind reading'] }), 'methods.0'],
+    [newProject({ templateKey: 'nope' }), 'templateKey'],
+    [newProject({ participants: [{ name: 'Ada', email: 'a@b.co', sessionDate: 'Oct 6' }] }), 'participants.0.sessionDate'],
+  ]
+  for (const [body, field] of cases) {
+    const res = await post(app, body)
+    assert.equal(res.status, 422, field)
+    const err = (await expectSpec(res, '/projects', 'post')).error
+    assert.deepEqual([err.code, err.field], ['validation_failed', field])
+  }
+  const bad = await app.request('/api/v1/projects', { method: 'POST', headers: auth, body: '{not json' })
+  assert.equal(bad.status, 400)
+  assert.equal((await bad.json()).error.code, 'invalid_json')
+})
+
+test('a failed create leaves nothing behind (one transaction)', async () => {
+  await demoDb()
+  const before = (await pglite.query<any>(`select count(*)::int n from core.projects`)).rows[0].n
+  // An email longer than the database allows is not caught by the schema in this test's fixture; force
+  // a failure inside the transaction by removing a table the create writes to.
+  await pglite.query<any>(`alter table research.study_stages rename to study_stages_x`)
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  const res = await post(app, newProject({ name: 'Will fail' }))
+  await pglite.query<any>(`alter table research.study_stages_x rename to study_stages`)
+  assert.equal(res.status, 500)
+  assert.equal((await pglite.query<any>(`select count(*)::int n from core.projects`)).rows[0].n, before)
+  assert.equal((await pglite.query<any>(`select count(*)::int n from core.projects where name = 'Will fail'`)).rows[0].n, 0)
+})
+
+test('writes need the token: anonymous and wrong-token requests are refused', async () => {
+  await demoDb()
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  assert.equal((await post(app, newProject(), { 'content-type': 'application/json' })).status, 401)
+  assert.equal((await post(app, newProject(), { authorization: 'Bearer wrong', 'content-type': 'application/json' })).status, 401)
+  const del = await app.request('/api/v1/projects/' + '0'.repeat(8) + '-0000-4000-8000-' + '0'.repeat(12), { method: 'DELETE' })
+  assert.equal(del.status, 401)
+})
+
+test('a viewer role cannot write even with a valid token (403 forbidden)', async () => {
+  await demoDb()
+  const app = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => db })
+  const res = await post(app, newProject())
+  assert.equal(res.status, 403)
+  assert.equal((await expectSpec(res, '/projects', 'post')).error.code, 'forbidden')
+})
+
+test('DELETE /projects/:id removes the project and everything under it, and audits it', async () => {
+  await demoDb()
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  const created = await (await post(app, newProject({ name: 'Delete me' }))).json()
+  const res = await app.request(`/api/v1/projects/${created.id}`, { method: 'DELETE', headers: auth })
+  assert.equal(res.status, 204)
+  for (const t of ['research.studies', 'research.participants', 'research.tasks', 'research.study_stages']) {
+    const col = t === 'research.studies' ? 'project_id' : t === 'research.study_stages' ? 'study_id' : 'project_id'
+    assert.equal((await pglite.query<any>(`select count(*)::int n from ${t} where ${col} = $1`, [created.id])).rows[0].n, 0, t)
+  }
+  const audit = (await pglite.query<any>(`select verb, before from core.audit_log where entity_id = $1 order by created_at, verb`, [created.id])).rows as any[]
+  assert.deepEqual(audit.map((a) => a.verb).sort(), ['created', 'deleted'])
+  assert.equal(audit.find((a) => a.verb === 'deleted').before.name, 'Delete me')
+  const again = await app.request(`/api/v1/projects/${created.id}`, { method: 'DELETE', headers: auth })
+  assert.equal(again.status, 404)
+  assert.equal((await expectSpec(again, '/projects/{id}', 'delete')).error.code, 'not_found')
+})
+
+test('DELETE cannot reach another workspace or a malformed id', async () => {
+  await demoDb()
+  const other = (await pglite.query<any>(`insert into core.workspaces (name, slug) values ('Other', 'other-del') returning id`)).rows[0] as { id: string }
+  const foreign = (await pglite.query<any>(`insert into core.projects (workspace_id, name) values ($1, 'Foreign') returning id`, [other.id])).rows[0] as { id: string }
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  assert.equal((await app.request(`/api/v1/projects/${foreign.id}`, { method: 'DELETE', headers: auth })).status, 404)
+  assert.equal((await app.request(`/api/v1/projects/not-a-uuid`, { method: 'DELETE', headers: auth })).status, 404)
+  assert.equal((await pglite.query<any>(`select count(*)::int n from core.projects where id = $1`, [foreign.id])).rows[0].n, 1)
+  await pglite.query<any>(`delete from core.workspaces where slug = 'other-del'`)
+})
+
+test('deleting a project removes its platform-theme sources, so Insights counts update', async () => {
+  const { pglite: p2, db: d2 } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d2 })
+  const target = (await p2.query<any>(`select id from core.projects where name = 'Check-in diary study'`)).rows[0] as { id: string }
+  const before = (await p2.query<any>(`select count(*)::int n from insights.platform_theme_sources`)).rows[0] as { n: number }
+  assert.equal((await app.request(`/api/v1/projects/${target.id}`, { method: 'DELETE', headers: auth })).status, 204)
+  const after = (await p2.query<any>(`select count(*)::int n from insights.platform_theme_sources`)).rows[0] as { n: number }
+  assert.ok(after.n < before.n, 'platform sources for the deleted project are gone')
+  assert.equal((await p2.query<any>(`select participant_count::int n from insights.workspace_stats`)).rows[0].n, 7)
 })
