@@ -193,6 +193,87 @@ try {
   const apiProjects = async () => (await (await fetch(`${API}/api/v1/projects`)).json()).data
   const mine = async () => (await apiProjects()).find((p) => p.id === projectId)
   ok('the project is Analyzed with 3 sessions and 9 themes', await mine().then((p) => p.status === 'analyzed' && p.sessions === 3 && p.themes === 9))
+
+  // Themes, Journey Map and Priorities, on the analysis just made.
+  const apiThemes = async () => (await (await fetch(`${API}/api/v1/projects/${projectId}/themes`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).data
+  const navTo = async (label) => { await page.evaluate((l) => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === l).click(), label) }
+  const choose = async (id, option) => {
+    await page.click(`#${id}`)
+    await page.waitForSelector('[role=option]', { visible: true })
+    await page.evaluate((o) => [...document.querySelectorAll('[role=option]')].find((x) => x.innerText.trim() === o).click(), option)
+  }
+  const dnd = (fromFn, toFn) => page.evaluate((a, b) => {
+    const src = new Function(`return (${a})()`)(), dst = new Function(`return (${b})()`)()
+    const dt = new DataTransfer()
+    const fire = (el, type) => el.dispatchEvent(new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer: dt }))
+    fire(src, 'dragstart'); fire(dst, 'dragenter'); fire(dst, 'dragover'); fire(dst, 'drop'); fire(src, 'dragend')
+  }, fromFn.toString(), toFn.toString())
+
+  await waitText('What was said')
+  ok('Themes lists the 9 themes found, with an All count', (await text()).includes('All 9'))
+  ok('the first theme is selected and its quotes show', await page.evaluate(() => document.querySelectorAll('blockquote').length > 0))
+  await clickText('Delight 1')
+  await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 1, { timeout: 5000 })
+  ok('the Delight filter shows only delight themes', true)
+  await clickText('All 9')
+  await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 5000 })
+
+  // Choose the theme about availability; pin it, rename it, and move it to another stage.
+  await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Themes"] li')].find((li) => li.innerText.includes('Provider availability is hard to see')).querySelector('a, button').click())
+  await waitText('Pin to journey map')
+  await clickText('Pin to journey map')
+  await waitText('Unpin from journey map')
+  ok('pinning saves to the API', (await apiThemes()).find((t) => t.originalTitle === 'Provider availability is hard to see').pinned === true)
+  await retype('#theme-title', 'Hard to see who is free')
+  await page.keyboard.press('Tab')
+  await page.waitForFunction(() => document.body.innerText.includes('Originally: Provider availability is hard to see'), { timeout: 8000 })
+  ok('renaming keeps the original visible', (await apiThemes()).some((t) => t.title === 'Hard to see who is free' && t.originalTitle === 'Provider availability is hard to see'))
+  await choose('theme-stage', 'Confirm & pay')
+  await new Promise((r) => setTimeout(r, 600))
+  ok('choosing a stage saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 2)
+
+  // Journey Map: it shows the pin in the stage just chosen; drag it, then use the menu, then unpin.
+  await navTo('Journey Map')
+  await waitText('themes are on the map')
+  ok('the map counts pinned themes: 1 of 9', (await text()).includes('1 of 9 themes are on the map'))
+  const inStage = (name) => page.evaluate((n) => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith(n))?.querySelectorAll('article').length ?? -1, name)
+  ok('the pinned theme sits in Confirm & pay', (await inStage('Confirm & pay')) === 1)
+  await dnd(() => document.querySelector('article'), () => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change')))
+  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change'))?.querySelectorAll('article').length === 1, { timeout: 8000 })
+  ok('dragging a theme to another stage moves and saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 3)
+  await page.click('article .cds--overflow-menu')
+  await clickText('Move to Find a provider', 'button')
+  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Find a provider'))?.querySelectorAll('article').length === 1, { timeout: 8000 })
+  ok('the menu moves it too, without dragging', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 0)
+  await page.click('article .cds--overflow-menu')
+  await clickText('Unpin from map', 'button')
+  await waitText('Pin themes on the Themes screen')
+  ok('unpinning empties the map and points back to Themes', (await text()).includes('0 of 9 themes are on the map'))
+
+  // Priorities: change importance with the menu, move a chip by dragging, then reset.
+  await navTo('Priorities')
+  await waitText('Importance')
+  const target = (await apiThemes()).find((t) => t.originalTitle === 'Reviews and ratings drive trust')
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Reviews and ratings drive trust').click())
+  await waitText('Suggested:')
+  ok('the panel shows the suggestion', (await text()).includes('Suggested: Medium importance, Low effort'))
+  await choose('importance', 'High')
+  await waitText('Edited')
+  ok('changing importance saves it and marks the theme Edited', (await apiThemes()).find((t) => t.id === target.id).priority === 'high')
+  await dnd(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Reviews and ratings drive trust'), () => document.querySelector('div[role=group][aria-label^="Importance Low, effort High"]'))
+  await page.waitForFunction(() => document.querySelector('div[role=group][aria-label^="Importance Low, effort High"]')?.innerText.includes('Reviews and ratings drive trust'), { timeout: 8000 })
+  const moved = (await apiThemes()).find((t) => t.id === target.id)
+  ok('dragging a theme to a cell sets importance and effort', moved.priority === 'low' && moved.effort === 3)
+  await clickText('Reset to suggestion')
+  await page.waitForFunction(() => !document.body.innerText.includes('Edited'), { timeout: 8000 })
+  const back = (await apiThemes()).find((t) => t.id === target.id)
+  ok('Reset to suggestion puts it back', back.priority === 'medium' && back.effort === 1 && back.overrideVersion >= 0)
+  await choose('importance', 'Low')
+  await waitText('Edited')
+  await clickText('Reset all')
+  await page.waitForFunction(() => !document.body.innerText.includes('Edited'), { timeout: 8000 })
+  ok('Reset all clears every importance and effort edit', (await apiThemes()).every((t) => !t.edited))
+
   await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Transcripts').click())
   await page.waitForSelector('#transcript-name-2')
   await waitText('All changes saved')

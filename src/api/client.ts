@@ -20,7 +20,7 @@ export class ApiRequestError extends Error {
   }
 }
 
-type SendOptions = { method?: 'GET' | 'POST' | 'PUT' | 'DELETE'; body?: unknown; token?: string | null; version?: number }
+type SendOptions = { method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'; body?: unknown; token?: string | null; version?: number }
 
 // Every request carries the editing token when the tab has one. 204 responses have no body.
 async function request<T>(path: string, { method = 'GET', body, token, version }: SendOptions = {}): Promise<T> {
@@ -64,6 +64,14 @@ export type AnalysisRunResult = components['schemas']['AnalysisRunResult']
 export const getTranscripts = (id: string) => request<TranscriptList>(`/projects/${id}/transcripts`)
 export const saveTranscripts = (id: string, version: number, body: components['schemas']['SaveTranscriptsRequest']) => request<TranscriptList>(`/projects/${id}/transcripts`, { method: 'PUT', body, version })
 export const startAnalysis = (id: string, version: number) => request<AnalysisRunResult>(`/projects/${id}/analysis-runs`, { method: 'POST', body: {}, version })
+export type Theme = components['schemas']['Theme']
+export type ThemePatch = components['schemas']['ThemePatch']
+export type ThemeList = components['schemas']['ThemeList']
+export type ThemeCategory = Theme['category']
+export const listThemes = (projectId: string) => request<ThemeList>(`/projects/${projectId}/themes?include=quotes`)
+// An edit is checked against the version of that theme's edits, so edits to other themes never conflict.
+export const updateTheme = (themeId: string, version: number, body: ThemePatch) => request<Theme>(`/themes/${themeId}`, { method: 'PATCH', body, version })
+export const resetPriorityOverrides = (projectId: string) => request<{ data: Theme[] }>(`/projects/${projectId}/priority-overrides`, { method: 'DELETE' })
 export const listProjects = () => request<components['schemas']['ProjectList']>('/projects').then((r) => r.data)
 
 // What to tell a person for each error code the API can return.
@@ -76,6 +84,7 @@ export function friendlyMessage(err: unknown): string {
     if (err.code === 'version_conflict') return 'Someone else changed this project since you opened it.'
     if (err.code === 'not_found') return 'That project no longer exists.'
     if (err.code === 'no_transcripts') return 'Add at least one transcript before analyzing.'
+    if (err.code === 'theme_superseded') return 'These themes are from an earlier analysis. They have been reloaded.'
     if (err.code === 'workspace_not_found') return 'The demo data is not loaded yet.'
     return err.message
   }

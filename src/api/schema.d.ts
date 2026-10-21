@@ -177,6 +177,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/themes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The current analysis's themes, strongest first, with the person's edits applied (a renamed title, a stage placement, importance, effort, pinned) next to what the analysis suggested. Optional category filter and quotes. Open to read as the viewer. */
+        get: operations["listThemes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/themes/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Edits one theme: rename, move to a journey stage, set importance or effort, pin to the journey map. A key left out is untouched; null clears that edit. If-Match is the version of this theme's edits (0 when it has none), so edits to different themes never conflict. Needs the token. */
+        patch: operations["updateTheme"];
+        trace?: never;
+    };
+    "/projects/{id}/priority-overrides": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Clears every importance and effort edit in the current analysis ("Reset all"). Pins, names and stage placements stay. Needs the token. */
+        delete: operations["resetPriorityOverrides"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/tasks": {
         parameters: {
             query?: never;
@@ -317,6 +368,64 @@ export interface components {
                 email: string;
                 sessionDate?: string | null;
             }[];
+        };
+        Quote: {
+            id: string;
+            speaker: string;
+            /** @description The matched participant's name. */
+            participant: string | null;
+            /** @description The transcript's name without its extension. */
+            session: string;
+            timestamp: string | null;
+            text: string;
+        };
+        Theme: {
+            id: string;
+            /** @description The person's name for the theme if they renamed it */
+            title: string;
+            originalTitle: string;
+            /** @enum {string} */
+            category: "pain_point" | "need" | "expectation" | "delight";
+            /** @description The journey stage it sits in (the person's choice */
+            stagePosition: number | null;
+            suggestedStagePosition: number | null;
+            severity: number | null;
+            description: string | null;
+            opportunity: string | null;
+            /**
+             * @description Importance
+             * @enum {string}
+             */
+            priority: "low" | "medium" | "high";
+            /** @enum {string} */
+            suggestedPriority: "low" | "medium" | "high";
+            effort: number;
+            suggestedEffort: number;
+            effortNote: string | null;
+            pinned: boolean;
+            /** @description Importance or effort differs from the suggestion. */
+            edited: boolean;
+            overrideVersion: number;
+            participantCount: number;
+            totalParticipants: number;
+            mentionCount: number;
+            score: number | null;
+            quotes?: components["schemas"]["Quote"][];
+        };
+        ThemeList: {
+            data: components["schemas"]["Theme"][];
+            stages: {
+                position: number;
+                name: string;
+            }[];
+        };
+        ThemePatch: {
+            title?: string | null;
+            stagePosition?: number | null;
+            /** @enum {string|null} */
+            priority?: "low" | "medium" | "high" | null;
+            effort?: number | null;
+            pinned?: boolean;
         };
         TranscriptList: {
             transcripts: {
@@ -465,7 +574,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -829,6 +938,100 @@ export interface operations {
             409: components["responses"]["VersionConflict"];
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listThemes: {
+        parameters: {
+            query?: {
+                category?: "pain_point" | "need" | "expectation" | "delight";
+                include?: "quotes";
+            };
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The themes and the project's journey stages. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThemeList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    updateTheme: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ThemePatch"];
+            };
+        };
+        responses: {
+            /** @description The theme as it is now, with its new edit version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Theme"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    resetPriorityOverrides: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The themes after the reset. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Theme"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

@@ -735,3 +735,150 @@ test('a freshly seeded analysed project is not flagged out of date, and editing 
   assert.equal((await put(app, `/projects/${p1}/transcripts`, { transcripts: edited }, ver)).status, 200)
   assert.deepEqual([(await read()).hasAnalysis, (await read()).needsAnalysis], [true, true])
 })
+
+// Themes, pins, stages, importance and effort ----------------------------------------------------------
+
+const patchTheme = (app: ReturnType<typeof createApp>, themeId: string, body: unknown, version: number | null, headers: Record<string, string> = auth) =>
+  app.request(`/api/v1/themes/${themeId}`, { method: 'PATCH', headers: { ...headers, ...(version === null ? {} : { 'if-match': String(version) }) }, body: JSON.stringify(body) })
+
+async function themesFixture() {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
+  const list = async (q = '') => (await app.request(`/api/v1/projects/${p1}/themes${q}`)).json()
+  const byTitle = async (title: string) => (await list()).data.find((t: any) => t.title === title || t.originalTitle === title)
+  return { app, pg, p1, list, byTitle }
+}
+
+test('GET themes returns the current analysis strongest first, with suggestions beside the person’s edits', async () => {
+  const { app, p1 } = await themesFixture()
+  const res = await app.request(`/api/v1/projects/${p1}/themes`)
+  const body = await expectSpec(res, '/projects/{id}/themes')
+  assert.deepEqual(body.data.map((t: any) => t.title), PROTOTYPE_THEMES)
+  assert.equal(body.stages.length, 5)
+  assert.match(res.headers.get('cache-control') ?? '', /public/)
+  const top = body.data[0]
+  assert.deepEqual([top.participantCount, top.totalParticipants, top.mentionCount, top.category, top.priority, top.effort], [3, 3, 3, 'pain_point', 'high', 3])
+  assert.equal(body.data.filter((t: any) => t.pinned).length, 6, 'the six pinned in the seed')
+  const prep = body.data.find((t: any) => t.originalTitle === 'Wants to know what to prepare')
+  assert.deepEqual([prep.suggestedPriority, prep.priority, prep.suggestedEffort, prep.effort, prep.edited], ['medium', 'high', 1, 2, true], 'the seeded edit shows next to the suggestion')
+  assert.equal(body.data[0].quotes, undefined, 'quotes only on request')
+})
+
+test('GET themes: category filter, quotes with speakers and sessions, and errors', async () => {
+  const { app, list, p1 } = await themesFixture()
+  const pains = (await expectSpec(await app.request(`/api/v1/projects/${p1}/themes?category=pain_point`), '/projects/{id}/themes')).data
+  assert.ok(pains.length > 0 && pains.every((t: any) => t.category === 'pain_point'))
+  const withQuotes = await expectSpec(await app.request(`/api/v1/projects/${p1}/themes?include=quotes`), '/projects/{id}/themes')
+  const avail = withQuotes.data.find((t: any) => t.originalTitle === 'Provider availability is hard to see')
+  assert.equal(avail.quotes.length, avail.mentionCount)
+  assert.ok(avail.quotes.every((q: any) => q.speaker && q.session && !/\.\w+$/.test(q.session) && q.text))
+  assert.ok(avail.quotes.some((q: any) => q.session === 'Session 1 - Maya Chen' && q.participant === 'Maya Chen'))
+  assert.equal((await app.request(`/api/v1/projects/${p1}/themes?category=bogus`)).status, 422)
+  assert.equal((await app.request(`/api/v1/projects/00000000-0000-4000-8000-000000000000/themes`)).status, 404)
+  assert.ok((await list()).data.length === 9)
+})
+
+test('a project with no analysis has no themes', async () => {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const app = createApp({ env: TOKEN, getDb: () => d })
+  const draft = ((await pg.query<any>(`select id from core.projects where name = 'New patient intake (draft)'`)).rows[0] as { id: string }).id
+  assert.deepEqual((await (await app.request(`/api/v1/projects/${draft}/themes`)).json()).data, [])
+})
+
+test('PATCH pins a theme: creates the edit at version 1; a stale version is 409; clearing removes it', async () => {
+  const { app, pg, byTitle } = await themesFixture()
+  const t = await byTitle('Reviews and ratings drive trust')
+  assert.deepEqual([t.pinned, t.overrideVersion], [false, 0])
+  const pinned = await patchTheme(app, t.id, { pinned: true }, 0)
+  assert.equal(pinned.status, 200)
+  const body = await expectSpec(pinned, '/themes/{id}', 'patch')
+  assert.deepEqual([body.pinned, body.overrideVersion], [true, 1])
+  const stale = await patchTheme(app, t.id, { pinned: false }, 0)
+  assert.equal(stale.status, 409)
+  const err = await expectSpec(stale, '/themes/{id}', 'patch')
+  assert.deepEqual([err.error.code, err.current.version], ['version_conflict', 1])
+  const unpinned = await (await patchTheme(app, t.id, { pinned: false }, 1)).json()
+  assert.deepEqual([unpinned.pinned, unpinned.overrideVersion], [false, 0], 'nothing left overridden: the edit row is gone')
+  assert.equal((await pg.query<any>(`select count(*)::int n from research.theme_overrides where theme_id = $1`, [t.id])).rows[0].n, 0)
+})
+
+test('PATCH edits only what is sent: rename, stage, importance, effort; null clears one; blank title clears the name', async () => {
+  const { app, byTitle } = await themesFixture()
+  const t = await byTitle('Booking form repeats questions')
+  let v = t.overrideVersion
+  const step = async (patch: unknown) => { const r = await patchTheme(app, t.id, patch, v); assert.equal(r.status, 200); const b = await r.json(); v = b.overrideVersion; return b }
+  const a = await step({ title: '  Forms ask twice  ' })
+  assert.deepEqual([a.title, a.originalTitle, a.pinned], ['Forms ask twice', 'Booking form repeats questions', true], 'rename keeps the original and leaves the pin alone')
+  const b = await step({ stagePosition: 4 })
+  assert.deepEqual([b.stagePosition, b.suggestedStagePosition, b.title], [4, 1, 'Forms ask twice'])
+  const c = await step({ priority: 'low', effort: 3 })
+  assert.deepEqual([c.priority, c.suggestedPriority, c.effort, c.suggestedEffort, c.edited], ['low', 'high', 3, 2, true])
+  const d = await step({ priority: null, effort: null })
+  assert.deepEqual([d.priority, d.effort, d.edited], ['high', 2, false], 'null goes back to the suggestion')
+  const e = await step({ title: '   ', stagePosition: null })
+  assert.deepEqual([e.title, e.stagePosition, e.pinned], ['Booking form repeats questions', 1, true])
+})
+
+test('PATCH validates: range of stage, effort and priority; empty body; header; viewer and anonymous', async () => {
+  const { app, byTitle } = await themesFixture()
+  const t = await byTitle('Reviews and ratings drive trust')
+  const bad = async (body: unknown) => (await patchTheme(app, t.id, body, 0)).status
+  assert.equal(await bad({ stagePosition: 5 }), 422, 'there are five stages: 0 to 4')
+  assert.equal(await bad({ stagePosition: -1 }), 422)
+  assert.equal(await bad({ effort: 4 }), 422)
+  assert.equal(await bad({ priority: 'urgent' }), 422)
+  assert.equal(await bad({}), 422)
+  const stage = await patchTheme(app, t.id, { stagePosition: 9 }, 0)
+  assert.equal((await stage.json()).error.field, 'stagePosition')
+  assert.equal((await patchTheme(app, t.id, { pinned: true }, null)).status, 428)
+  assert.equal((await patchTheme(app, t.id, { pinned: true }, 0, { 'content-type': 'application/json' })).status, 401)
+  assert.equal((await patchTheme(app, '00000000-0000-4000-8000-000000000000', { pinned: true }, 0)).status, 404)
+  assert.equal((await patchTheme(app, 'nope', { pinned: true }, 0)).status, 404)
+  assert.equal((await byTitle('Reviews and ratings drive trust')).overrideVersion, 0, 'nothing changed')
+})
+
+test('a viewer cannot edit themes even with a token', async () => {
+  const { pglite: pg, db: d } = await createDemoDatabase()
+  const viewer = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => d })
+  const id = ((await pg.query<any>(`select id from research.themes limit 1`)).rows[0] as { id: string }).id
+  const res = await patchTheme(viewer, id, { pinned: true }, 0)
+  assert.equal(res.status, 403)
+})
+
+test('edits to different themes never conflict, and edits are audited', async () => {
+  const { app, pg, byTitle } = await themesFixture()
+  const a = await byTitle('Reviews and ratings drive trust')
+  const b = await byTitle('Follow-up instructions get lost')
+  assert.equal((await patchTheme(app, a.id, { pinned: true }, 0)).status, 200)
+  assert.equal((await patchTheme(app, b.id, { pinned: true }, 0)).status, 200, 'the second edit used version 0 for its own theme')
+  assert.ok((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'theme_edited'`)).rows[0].n >= 2)
+})
+
+test('Reset all clears importance and effort edits, keeps pins, and removes rows that end up empty', async () => {
+  const { app, pg, p1, list, byTitle } = await themesFixture()
+  const reviews = await byTitle('Reviews and ratings drive trust')
+  await patchTheme(app, reviews.id, { priority: 'low', effort: 3 }, 0) // an edit with no pin: its row will disappear
+  const before = (await list()).data
+  assert.equal(before.filter((t: any) => t.edited).length, 2, 'the seeded edit plus this one')
+  const res = await app.request(`/api/v1/projects/${p1}/priority-overrides`, { method: 'DELETE', headers: auth })
+  assert.equal(res.status, 200)
+  const body = await expectSpec(res, '/projects/{id}/priority-overrides', 'delete')
+  assert.equal(body.data.filter((t: any) => t.edited).length, 0)
+  assert.equal(body.data.filter((t: any) => t.pinned).length, 6, 'pins stay')
+  assert.equal((await pg.query<any>(`select count(*)::int n from research.theme_overrides o join research.themes t on t.id = o.theme_id where t.project_id = $1`, [p1])).rows[0].n, 6, 'only the pinned rows remain')
+  assert.equal((await app.request(`/api/v1/projects/${p1}/priority-overrides`, { method: 'DELETE' })).status, 401)
+})
+
+test('after a re-analysis the new themes start clean and an old theme can no longer be edited', async () => {
+  const { app, pg, p1, byTitle } = await themesFixture()
+  const old = await byTitle('Reviews and ratings drive trust')
+  const v = ((await pg.query<any>(`select version from core.projects where id = $1`, [p1])).rows[0] as { version: number }).version
+  assert.equal((await app.request(`/api/v1/projects/${p1}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(v) }, body: '{}' })).status, 201)
+  const fresh = (await (await app.request(`/api/v1/projects/${p1}/themes`)).json()).data
+  assert.equal(fresh.length, 9)
+  assert.ok(fresh.every((t: any) => !t.pinned && !t.edited && t.overrideVersion === 0), 'the new run carries none of the old edits')
+  const stale = await patchTheme(app, old.id, { pinned: true }, 0)
+  assert.equal(stale.status, 409)
+  assert.equal((await stale.json()).error.code, 'theme_superseded')
+})

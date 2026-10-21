@@ -1,0 +1,15 @@
+@use '../../tokens' as tokens;
+
+.badge {
+  @include tokens.role('meta');
+  display: inline-block;
+  padding: var(--at-space-xxs) var(--at-space-xs);
+  border-radius: var(--at-radius-sm);
+  font-weight: 500;
+  white-space: nowrap;
+
+  &[data-category='pain_point'] { background: var(--at-tint-coral); color: var(--at-on-tint-coral); }
+  &[data-category='need'] { background: var(--at-tint-cream); color: var(--at-on-tint-cream); }
+  &[data-category='expectation'] { background: var(--at-tint-mint); color: var(--at-signature-forest); }
+  &[data-category='delight'] { background: var(--at-tint-yellow); color: var(--at-ink); }
+}

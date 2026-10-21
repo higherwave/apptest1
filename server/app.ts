@@ -7,9 +7,10 @@ import {
   createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveParticipants, saveTasks,
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
-import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema } from './schemas.js'
+import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema } from './schemas.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
+import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db }
 
@@ -175,6 +176,48 @@ export function createApp(options: AppOptions = {}) {
   app.post('/projects/:id/analysis-runs', withContext, (c) =>
     save(c, z.object({}).passthrough(), (id, v) => runAnalysis(getDb(), c.get('ctx'), id, v), 'raw', 201),
   )
+  // Themes ---------------------------------------------------------------------------------------------
+
+  app.get('/projects/:id/themes', withReadContext, async (c) => {
+    const id = projectId(c)
+    const detail = await getProjectDetail(getDb(), c.get('ctx').workspaceId, id)
+    if (!detail) throw new ApiError(404, 'not_found', 'No such project.')
+    const category = c.req.query('category')
+    if (category && !(THEME_CATEGORIES as readonly string[]).includes(category)) throw new ApiError(422, 'validation_failed', 'Unknown category.', 'category')
+    const data = await listThemes(getDb(), id, { category, quotes: c.req.query('include') === 'quotes' })
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json({ data, stages: detail.stages })
+  })
+
+  // Edits are per theme: the If-Match is the version of that theme's edits (0 when it has none).
+  app.patch('/themes/:id', withContext, async (c) => {
+    requireEditor(c)
+    const themeId = c.req.param('id')
+    if (!UUID.test(themeId)) throw new ApiError(404, 'not_found', 'No such theme.')
+    const expected = expectedVersion(c)
+    const patch = parseBody(themePatchSchema, await readJson(c))
+    try {
+      await patchTheme(getDb(), c.get('ctx'), themeId, expected, patch)
+    } catch (err) {
+      if (err instanceof ThemeNotFound) throw new ApiError(404, 'not_found', 'No such theme.')
+      if (err instanceof ThemeSuperseded) throw new ApiError(409, 'theme_superseded', 'This theme belongs to an earlier analysis. Reload to see the current themes.')
+      if (err instanceof ThemeConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this theme since you opened it.', undefined, { current: { version: err.current } })
+      throw err
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await getTheme(getDb(), c.get('ctx').workspaceId, themeId))
+  })
+
+  app.delete('/projects/:id/priority-overrides', withContext, async (c) => {
+    requireEditor(c)
+    const id = projectId(c)
+    if (!(await getProjectDetail(getDb(), c.get('ctx').workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    await resetPriorityOverrides(getDb(), c.get('ctx'), id)
+    c.header('Cache-Control', 'no-store')
+    return c.json({ data: await listThemes(getDb(), id) })
+  })
+
   app.put('/projects/:id/tasks', withContext, (c) => save(c, saveTasksSchema, (id, v, input) => saveTasks(getDb(), c.get('ctx'), id, v, input)))
 
   return app

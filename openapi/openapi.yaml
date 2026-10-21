@@ -247,6 +247,78 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/themes:
+    get:
+      operationId: listThemes
+      summary: >
+        The current analysis's themes, strongest first, with the person's edits applied (a renamed title, a stage
+        placement, importance, effort, pinned) next to what the analysis suggested. Optional category filter and
+        quotes. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { name: category, in: query, required: false, schema: { type: string, enum: [pain_point, need, expectation, delight] } }
+        - { name: include, in: query, required: false, schema: { type: string, enum: [quotes] } }
+      responses:
+        '200':
+          description: The themes and the project's journey stages.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ThemeList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /themes/{id}:
+    patch:
+      operationId: updateTheme
+      summary: >
+        Edits one theme: rename, move to a journey stage, set importance or effort, pin to the journey map. A key left out
+        is untouched; null clears that edit. If-Match is the version of this theme's edits (0 when it has none), so
+        edits to different themes never conflict. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ThemePatch' }
+      responses:
+        '200':
+          description: The theme as it is now, with its new edit version.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Theme' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/priority-overrides:
+    delete:
+      operationId: resetPriorityOverrides
+      summary: Clears every importance and effort edit in the current analysis ("Reset all"). Pins, names and stage placements stay. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The themes after the reset.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Theme' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /projects/{id}/tasks:
     put:
       operationId: saveTasks
@@ -310,7 +382,7 @@ components:
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, internal_error.
+        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -466,6 +538,67 @@ components:
               role: { type: [string, 'null'] }
               email: { type: string }
               sessionDate: { type: [string, 'null'] }
+    Quote:
+      type: object
+      required: [id, speaker, participant, session, timestamp, text]
+      properties:
+        id: { type: string }
+        speaker: { type: string }
+        participant: { type: [string, 'null'], description: The matched participant's name. }
+        session: { type: string, description: The transcript's name without its extension. }
+        timestamp: { type: [string, 'null'] }
+        text: { type: string }
+    Theme:
+      type: object
+      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, pinned, edited, overrideVersion, participantCount, totalParticipants, mentionCount, score]
+      properties:
+        id: { type: string }
+        title: { type: string, description: The person's name for the theme if they renamed it, otherwise the analysis's. }
+        originalTitle: { type: string }
+        category: { type: string, enum: [pain_point, need, expectation, delight] }
+        stagePosition: { type: [integer, 'null'], description: The journey stage it sits in (the person's choice, else the suggestion). }
+        suggestedStagePosition: { type: [integer, 'null'] }
+        severity: { type: [number, 'null'] }
+        description: { type: [string, 'null'] }
+        opportunity: { type: [string, 'null'] }
+        priority: { type: string, enum: [low, medium, high], description: Importance, as edited or suggested. }
+        suggestedPriority: { type: string, enum: [low, medium, high] }
+        effort: { type: integer }
+        suggestedEffort: { type: integer }
+        effortNote: { type: [string, 'null'] }
+        pinned: { type: boolean }
+        edited: { type: boolean, description: Importance or effort differs from the suggestion. }
+        overrideVersion: { type: integer }
+        participantCount: { type: integer }
+        totalParticipants: { type: integer }
+        mentionCount: { type: integer }
+        score: { type: [number, 'null'] }
+        quotes:
+          type: array
+          items: { $ref: '#/components/schemas/Quote' }
+    ThemeList:
+      type: object
+      required: [data, stages]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Theme' }
+        stages:
+          type: array
+          items:
+            type: object
+            required: [position, name]
+            properties:
+              position: { type: integer }
+              name: { type: string }
+    ThemePatch:
+      type: object
+      properties:
+        title: { type: [string, 'null'] }
+        stagePosition: { type: [integer, 'null'] }
+        priority: { type: [string, 'null'], enum: [low, medium, high] }
+        effort: { type: [integer, 'null'] }
+        pinned: { type: boolean }
     TranscriptList:
       type: object
       required: [transcripts, hasAnalysis, needsAnalysis, analyzedAt]

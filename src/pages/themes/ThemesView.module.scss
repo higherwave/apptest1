@@ -1,0 +1,140 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 75rem;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+}
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(18rem, 24rem) 1fr;
+  gap: var(--at-space-lg);
+  align-items: start;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+
+  &[data-selected='true'] {
+    border-color: var(--at-ink);
+    background: var(--at-surface-soft);
+  }
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardTitle {
+  @include tokens.role('title-sm');
+  margin: var(--at-space-xs) 0 var(--at-space-xxs);
+  color: var(--at-ink);
+}
+
+.cardMeta {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.detail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+}
+
+.detailHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pin {
+  max-inline-size: none;
+  inline-size: auto;
+  white-space: nowrap;
+}
+
+.facts {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.text {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-body);
+  font-weight: 400;
+}
+
+.label {
+  @include tokens.role('caption');
+  margin: var(--at-space-sm) 0 0;
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.quotes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.quote {
+  @include tokens.role('label-md');
+  margin: 0;
+  padding-inline-start: var(--at-space-md);
+  border-inline-start: var(--at-space-xxs) solid var(--at-hairline);
+  color: var(--at-ink);
+  font-weight: 400;
+}
+
+.cite {
+  @include tokens.role('meta');
+  margin: var(--at-space-xxs) 0 0;
+  padding-inline-start: var(--at-space-md);
+  color: var(--at-muted);
+}
+
+.none,
+.empty {
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  align-items: flex-start;
+}
