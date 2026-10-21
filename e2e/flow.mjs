@@ -21,6 +21,8 @@ const clickText = async (t, tag = 'button') => {
   if (!handle.asElement()) throw new Error(`no <${tag}> with text "${t}"`)
   await handle.asElement().click()
 }
+// Hidden dialogs keep their buttons in the page, so a dialog's own button is looked up inside the open one.
+const clickInOpenDialog = async (t) => page.evaluate((t) => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === t).click(), t)
 const retype = async (sel, value) => { await page.$eval(sel, (el) => el.select()); await page.keyboard.type(value) }
 const header = () => page.evaluate(() => document.querySelector('header')?.innerText ?? '')
 const cardNames = async () => page.evaluate(() => [...document.querySelectorAll('[data-tint]')].map((c) => c.innerText.split('\n')[0]))
@@ -104,7 +106,7 @@ try {
   await clickText('Remove project', 'button')
   await waitText('Remove this project?')
   ok('remove asks for confirmation and says it is permanent', (await text()).includes('permanently deletes'))
-  await clickText('Cancel')
+  await clickInOpenDialog('Cancel')
   await new Promise((r) => setTimeout(r, 400))
   ok('cancel keeps the project', (await cardNames()).includes('E2E Study'))
   await page.click('[aria-label="Actions for E2E Study"]')

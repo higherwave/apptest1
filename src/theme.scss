@@ -296,3 +296,106 @@ body {
     fill: var(--at-ink);
   }
 }
+
+// -- Dialogs and overflow menus ------------------------------------------------------
+// Carbon's modal is square with edge-to-edge footer buttons; here it is a rounded white card with the
+// buttons sitting at the right at their own width, and a delete button in the signature rust.
+.cds--modal-container {
+  background: var(--at-canvas);
+  border-radius: var(--at-radius-lg);
+  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--at-ink) 18%, transparent);
+  overflow: hidden;
+}
+
+.cds--modal-header {
+  padding-block-start: var(--at-space-lg);
+  padding-inline: var(--at-space-lg) var(--at-space-3xl, 3rem);
+  margin-block-end: var(--at-space-sm);
+}
+
+.cds--modal-content {
+  padding-inline: var(--at-space-lg);
+  padding-block-end: 0;
+  margin-block-end: var(--at-space-lg);
+}
+
+.cds--modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--at-space-sm);
+  block-size: auto;
+  padding: 0 var(--at-space-lg) var(--at-space-lg);
+
+  .cds--btn {
+    flex: 0 0 auto;
+    inline-size: auto;
+    max-inline-size: none;
+    block-size: 2.75rem;
+    min-block-size: 2.75rem;
+    margin: 0;
+    padding: 0 var(--at-space-md) !important; // Carbon pads the label to the top of a tall button
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.cds--btn--danger {
+  background: var(--at-signature-coral);
+  border: 0;
+  color: var(--at-on-primary);
+
+  &:hover,
+  &:focus {
+    background: color-mix(in srgb, var(--at-signature-coral) 85%, var(--at-ink));
+    color: var(--at-on-primary);
+  }
+}
+
+// The menu behind a card's "⋯": a white rounded popup, with the delete entry in rust text rather than a red block.
+.cds--overflow-menu-options {
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--at-ink) 14%, transparent);
+}
+
+.cds--overflow-menu-options__btn {
+  color: var(--at-ink);
+}
+
+.cds--overflow-menu-options__option--danger .cds--overflow-menu-options__btn,
+.cds--overflow-menu-options__option--danger .cds--overflow-menu-options__btn:hover,
+.cds--overflow-menu-options__option--danger .cds--overflow-menu-options__btn:focus {
+  background: transparent;
+  color: var(--at-signature-coral);
+}
+
+.cds--overflow-menu-options__option--danger .cds--overflow-menu-options__btn:hover {
+  background: var(--at-tint-coral);
+}
+
+// Cancel sits beside the delete button as the quiet outlined one (Carbon paints its text white on a white fill here).
+.cds--modal-footer .cds--btn--secondary {
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  color: var(--at-ink);
+
+  &:hover,
+  &:focus {
+    background: var(--at-surface-soft);
+    border-color: var(--at-border-strong);
+    color: var(--at-ink);
+  }
+}
+
+.cds--modal-footer .cds--btn--danger:focus {
+  box-shadow: inset 0 0 0 1px var(--at-canvas), 0 0 0 2px var(--at-signature-coral);
+}
+
+// A soft fill, not a black box, for the focused menu entry.
+.cds--overflow-menu-options__btn:focus {
+  outline: none;
+  box-shadow: none;
+  background: var(--at-surface-soft);
+}
