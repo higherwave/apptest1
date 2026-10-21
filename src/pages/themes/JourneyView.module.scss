@@ -1,77 +1,239 @@
 @use '../../tokens' as tokens;
 
+$label-width: 10rem;
+$stage-min: 13rem;
+
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  max-width: 90rem;
+  max-width: 100rem;
 }
 
-.summary {
+// The map is a matrix: a dark row of stages, then one row each for themes, pain points, sentiment and opportunity.
+.scroll {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+}
+
+// The number of stages sets the columns (a study has three to six).
+@each $n in 2, 3, 4, 5, 6, 7, 8 {
+  .map[data-columns='#{$n}'] {
+    min-inline-size: calc(#{$label-width} + #{$n} * #{$stage-min});
+
+    .row {
+      grid-template-columns: $label-width repeat($n, minmax(0, 1fr));
+    }
+
+    .sentiment {
+      grid-template-columns: repeat($n, minmax(0, 1fr));
+    }
+  }
+}
+
+.row {
+  display: grid;
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child {
+    border-block-start: none;
+    background: var(--at-surface-dark);
+    color: var(--at-on-dark);
+  }
+}
+
+.corner {
+  min-block-size: 1px;
+}
+
+.stageHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-md) var(--at-space-md) var(--at-space-md);
+}
+
+.stageNumber {
+  @include tokens.role('meta');
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.85;
+}
+
+.stageName {
+  @include tokens.role('title-sm');
+}
+
+.rowLabel {
+  @include tokens.role('caption');
+  padding: var(--at-space-md);
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-sm);
+  border-inline-start: 1px solid var(--at-hairline);
+}
+
+.themesCell {
+  min-block-size: 8rem;
+
+  &[data-over='true'] {
+    background: var(--at-surface-hover);
+    box-shadow: inset 0 0 0 1px var(--at-ink);
+  }
+}
+
+// A theme card takes its category's tint, as the badge does elsewhere.
+.card {
+  position: relative;
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-tint-cream);
+  cursor: grab;
+
+  &[data-category='pain_point'] { background: var(--at-tint-coral); }
+  &[data-category='expectation'] { background: var(--at-tint-mint); }
+  &[data-category='delight'] { background: var(--at-tint-yellow); }
+}
+
+.cardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-xs);
+}
+
+.title {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.meta {
+  @include tokens.role('meta');
+  margin: var(--at-space-xs) 0 0;
+  color: var(--at-muted);
+}
+
+.painRow {
+  background: color-mix(in srgb, var(--at-tint-coral) 45%, var(--at-canvas));
+}
+
+.pain {
+  display: flex;
+  gap: var(--at-space-xs);
+  align-items: flex-start;
+}
+
+.painTitle {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 400;
+}
+
+.pain .meta {
+  margin-block-start: var(--at-space-xxs);
+}
+
+.dot {
+  flex: none;
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+  margin-block-start: var(--at-space-xs);
+  border-radius: var(--at-radius-full);
+  background: var(--at-tint-peach);
+
+  &[data-priority='high'] { background: var(--at-signature-coral); }
+  &[data-priority='medium'] { background: var(--at-signature-peach); }
+}
+
+.none {
   @include tokens.role('label-md');
   margin: 0;
   color: var(--at-muted);
   font-weight: 400;
 }
 
-.map {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(11rem, 1fr));
-  gap: var(--at-space-sm);
-  align-items: start;
-
-  &[data-columns='3'] { grid-template-columns: repeat(3, minmax(11rem, 1fr)); }
-  &[data-columns='4'] { grid-template-columns: repeat(4, minmax(11rem, 1fr)); }
-  &[data-columns='6'] { grid-template-columns: repeat(6, minmax(11rem, 1fr)); }
+.sentimentRow {
+  background: var(--at-surface-soft);
 }
 
-.column {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-  min-height: 14rem;
-  padding: var(--at-space-sm);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
-  background: var(--at-surface-soft);
+// The chart spans every stage column. Dots are positioned in percentages so they stay round; the line is stretched.
+.sentiment {
+  position: relative;
+  display: grid;
+  grid-column: 2 / -1;
+  min-block-size: 15.75rem;
+  border-inline-start: 1px solid var(--at-hairline);
+}
 
-  &[data-over='true'] {
-    border-color: var(--at-ink);
-    background: var(--at-surface-hover);
+.axisTop,
+.axisBottom {
+  @include tokens.role('meta');
+  position: absolute;
+  inset-inline-start: var(--at-space-md);
+  color: var(--at-muted);
+}
+
+.axisTop { inset-block-start: var(--at-space-md); }
+.axisBottom { inset-block-end: var(--at-space-md); }
+
+.zero {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  border-block-start: 1px dashed var(--at-border-strong);
+}
+
+.line {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+
+  polyline {
+    fill: none;
+    stroke: var(--at-ink);
+    stroke-width: 0.125rem;
+    vector-effect: non-scaling-stroke;
   }
 }
 
-.stage {
-  @include tokens.role('caption');
-  display: flex;
-  justify-content: space-between;
-  margin: 0 0 var(--at-space-xs);
-  color: var(--at-muted);
-  text-transform: uppercase;
+.track {
+  position: relative;
 }
 
-.count {
+// A point sits at its column's middle and at a height in whole percent (y10 is near the top, y90 near the bottom).
+.point {
+  position: absolute;
+  inset-inline-start: 50%;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  transform: translate(-50%, -50%);
+  border: 0.125rem solid var(--at-canvas);
+  border-radius: var(--at-radius-full);
+
+  &[data-tone='negative'] { background: var(--at-signature-coral); }
+  &[data-tone='positive'] { background: var(--at-signature-forest); }
+}
+
+.opportunity {
+  @include tokens.role('label-md');
+  margin: 0;
+  padding: var(--at-space-xs);
   color: var(--at-ink);
+  font-weight: 400;
 }
 
-.card {
-  padding: var(--at-space-sm);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
-  background: var(--at-canvas);
-  cursor: grab;
-}
-
-.cardTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.title {
-  @include tokens.role('body-md');
-  margin: var(--at-space-xs) 0 0;
-  color: var(--at-ink);
+.cell .none {
+  padding: var(--at-space-xs);
 }
 
 .empty {
@@ -81,4 +243,10 @@
   gap: var(--at-space-md);
   align-items: flex-start;
   color: var(--at-muted);
+}
+
+@for $i from 10 through 90 {
+  .y#{$i} {
+    inset-block-start: #{$i}#{'%'};
+  }
 }
