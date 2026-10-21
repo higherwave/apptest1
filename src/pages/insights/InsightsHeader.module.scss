@@ -3,17 +3,50 @@
 .header {
   display: flex;
   flex-direction: column;
+  gap: var(--at-space-xl);
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
   gap: var(--at-space-sm);
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xs);
 }
 
 .title {
   @include tokens.role('display-md');
   margin: 0;
   color: var(--at-ink);
+  font-weight: 300;
 }
 
 .description {
   @include tokens.role('label-md');
   margin: 0;
   color: var(--at-muted);
+}
+
+// Underlined tabs, not the app's segmented switcher: the current one has an ink underline and a hairline runs
+// under them all. They are ghost buttons that go to each section.
+.tabs {
+  display: flex;
+  gap: var(--at-space-lg);
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.tabButton {
+  padding-inline: 0;
+  border-radius: 0;
+  border-block-end: 0.125rem solid transparent;
+  color: var(--at-muted);
+
+  &[data-current='true'] {
+    border-block-end-color: var(--at-ink);
+    color: var(--at-ink);
+  }
 }

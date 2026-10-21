@@ -1,12 +1,12 @@
-import { Add, TrashCan } from '@carbon/icons-react'
-import { Button, Dropdown, FileUploaderDropContainer, InlineNotification, Loading, Tag, TextArea, TextInput } from '@carbon/react'
+import { Close } from '@carbon/icons-react'
+import { Button, Dropdown, FileUploaderDropContainer, InlineNotification, Loading, TextArea, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import type { ProjectDetail, TranscriptList } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { SaveBar, type SaveBarProps } from '../project/SaveBar'
 import { AnalysisProgress } from './AnalysisProgress'
 import type { Platform, TranscriptErrors, TranscriptItem } from './form'
-import { ACCEPTED_FILES, PLATFORM_HELP, PLATFORM_LABEL } from './platformHelp'
+import { ACCEPTED_FILES, PLATFORM_DROP, PLATFORM_HELP, PLATFORM_LABEL, PLATFORM_SHORT } from './platformHelp'
 import styles from './TranscriptsView.module.scss'
 
 export type TranscriptsViewProps = {
@@ -21,16 +21,18 @@ export type TranscriptsViewProps = {
   save: SaveBarProps
   progress: { open: boolean; steps: string[]; current: number }
   onChange: (items: TranscriptItem[]) => void
-  onAddFiles: (files: File[]) => void
-  onAddPasted: (name: string, text: string) => void
+  onAddFiles: (files: File[], platform: Platform) => void
+  onAddSample: (platform: Platform) => void
 }
+
+const PLATFORMS = ['zoom', 'meet', 'teams'] as const
+const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
 
 const PLATFORM_ITEMS: { key: Platform | null; label: string }[] = [{ key: null, label: 'Not specified' }, ...(['zoom', 'meet', 'teams'] as const).map((key) => ({ key, label: PLATFORM_LABEL[key] }))]
 
-// Presentational: upload or paste transcripts, review each one, and save (and analyze).
-export function TranscriptsView({ state, project, items, saved, errors, errorText, notice, save, progress, onChange, onAddFiles, onAddPasted }: TranscriptsViewProps) {
-  const [pasteName, setPasteName] = useState('')
-  const [pasteText, setPasteText] = useState('')
+// Presentational: pick the meeting tool, drop or try a transcript, review each one, and save (and analyze).
+export function TranscriptsView({ state, project, items, saved, errors, errorText, notice, save, progress, onChange, onAddFiles, onAddSample }: TranscriptsViewProps) {
+  const [tool, setTool] = useState<Platform>('zoom')
   const [open, setOpen] = useState<Set<string>>(new Set())
 
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading transcripts" />
@@ -39,102 +41,89 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
   const readOnly = !save.canEdit
   const patch = (i: number, change: Partial<TranscriptItem>) => onChange(items.map((t, j) => (j === i ? { ...t, ...change } : t)))
   const toggle = (key: string) => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n })
+  const methods = project.study.methods.join(', ') || 'Research study'
 
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Transcripts" description="Paste or upload each session's transcript. Save and analyze reads them for themes." />
+      <ProjectHeader title="Transcripts" description={`${methods} · ${plural(project.participants.length, 'participant')} · ${plural(items.length, 'transcript')}`} />
       <SaveBar {...save} />
       {notice && <InlineNotification kind="info" lowContrast hideCloseButton title="Analysis" subtitle={notice} />}
 
       {!readOnly && (
-        <section className={styles.add}>
-          <h2 className={styles.section}>Add a transcript</h2>
-          <FileUploaderDropContainer
-            accept={ACCEPTED_FILES}
-            multiple
-            labelText="Drag and drop transcripts here, or click to choose files (.vtt, .txt, .sbv, .srt)"
-            onAddFiles={(_, { addedFiles }) => onAddFiles(addedFiles)}
-          />
-          <details className={styles.help}>
-            <summary>Where do I get a transcript?</summary>
-            <ul>
-              {PLATFORM_HELP.map((p) => (
-                <li key={p.key}>
-                  <strong>{p.name}:</strong> {p.text}
-                </li>
-              ))}
-            </ul>
-          </details>
-          <div className={styles.paste}>
-            <TextInput id="paste-name" labelText="Or paste text: session name" value={pasteName} onChange={(e) => setPasteName(e.target.value)} />
-            <TextArea id="paste-text" labelText="Transcript text" rows={5} value={pasteText} onChange={(e) => setPasteText(e.target.value)} placeholder={'00:00:12 Maya Chen: I open the app and try to see who is available.'} />
-            <Button
-              kind="secondary"
-              size="md"
-              renderIcon={Add}
-              disabled={!pasteName.trim() || !pasteText.trim()}
-              onClick={() => {
-                onAddPasted(pasteName.trim(), pasteText)
-                setPasteName('')
-                setPasteText('')
-              }}
-            >
-              Add transcript
-            </Button>
+        <section className={styles.add} aria-label="Add a transcript">
+          <div className={styles.tools} role="group" aria-label="Meeting tool">
+            {PLATFORMS.map((p) => (
+              <Button key={p} kind={tool === p ? 'primary' : 'tertiary'} size="md" aria-pressed={tool === p} onClick={() => setTool(p)}>
+                {PLATFORM_SHORT[p]}
+              </Button>
+            ))}
+          </div>
+          <p className={styles.help}>
+            {PLATFORM_HELP.find((p) => p.key === tool)?.name}: {PLATFORM_HELP.find((p) => p.key === tool)?.text}
+          </p>
+          <div className={styles.drop}>
+            <FileUploaderDropContainer
+              accept={ACCEPTED_FILES}
+              multiple
+              // Carbon types the label as a string but renders it as a node, so the hint can sit under the title.
+              labelText={(
+                <span className={styles.dropText}>
+                  <span className={styles.dropTitle}>Drop {PLATFORM_DROP[tool]} transcripts here, or click to browse</span>
+                  <span className={styles.dropTypes}>.vtt, .txt, .sbv, .srt</span>
+                </span>
+              ) as unknown as string}
+              onAddFiles={(_, { addedFiles }) => onAddFiles(addedFiles, tool)}
+            />
+          </div>
+          <div className={styles.samples}>
+            <span className={styles.samplesLabel}>No file handy?</span>
+            {PLATFORMS.map((p) => (
+              <Button key={p} kind="tertiary" size="md" onClick={() => onAddSample(p)}>
+                {PLATFORM_SHORT[p]} sample
+              </Button>
+            ))}
           </div>
         </section>
       )}
 
-      <section className={styles.list}>
-        <h2 className={styles.section}>{items.length ? `Transcripts (${items.length})` : 'Transcripts'}</h2>
+      <section className={styles.list} aria-label="Transcripts">
         {items.length === 0 && <p className={styles.empty}>No transcripts yet. Add one above to analyze this project.</p>}
         {items.map((t, i) => {
           const info = saved?.transcripts.find((s) => s.id === t.id)
+          const people = info ? info.speakers.filter((s) => s.role !== 'moderator').length : 0
           return (
-            <fieldset key={t.key} className={styles.item}>
-              <legend className={styles.legend}>Transcript {i + 1}</legend>
-              <div className={styles.row}>
-                <TextInput id={`transcript-name-${i}`} labelText="Name" readOnly={readOnly} value={t.name} invalid={!!errors[i]?.name} invalidText={errors[i]?.name} onChange={(e) => patch(i, { name: e.target.value })} />
-                <Dropdown
-                  id={`transcript-platform-${i}`}
-                  titleText="Platform"
-                  label="Not specified"
-                  disabled={readOnly}
-                  items={PLATFORM_ITEMS}
-                  itemToString={(x) => x?.label ?? ''}
-                  selectedItem={PLATFORM_ITEMS.find((x) => x.key === t.platform) ?? PLATFORM_ITEMS[0]}
-                  onChange={({ selectedItem }) => selectedItem && patch(i, { platform: selectedItem.key })}
-                />
-              </div>
-              <div className={styles.meta}>
-                {info ? (
-                  <>
-                    <span className={styles.lines}>{info.lineCount} lines</span>
-                    {info.speakers.map((s) => (
-                      <Tag key={s.name} size="sm" type={s.role === 'moderator' ? 'gray' : s.participant ? 'green' : 'warm-gray'}>
-                        {s.role === 'moderator' ? (/moderator/i.test(s.name) ? s.name : `${s.name} (moderator)`) : s.participant ? s.name : `${s.name} (no matching participant)`}
-                      </Tag>
-                    ))}
-                  </>
-                ) : (
-                  <span className={styles.lines}>Not saved yet</span>
-                )}
-              </div>
-              {errors[i]?.rawText && <p className={styles.error}>{errors[i]?.rawText}</p>}
-              {open.has(t.key) && (
-                <TextArea id={`transcript-text-${i}`} labelText={`Text of transcript ${i + 1}`} hideLabel rows={10} readOnly={readOnly} value={t.rawText} onChange={(e) => patch(i, { rawText: e.target.value })} />
-              )}
-              <div className={styles.actions}>
+            <div key={t.key} className={styles.item} data-testid={`transcript-${i}`}>
+              <div className={styles.line}>
+                {t.platform && <span className={styles.tool} data-tool={t.platform}>{PLATFORM_SHORT[t.platform]}</span>}
+                <span className={styles.name}>{t.name}</span>
+                <span className={styles.meta}>
+                  {info ? `${info.lineCount} lines · ${plural(people, 'participant')}` : 'Not saved yet'}
+                </span>
                 <Button kind="ghost" size="sm" onClick={() => toggle(t.key)}>
                   {open.has(t.key) ? 'Hide text' : readOnly ? 'View text' : 'Edit text'}
                 </Button>
-                {!readOnly && (
-                  <Button kind="ghost" size="sm" renderIcon={TrashCan} onClick={() => onChange(items.filter((_, j) => j !== i))}>
-                    Remove
-                  </Button>
-                )}
+                {!readOnly && <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove ${t.name}`} tooltipPosition="left" onClick={() => onChange(items.filter((_, j) => j !== i))} />}
               </div>
-            </fieldset>
+              {errors[i]?.rawText && <p className={styles.error}>{errors[i]?.rawText}</p>}
+              {open.has(t.key) && (
+                <div className={styles.edit}>
+                  <div className={styles.row}>
+                    <TextInput id={`transcript-name-${i}`} labelText="Name" readOnly={readOnly} value={t.name} invalid={!!errors[i]?.name} invalidText={errors[i]?.name} onChange={(e) => patch(i, { name: e.target.value })} />
+                    <Dropdown
+                      id={`transcript-platform-${i}`}
+                      titleText="Platform"
+                      label="Not specified"
+                      disabled={readOnly}
+                      items={PLATFORM_ITEMS}
+                      itemToString={(x) => x?.label ?? ''}
+                      selectedItem={PLATFORM_ITEMS.find((x) => x.key === t.platform) ?? PLATFORM_ITEMS[0]}
+                      onChange={({ selectedItem }) => selectedItem && patch(i, { platform: selectedItem.key })}
+                    />
+                  </div>
+                  <TextArea id={`transcript-text-${i}`} labelText={`Text of transcript ${i + 1}`} hideLabel rows={10} readOnly={readOnly} value={t.rawText} onChange={(e) => patch(i, { rawText: e.target.value })} />
+                </div>
+              )}
+            </div>
           )
         })}
       </section>

@@ -15,7 +15,7 @@ export const STEPS: { key: string; label: string; group: StepGroup }[] = [
 
 export const INSIGHT_SECTIONS = [
   { key: 'themes', label: 'Platform Themes' },
-  { key: 'case-studies', label: 'Case Studies' },
+  { key: 'case-studies', label: 'Case studies' },
   { key: 'onboarding', label: 'Onboarding' },
 ]
 

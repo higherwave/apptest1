@@ -8,7 +8,6 @@ import styles from './StoriesView.module.scss'
 
 const PRIORITY_LABEL: Record<Priority | 'all', string> = { all: 'All', high: 'High', medium: 'Medium', low: 'Low' }
 // Themes beyond these go under a "more" menu so the filter row stays on one line.
-const THEME_CHIPS = 4
 const PRIORITIES: (Priority | 'all')[] = ['all', 'high', 'medium', 'low']
 
 export type StoriesViewProps = {
@@ -20,7 +19,6 @@ export type StoriesViewProps = {
   moving: Set<string>
   search: string
   priority: Priority | 'all'
-  themeId: string | null
   openId: string | null
   detail?: StoryDetail
   detailBusy: boolean
@@ -31,7 +29,6 @@ export type StoriesViewProps = {
   errorText?: string
   onSearch: (q: string) => void
   onPriority: (p: Priority | 'all') => void
-  onTheme: (id: string | null) => void
   onOpen: (id: string) => void
   onMove: (story: BoardStory, status: StoryStatus, beforeId: string | null) => void
   onUndo: () => void
@@ -284,7 +281,7 @@ function Editable({ detail, canEdit, busy, onPatch, onChecklist, onMove }: Pick<
 
 // Presentational: the four-column board with filters, drag and a "Move to" alternative, Undo, and a static panel for the selected card.
 export function StoriesView(props: StoriesViewProps) {
-  const { state, board, stories, canEdit, moving, search, priority, themeId, openId, detail, detailBusy, undoing, saving, savedAt, errorText } = props
+  const { state, board, stories, canEdit, moving, search, priority, openId, detail, detailBusy, undoing, saving, savedAt, errorText } = props
   const [drag, setDrag] = useState<{ column: StoryStatus; before: string | null } | null>(null)
   const byId = (id: string) => board?.stories.find((s) => s.id === id)
   const drop = (e: React.DragEvent, status: StoryStatus, beforeId: string | null) => {
@@ -295,7 +292,6 @@ export function StoriesView(props: StoriesViewProps) {
   }
   const opened = openId ? byId(openId) : undefined
   const inProgress = board?.stories.filter((s) => s.status === 'in_progress').length ?? 0
-  const themes = board?.themes ?? []
 
   return (
     <div className={styles.page}>
@@ -331,26 +327,6 @@ export function StoriesView(props: StoriesViewProps) {
           <div className={styles.toolbar}>
             <div className={styles.search}>
               <Search id="story-search" size="md" labelText="Search stories" placeholder="Search requirements, themes, owners" value={search} onChange={(e: { target: { value: string } }) => props.onSearch(e.target.value)} onClear={() => props.onSearch('')} />
-            </div>
-            <div className={styles.themes} role="group" aria-label="Filter by theme">
-              <span className={styles.filterLabel}>Theme</span>
-              {themes.slice(0, THEME_CHIPS).map((t) => (
-                <Button key={t.id} kind={themeId === t.id ? 'primary' : 'tertiary'} size="md" className={styles.themeChip} title={`${t.title} (${t.count})`} aria-pressed={themeId === t.id} onClick={() => props.onTheme(themeId === t.id ? null : t.id)}>
-                  {t.title}
-                </Button>
-              ))}
-              {themes.length > THEME_CHIPS && (
-                <OverflowMenu iconDescription="More themes" flipped size="md">
-                  {themes.slice(THEME_CHIPS).map((t) => (
-                    <OverflowMenuItem key={t.id} itemText={`${t.title} (${t.count})`} onClick={() => props.onTheme(themeId === t.id ? null : t.id)} />
-                  ))}
-                </OverflowMenu>
-              )}
-              {themeId && (
-                <Button kind="ghost" size="md" onClick={() => props.onTheme(null)}>
-                  Clear
-                </Button>
-              )}
             </div>
             <div className={styles.priorityFilter}>
               <span className={styles.filterLabel}>Priority</span>

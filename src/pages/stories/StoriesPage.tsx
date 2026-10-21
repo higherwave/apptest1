@@ -27,16 +27,15 @@ export function StoriesPage() {
   const markSaved = () => setSavedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
   const [search, setSearch] = useState('')
   const [priority, setPriority] = useState<Priority | 'all'>('all')
-  const [themeId, setThemeId] = useState<string | null>(null)
   const [error, setError] = useState<string | undefined>()
   const [moving, setMoving] = useState<Set<string>>(new Set())
 
   const stories = useMemo(() => {
     const q = search.trim().toLowerCase()
     return (board.data?.stories ?? []).filter(
-      (s) => (priority === 'all' || s.priority === priority) && (!themeId || s.theme?.id === themeId) && (!q || `${s.key} ${s.title} ${s.ownerTeam ?? ''}`.toLowerCase().includes(q)),
+      (s) => (priority === 'all' || s.priority === priority) && (!q || `${s.key} ${s.title} ${s.ownerTeam ?? ''}`.toLowerCase().includes(q)),
     )
-  }, [board.data, search, priority, themeId])
+  }, [board.data, search, priority])
 
   const fail = (err: unknown) => setError(friendlyMessage(err))
   const onMove = (story: BoardStory, status: StoryStatus, beforeId: string | null) => {
@@ -66,7 +65,6 @@ export function StoriesPage() {
       moving={moving}
       search={search}
       priority={priority}
-      themeId={themeId}
       openId={openId}
       detail={openId ? detail.data : undefined}
       detailBusy={patch.isPending || checklist.isPending}
@@ -76,7 +74,6 @@ export function StoriesPage() {
       errorText={board.isError && !noBoard ? friendlyMessage(board.error) : error}
       onSearch={setSearch}
       onPriority={setPriority}
-      onTheme={setThemeId}
       onOpen={setPickedId}
       onMove={onMove}
       onUndo={() => {

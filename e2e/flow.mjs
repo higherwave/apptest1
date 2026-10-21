@@ -195,12 +195,12 @@ try {
   const files = samples.map((smp) => { const f = join(dir, smp.name); writeFileSync(f, smp.text); return f })
   const navLocked = async (label) => page.evaluate((l) => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === l)?.getAttribute('aria-disabled') === 'true', label)
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
-  await waitText('Add a transcript')
+  await waitText('No file handy?')
   ok('a project with no transcripts says so', (await text()).includes('No transcripts yet'))
   ok('Themes is still locked before analysis', await navLocked('Themes'))
   await (await page.$('input[type=file]')).uploadFile(...files)
-  await page.waitForSelector('#transcript-name-2')
-  ok('three uploaded files become three transcripts', await page.evaluate(() => document.querySelector('#transcript-name-0').value.startsWith('Session 1')))
+  await page.waitForSelector('[data-testid="transcript-2"]')
+  ok('three uploaded files become three transcripts', await page.evaluate(() => document.querySelector('[data-testid="transcript-0"]').innerText.includes('Session 1')))
   ok('the button says Save and analyze', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save and analyze')))
   await clickText('Save and analyze')
   await waitText('Analyzing transcripts')
@@ -407,6 +407,7 @@ try {
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))
   ok('searching narrows the board to matching cards', (await page.$$('[data-testid^="card-"]')).length >= 1 && !(await page.$(`[data-testid="card-${firstKey}"]`)) && !!(await page.$(`[data-testid="card-${thirdKey}"]`)))
+  ok('the Stories toolbar has search and priority only, no theme filters', !(await page.$('[aria-label="Filter by theme"]')) && !!(await page.$('#story-filter-priority')))
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 
@@ -425,7 +426,7 @@ try {
   await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, second.title)
   ok('picking a theme shows where it comes from, with quotes', (await page.$$eval('aside[aria-label="Where this comes from"] blockquote', (q) => q.length)) >= 1 && (await text()).includes(`Raised by ${second.participantCount} of ${insights.totalParticipants} participants`))
   ok('the choice is in the address, so it can be shared', await page.evaluate((id) => location.search === `?theme=${id}`, second.id))
-  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Case Studies').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a, [data-label]')].find((a) => a.dataset.label === 'Case studies').click())
   await page.waitForSelector('[data-testid="case-study"]')
   const cases = (await (await fetch(`${API}/api/v1/insights/case-studies`)).json()).data
   ok('Case Studies shows each study with its outcome and owner', (await page.$$('[data-testid="case-study"]')).length === cases.length && (await text()).includes(cases[0].outcome) && (await text()).includes('Sep 2026'))
@@ -434,7 +435,7 @@ try {
   await page.waitForFunction((id) => location.pathname === '/insights/themes' && location.search === `?theme=${id}`, { timeout: 8000 }, chip.id)
   await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, chip.title)
   ok('a case study’s theme chip opens that theme', true)
-  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Onboarding').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Onboarding').click())
   await waitText('Onboarding content coming soon')
   ok('Onboarding is a placeholder, as in the prototype', true)
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
@@ -460,9 +461,9 @@ try {
   ok('deleting the published document removes it and locks Stories again', (await apiSpecs()).length === 0 && await navLocked('Stories'))
 
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
-  await page.waitForSelector('#transcript-name-2')
+  await page.waitForSelector('[data-testid="transcript-2"]')
   await waitText('All changes saved')
-  ok('saved transcripts show line counts and matched speakers', (await text()).includes('lines') && (await text()).toLowerCase().includes('no matching participant'))
+  ok('saved transcripts show line counts and matched speakers', /\d+ lines · \d+ participants?/.test(await text()))
   ok('and nothing is out of date', !(await text()).includes('Analysis is out of date'))
 
   // Edit one transcript's text: the page is dirty, the analysis re-runs on save.
@@ -476,11 +477,11 @@ try {
   await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 20000 })
   ok('editing a transcript and saving re-analyzes and returns to Themes', await mine().then((p) => p.themes === 9))
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
-  await page.waitForSelector('#transcript-name-2')
-  ok('the edited transcript kept its place and gained a line', await page.evaluate(() => document.querySelector('#transcript-name-1').value.startsWith('Session 2')))
+  await page.waitForSelector('[data-testid="transcript-2"]')
+  ok('the edited transcript kept its place and gained a line', await page.evaluate(() => document.querySelector('[data-testid="transcript-1"]').innerText.includes('Session 2')))
 
   // Remove them all: the analysis is retired, the project is a draft, and the steps lock again.
-  for (let i = 0; i < 3; i++) await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Remove').click())
+  for (let i = 0; i < 3; i++) await page.evaluate(() => [...document.querySelector('[data-testid="transcript-0"]').querySelectorAll('button')].at(-1).click())
   await waitText('No transcripts yet')
   ok('with nothing to analyze the button just says Save', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save')))
   await clickText('Save')

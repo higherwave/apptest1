@@ -37,7 +37,6 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
                   <p className={styles.recMeta}>
                     {plural(r.themes.length, 'theme')} · {plural(r.projectCount, 'project')}
                   </p>
-                  <Tag size="sm" type={r.priority === 'high' ? 'red' : 'gray'}>{r.priority === 'high' ? 'High priority' : r.priority === 'medium' ? 'Medium priority' : 'Low priority'}</Tag>
                 </Tile>
               ))}
             </div>
@@ -54,7 +53,7 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
                       <div className={styles.chips}>
                         <CategoryBadge category={t.category} />
                         {t.sources.map((s) => (
-                          <span key={s.projectId} className={styles.chip} data-tint={projectOf(s.projectId)?.color}>
+                          <span key={s.projectId} className={styles.chip}>
                             {projectOf(s.projectId)?.name}
                           </span>
                         ))}
@@ -96,12 +95,12 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
                           <p className={styles.quoteMeta}>
                             {q.speaker} · {q.session}
                             {q.timestamp ? ` · ${q.timestamp}` : ''}
+                            <Button kind="ghost" size="sm" className={styles.open} onClick={() => onOpenTranscripts(s.projectId)}>
+                              Open transcript
+                            </Button>
                           </p>
                         </blockquote>
                       ))}
-                      <Button kind="ghost" size="sm" onClick={() => onOpenTranscripts(s.projectId)}>
-                        Open transcripts for {s.projectName}
-                      </Button>
                     </div>
                   ))}
                 </>

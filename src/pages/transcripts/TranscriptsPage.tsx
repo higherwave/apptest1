@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, getTranscripts, type AnalysisRunResult } from '../../api/client'
 import { transcriptApi, useMe, useProject, useTranscripts } from '../../api/hooks'
 import { useSaveFlow } from '../project/useSaveFlow'
+import { SAMPLE_TRANSCRIPTS } from './samples'
 import { errorFromField, fileToItem, formFromList, itemsChanged, toRequest, validateItems, type TranscriptErrors, type TranscriptItem } from './form'
 import { TranscriptsView } from './TranscriptsView'
 
@@ -124,11 +125,11 @@ export function TranscriptsPage() {
         },
       }}
       onChange={setItems}
-      onAddFiles={async (files) => {
-        const added = await Promise.all(files.map(async (f) => fileToItem(f.name, await f.text())))
+      onAddFiles={async (files, platform) => {
+        const added = await Promise.all(files.map(async (f) => fileToItem(f.name, await f.text(), platform)))
         setItems((cur) => [...(cur ?? []), ...added])
       }}
-      onAddPasted={(name, text) => setItems((cur) => [...(cur ?? []), fileToItem(name, text)])}
+      onAddSample={(platform) => setItems((cur) => [...(cur ?? []), fileToItem(SAMPLE_TRANSCRIPTS[platform].name, SAMPLE_TRANSCRIPTS[platform].text, platform)])}
     />
   )
 }

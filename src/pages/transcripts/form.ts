@@ -35,6 +35,6 @@ export function errorFromField(field: string | undefined, message: string): Tran
   return m ? { [Number(m[1])]: { [m[2]]: message } } : {}
 }
 
-export function fileToItem(name: string, text: string): TranscriptItem {
-  return { key: newKey(), id: null, name, platform: null, rawText: text }
+export function fileToItem(name: string, text: string, platform: Platform | null = null): TranscriptItem {
+  return { key: newKey(), id: null, name, platform, rawText: text }
 }

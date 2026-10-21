@@ -38,7 +38,7 @@ $column-min: 14rem;
   }
 }
 
-// Search on the left, theme chips in the middle, priority on the right.
+// Search on the left, priority on the right.
 .toolbar {
   display: flex;
   align-items: center;
@@ -51,26 +51,10 @@ $column-min: 14rem;
   min-inline-size: 12rem;
 }
 
-.themes {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--at-space-xs);
-  flex: 1 1 auto;
-}
-
 .filterLabel {
   @include tokens.role('label-md');
   color: var(--at-body);
   font-weight: 400;
-}
-
-.themeChip {
-  max-inline-size: 9.5rem;
-  inline-size: auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .priorityFilter {

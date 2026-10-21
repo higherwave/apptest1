@@ -5,7 +5,7 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import type { StepKey } from '../api/client'
-import { INSIGHT_SECTIONS, STEPS, STEP_GROUPS } from './nav'
+import { STEPS, STEP_GROUPS } from './nav'
 import styles from './AppShell.module.scss'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -29,7 +29,7 @@ export function AppShell() {
   // The server says which steps are open; until it answers, none are shown as locked.
   const stage = useProjectStage(projectId ?? undefined)
   const projectDetail = useProject(projectId ?? undefined)
-  const hasPanel = !!projectId || creating || insights
+  const hasPanel = !!projectId || creating
 
   const railLink = (to: string, label: string, icon: ReactNode, active: boolean) => (
     <a href={to} data-label={label} aria-current={active ? 'page' : undefined} className={cx(styles.railLink, active && styles.railActive)} onClick={go(to)}>
@@ -71,7 +71,7 @@ export function AppShell() {
       </nav>
 
       {hasPanel && (
-        <nav className={styles.panel} aria-label={insights ? 'Insights' : 'Project steps'} data-nav>
+        <nav className={styles.panel} aria-label="Project steps" data-nav>
           {(projectId || creating) &&
             STEP_GROUPS.map((group) => (
               <div key={group} className={styles.group}>
@@ -100,21 +100,6 @@ export function AppShell() {
                 })}
               </div>
             ))}
-
-          {insights && (
-            <div className={styles.group}>
-              <p className={styles.groupLabel}>Insights</p>
-              {INSIGHT_SECTIONS.map((s) => {
-                const to = `/insights/${s.key}`
-                const active = pathname === to
-                return (
-                  <a key={s.key} href={to} data-label={s.label} aria-current={active ? 'page' : undefined} className={cx(styles.step, active && styles.stepActive)} onClick={go(to)}>
-                    <span className={styles.stepLabel}>{s.label}</span>
-                  </a>
-                )
-              })}
-            </div>
-          )}
         </nav>
       )}
 
