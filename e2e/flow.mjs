@@ -3,6 +3,7 @@
 import puppeteer from 'puppeteer-core'
 const BASE = process.env.E2E_BASE || 'http://localhost:5199'
 const TOKEN = process.env.E2E_TOKEN || 'abc123'
+const API = process.env.E2E_API || 'http://localhost:8787'
 const results = []
 const ok = (name, cond, extra = '') => { results.push([cond ? 'ok  ' : 'FAIL', name, extra]); console.log(`${cond ? '  ok  ' : '  FAIL'} ${name}${extra ? ' — ' + extra : ''}`) }
 
@@ -93,12 +94,92 @@ try {
   await page.waitForFunction(() => ![...document.querySelectorAll('[data-tint]')].some((c) => c.innerText.startsWith('E2E Study')), { timeout: 8000 })
   ok('confirming deletes it', (await cardNames()).length === 4)
 
-  // 6. Locking returns to read-only.
+
+  // 6. Open the draft project: locked steps, editing the Test Plan, a conflict with someone else, and the Task List.
+  await page.evaluate(() => [...document.querySelectorAll('[data-tint]')].find((c) => c.innerText.startsWith('New patient intake')).click())
+  await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan$/.test(location.pathname), { timeout: 8000 })
+  await waitText('Test Plan')
+  const projectId = page.url().match(/projects\/([0-9a-f-]{36})/)[1]
+  ok('a draft project opens on its Test Plan', true)
+  const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('.cds--side-nav a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.innerText.trim(), { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
+  ok('Plan steps are open and Analyze and Deliver steps are locked with a hint',
+    !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Journey Map', 'Priorities', 'Requirements', 'Stories'].every((k) => navState[k].disabled && navState[k].hint),
+    JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
+  await page.waitForSelector('#project-name')
+  ok('the plan loads the project’s data', await page.evaluate(() => document.querySelector('#project-name').value === 'New patient intake (draft)' && document.querySelector('#p-name-0').value === 'Riley Brooks'))
+  ok('nothing is unsaved yet', (await text()).includes('All changes saved'))
+
+  await retype('#project-name', 'Intake v2')
+  await waitText('Unsaved changes')
+  ok('editing shows Unsaved changes', true)
+  await clickText('Save')
+  await waitText('All changes saved at')
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('#project-name')
+  ok('a saved name survives a reload', await page.evaluate(() => document.querySelector('#project-name').value === 'Intake v2'))
+
+  // Someone else saves while this page is open: the save is refused, then overwritten on purpose.
+  const apiGet = async () => (await fetch(`${API}/api/v1/projects/${projectId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  const apiPutStudy = async (body) => { const cur = await apiGet(); return fetch(`${API}/api/v1/projects/${projectId}/study`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', 'if-match': String(cur.version) }, body: JSON.stringify({ name: cur.name, ...body }) }) }
+  ok('someone else saves through the API', (await apiPutStudy({ what: 'Their wording' })).status === 200)
+  await retype('#what', 'My wording')
+  await clickText('Save')
+  await waitText('Changed by someone else')
+  ok('a stale save is refused with a conflict notice', (await text()).includes('Nothing was overwritten'))
+  ok('their wording is still what is saved', (await apiGet()).study.what === 'Their wording')
+  await clickText('Overwrite with mine')
+  await waitText('All changes saved at')
+  ok('Overwrite with mine saves my wording', (await apiGet()).study.what === 'My wording')
+
+  // A second conflict, resolved the other way: reload their version.
+  ok('someone else saves again', (await apiPutStudy({ what: 'Their second wording' })).status === 200)
+  await retype('#what', 'My second wording')
+  await clickText('Save')
+  await waitText('Changed by someone else')
+  await clickText('Reload their version')
+  await page.waitForFunction(() => document.querySelector('#what')?.value === 'Their second wording', { timeout: 8000 })
+  ok('Reload their version discards my edit and shows theirs', true)
+
+  // Participants: add one, save, and the existing ones keep their identity.
+  const before = (await apiGet()).participants.map((p) => p.id)
+  await clickText('Add participant')
+  await page.waitForSelector('#p-name-2')
+  await page.type('#p-name-2', 'Zed Zeta')
+  await page.type('#p-email-2', 'zed@example.com')
+  await clickText('Save')
+  await waitText('All changes saved at')
+  const after = (await apiGet()).participants
+  ok('a new participant is added and the others keep their ids', after.length === 3 && after[2].name === 'Zed Zeta' && before.every((id, i) => after[i].id === id))
+
+  // Task List.
+  await page.evaluate(() => [...document.querySelectorAll('.cds--side-nav a')].find((a) => a.innerText.trim() === 'Task List').click())
+  await waitText('Task 1')
+  ok('the Task List shows the template’s starter tasks', await page.evaluate(() => document.querySelector('#task-0').value.length > 0 && document.querySelector('#task-0-followup-0')?.value.length > 0))
+  await clickText('Add task')
+  await page.waitForSelector('#task-2')
+  await page.type('#task-2', 'What would you do next?')
+  await page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.innerText.trim() === 'Add follow-up').at(-1).click())
+  await page.waitForSelector('#task-2-followup-0')
+  await page.type('#task-2-followup-0', 'What made you choose that?')
+  await clickText('Save')
+  await waitText('All changes saved at')
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('#task-2')
+  ok('a new task and its follow-up survive a reload', await page.evaluate(() => document.querySelector('#task-2').value === 'What would you do next?' && document.querySelector('#task-2-followup-0').value === 'What made you choose that?'))
+
+  // Locked, the same screens are read-only.
+  await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+  await waitText('Intake v2')
+
+  // 7. Locking returns to read-only.
   await new Promise((r) => setTimeout(r, 800)) // let the closing dialog finish
   await clickText('Lock')
   await new Promise((r) => setTimeout(r, 500))
   await waitText('Read-only demo')
   ok('locking returns to read-only and clears the token', await page.evaluate(() => sessionStorage.getItem('signalflow.editToken') === null))
+  await page.goto(`${BASE}/projects/${projectId}/plan`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#project-name')
+  ok('locked, the Test Plan is read-only and says how to unlock', await page.evaluate(() => document.querySelector('#project-name').readOnly === true && document.body.innerText.includes('Editing is locked')))
   
 } catch (e) {
   ok('flow completes', false, e.message)

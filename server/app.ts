@@ -2,8 +2,11 @@ import { Hono, type Context } from 'hono'
 import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, type Db, type Env } from './db.js'
 import { requestContext } from './context.js'
-import { createProject, deleteProject, getProjectSummary, listProjects, listTemplates, TemplateMissing } from './projects.js'
-import { createProjectSchema, METHOD_OPTIONS, parseBody } from './schemas.js'
+import {
+  createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveParticipants, saveTasks,
+  TemplateMissing, UnknownParticipant, VersionConflict,
+} from './projects.js'
+import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema } from './schemas.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db }
 
@@ -13,7 +16,7 @@ export function createApp(options: AppOptions = {}) {
   const app = new Hono().basePath('/api/v1')
 
   app.onError((err, c) => {
-    if (err instanceof ApiError) return c.json(envelope(err.code, err.message, err.field), err.status)
+    if (err instanceof ApiError) return c.json(envelope(err.code, err.message, err.field, err.extra), err.status)
     console.error(err)
     return c.json(envelope('internal_error', 'Something went wrong.'), 500)
   })
@@ -95,6 +98,62 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
   })
+
+  // One project -------------------------------------------------------------------------------------
+
+  const projectId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such project.')
+    return id
+  }
+
+  app.get('/projects/:id', withReadContext, async (c) => {
+    const detail = await getProjectDetail(getDb(), c.get('ctx').workspaceId, projectId(c))
+    if (!detail) throw new ApiError(404, 'not_found', 'No such project.')
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    c.header('ETag', `"${detail.version}"`)
+    return c.json(detail)
+  })
+
+  app.get('/projects/:id/stage', withReadContext, async (c) => {
+    const stage = await getProjectStage(getDb(), c.get('ctx').workspaceId, projectId(c))
+    if (!stage) throw new ApiError(404, 'not_found', 'No such project.')
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(stage)
+  })
+
+  // Saves carry the version the person was looking at, in If-Match. If someone else saved first the
+  // answer is 409 with the current version; nothing is overwritten silently.
+  const expectedVersion = (c: Context) => {
+    const raw = c.req.header('if-match')
+    const n = raw === undefined ? NaN : Number(raw.replace(/^W\//, '').replace(/"/g, ''))
+    if (!Number.isInteger(n)) throw new ApiError(428, 'precondition_required', 'Send the version you are editing in the If-Match header.')
+    return n
+  }
+  const save = async (c: Context, schema: Parameters<typeof parseBody>[0], run: (id: string, expected: number, input: any) => Promise<void>) => {
+    requireEditor(c)
+    const id = projectId(c)
+    const expected = expectedVersion(c)
+    const input = parseBody(schema, await readJson(c))
+    try {
+      await run(id, expected, input)
+    } catch (err) {
+      if (err instanceof ProjectNotFound) throw new ApiError(404, 'not_found', 'No such project.')
+      if (err instanceof VersionConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this project since you opened it.', undefined, { current: { version: err.current } })
+      if (err instanceof UnknownParticipant) throw new ApiError(422, 'validation_failed', 'That participant does not belong to this project.', 'participants')
+      throw err
+    }
+    const detail = await getProjectDetail(getDb(), c.get('ctx').workspaceId, id)
+    c.header('Cache-Control', 'no-store')
+    c.header('ETag', `"${detail!.version}"`)
+    return c.json(detail)
+  }
+
+  app.put('/projects/:id/study', withContext, (c) => save(c, savePlanSchema, (id, v, input) => savePlan(getDb(), c.get('ctx'), id, v, input)))
+  app.put('/projects/:id/participants', withContext, (c) => save(c, saveParticipantsSchema, (id, v, input) => saveParticipants(getDb(), c.get('ctx'), id, v, input)))
+  app.put('/projects/:id/tasks', withContext, (c) => save(c, saveTasksSchema, (id, v, input) => saveTasks(getDb(), c.get('ctx'), id, v, input)))
 
   return app
 }

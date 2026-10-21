@@ -124,6 +124,14 @@ await test('platform stats count distinct people: prep checklist is 10 of 13, no
   eq(w, [{ p: 3, n: 13 }], 'workspace denominators (draft project excluded)');
 });
 
+await test('job-to-be-done fields hold bare phrases, so generated text reads "I want to find", not "I want to to find"', async () => {
+  const r = await rows(db, `select jtbd_want w, jtbd_so s from research.studies`);
+  for (const x of r) { if (/^to /i.test(x.w || '') || /^i can /i.test(x.s || '')) throw new Error(`connective words repeated in: ${JSON.stringify(x)}`); }
+  const text = await val(db, `select reasoning from core.agent_steps where key = 'users_jobs'`);
+  if (/to to /.test(text) || /I can I can/.test(text)) throw new Error('generated text repeats words: ' + text.slice(0, 200));
+  if (!/I want to find an available/.test(text)) throw new Error('expected the composed sentence in: ' + text.slice(0, 200));
+});
+
 await test('ids are deterministic and a second seed gives the same result', async () => {
   const before = await rows(db, `select id from delivery.stories order by id`);
   const again = await seed(db);

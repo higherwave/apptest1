@@ -1,0 +1,43 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 48rem;
+}
+
+.task {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+}
+
+.legend {
+  @include tokens.role('caption');
+  padding: 0 var(--at-space-xs);
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.row,
+.followUp {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--at-space-xs);
+  align-items: start;
+}
+
+.followUp {
+  margin-inline-start: var(--at-space-lg);
+}
+
+.empty {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}

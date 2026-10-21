@@ -1,7 +1,8 @@
-import { Button, Checkbox, Dropdown, InlineNotification, Loading, ProgressIndicator, ProgressStep, TextArea, TextInput } from '@carbon/react'
-import { Add, TrashCan } from '@carbon/icons-react'
+import { Button, Dropdown, InlineNotification, Loading, ProgressIndicator, ProgressStep, TextInput } from '@carbon/react'
 import type { Template } from '../../api/client'
-import { STEPS, blankParticipant, type FieldErrors, type WizardForm } from './form'
+import { ParticipantFields } from '../../components/ParticipantFields'
+import { PlanFields } from '../../components/PlanFields'
+import { STEPS, type FieldErrors, type WizardForm } from './form'
 import styles from './WizardView.module.scss'
 
 export type WizardViewProps = {
@@ -27,9 +28,6 @@ export function WizardView(props: WizardViewProps) {
   const { state, step, form, errors, templates, methodOptions, saving, submitError, loadError, onChange, onTemplate, onBack, onNext, onCancel } = props
   const last = step === STEPS.length - 1
   const selected = templates.find((t) => t.key === form.templateKey) ?? null
-
-  const setParticipant = (i: number, patch: Partial<WizardForm['participants'][number]>) =>
-    onChange({ ...form, participants: form.participants.map((p, j) => (j === i ? { ...p, ...patch } : p)) })
 
   return (
     <div className={styles.page}>
@@ -68,79 +66,9 @@ export function WizardView(props: WizardViewProps) {
             </>
           )}
 
-          {step === 1 && (
-            <>
-              <TextArea id="what" labelText="What are we testing?" rows={3} value={form.what} onChange={(e) => onChange({ ...form, what: e.target.value })} />
-              <fieldset className={styles.group}>
-                <legend className={styles.legend}>Job to be done</legend>
-                <TextInput id="jtbd-when" labelText="When" value={form.jtbd.when} onChange={(e) => onChange({ ...form, jtbd: { ...form.jtbd, when: e.target.value } })} />
-                <TextInput id="jtbd-want" labelText="I want to" value={form.jtbd.want} onChange={(e) => onChange({ ...form, jtbd: { ...form.jtbd, want: e.target.value } })} />
-                <TextInput id="jtbd-so" labelText="So I can" value={form.jtbd.so} onChange={(e) => onChange({ ...form, jtbd: { ...form.jtbd, so: e.target.value } })} />
-              </fieldset>
-              <fieldset className={styles.group}>
-                <legend className={styles.legend}>Outcomes expected</legend>
-                {form.outcomes.map((outcome, i) => (
-                  <div key={i} className={styles.row}>
-                    <TextInput
-                      id={`outcome-${i}`}
-                      labelText={`Outcome ${i + 1}`}
-                      hideLabel
-                      value={outcome}
-                      onChange={(e) => onChange({ ...form, outcomes: form.outcomes.map((o, j) => (j === i ? e.target.value : o)) })}
-                    />
-                    <Button
-                      kind="ghost"
-                      size="md"
-                      hasIconOnly
-                      renderIcon={TrashCan}
-                      iconDescription="Remove outcome"
-                      disabled={form.outcomes.length === 1}
-                      onClick={() => onChange({ ...form, outcomes: form.outcomes.filter((_, j) => j !== i) })}
-                    />
-                  </div>
-                ))}
-                <Button kind="ghost" size="sm" renderIcon={Add} onClick={() => onChange({ ...form, outcomes: [...form.outcomes, ''] })}>
-                  Add outcome
-                </Button>
-              </fieldset>
-              <fieldset className={styles.group}>
-                <legend className={styles.legend}>Methods</legend>
-                {methodOptions.map((method) => (
-                  <Checkbox
-                    key={method}
-                    id={`method-${method}`}
-                    labelText={method}
-                    checked={form.methods.includes(method)}
-                    onChange={(_, { checked }) => onChange({ ...form, methods: checked ? [...form.methods, method] : form.methods.filter((m) => m !== method) })}
-                  />
-                ))}
-              </fieldset>
-            </>
-          )}
+          {step === 1 && <PlanFields form={form} methodOptions={methodOptions} onChange={onChange} />}
 
-          {step === 2 && (
-            <>
-              {form.participants.map((p, i) => (
-                <fieldset key={i} className={styles.group}>
-                  <legend className={styles.legend}>Participant {i + 1}</legend>
-                  <div className={styles.participant}>
-                    <TextInput id={`p-name-${i}`} labelText="Name" value={p.name} invalid={!!errors[`participants.${i}.name`]} invalidText={errors[`participants.${i}.name`]} onChange={(e) => setParticipant(i, { name: e.target.value })} />
-                    <TextInput id={`p-role-${i}`} labelText="Role" value={p.role} onChange={(e) => setParticipant(i, { role: e.target.value })} />
-                    <TextInput id={`p-email-${i}`} labelText="Email" value={p.email} invalid={!!errors[`participants.${i}.email`]} invalidText={errors[`participants.${i}.email`]} onChange={(e) => setParticipant(i, { email: e.target.value })} />
-                    <TextInput id={`p-date-${i}`} labelText="Session date" type="date" value={p.sessionDate} onChange={(e) => setParticipant(i, { sessionDate: e.target.value })} />
-                  </div>
-                  {form.participants.length > 1 && (
-                    <Button kind="ghost" size="sm" renderIcon={TrashCan} onClick={() => onChange({ ...form, participants: form.participants.filter((_, j) => j !== i) })}>
-                      Remove participant
-                    </Button>
-                  )}
-                </fieldset>
-              ))}
-              <Button kind="ghost" size="sm" renderIcon={Add} onClick={() => onChange({ ...form, participants: [...form.participants, blankParticipant()] })}>
-                Add participant
-              </Button>
-            </>
-          )}
+          {step === 2 && <ParticipantFields form={form} errors={errors} onChange={onChange} />}
 
           {submitError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not created" subtitle={submitError} />}
 

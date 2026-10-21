@@ -40,3 +40,24 @@ export function parseBody<T extends z.ZodType>(schema: T, body: unknown): z.outp
   const field = issue.path.map(String).join('.')
   throw new ApiError(422, 'validation_failed', issue.message, field || undefined)
 }
+
+// Saving the test plan: the fields of the wizard's first two steps. Participants and tasks have their own saves.
+export const savePlanSchema = z.object({
+  name: text(120).min(1, 'Enter a project name.'),
+  what: optionalText(1000),
+  jtbd: z.object({ when: optionalText(300), want: optionalText(300), so: optionalText(300) }).default({ when: null, want: null, so: null }),
+  outcomes: z.array(text(300)).default([]).transform((a) => a.filter(Boolean)),
+  methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
+})
+export type SavePlanInput = z.infer<typeof savePlanSchema>
+
+// An existing participant keeps its id, so transcript speakers matched to it stay matched.
+export const saveParticipantsSchema = z.object({
+  participants: z.array(participantSchema.extend({ id: z.uuid().nullish().transform((v) => v ?? null) })).min(1, 'Add at least one participant.'),
+})
+export type SaveParticipantsInput = z.infer<typeof saveParticipantsSchema>
+
+export const saveTasksSchema = z.object({
+  tasks: z.array(z.object({ prompt: text(500).min(1, 'Enter the question.'), followUps: z.array(text(500)).default([]).transform((a) => a.filter(Boolean)) })).max(50),
+})
+export type SaveTasksInput = z.infer<typeof saveTasksSchema>

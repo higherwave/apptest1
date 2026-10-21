@@ -30,5 +30,5 @@ start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791' })
 await waitFor('http://localhost:8791/api/v1/health', 'The API')
 await waitFor('http://localhost:5198/', 'The app')
 
-const flow = spawn('node', ['e2e/flow.mjs'], { cwd: root, env: { ...process.env, E2E_BASE: 'http://localhost:5198', E2E_TOKEN: TOKEN }, stdio: 'inherit' })
+const flow = spawn('node', ['e2e/flow.mjs'], { cwd: root, env: { ...process.env, E2E_BASE: 'http://localhost:5198', E2E_API: 'http://localhost:8791', E2E_TOKEN: TOKEN }, stdio: 'inherit' })
 flow.on('exit', (code) => { stopAll(); process.exit(code ?? 1) })

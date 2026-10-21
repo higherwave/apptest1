@@ -1,8 +1,8 @@
-import type { CreateProjectRequest, Template } from '../../api/client'
+import type { CreateProjectRequest, ProjectDetail, Template } from '../../api/client'
 
 // Form state and rules for the new-project wizard. No React in here, so it is easy to test.
 export type TemplateKey = Template['key']
-export type WizardParticipant = { name: string; role: string; email: string; sessionDate: string }
+export type WizardParticipant = { id?: string; name: string; role: string; email: string; sessionDate: string }
 export type WizardForm = {
   name: string
   templateKey: TemplateKey
@@ -77,3 +77,41 @@ export function stepForField(field: string | undefined): number {
   if (field === 'name' || field === 'templateKey') return 0
   return 1
 }
+
+// Editing an existing project ------------------------------------------------------------------------
+
+export const formFromProject = (p: ProjectDetail): WizardForm => ({
+  name: p.name,
+  templateKey: 'blank',
+  what: p.study.what ?? '',
+  jtbd: { when: p.study.jtbd.when ?? '', want: p.study.jtbd.want ?? '', so: p.study.jtbd.so ?? '' },
+  outcomes: p.study.outcomes.length ? [...p.study.outcomes] : [''],
+  methods: [...p.study.methods],
+  participants: p.participants.length
+    ? p.participants.map((x) => ({ id: x.id, name: x.name, role: x.role ?? '', email: x.email, sessionDate: x.sessionDate ?? '' }))
+    : [blankParticipant()],
+})
+
+// The two parts of the Test Plan screen are saved separately, so each has its own "has it changed" check.
+export const planPart = (f: WizardForm) => JSON.stringify([f.name.trim(), f.what.trim(), f.jtbd.when.trim(), f.jtbd.want.trim(), f.jtbd.so.trim(), f.outcomes.map((o) => o.trim()).filter(Boolean), [...f.methods].sort()])
+export const participantsPart = (f: WizardForm) =>
+  JSON.stringify(f.participants.filter(hasContent).map((p) => [p.id ?? null, p.name.trim(), p.role.trim(), p.email.trim().toLowerCase(), p.sessionDate]))
+
+export const planChanged = (form: WizardForm, saved: ProjectDetail) => planPart(form) !== planPart(formFromProject(saved))
+export const participantsChanged = (form: WizardForm, saved: ProjectDetail) => participantsPart(form) !== participantsPart(formFromProject(saved))
+
+export function toPlanRequest(form: WizardForm) {
+  const { name, what, jtbd, outcomes, methods } = toRequest(form)
+  return { name, what, jtbd, outcomes, methods }
+}
+export function toParticipantsRequest(form: WizardForm) {
+  return { participants: toRequest(form).participants.map((p, i) => ({ ...p, id: form.participants.filter(hasContent)[i].id ?? null })) }
+}
+
+// Task list --------------------------------------------------------------------------------------------
+
+export type TaskForm = { prompt: string; followUps: string[] }[]
+export const taskFormFromProject = (p: ProjectDetail): TaskForm => p.tasks.map((t) => ({ prompt: t.prompt, followUps: t.followUps.map((f) => f.prompt) }))
+export const tasksKey = (t: TaskForm) => JSON.stringify(t.filter((x) => x.prompt.trim()).map((x) => [x.prompt.trim(), x.followUps.map((f) => f.trim()).filter(Boolean)]))
+export const tasksChanged = (form: TaskForm, saved: ProjectDetail) => tasksKey(form) !== tasksKey(taskFormFromProject(saved))
+export const toTasksRequest = (form: TaskForm) => ({ tasks: form.filter((t) => t.prompt.trim()).map((t) => ({ prompt: t.prompt.trim(), followUps: t.followUps.map((f) => f.trim()).filter(Boolean) })) })

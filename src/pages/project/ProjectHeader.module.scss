@@ -1,0 +1,32 @@
+@use '../../tokens' as tokens;
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.name {
+  @include tokens.role('title-sm');
+  color: var(--at-ink);
+}
+
+.title {
+  @include tokens.role('display-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 300;
+}
+
+.description {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-muted);
+  font-weight: 400;
+}

@@ -13,3 +13,9 @@
   color: var(--at-muted);
   text-transform: uppercase;
 }
+
+// A step that is not open yet: muted and not clickable. The reason is in the link's title.
+.locked {
+  color: var(--at-text-disabled);
+  cursor: not-allowed;
+}

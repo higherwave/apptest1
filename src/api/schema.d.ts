@@ -80,11 +80,80 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** One project with its test plan, journey stages, participants and tasks. The ETag is the project's version; send it back in If-Match when saving. Open to read as the viewer; cached for a minute. */
+        get: operations["getProject"];
         put?: never;
         post?: never;
         /** Permanently deletes a project and everything under it (a hard delete; the page asks for confirmation first). The audit log keeps the name, actor and time. Needs the token. */
         delete: operations["deleteProject"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Which steps of the project are open, and the hint to show for a locked one. The server decides, so the page never re-derives these rules; write endpoints enforce the same ones. */
+        get: operations["getProjectStage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/study": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Saves the project name and test plan (what, job to be done, outcomes, methods). Needs the token and If-Match. */
+        put: operations["saveStudy"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/participants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Saves the participant list. A participant with an id is updated in place (so transcript speakers matched to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match. */
+        put: operations["saveParticipants"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replaces the task list (questions with their follow-ups). Needs the token and If-Match. */
+        put: operations["saveTasks"];
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -123,6 +192,102 @@ export interface components {
             /** @enum {string} */
             database: "reachable";
             migrations: number;
+        };
+        VersionConflict: {
+            error: {
+                /** @enum {string} */
+                code: "version_conflict";
+                message: string;
+            };
+            current: {
+                version: number;
+            };
+        };
+        StageInfo: {
+            tabs: {
+                plan: components["schemas"]["StageTab"];
+                tasks: components["schemas"]["StageTab"];
+                transcripts: components["schemas"]["StageTab"];
+                themes: components["schemas"]["StageTab"];
+                journey: components["schemas"]["StageTab"];
+                prio: components["schemas"]["StageTab"];
+                requirements: components["schemas"]["StageTab"];
+                stories: components["schemas"]["StageTab"];
+            };
+        };
+        StageTab: {
+            enabled: boolean;
+            hint: string | null;
+        };
+        ProjectDetail: {
+            id: string;
+            name: string;
+            /** @enum {string} */
+            color: "cream" | "mint" | "yellow" | "coral" | "lavender" | "sky" | "blue" | "rose" | "peach" | "sand";
+            template: string | null;
+            /** @enum {string} */
+            status: "draft" | "analyzed";
+            sessions: number;
+            themes: number;
+            highPriority: number;
+            createdAt: string;
+            version: number;
+            study: {
+                what: string | null;
+                jtbd: {
+                    when: string | null;
+                    want: string | null;
+                    so: string | null;
+                };
+                outcomes: string[];
+                methods: string[];
+            };
+            stages: {
+                position: number;
+                name: string;
+            }[];
+            participants: {
+                id: string;
+                name: string;
+                role: string | null;
+                email: string;
+                sessionDate: string | null;
+            }[];
+            tasks: {
+                id: string;
+                prompt: string;
+                followUps: {
+                    id: string;
+                    prompt: string;
+                }[];
+            }[];
+        };
+        SavePlanRequest: {
+            name: string;
+            what?: string | null;
+            jtbd?: {
+                when?: string | null;
+                want?: string | null;
+                so?: string | null;
+            };
+            outcomes?: string[];
+            methods?: string[];
+        };
+        SaveParticipantsRequest: {
+            participants: {
+                /** @description Present for an existing participant. */
+                id?: string | null;
+                name: string;
+                role?: string | null;
+                email: string;
+                sessionDate?: string | null;
+            }[];
+        };
+        SaveTasksRequest: {
+            tasks: {
+                prompt: string;
+                followUps?: string[];
+            }[];
         };
         TemplateList: {
             data: components["schemas"]["Template"][];
@@ -212,7 +377,25 @@ export interface components {
         };
     };
     responses: {
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), internal_error. */
+        /** @description Saved. The project as it is now, with its new version. */
+        ProjectSaved: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ProjectDetail"];
+            };
+        };
+        /** @description Someone else saved first. Nothing was changed. The current version is returned so the page can offer Reload or Overwrite. */
+        VersionConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["VersionConflict"];
+            };
+        };
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -222,7 +405,11 @@ export interface components {
             };
         };
     };
-    parameters: never;
+    parameters: {
+        Id: string;
+        /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+        IfMatch: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -344,6 +531,31 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The project. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     deleteProject: {
         parameters: {
             query?: never;
@@ -365,6 +577,118 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getProjectStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One entry per step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StageInfo"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveStudy: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavePlanRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ProjectSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveParticipants: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveParticipantsRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ProjectSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveTasks: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SaveTasksRequest"];
+            };
+        };
+        responses: {
+            200: components["responses"]["ProjectSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

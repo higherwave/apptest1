@@ -1,5 +1,5 @@
 import type { Db, Queryable } from './db.js'
-import type { CreateProjectInput } from './schemas.js'
+import type { CreateProjectInput, SaveParticipantsInput, SavePlanInput, SaveTasksInput } from './schemas.js'
 import { DEFAULT_STAGES, TINTS } from './schemas.js'
 import { insertMany } from './sql.js'
 
@@ -118,8 +118,8 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
       outcomes: input.outcomes, methods: input.methods, created_by: ctx.userId, updated_by: ctx.userId,
     }])
     await insertMany(tx, 'research.study_stages', DEFAULT_STAGES.map((name, position) => ({ workspace_id: w, study_id: projectId, position, name })))
-    await insertMany(tx, 'research.participants', input.participants.map((p) => ({
-      workspace_id: w, project_id: projectId, name: p.name, role: p.role, email: p.email.toLowerCase(), session_date: p.sessionDate, created_by: ctx.userId, updated_by: ctx.userId,
+    await insertMany(tx, 'research.participants', input.participants.map((p, position) => ({
+      workspace_id: w, project_id: projectId, position, name: p.name, role: p.role, email: p.email.toLowerCase(), session_date: p.sessionDate, created_by: ctx.userId, updated_by: ctx.userId,
     })))
 
     // Starter tasks from the template: each question, then its follow-ups as children.
@@ -148,4 +148,136 @@ export async function deleteProject(db: Db, ctx: { workspaceId: string; userId: 
 
 export async function getProjectSummary(db: Queryable, workspaceId: string, projectId: string): Promise<ProjectSummary | undefined> {
   return (await listProjects(db, workspaceId)).find((p) => p.id === projectId)
+}
+
+// Detail, step availability and saves -----------------------------------------------------------------
+
+export type ProjectDetail = ProjectSummary & {
+  study: { what: string | null; jtbd: { when: string | null; want: string | null; so: string | null }; outcomes: string[]; methods: string[] }
+  stages: { position: number; name: string }[]
+  participants: { id: string; name: string; role: string | null; email: string; sessionDate: string | null }[]
+  tasks: { id: string; prompt: string; followUps: { id: string; prompt: string }[] }[]
+}
+
+export async function getProjectDetail(db: Queryable, workspaceId: string, projectId: string): Promise<ProjectDetail | undefined> {
+  const summary = await getProjectSummary(db, workspaceId, projectId)
+  if (!summary) return undefined
+  const study = (await db.query(`select what_testing, jtbd_when, jtbd_want, jtbd_so, outcomes, methods from research.studies where project_id = $1`, [projectId])).rows[0]
+  const stages = (await db.query(`select position, name from research.study_stages where study_id = $1 order by position`, [projectId])).rows
+  const participants = (await db.query(`select id, name, role, email, session_date::text as session_date from research.participants where project_id = $1 order by position, name`, [projectId])).rows
+  const tasks = (await db.query(`select id, parent_task_id, prompt from research.tasks where project_id = $1 order by position`, [projectId])).rows
+  return {
+    ...summary,
+    study: {
+      what: study?.what_testing ?? null,
+      jtbd: { when: study?.jtbd_when ?? null, want: study?.jtbd_want ?? null, so: study?.jtbd_so ?? null },
+      outcomes: study?.outcomes ?? [],
+      methods: study?.methods ?? [],
+    },
+    stages: stages.map((s) => ({ position: s.position, name: s.name })),
+    participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null, email: p.email, sessionDate: p.session_date ?? null })),
+    tasks: tasks
+      .filter((t) => !t.parent_task_id)
+      .map((t) => ({ id: t.id, prompt: t.prompt, followUps: tasks.filter((f) => f.parent_task_id === t.id).map((f) => ({ id: f.id, prompt: f.prompt })) })),
+  }
+}
+
+export type StepKey = 'plan' | 'tasks' | 'transcripts' | 'themes' | 'journey' | 'prio' | 'requirements' | 'stories'
+export type StageInfo = { tabs: Record<StepKey, { enabled: boolean; hint: string | null }> }
+
+// The server decides which steps are open, so the page never re-derives the rules:
+//   Plan, Task List, Transcripts: always (the project exists).
+//   Themes, Journey Map, Priorities, Requirements: the current analysis has at least one theme.
+//   Stories: a requirements document of this project is published.
+export async function getProjectStage(db: Queryable, workspaceId: string, projectId: string): Promise<StageInfo | undefined> {
+  const summary = await getProjectSummary(db, workspaceId, projectId)
+  if (!summary) return undefined
+  const published = (await db.query(`select exists (select 1 from delivery.specs where project_id = $1 and status = 'published') as published`, [projectId])).rows[0].published as boolean
+  const analyzed = summary.themes > 0
+  const open = { enabled: true, hint: null }
+  const needAnalysis = { enabled: analyzed, hint: analyzed ? null : 'Save and analyze a transcript first' }
+  return {
+    tabs: {
+      plan: open, tasks: open, transcripts: open,
+      themes: needAnalysis, journey: needAnalysis, prio: needAnalysis, requirements: needAnalysis,
+      stories: { enabled: published, hint: published ? null : 'Publish the requirements first' },
+    },
+  }
+}
+
+export class VersionConflict extends Error {
+  constructor(public current: number) {
+    super('version conflict')
+  }
+}
+export class ProjectNotFound extends Error {}
+
+// Compare-and-set on the project's version: the save applies only if nobody changed the project since
+// the version the person was looking at. The update also bumps the version (a trigger does it).
+async function claimVersion(tx: Queryable, ctx: { workspaceId: string; userId: string }, projectId: string, expected: number, name?: string): Promise<void> {
+  const r = await tx.query(
+    `update core.projects set updated_by = $3, name = coalesce($5, name) where id = $1 and workspace_id = $4 and kind = 'research' and version = $2 returning version`,
+    [projectId, expected, ctx.userId, ctx.workspaceId, name ?? null],
+  )
+  if (r.rows[0]) return
+  const cur = await tx.query(`select version from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])
+  if (!cur.rows[0]) throw new ProjectNotFound()
+  throw new VersionConflict(cur.rows[0].version as number)
+}
+
+const audit = (tx: Queryable, ctx: { workspaceId: string; userId: string }, projectId: string, verb: string, after: Record<string, unknown>) =>
+  insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.projects', entity_id: projectId, verb, after }])
+
+export async function savePlan(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string, expected: number, input: SavePlanInput): Promise<void> {
+  await db.transaction(async (tx) => {
+    await claimVersion(tx, ctx, projectId, expected, input.name)
+    await tx.query(
+      `update research.studies set what_testing = $2, jtbd_when = $3, jtbd_want = $4, jtbd_so = $5, outcomes = $6, methods = $7, updated_by = $8 where project_id = $1`,
+      [projectId, input.what, input.jtbd.when, input.jtbd.want, input.jtbd.so, input.outcomes, input.methods, ctx.userId],
+    )
+    await audit(tx, ctx, projectId, 'plan_saved', { name: input.name })
+  })
+}
+
+export class UnknownParticipant extends Error {}
+
+// Participants are matched by id: existing ones are updated in place (so speakers matched to them stay
+// matched), new ones are added, and ones left out are removed. Order follows the list.
+export async function saveParticipants(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string, expected: number, input: SaveParticipantsInput): Promise<void> {
+  await db.transaction(async (tx) => {
+    await claimVersion(tx, ctx, projectId, expected)
+    const existing = new Set((await tx.query(`select id from research.participants where project_id = $1`, [projectId])).rows.map((r) => r.id as string))
+    const keep = new Set<string>()
+    for (const [position, p] of input.participants.entries()) {
+      if (p.id) {
+        if (!existing.has(p.id)) throw new UnknownParticipant(p.id)
+        keep.add(p.id)
+        await tx.query(
+          `update research.participants set name = $2, role = $3, email = $4, session_date = $5, position = $6, updated_by = $7 where id = $1`,
+          [p.id, p.name, p.role, p.email.toLowerCase(), p.sessionDate, position, ctx.userId],
+        )
+      } else {
+        await tx.query(
+          `insert into research.participants (workspace_id, project_id, position, name, role, email, session_date, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $8)`,
+          [ctx.workspaceId, projectId, position, p.name, p.role, p.email.toLowerCase(), p.sessionDate, ctx.userId],
+        )
+      }
+    }
+    const remove = [...existing].filter((id) => !keep.has(id))
+    if (remove.length) await tx.query(`delete from research.participants where id = any($1::uuid[])`, [remove])
+    await audit(tx, ctx, projectId, 'participants_saved', { count: input.participants.length })
+  })
+}
+
+// Tasks have no outside references, so the list is replaced as a whole, questions then follow-ups.
+export async function saveTasks(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string, expected: number, input: SaveTasksInput): Promise<void> {
+  await db.transaction(async (tx) => {
+    await claimVersion(tx, ctx, projectId, expected)
+    await tx.query(`delete from research.tasks where project_id = $1`, [projectId])
+    for (const [i, t] of input.tasks.entries()) {
+      const parent = (await tx.query(`insert into research.tasks (workspace_id, project_id, position, prompt, created_by, updated_by) values ($1, $2, $3, $4, $5, $5) returning id`, [ctx.workspaceId, projectId, i, t.prompt, ctx.userId])).rows[0].id
+      await insertMany(tx, 'research.tasks', t.followUps.map((f, j) => ({ workspace_id: ctx.workspaceId, project_id: projectId, parent_task_id: parent, position: j, prompt: f, created_by: ctx.userId, updated_by: ctx.userId })))
+    }
+    await audit(tx, ctx, projectId, 'tasks_saved', { count: input.tasks.length })
+  })
 }

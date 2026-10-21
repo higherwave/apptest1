@@ -80,6 +80,22 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /projects/{id}:
+    get:
+      operationId: getProject
+      summary: >
+        One project with its test plan, journey stages, participants and tasks. The ETag is the project's
+        version; send it back in If-Match when saving. Open to read as the viewer; cached for a minute.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The project.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
     delete:
       operationId: deleteProject
       summary: >
@@ -92,6 +108,91 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/stage:
+    get:
+      operationId: getProjectStage
+      summary: >
+        Which steps of the project are open, and the hint to show for a locked one. The server decides, so the
+        page never re-derives these rules; write endpoints enforce the same ones.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: One entry per step.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StageInfo' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/study:
+    put:
+      operationId: saveStudy
+      summary: Saves the project name and test plan (what, job to be done, outcomes, methods). Needs the token and If-Match.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SavePlanRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ProjectSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/participants:
+    put:
+      operationId: saveParticipants
+      summary: >
+        Saves the participant list. A participant with an id is updated in place (so transcript speakers matched
+        to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveParticipantsRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ProjectSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/tasks:
+    put:
+      operationId: saveTasks
+      summary: Replaces the task list (questions with their follow-ups). Needs the token and If-Match.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SaveTasksRequest' }
+      responses:
+        '200': { $ref: '#/components/responses/ProjectSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/VersionConflict' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /templates:
     get:
@@ -106,11 +207,35 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
 components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: The version the person was looking at (the ETag of the last read), for example "3".
+      schema: { type: string }
   responses:
+    ProjectSaved:
+      description: Saved. The project as it is now, with its new version.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ProjectDetail' }
+    VersionConflict:
+      description: >
+        Someone else saved first. Nothing was changed. The current version is returned so the page can offer
+        Reload or Overwrite.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/VersionConflict' }
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), internal_error.
+        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -129,6 +254,157 @@ components:
         status: { type: string, enum: [ok] }
         database: { type: string, enum: [reachable] }
         migrations: { type: integer }
+    VersionConflict:
+      type: object
+      required: [error, current]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string, enum: [version_conflict] }
+            message: { type: string }
+        current:
+          type: object
+          required: [version]
+          properties:
+            version: { type: integer }
+    StageInfo:
+      type: object
+      required: [tabs]
+      properties:
+        tabs:
+          type: object
+          required: [plan, tasks, transcripts, themes, journey, prio, requirements, stories]
+          properties:
+            plan: { $ref: '#/components/schemas/StageTab' }
+            tasks: { $ref: '#/components/schemas/StageTab' }
+            transcripts: { $ref: '#/components/schemas/StageTab' }
+            themes: { $ref: '#/components/schemas/StageTab' }
+            journey: { $ref: '#/components/schemas/StageTab' }
+            prio: { $ref: '#/components/schemas/StageTab' }
+            requirements: { $ref: '#/components/schemas/StageTab' }
+            stories: { $ref: '#/components/schemas/StageTab' }
+    StageTab:
+      type: object
+      required: [enabled, hint]
+      properties:
+        enabled: { type: boolean }
+        hint: { type: [string, 'null'] }
+    ProjectDetail:
+      type: object
+      required: [id, name, color, template, status, sessions, themes, highPriority, createdAt, version, study, stages, participants, tasks]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        color: { type: string, enum: [cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand] }
+        template: { type: [string, 'null'] }
+        status: { type: string, enum: [draft, analyzed] }
+        sessions: { type: integer }
+        themes: { type: integer }
+        highPriority: { type: integer }
+        createdAt: { type: string }
+        version: { type: integer }
+        study:
+          type: object
+          required: [what, jtbd, outcomes, methods]
+          properties:
+            what: { type: [string, 'null'] }
+            jtbd:
+              type: object
+              required: [when, want, so]
+              properties:
+                when: { type: [string, 'null'] }
+                want: { type: [string, 'null'] }
+                so: { type: [string, 'null'] }
+            outcomes:
+              type: array
+              items: { type: string }
+            methods:
+              type: array
+              items: { type: string }
+        stages:
+          type: array
+          items:
+            type: object
+            required: [position, name]
+            properties:
+              position: { type: integer }
+              name: { type: string }
+        participants:
+          type: array
+          items:
+            type: object
+            required: [id, name, role, email, sessionDate]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              role: { type: [string, 'null'] }
+              email: { type: string }
+              sessionDate: { type: [string, 'null'] }
+        tasks:
+          type: array
+          items:
+            type: object
+            required: [id, prompt, followUps]
+            properties:
+              id: { type: string }
+              prompt: { type: string }
+              followUps:
+                type: array
+                items:
+                  type: object
+                  required: [id, prompt]
+                  properties:
+                    id: { type: string }
+                    prompt: { type: string }
+    SavePlanRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        what: { type: [string, 'null'] }
+        jtbd:
+          type: object
+          properties:
+            when: { type: [string, 'null'] }
+            want: { type: [string, 'null'] }
+            so: { type: [string, 'null'] }
+        outcomes:
+          type: array
+          items: { type: string }
+        methods:
+          type: array
+          items: { type: string }
+    SaveParticipantsRequest:
+      type: object
+      required: [participants]
+      properties:
+        participants:
+          type: array
+          items:
+            type: object
+            required: [name, email]
+            properties:
+              id: { type: [string, 'null'], description: Present for an existing participant. }
+              name: { type: string }
+              role: { type: [string, 'null'] }
+              email: { type: string }
+              sessionDate: { type: [string, 'null'] }
+    SaveTasksRequest:
+      type: object
+      required: [tasks]
+      properties:
+        tasks:
+          type: array
+          items:
+            type: object
+            required: [prompt]
+            properties:
+              prompt: { type: string }
+              followUps:
+                type: array
+                items: { type: string }
     TemplateList:
       type: object
       required: [data, methodOptions]

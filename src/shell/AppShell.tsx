@@ -1,7 +1,9 @@
 import { Content, Header, HeaderName, SideNav, SideNavItems, SideNavLink } from '@carbon/react'
 import type { MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
+import type { StepKey } from '../api/client'
 import { INSIGHT_SECTIONS, STEPS, STEP_GROUPS } from './nav'
 import styles from './AppShell.module.scss'
 
@@ -17,6 +19,8 @@ export function AppShell() {
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
   const insights = pathname.startsWith('/insights')
+  // The server says which steps are open; until it answers, none are shown as locked.
+  const stage = useProjectStage(projectId ?? undefined)
 
   return (
     <>
@@ -40,16 +44,23 @@ export function AppShell() {
           STEP_GROUPS.map((group) => (
             <SideNavItems key={group}>
               <p className={styles.groupLabel}>{group}</p>
-              {STEPS.filter((s) => s.group === group).map((s) => (
-                <SideNavLink
-                  key={s.key}
-                  href={`/projects/${projectId}/${s.key}`}
-                  isActive={project?.[2] === s.key}
-                  onClick={go(`/projects/${projectId}/${s.key}`)}
-                >
-                  {s.label}
-                </SideNavLink>
-              ))}
+              {STEPS.filter((s) => s.group === group).map((s) => {
+                const tab = stage.data?.tabs[s.key as StepKey]
+                const locked = tab ? !tab.enabled : false
+                return (
+                  <SideNavLink
+                    key={s.key}
+                    href={`/projects/${projectId}/${s.key}`}
+                    isActive={project?.[2] === s.key}
+                    aria-disabled={locked || undefined}
+                    title={locked ? (tab?.hint ?? undefined) : undefined}
+                    className={locked ? styles.locked : undefined}
+                    onClick={locked ? (e: MouseEvent) => e.preventDefault() : go(`/projects/${projectId}/${s.key}`)}
+                  >
+                    {s.label}
+                  </SideNavLink>
+                )
+              })}
             </SideNavItems>
           ))}
 

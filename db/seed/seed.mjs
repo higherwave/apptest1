@@ -59,6 +59,8 @@ const USERS = [
   { key: 'sam', email: `sam@${DEMO_DOMAIN}`, name: 'Sam Patel', role: 'viewer' },
 ];
 
+// Job-to-be-done fields hold the bare phrase that follows "I want to" and "so I can". The prototype's sample data
+// repeated those words inside the values, which made its generated text read "I want to to find".
 const SAMPLE_PARTICIPANTS = [
   { name: 'Maya Chen', role: 'Working parent, new patient', date: '2026-10-06' },
   { name: 'Daniel Ortiz', role: 'Shift worker, returning patient', date: '2026-10-07' },
@@ -83,17 +85,17 @@ const INTAKE = [
 const PROJECTS = [
   { key: 'p1', name: 'Clinic booking, usability round 1', color: 'cream', tpl: 'usability', participants: SAMPLE_PARTICIPANTS,
     study: { what: 'Whether patients can find a provider, book, and manage an appointment without calling the clinic',
-      jWhen: 'I need to see a doctor soon', jWant: 'to find an available, covered provider and book quickly', jSo: 'I can plan my day around the visit',
+      jWhen: 'I need to see a doctor soon', jWant: 'find an available, covered provider and book quickly', jSo: 'plan my day around the visit',
       outcomes: ['Task completion rate above 80%', 'Top barriers ranked by severity'], methods: ['Moderated usability test', 'Survey follow-up'] } },
   { key: 'p2', name: 'Clinic booking, round 2', color: 'mint', tpl: 'usability', participants: ROUND2, platforms: ['zoom', 'meet', 'teams', 'zoom'],
     synth: { counts: { 0: 3, 1: 3, 2: 4, 3: 3, 4: 2 }, offset: 1 },
     study: { what: 'Whether the changes from round 1 let patients find a provider, book and reschedule without calling the clinic',
-      jWhen: 'I need to move an appointment', jWant: 'to change it in the app without calling', jSo: 'I can keep my day on track',
+      jWhen: 'I need to move an appointment', jWant: 'change it in the app without calling', jSo: 'keep my day on track',
       outcomes: ['Fewer calls to the clinic', 'Reschedule completed in the app'], methods: ['Moderated usability test'] } },
   { key: 'p3', name: 'Check-in diary study', color: 'lavender', tpl: 'discovery', participants: DIARY,
     synth: { counts: { 0: 5, 2: 3, 3: 4 }, offset: 2, diary: true },
     study: { what: 'How patients prepare for, travel to and follow up on a visit over a week',
-      jWhen: 'I have an appointment coming up', jWant: 'to know what to bring and when to leave', jSo: 'I arrive prepared',
+      jWhen: 'I have an appointment coming up', jWant: 'know what to bring and when to leave', jSo: 'arrive prepared',
       outcomes: ['Map of current workflow', 'Top unmet needs'], methods: ['Diary study'] } },
   { key: 'p4', name: 'New patient intake (draft)', color: 'coral', tpl: 'concept', participants: INTAKE, draft: true,
     study: { what: R.TEMPLATES.concept.what, jWhen: null, jWant: null, jSo: null, outcomes: R.TEMPLATES.concept.outcomes, methods: R.TEMPLATES.concept.methods } },
@@ -193,7 +195,7 @@ export async function seed(db) {
     await insert(db, 'research.study_stages', R.STAGES.map((name, i) => ({ id: uid(`stage:${proj.key}:${i}`), workspace_id: WS, study_id: P, position: i, name })));
     await insert(db, 'research.participants', proj.participants.map((p, i) => ({
       id: uid(`part:${proj.key}:${i}`), workspace_id: WS, project_id: P, name: p.name, role: p.role,
-      email: p.name.toLowerCase().replace(/[^a-z ]/g, '').replace(/ /g, '.') + '@example.com', session_date: p.date,
+      email: p.name.toLowerCase().replace(/[^a-z ]/g, '').replace(/ /g, '.') + '@example.com', session_date: p.date, position: i,
     })));
     const taskRows = [], followRows = [];
     tpl.tasks.forEach((t, i) => {
