@@ -1,7 +1,7 @@
 import { Add, TrashCan } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, TextInput } from '@carbon/react'
 import type { ProjectDetail } from '../../api/client'
-import type { TaskForm } from '../wizard/form'
+import type { TaskForm } from '../testplan/form'
 import { ProjectHeader } from './ProjectHeader'
 import { SaveBar, type SaveBarProps } from './SaveBar'
 import styles from './TaskListView.module.scss'

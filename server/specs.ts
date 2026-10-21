@@ -133,13 +133,17 @@ function scopeThemes(items: { theme: SpecTheme; opp: string | null; quote: strin
 async function draftingContext(db: Queryable, spec: Record<string, any>) {
   const items = await themesForSpec(db, spec.id)
   const study = (await db.query(`select what_testing, jtbd_when, jtbd_want, jtbd_so, outcomes from research.studies where project_id = $1`, [spec.project_id])).rows[0]
+  // A research project's test items are what it is testing and what it expects to learn; a stand-alone document has only its description.
+  const testItems = (await db.query(`select description, outcomes from research.test_items where project_id = $1 order by position`, [spec.project_id])).rows
+  const described = testItems.map((i) => i.description as string | null).filter((d): d is string => !!d)
   const people = (await db.query(`select role from research.participants where project_id = $1 and role is not null order by position`, [spec.project_id])).rows.map((r) => r.role as string)
   const sessions = (await db.query(`select count(*)::int n from research.transcripts where project_id = $1`, [spec.project_id])).rows[0].n as number
   const { included } = scopeThemes(items)
   const ctx = {
-    what: study?.what_testing ?? '',
+    // Several items read as one phrase: "Booking flow; reminders".
+    what: described.length ? described.map((d, i) => (i === 0 ? d : d.charAt(0).toLowerCase() + d.slice(1))).join('; ') : (study?.what_testing ?? ''),
     jtbd: study?.jtbd_when ? [study.jtbd_when, study.jtbd_want ?? '', study.jtbd_so ?? ''] : null,
-    outcomes: (study?.outcomes ?? []) as string[],
+    outcomes: testItems.length ? testItems.flatMap((i) => i.outcomes as string[]) : ((study?.outcomes ?? []) as string[]),
     people,
     sessions,
     themes: included.map((t) => ({ id: t.id, title: t.title, cat: t.cat, prio: t.prio, ppl: t.ppl, total: t.total, eff: t.eff, opp: t.opp, quote: t.quote })),

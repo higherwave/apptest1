@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMe, useProject, useSaveTasks } from '../../api/hooks'
-import { taskFormFromProject, tasksChanged, toTasksRequest, type TaskForm } from '../wizard/form'
+import { taskFormFromProject, tasksChanged, toTasksRequest, type TaskForm } from '../testplan/form'
 import { TaskListView } from './TaskListView'
 import { useSaveFlow } from './useSaveFlow'
 

@@ -187,7 +187,9 @@ export async function seed(db) {
     const P = uid('project:' + proj.key);
     const tpl = R.TEMPLATES[proj.tpl];
     await insert(db, 'core.projects', [{ id: P, workspace_id: WS, name: proj.name, color: proj.color, kind: 'research', template_id: uid('template:' + proj.tpl), owner_id: DAVID, created_by: DAVID }]);
-    await insert(db, 'research.studies', [{ project_id: P, workspace_id: WS, what_testing: proj.study.what, jtbd_when: proj.study.jWhen, jtbd_want: proj.study.jWant, jtbd_so: proj.study.jSo, outcomes: proj.study.outcomes, methods: proj.study.methods }]);
+    // What is being tested and what it should teach live in the project's test items; the study row keeps the methods and the job to be done.
+    await insert(db, 'research.studies', [{ project_id: P, workspace_id: WS, jtbd_when: proj.study.jWhen, jtbd_want: proj.study.jWant, jtbd_so: proj.study.jSo, methods: proj.study.methods }]);
+    await insert(db, 'research.test_items', [{ id: uid(`item:${proj.key}:0`), workspace_id: WS, project_id: P, position: 0, description: proj.study.what, outcomes: proj.study.outcomes }]);
     await insert(db, 'research.study_stages', R.STAGES.map((name, i) => ({ id: uid(`stage:${proj.key}:${i}`), workspace_id: WS, study_id: P, position: i, name })));
     await insert(db, 'research.participants', proj.participants.map((p, i) => ({
       id: uid(`part:${proj.key}:${i}`), workspace_id: WS, project_id: P, name: p.name, role: p.role,

@@ -1,0 +1,124 @@
+@use '../../tokens' as tokens;
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xl);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.label {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.fieldLabel {
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+}
+
+.chip {
+  min-block-size: 2.75rem;
+  padding-inline: var(--at-space-md);
+  max-inline-size: none;
+  inline-size: auto;
+  @include tokens.role('button-sm');
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+}
+
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cardTitle {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.outcomeRow {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: var(--at-space-xs);
+  align-items: start;
+}
+
+// Text-style add actions sit flush left, in link blue.
+.add {
+  align-self: flex-start;
+  color: var(--at-link);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+}
+
+// A grid with table roles (the page's design rules do not allow a raw table): one row per participant.
+.table {
+  min-inline-size: 60rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1.3fr 1.3fr 1.5fr 1.2fr 1.1fr 3rem;
+  gap: var(--at-space-xs);
+  align-items: start;
+  padding: var(--at-space-xs);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child {
+    border-block-start: none;
+    background: var(--at-surface-soft);
+  }
+}
+
+.head {
+  @include tokens.role('caption');
+  padding: var(--at-space-xs) var(--at-space-xs);
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.remove {
+  display: flex;
+  justify-content: center;
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

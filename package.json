@@ -10,7 +10,7 @@
     "preview": "vite preview",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
-    "test:api": "tsx --test server/*.test.ts src/pages/wizard/*.test.ts src/pages/themes/*.test.ts shared/*.test.mjs",
+    "test:api": "tsx --test server/*.test.ts src/pages/testplan/*.test.ts src/pages/themes/*.test.ts shared/*.test.mjs",
     "test": "npm run test:api && npm run test:db",
     "test:db": "npm --prefix db test",
     "validate:pages": "node --experimental-strip-types --no-warnings scripts/validate-pages.mjs",

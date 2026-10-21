@@ -133,25 +133,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Saves the project name and test plan (what, job to be done, outcomes, methods). Needs the token and If-Match. */
+        /** Saves the whole test plan page in one save: name, methods, test items and participants. Test items are replaced as a list; a participant with an id is updated in place (so transcript speakers matched to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match. */
         put: operations["saveStudy"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{id}/participants": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Saves the participant list. A participant with an id is updated in place (so transcript speakers matched to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match. */
-        put: operations["saveParticipants"];
         post?: never;
         delete?: never;
         options?: never;
@@ -627,15 +610,9 @@ export interface components {
             createdAt: string;
             version: number;
             study: {
-                what: string | null;
-                jtbd: {
-                    when: string | null;
-                    want: string | null;
-                    so: string | null;
-                };
-                outcomes: string[];
                 methods: string[];
             };
+            testItems: components["schemas"]["TestItem"][];
             stages: {
                 position: number;
                 name: string;
@@ -645,6 +622,7 @@ export interface components {
                 name: string;
                 role: string | null;
                 email: string;
+                phone: string | null;
                 sessionDate: string | null;
             }[];
             tasks: {
@@ -656,26 +634,33 @@ export interface components {
                 }[];
             }[];
         };
+        TestItem: {
+            id: string;
+            /** @description What is being tested and what the team wants to learn. */
+            description: string | null;
+            outcomes: string[];
+        };
+        TestItemInput: {
+            description?: string | null;
+            outcomes?: string[];
+        };
+        ParticipantInput: {
+            /** @description Present for an existing participant. */
+            id?: string | null;
+            name: string;
+            role?: string | null;
+            email: string;
+            phone?: string | null;
+            /** @description YYYY-MM-DD */
+            sessionDate?: string | null;
+        };
         SavePlanRequest: {
             name: string;
-            what?: string | null;
-            jtbd?: {
-                when?: string | null;
-                want?: string | null;
-                so?: string | null;
-            };
-            outcomes?: string[];
             methods?: string[];
-        };
-        SaveParticipantsRequest: {
-            participants: {
-                /** @description Present for an existing participant. */
-                id?: string | null;
-                name: string;
-                role?: string | null;
-                email: string;
-                sessionDate?: string | null;
-            }[];
+            /** @description An item with neither a description nor outcomes is dropped. */
+            testItems?: components["schemas"]["TestItemInput"][];
+            /** @description At least one. Name and a valid email are required. */
+            participants: components["schemas"]["ParticipantInput"][];
         };
         BoardStory: {
             id: string;
@@ -1099,24 +1084,15 @@ export interface components {
         };
         CreateProjectRequest: {
             name: string;
-            /** @enum {string} */
-            templateKey: "usability" | "discovery" | "concept" | "blank";
-            what?: string | null;
-            jtbd?: {
-                when?: string | null;
-                want?: string | null;
-                so?: string | null;
-            };
-            outcomes?: string[];
+            /**
+             * @description Optional; the test plan page no longer offers templates
+             * @enum {string}
+             */
+            templateKey?: "usability" | "discovery" | "concept" | "blank";
             methods?: string[];
+            testItems?: components["schemas"]["TestItemInput"][];
             /** @description At least one. Name and a valid email are required. */
-            participants: {
-                name: string;
-                role?: string | null;
-                email: string;
-                /** @description YYYY-MM-DD */
-                sessionDate?: string | null;
-            }[];
+            participants: components["schemas"]["ParticipantInput"][];
         };
         ProjectList: {
             data: components["schemas"]["ProjectSummary"][];
@@ -1452,35 +1428,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["SavePlanRequest"];
-            };
-        };
-        responses: {
-            200: components["responses"]["ProjectSaved"];
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["VersionConflict"];
-            422: components["responses"]["Error"];
-            428: components["responses"]["Error"];
-            503: components["responses"]["Error"];
-        };
-    };
-    saveParticipants: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["SaveParticipantsRequest"];
             };
         };
         responses: {

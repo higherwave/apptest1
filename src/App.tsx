@@ -14,7 +14,7 @@ import { PrioritiesPage } from './pages/themes/PrioritiesPage'
 import { ThemesPage } from './pages/themes/ThemesPage'
 import { TestPlanPage } from './pages/project/TestPlanPage'
 import { TranscriptsPage } from './pages/transcripts/TranscriptsPage'
-import { NewProjectPage } from './pages/wizard/NewProjectPage'
+import { NewTestPlanPage } from './pages/testplan/NewTestPlanPage'
 
 // Routes follow the prototype's handoff. Each placeholder is replaced by a real screen in its slice.
 export function App() {
@@ -23,7 +23,7 @@ export function App() {
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/projects" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
-        <Route path="projects/new" element={<NewProjectPage />} />
+        <Route path="projects/new" element={<NewTestPlanPage />} />
         <Route path="projects/:projectId/plan" element={<TestPlanPage />} />
         <Route path="projects/:projectId/tasks" element={<TaskListPage />} />
         <Route path="projects/:projectId/transcripts" element={<TranscriptsPage />} />

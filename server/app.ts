@@ -4,10 +4,10 @@ import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, type Db, type Env } from './db.js'
 import { requestContext } from './context.js'
 import {
-  createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveParticipants, saveTasks,
+  createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveTasks,
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
-import { createProjectSchema, METHOD_OPTIONS, parseBody, saveParticipantsSchema, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
+import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
   createSpecSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
@@ -183,7 +183,6 @@ export function createApp(options: AppOptions = {}) {
   }
 
   app.put('/projects/:id/study', withContext, (c) => save(c, savePlanSchema, (id, v, input) => savePlan(getDb(), c.get('ctx'), id, v, input)))
-  app.put('/projects/:id/participants', withContext, (c) => save(c, saveParticipantsSchema, (id, v, input) => saveParticipants(getDb(), c.get('ctx'), id, v, input)))
   app.get('/projects/:id/transcripts', withReadContext, async (c) => {
     const id = projectId(c)
     const detail = await getProjectDetail(getDb(), c.get('ctx').workspaceId, id)

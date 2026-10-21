@@ -1,14 +1,6 @@
-@use '../../tokens' as tokens;
-
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  max-width: 48rem;
-}
-
-.section {
-  @include tokens.role('title-md');
-  margin: var(--at-space-md) 0 0;
-  color: var(--at-ink);
+  max-width: 64rem;
 }

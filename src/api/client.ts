@@ -59,7 +59,6 @@ export const getProject = (id: string) => request<ProjectDetail>(`/projects/${id
 export const getProjectStage = (id: string) => request<StageInfo>(`/projects/${id}/stage`)
 // Saves send the version the person was looking at; a 409 means someone else saved first.
 export const saveStudy = (id: string, version: number, body: components['schemas']['SavePlanRequest']) => request<ProjectDetail>(`/projects/${id}/study`, { method: 'PUT', body, version })
-export const saveParticipants = (id: string, version: number, body: components['schemas']['SaveParticipantsRequest']) => request<ProjectDetail>(`/projects/${id}/participants`, { method: 'PUT', body, version })
 export const saveTasks = (id: string, version: number, body: components['schemas']['SaveTasksRequest']) => request<ProjectDetail>(`/projects/${id}/tasks`, { method: 'PUT', body, version })
 export type TranscriptList = components['schemas']['TranscriptList']
 export type AnalysisRunResult = components['schemas']['AnalysisRunResult']

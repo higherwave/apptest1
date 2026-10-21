@@ -1,30 +1,28 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
-import { useMe, useProject, useSaveParticipants, useSaveStudy, useTemplates } from '../../api/hooks'
-import { formFromProject, participantsChanged, planChanged, toParticipantsRequest, toPlanRequest, validateStep, type FieldErrors, type WizardForm } from '../wizard/form'
+import { useMe, useProject, useSaveStudy, useTemplates } from '../../api/hooks'
+import { formFromProject, planChanged, toPlanRequest, validate, type FieldErrors, type PlanForm } from '../testplan/form'
 import { TestPlanView } from './TestPlanView'
 import { useSaveFlow } from './useSaveFlow'
 
-// Container: loads the project, edits a copy of its plan and participants, and saves the parts that
-// changed, one after the other, each against the version the previous save returned.
+// Container: loads the project, edits a copy of its test plan, and saves it in one request.
 export function TestPlanPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
   const project = useProject(projectId)
-  const templates = useTemplates()
+  const templates = useTemplates() // only for the list of test methods
   const me = useMe()
   const saveStudy = useSaveStudy(projectId)
-  const saveParticipants = useSaveParticipants(projectId)
   const flow = useSaveFlow(projectId, project.data)
-  const [form, setForm] = useState<WizardForm | null>(null)
+  const [form, setForm] = useState<PlanForm | null>(null)
   const [errors, setErrors] = useState<FieldErrors>({})
 
   // The form starts from the saved project once it arrives; after that the person's edits are the form.
   if (project.data && form === null) setForm(formFromProject(project.data))
 
   const saved = project.data
-  const dirty = !!saved && !!form && (planChanged(form, saved) || participantsChanged(form, saved))
+  const dirty = !!saved && !!form && planChanged(form, saved)
   // Closing or reloading the tab with unsaved edits asks first.
   useEffect(() => {
     if (!dirty) return
@@ -37,19 +35,10 @@ export function TestPlanPage() {
 
   const doSave = async (overwrite: boolean) => {
     if (!saved || !form) return
-    const found = { ...validateStep(form, 0), ...validateStep(form, 2) }
+    const found = validate(form)
     setErrors(found)
     if (Object.keys(found).length) return
-    const after = await flow.save(async (startVersion) => {
-      let latest = saved
-      let version = startVersion
-      if (planChanged(form, saved)) {
-        latest = await saveStudy.mutateAsync({ version, body: toPlanRequest(form) })
-        version = latest.version
-      }
-      if (participantsChanged(form, saved)) latest = await saveParticipants.mutateAsync({ version, body: toParticipantsRequest(form) })
-      return latest
-    }, overwrite)
+    const after = await flow.save((version) => saveStudy.mutateAsync({ version, body: toPlanRequest(form) }), overwrite)
     if (after) setForm(formFromProject(after))
   }
 
@@ -59,12 +48,12 @@ export function TestPlanPage() {
     <TestPlanView
       state={state}
       project={saved}
-      form={form ?? formFromBlank}
+      form={form ?? emptyPlan}
       errors={errors}
       methodOptions={templates.data?.methodOptions ?? []}
       errorText={project.isError ? friendlyMessage(project.error) : undefined}
       save={{
-        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt,
+        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: 'Save test plan',
         onSave: () => doSave(false),
         onOverwrite: () => doSave(true),
         onReload: async () => {
@@ -81,4 +70,4 @@ export function TestPlanPage() {
   )
 }
 
-const formFromBlank: WizardForm = { name: '', templateKey: 'blank', what: '', jtbd: { when: '', want: '', so: '' }, outcomes: [''], methods: [], participants: [] }
+const emptyPlan: PlanForm = { name: '', methods: [], testItems: [], participants: [] }

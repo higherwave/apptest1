@@ -3,7 +3,7 @@ import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getInsightsThemes, getPlatformTheme, listCaseStudies,
   getBoard, getStory, moveStory, undoMove, patchStory, saveChecklist,
-  createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveParticipants, saveStudy, saveTasks, saveTranscripts, startAnalysis,
+  createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -51,7 +51,6 @@ function useSave<B>(id: string, save: (id: string, version: number, body: B) => 
   })
 }
 export const useSaveStudy = (id: string) => useSave(id, saveStudy)
-export const useSaveParticipants = (id: string) => useSave(id, saveParticipants)
 export const useSaveTasks = (id: string) => useSave(id, saveTasks)
 
 export const useTranscripts = (id: string | undefined) => useQuery({ queryKey: ['transcripts', id], queryFn: () => getTranscripts(id!), enabled: !!id })

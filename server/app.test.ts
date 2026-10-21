@@ -259,9 +259,9 @@ test('cache headers: anonymous reads are cacheable for a minute, token requests 
 const TOKEN = { DEV_TOKEN: 's3cret' }
 const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json' }
 const newProject = (over: Record<string, unknown> = {}) => ({
-  name: 'Onboarding study', templateKey: 'usability', what: 'Whether new users finish setup',
-  jtbd: { when: 'I sign up', want: 'to finish setup', so: 'I can start' }, outcomes: ['Completion above 80%', ''], methods: ['Moderated usability test'],
-  participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', sessionDate: '2026-11-02' }], ...over,
+  name: 'Onboarding study', methods: ['Moderated usability test'],
+  testItems: [{ description: 'Whether new users finish setup', outcomes: ['Completion above 80%', ''] }, { description: '', outcomes: [] }],
+  participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', phone: ' (555) 010-0000 ', sessionDate: '2026-11-02' }], ...over,
 })
 const post = (app: ReturnType<typeof createApp>, body: unknown, headers: Record<string, string> = auth) =>
   app.request('/api/v1/projects', { method: 'POST', headers, body: JSON.stringify(body) })
@@ -276,18 +276,19 @@ test('GET /templates lists the four templates in order, with the method options'
   assert.ok(body.methodOptions.includes('Diary study'))
 })
 
-test('POST /projects creates the project, plan, stages, participants and starter tasks together', async () => {
+test('POST /projects creates the project, test items, stages, participants and the template starter tasks together', async () => {
   await demoDb()
   const app = createApp({ env: TOKEN, getDb: () => db })
-  const res = await post(app, newProject())
+  const res = await post(app, newProject({ templateKey: 'usability' }))
   assert.equal(res.status, 201)
   const created = await expectSpec(res, '/projects', 'post')
   assert.deepEqual([created.name, created.status, created.sessions, created.themes, created.template], ['Onboarding study', 'draft', 0, 0, 'Usability test'])
   const id = created.id
   const q = async (sql: string) => (await pglite.query<any>(sql, [id])).rows as any[]
-  assert.deepEqual((await q(`select what_testing w, outcomes o, methods m from research.studies where project_id = $1`))[0], { w: 'Whether new users finish setup', o: ['Completion above 80%'], m: ['Moderated usability test'] })
+  assert.deepEqual((await q(`select methods m from research.studies where project_id = $1`))[0], { m: ['Moderated usability test'] })
+  assert.deepEqual((await q(`select description d, outcomes o, position p from research.test_items where project_id = $1 order by position`)), [{ d: 'Whether new users finish setup', o: ['Completion above 80%'], p: 0 }], 'the empty second item is dropped')
   assert.equal((await q(`select count(*)::int n from research.study_stages where study_id = $1`))[0].n, 5)
-  assert.deepEqual((await q(`select name, email, session_date::text d from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', d: '2026-11-02' })
+  assert.deepEqual((await q(`select name, email, phone, session_date::text d from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', phone: '(555) 010-0000', d: '2026-11-02' })
   assert.deepEqual((await q(`select count(*) filter (where parent_task_id is null)::int q, count(*) filter (where parent_task_id is not null)::int f from research.tasks where project_id = $1`))[0], { q: 2, f: 3 })
   assert.equal((await q(`select verb from core.audit_log where entity_id = $1`))[0].verb, 'created')
   // It shows up in the list as a draft, in a tint no other project in the workspace uses yet.
@@ -297,10 +298,11 @@ test('POST /projects creates the project, plan, stages, participants and starter
   assert.equal(list.filter((p: any) => p.color === mine.color).length, 1)
 })
 
-test('POST /projects with the blank template starts with no tasks', async () => {
+test('POST /projects without a template uses the blank one and starts with no tasks', async () => {
   await demoDb()
   const app = createApp({ env: TOKEN, getDb: () => db })
-  const created = await (await post(app, newProject({ name: 'Blank one', templateKey: 'blank' }))).json()
+  const created = await (await post(app, newProject({ name: 'Blank one' }))).json()
+  assert.equal(created.template, 'Blank project')
   assert.equal((await pglite.query<any>(`select count(*)::int n from research.tasks where project_id = $1`, [created.id])).rows[0].n, 0)
 })
 
@@ -314,6 +316,7 @@ test('POST /projects validates, naming the field: 422 validation_failed', async 
     [newProject({ participants: [{ name: '', email: 'a@b.co' }] }), 'participants.0.name'],
     [newProject({ methods: ['Mind reading'] }), 'methods.0'],
     [newProject({ templateKey: 'nope' }), 'templateKey'],
+    [newProject({ testItems: Array.from({ length: 21 }, () => ({ description: 'x', outcomes: [] })) }), 'testItems'],
     [newProject({ participants: [{ name: 'Ada', email: 'a@b.co', sessionDate: 'Oct 6' }] }), 'participants.0.sessionDate'],
   ]
   for (const [body, field] of cases) {
@@ -364,7 +367,7 @@ test('DELETE /projects/:id removes the project and everything under it, and audi
   const created = await (await post(app, newProject({ name: 'Delete me' }))).json()
   const res = await app.request(`/api/v1/projects/${created.id}`, { method: 'DELETE', headers: auth })
   assert.equal(res.status, 204)
-  for (const t of ['research.studies', 'research.participants', 'research.tasks', 'research.study_stages']) {
+  for (const t of ['research.studies', 'research.test_items', 'research.participants', 'research.tasks', 'research.study_stages']) {
     const col = t === 'research.studies' ? 'project_id' : t === 'research.study_stages' ? 'study_id' : 'project_id'
     assert.equal((await pglite.query<any>(`select count(*)::int n from ${t} where ${col} = $1`, [created.id])).rows[0].n, 0, t)
   }
@@ -409,18 +412,29 @@ async function withFresh<T>(fn: (ctx: { app: ReturnType<typeof createApp>; pg: P
 const put = (app: ReturnType<typeof createApp>, path: string, body: unknown, version: number | string | null, headers: Record<string, string> = auth) =>
   app.request(`/api/v1${path}`, { method: 'PUT', headers: { ...headers, ...(version === null ? {} : { 'if-match': String(version) }) }, body: JSON.stringify(body) })
 
-test('GET /projects/:id returns the plan, stages, participants in order, and tasks with follow-ups; ETag is the version', async () => {
+// A save sends the whole page, so tests start from what is saved now and change one thing.
+const planOf = async (app: ReturnType<typeof createApp>, id: string, over: Record<string, unknown> = {}) => {
+  const d = await (await app.request(`/api/v1/projects/${id}`)).json()
+  return {
+    name: d.name, methods: d.study.methods, testItems: d.testItems.map((i: any) => ({ description: i.description, outcomes: i.outcomes })),
+    participants: d.participants.map((p: any) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionDate: p.sessionDate })), ...over,
+  }
+}
+
+test('GET /projects/:id returns the test plan, stages, participants in order, and tasks with follow-ups; ETag is the version', async () => {
   await withFresh(async ({ app, p1, version }) => {
     const res = await app.request(`/api/v1/projects/${p1}`)
     const body = await expectSpec(res, '/projects/{id}')
     assert.equal(res.headers.get('etag'), `"${await version()}"`)
     assert.equal(body.name, 'Clinic booking, usability round 1')
-    assert.match(body.study.what, /^Whether patients can find a provider/)
-    assert.deepEqual(body.study.jtbd, { when: 'I need to see a doctor soon', want: 'find an available, covered provider and book quickly', so: 'plan my day around the visit' })
+    assert.equal(body.testItems.length, 1)
+    assert.match(body.testItems[0].description, /^Whether patients can find a provider/)
+    assert.deepEqual(body.testItems[0].outcomes, ['Task completion rate above 80%', 'Top barriers ranked by severity'])
     assert.deepEqual(body.study.methods, ['Moderated usability test', 'Survey follow-up'])
     assert.equal(body.stages.length, 5)
     assert.deepEqual(body.participants.map((p: any) => p.name), ['Maya Chen', 'Daniel Ortiz', 'Priya Nair'])
     assert.equal(body.participants[0].sessionDate, '2026-10-06')
+    assert.equal(body.participants[0].phone, null)
     assert.deepEqual(body.tasks.map((t: any) => t.followUps.length), [2, 1])
     assert.equal(body.status, 'analyzed')
   })
@@ -464,16 +478,18 @@ test('saving needs If-Match: without it, 428 precondition_required', async () =>
   })
 })
 
-test('PUT study saves the name and plan, bumps the version by one, and audits it', async () => {
+test('PUT study saves the name, methods, test items and participants, bumps the version by one, and audits it', async () => {
   await withFresh(async ({ app, pg, p1, version }) => {
     const v0 = await version()
-    const res = await put(app, `/projects/${p1}/study`, {
-      name: ' Clinic booking, round 1 ', what: 'New wording', jtbd: { when: 'A', want: 'B', so: '' }, outcomes: ['One', '', 'Two'], methods: ['Card sort'],
-    }, v0)
+    const res = await put(app, `/projects/${p1}/study`, await planOf(app, p1, {
+      name: ' Clinic booking, round 1 ', methods: ['Card sort'],
+      testItems: [{ description: 'New wording', outcomes: ['One', '', 'Two'] }, { description: '', outcomes: [] }, { description: null, outcomes: ['Only an outcome'] }],
+    }), v0)
     assert.equal(res.status, 200)
     const body = await expectSpec(res, '/projects/{id}/study', 'put')
-    assert.deepEqual([body.name, body.version, body.study.what, body.study.jtbd, body.study.outcomes, body.study.methods],
-      ['Clinic booking, round 1', v0 + 1, 'New wording', { when: 'A', want: 'B', so: null }, ['One', 'Two'], ['Card sort']])
+    assert.deepEqual([body.name, body.version, body.study.methods], ['Clinic booking, round 1', v0 + 1, ['Card sort']])
+    assert.deepEqual(body.testItems.map((i: any) => [i.description, i.outcomes]), [['New wording', ['One', 'Two']], [null, ['Only an outcome']]], 'blank outcomes and the empty item are dropped; order is kept')
+    assert.equal(body.participants.length, 3, 'the participants were sent back unchanged')
     assert.equal(res.headers.get('etag'), `"${v0 + 1}"`)
     assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where entity_id = $1 and verb = 'plan_saved'`, [p1])).rows[0].n, 1)
     // Themes and board are untouched by a plan save.
@@ -484,65 +500,70 @@ test('PUT study saves the name and plan, bumps the version by one, and audits it
 test('a stale version is refused with 409 and the current version; nothing is overwritten', async () => {
   await withFresh(async ({ app, p1, version }) => {
     const v0 = await version()
-    assert.equal((await put(app, `/projects/${p1}/study`, { name: 'First save' }, v0)).status, 200)
-    const stale = await put(app, `/projects/${p1}/study`, { name: 'Second save, from the old page' }, v0)
+    const same = await planOf(app, p1)
+    assert.equal((await put(app, `/projects/${p1}/study`, { ...same, name: 'First save' }, v0)).status, 200)
+    const stale = await put(app, `/projects/${p1}/study`, { ...same, name: 'Second save, from the old page' }, v0)
     assert.equal(stale.status, 409)
     const body = await expectSpec(stale, '/projects/{id}/study', 'put')
     assert.deepEqual([body.error.code, body.current.version], ['version_conflict', v0 + 1])
     const now = await (await app.request(`/api/v1/projects/${p1}`, { headers: auth })).json()
     assert.equal(now.name, 'First save', 'the first save survives')
     // Overwrite is a deliberate resend with the current version.
-    assert.equal((await put(app, `/projects/${p1}/study`, { name: 'Second save, from the old page' }, body.current.version)).status, 200)
+    assert.equal((await put(app, `/projects/${p1}/study`, { ...same, name: 'Second save, from the old page' }, body.current.version)).status, 200)
   })
 })
 
 test('saves validate: names the field, and a viewer or missing token cannot save', async () => {
   await withFresh(async ({ app, p1, version }) => {
     const v = await version()
-    const bad = await put(app, `/projects/${p1}/study`, { name: '  ' }, v)
+    const same = await planOf(app, p1)
+    const bad = await put(app, `/projects/${p1}/study`, { ...same, name: '  ' }, v)
     assert.equal(bad.status, 422)
     assert.deepEqual([(await bad.json()).error.field], ['name'])
-    assert.equal((await put(app, `/projects/${p1}/study`, { name: 'x', methods: ['Mind reading'] }, v)).status, 422)
-    assert.equal((await put(app, `/projects/${p1}/study`, { name: 'x' }, v, { 'content-type': 'application/json' })).status, 401)
+    assert.equal((await put(app, `/projects/${p1}/study`, { ...same, methods: ['Mind reading'] }, v)).status, 422)
+    assert.equal((await put(app, `/projects/${p1}/study`, { ...same, name: 'x' }, v, { 'content-type': 'application/json' })).status, 401)
   })
   const { pglite: pg2, db: d2 } = await createDemoDatabase()
   const viewerApp = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => d2 })
   const id = ((await pg2.query<any>(`select id from core.projects limit 1`)).rows[0] as { id: string }).id
-  assert.equal((await put(viewerApp, `/projects/${id}/study`, { name: 'x' }, 1)).status, 403)
+  assert.equal((await put(viewerApp, `/projects/${id}/study`, { name: 'x', participants: [{ name: 'A', email: 'a@b.co' }] }, 1)).status, 403)
 })
 
-test('PUT participants keeps identity: speakers stay matched, removed ones unmatch, order follows the list', async () => {
+test('PUT study keeps participant identity: speakers stay matched, removed ones unmatch, order follows the list', async () => {
   await withFresh(async ({ app, pg, p1, version }) => {
     const detail = await (await app.request(`/api/v1/projects/${p1}`)).json()
     const [maya, daniel] = detail.participants
     const speakerOf = async (name: string) => ((await pg.query<any>(`select distinct participant_id from research.transcript_speakers where name = $1`, [name])).rows as any[]).map((r) => r.participant_id)
     assert.deepEqual(await speakerOf('Maya Chen'), [maya.id])
-    const res = await put(app, `/projects/${p1}/participants`, {
+    const res = await put(app, `/projects/${p1}/study`, {
+      ...(await planOf(app, p1)),
       participants: [
-        { id: daniel.id, name: 'Daniel Ortiz', role: 'Night-shift nurse', email: 'D.Ortiz@Example.com', sessionDate: '2026-10-07' },
+        { id: daniel.id, name: 'Daniel Ortiz', role: 'Night-shift nurse', email: 'D.Ortiz@Example.com', phone: '555 0100', sessionDate: '2026-10-07' },
         { id: maya.id, name: 'Maya Chen', role: maya.role, email: maya.email, sessionDate: maya.sessionDate },
         { name: 'New Person', email: 'new@example.com' },
       ],
     }, await version())
     assert.equal(res.status, 200)
-    const body = await expectSpec(res, '/projects/{id}/participants', 'put')
+    const body = await expectSpec(res, '/projects/{id}/study', 'put')
     assert.deepEqual(body.participants.map((p: any) => p.name), ['Daniel Ortiz', 'Maya Chen', 'New Person'])
     assert.deepEqual([body.participants[0].id, body.participants[1].id], [daniel.id, maya.id], 'ids kept')
     assert.equal(body.participants[0].email, 'd.ortiz@example.com')
     assert.equal(body.participants[0].role, 'Night-shift nurse')
+    assert.equal(body.participants[0].phone, '555 0100')
     assert.deepEqual(await speakerOf('Maya Chen'), [maya.id], 'Maya’s speakers are still matched')
     assert.deepEqual(await speakerOf('Priya Nair'), [null], 'Priya was removed, so her speakers are unmatched, not deleted')
     assert.equal(body.themes, 9, 'themes are untouched')
   })
 })
 
-test('PUT participants: an unknown id, an empty list and a bad email are 422', async () => {
+test('PUT study: an unknown participant id, an empty list and a bad email are 422', async () => {
   await withFresh(async ({ app, p1, version }) => {
     const v = await version()
-    const unknown = await put(app, `/projects/${p1}/participants`, { participants: [{ id: '00000000-0000-4000-8000-000000000000', name: 'X', email: 'x@y.co' }] }, v)
+    const same = await planOf(app, p1)
+    const unknown = await put(app, `/projects/${p1}/study`, { ...same, participants: [{ id: '00000000-0000-4000-8000-000000000000', name: 'X', email: 'x@y.co' }] }, v)
     assert.equal(unknown.status, 422)
-    assert.equal((await put(app, `/projects/${p1}/participants`, { participants: [] }, v)).status, 422)
-    const bad = await put(app, `/projects/${p1}/participants`, { participants: [{ name: 'X', email: 'nope' }] }, v)
+    assert.equal((await put(app, `/projects/${p1}/study`, { ...same, participants: [] }, v)).status, 422)
+    const bad = await put(app, `/projects/${p1}/study`, { ...same, participants: [{ name: 'X', email: 'nope' }] }, v)
     assert.deepEqual([bad.status, (await bad.json()).error.field], [422, 'participants.0.email'])
     assert.equal(await version(), v, 'failed saves do not change the version')
   })
@@ -564,11 +585,9 @@ test('PUT tasks replaces the list with follow-ups; blank follow-ups are dropped;
 test('every kind of save bumps the version by exactly one', async () => {
   await withFresh(async ({ app, p1, version }) => {
     const v0 = await version()
-    await put(app, `/projects/${p1}/study`, { name: 'A' }, v0)
-    const detail = await (await app.request(`/api/v1/projects/${p1}`)).json()
-    await put(app, `/projects/${p1}/participants`, { participants: detail.participants.map((p: any) => ({ id: p.id, name: p.name, email: p.email })) }, v0 + 1)
-    await put(app, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Q' }] }, v0 + 2)
-    assert.equal(await version(), v0 + 3)
+    await put(app, `/projects/${p1}/study`, await planOf(app, p1, { name: 'A' }), v0)
+    await put(app, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Q' }] }, v0 + 1)
+    assert.equal(await version(), v0 + 2)
   })
 })
 
@@ -931,6 +950,18 @@ test('the seeded document reads back whole: eight approved steps, the brief, the
   assert.ok(scope.evidence.length > 0 && scope.alternatives.length > 0)
   assert.equal(spec.themes.length, 9)
   assert.deepEqual([spec.canPublish, spec.stale], [false, false])
+})
+
+test('drafting reads every test item: the descriptions frame the problem and the outcomes become goals', async () => {
+  const { app, pg, call, round2, approveThrough } = await specFixture()
+  const v = ((await pg.query<any>(`select version from core.projects where id = $1`, [round2])).rows[0] as { version: number }).version
+  const saved = await put(app, `/projects/${round2}/study`, await planOf(app, round2, { testItems: [{ description: 'Booking flow', outcomes: ['Outcome from item one'] }, { description: 'Reminders', outcomes: ['Outcome from item two'] }] }), v)
+  assert.equal(saved.status, 200)
+  const spec = await (await call('POST', `/projects/${round2}/specs`, {})).json()
+  assert.match(spec.steps[0].text, /barriers to booking flow; reminders/)
+  const goals = (await approveThrough(spec.id, 2)).steps[2]
+  const output = JSON.stringify((await pg.query<any>(`select output from core.agent_steps where id = $1`, [goals.id])).rows[0].output)
+  assert.ok(output.includes('Outcome from item one') && output.includes('Outcome from item two'), 'both items\' outcomes reach the goals step')
 })
 
 test('starting a document drafts step 1 and leaves seven waiting; it needs analysis, the token and an editing role', async () => {

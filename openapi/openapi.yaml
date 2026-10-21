@@ -141,7 +141,10 @@ paths:
   /projects/{id}/study:
     put:
       operationId: saveStudy
-      summary: Saves the project name and test plan (what, job to be done, outcomes, methods). Needs the token and If-Match.
+      summary: >
+        Saves the whole test plan page in one save: name, methods, test items and participants. Test items are replaced as
+        a list; a participant with an id is updated in place (so transcript speakers matched to it stay matched), one
+        without is added, and one left out is removed. Needs the token and If-Match.
       parameters:
         - { $ref: '#/components/parameters/Id' }
         - { $ref: '#/components/parameters/IfMatch' }
@@ -150,30 +153,6 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/SavePlanRequest' }
-      responses:
-        '200': { $ref: '#/components/responses/ProjectSaved' }
-        '400': { $ref: '#/components/responses/Error' }
-        '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
-        '404': { $ref: '#/components/responses/Error' }
-        '409': { $ref: '#/components/responses/VersionConflict' }
-        '422': { $ref: '#/components/responses/Error' }
-        '428': { $ref: '#/components/responses/Error' }
-        '503': { $ref: '#/components/responses/Error' }
-  /projects/{id}/participants:
-    put:
-      operationId: saveParticipants
-      summary: >
-        Saves the participant list. A participant with an id is updated in place (so transcript speakers matched
-        to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match.
-      parameters:
-        - { $ref: '#/components/parameters/Id' }
-        - { $ref: '#/components/parameters/IfMatch' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/SaveParticipantsRequest' }
       responses:
         '200': { $ref: '#/components/responses/ProjectSaved' }
         '400': { $ref: '#/components/responses/Error' }
@@ -835,7 +814,7 @@ components:
         hint: { type: [string, 'null'] }
     ProjectDetail:
       type: object
-      required: [id, name, color, template, status, sessions, themes, highPriority, createdAt, version, study, stages, participants, tasks]
+      required: [id, name, color, template, status, sessions, themes, highPriority, createdAt, version, study, testItems, stages, participants, tasks]
       properties:
         id: { type: string }
         name: { type: string }
@@ -849,22 +828,14 @@ components:
         version: { type: integer }
         study:
           type: object
-          required: [what, jtbd, outcomes, methods]
+          required: [methods]
           properties:
-            what: { type: [string, 'null'] }
-            jtbd:
-              type: object
-              required: [when, want, so]
-              properties:
-                when: { type: [string, 'null'] }
-                want: { type: [string, 'null'] }
-                so: { type: [string, 'null'] }
-            outcomes:
-              type: array
-              items: { type: string }
             methods:
               type: array
               items: { type: string }
+        testItems:
+          type: array
+          items: { $ref: '#/components/schemas/TestItem' }
         stages:
           type: array
           items:
@@ -877,12 +848,13 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, role, email, sessionDate]
+            required: [id, name, role, email, phone, sessionDate]
             properties:
               id: { type: string }
               name: { type: string }
               role: { type: [string, 'null'] }
               email: { type: string }
+              phone: { type: [string, 'null'] }
               sessionDate: { type: [string, 'null'] }
         tasks:
           type: array
@@ -900,39 +872,48 @@ components:
                   properties:
                     id: { type: string }
                     prompt: { type: string }
-    SavePlanRequest:
+    TestItem:
       type: object
-      required: [name]
+      required: [id, description, outcomes]
       properties:
-        name: { type: string }
-        what: { type: [string, 'null'] }
-        jtbd:
-          type: object
-          properties:
-            when: { type: [string, 'null'] }
-            want: { type: [string, 'null'] }
-            so: { type: [string, 'null'] }
+        id: { type: string }
+        description: { type: [string, 'null'], description: What is being tested and what the team wants to learn. }
         outcomes:
           type: array
           items: { type: string }
+    TestItemInput:
+      type: object
+      properties:
+        description: { type: [string, 'null'] }
+        outcomes:
+          type: array
+          items: { type: string }
+    ParticipantInput:
+      type: object
+      required: [name, email]
+      properties:
+        id: { type: [string, 'null'], description: Present for an existing participant. }
+        name: { type: string }
+        role: { type: [string, 'null'] }
+        email: { type: string }
+        phone: { type: [string, 'null'] }
+        sessionDate: { type: [string, 'null'], description: 'YYYY-MM-DD' }
+    SavePlanRequest:
+      type: object
+      required: [name, participants]
+      properties:
+        name: { type: string }
         methods:
           type: array
           items: { type: string }
-    SaveParticipantsRequest:
-      type: object
-      required: [participants]
-      properties:
+        testItems:
+          type: array
+          description: An item with neither a description nor outcomes is dropped.
+          items: { $ref: '#/components/schemas/TestItemInput' }
         participants:
           type: array
-          items:
-            type: object
-            required: [name, email]
-            properties:
-              id: { type: [string, 'null'], description: Present for an existing participant. }
-              name: { type: string }
-              role: { type: [string, 'null'] }
-              email: { type: string }
-              sessionDate: { type: [string, 'null'] }
+          description: At least one. Name and a valid email are required.
+          items: { $ref: '#/components/schemas/ParticipantInput' }
     BoardStory:
       type: object
       required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, theme, criteriaMet, criteriaTotal, version]
@@ -1475,34 +1456,20 @@ components:
                 items: { type: string }
     CreateProjectRequest:
       type: object
-      required: [name, templateKey, participants]
+      required: [name, participants]
       properties:
         name: { type: string }
-        templateKey: { type: string, enum: [usability, discovery, concept, blank] }
-        what: { type: [string, 'null'] }
-        jtbd:
-          type: object
-          properties:
-            when: { type: [string, 'null'] }
-            want: { type: [string, 'null'] }
-            so: { type: [string, 'null'] }
-        outcomes:
-          type: array
-          items: { type: string }
+        templateKey: { type: string, enum: [usability, discovery, concept, blank], description: Optional; the test plan page no longer offers templates, so new projects use blank. }
         methods:
           type: array
           items: { type: string }
+        testItems:
+          type: array
+          items: { $ref: '#/components/schemas/TestItemInput' }
         participants:
           type: array
           description: At least one. Name and a valid email are required.
-          items:
-            type: object
-            required: [name, email]
-            properties:
-              name: { type: string }
-              role: { type: [string, 'null'] }
-              email: { type: string }
-              sessionDate: { type: [string, 'null'], description: 'YYYY-MM-DD' }
+          items: { $ref: '#/components/schemas/ParticipantInput' }
     ProjectList:
       type: object
       required: [data, next_cursor]
