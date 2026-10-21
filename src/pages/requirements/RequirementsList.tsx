@@ -21,7 +21,6 @@ export type RequirementsListProps = {
   onRemove: (spec: SpecSummary) => void
   onConfirmRemove: () => void
   onCancelRemove: () => void
-  onBack: () => void
 }
 
 function SpecCard({ spec, canEdit, onOpen, onRemove }: { spec: SpecSummary; canEdit: boolean; onOpen: (s: SpecSummary) => void; onRemove: (s: SpecSummary) => void }) {
@@ -51,7 +50,7 @@ function SpecCard({ spec, canEdit, onOpen, onRemove }: { spec: SpecSummary; canE
 }
 
 // Presentational: this project's requirements documents, a way to start one, and stand-alone documents.
-export function RequirementsList({ state, project, specs, standalone, canEdit, busy, errorText, removing, removeError, onOpen, onNew, onNewStandalone, onRemove, onConfirmRemove, onCancelRemove, onBack }: RequirementsListProps) {
+export function RequirementsList({ state, project, specs, standalone, canEdit, busy, errorText, removing, removeError, onOpen, onNew, onNewStandalone, onRemove, onConfirmRemove, onCancelRemove }: RequirementsListProps) {
   const [dialog, setDialog] = useState(false)
   const [name, setName] = useState('')
   const [what, setWhat] = useState('')
@@ -63,7 +62,7 @@ export function RequirementsList({ state, project, specs, standalone, canEdit, b
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader name={project.name} status={project.status} title="Requirements" description="Turn the themes into a reviewed product brief and requirements, then publish them to the board." onBack={onBack} />}
+      {project && <ProjectHeader title="Requirements" description="Turn the themes into a reviewed product brief and requirements, then publish them to the board." />}
       {state === 'loading' && <Loading small withOverlay={false} description="Loading documents" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Requirements" subtitle={errorText} />}
       {errorText && state === 'ready' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Not started" subtitle={errorText} />}

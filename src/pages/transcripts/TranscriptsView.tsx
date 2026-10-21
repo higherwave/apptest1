@@ -23,13 +23,12 @@ export type TranscriptsViewProps = {
   onChange: (items: TranscriptItem[]) => void
   onAddFiles: (files: File[]) => void
   onAddPasted: (name: string, text: string) => void
-  onBack: () => void
 }
 
 const PLATFORM_ITEMS: { key: Platform | null; label: string }[] = [{ key: null, label: 'Not specified' }, ...(['zoom', 'meet', 'teams'] as const).map((key) => ({ key, label: PLATFORM_LABEL[key] }))]
 
 // Presentational: upload or paste transcripts, review each one, and save (and analyze).
-export function TranscriptsView({ state, project, items, saved, errors, errorText, notice, save, progress, onChange, onAddFiles, onAddPasted, onBack }: TranscriptsViewProps) {
+export function TranscriptsView({ state, project, items, saved, errors, errorText, notice, save, progress, onChange, onAddFiles, onAddPasted }: TranscriptsViewProps) {
   const [pasteName, setPasteName] = useState('')
   const [pasteText, setPasteText] = useState('')
   const [open, setOpen] = useState<Set<string>>(new Set())
@@ -43,7 +42,7 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
 
   return (
     <div className={styles.page}>
-      <ProjectHeader name={project.name} status={project.status} title="Transcripts" description="Paste or upload each session's transcript. Save and analyze reads them for themes." onBack={onBack} />
+      <ProjectHeader title="Transcripts" description="Paste or upload each session's transcript. Save and analyze reads them for themes." />
       <SaveBar {...save} />
       {notice && <InlineNotification kind="info" lowContrast hideCloseButton title="Analysis" subtitle={notice} />}
 

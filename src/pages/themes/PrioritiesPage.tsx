@@ -28,7 +28,6 @@ export function PrioritiesPage() {
       onEdit={data.edit}
       onResetAll={data.resetAll}
       onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
-      onBack={() => navigate('/projects')}
     />
   )
 }

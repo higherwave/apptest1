@@ -18,12 +18,11 @@ export type JourneyViewProps = {
   errorText?: string
   onEdit: (theme: Theme, patch: ThemePatch) => void
   onGoTranscripts: () => void
-  onBack: () => void
 }
 
 // Presentational: every theme laid out by journey stage, at the stage the analysis suggested unless the person moved it. A theme moves by dragging it to a stage, or with its
 // menu, which is the way to do it without a mouse.
-export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoTranscripts, onBack }: JourneyViewProps) {
+export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoTranscripts }: JourneyViewProps) {
   const [over, setOver] = useState<number | null>(null)
   const stageOf = (t: Theme) => t.stagePosition ?? 0
   // One sentiment point per stage that has themes, placed at the middle of its column.
@@ -41,7 +40,7 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader name={project.name} status={project.status} title="Journey Map" description="Where each theme falls along the customer journey. Drag a theme to another stage to move it." onBack={onBack} />}
+      {project && <ProjectHeader title="Journey Map" description="Where each theme falls along the customer journey. Drag a theme to another stage to move it." />}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the journey map" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Journey Map" subtitle={errorText} />}

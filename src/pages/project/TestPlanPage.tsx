@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMe, useProject, useSaveStudy, useTemplates } from '../../api/hooks'
 import { formFromProject, planChanged, toPlanRequest, validate, type FieldErrors, type PlanForm } from '../testplan/form'
@@ -9,7 +9,6 @@ import { useSaveFlow } from './useSaveFlow'
 // Container: loads the project, edits a copy of its test plan, and saves it in one request.
 export function TestPlanPage() {
   const { projectId = '' } = useParams()
-  const navigate = useNavigate()
   const project = useProject(projectId)
   const templates = useTemplates() // only for the list of test methods
   const me = useMe()
@@ -65,7 +64,6 @@ export function TestPlanPage() {
         },
       }}
       onChange={setForm}
-      onBack={() => navigate('/projects')}
     />
   )
 }

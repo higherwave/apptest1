@@ -1,7 +1,8 @@
 import { ChartColumn, Folders, Locked } from '@carbon/icons-react'
+import { Button, Tag } from '@carbon/react'
 import type { MouseEvent, ReactNode } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useProjectStage } from '../api/hooks'
+import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import type { StepKey } from '../api/client'
 import { INSIGHT_SECTIONS, STEPS, STEP_GROUPS } from './nav'
@@ -27,6 +28,7 @@ export function AppShell() {
   const creating = pathname === '/projects/new'
   // The server says which steps are open; until it answers, none are shown as locked.
   const stage = useProjectStage(projectId ?? undefined)
+  const projectDetail = useProject(projectId ?? undefined)
   const hasPanel = !!projectId || creating || insights
 
   const railLink = (to: string, label: string, icon: ReactNode, active: boolean) => (
@@ -38,6 +40,31 @@ export function AppShell() {
 
   return (
     <div className={styles.shell}>
+      <header className={styles.appbar}>
+        {projectId || creating ? (
+          <>
+            <Button kind="ghost" size="sm" className={styles.back} onClick={() => navigate('/projects')}>
+              ← Research Projects
+            </Button>
+            <span className={styles.divider} aria-hidden />
+            <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
+            {projectDetail.data && !creating && (
+              <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>
+                {projectDetail.data.status === 'analyzed' ? 'Analyzed' : 'Draft'}
+              </Tag>
+            )}
+          </>
+        ) : (
+          <>
+            <Folders size={24} aria-hidden />
+            <span className={styles.appName}>Signal Flow</span>
+          </>
+        )}
+        <div className={styles.access}>
+          <AccessBar />
+        </div>
+      </header>
+
       <nav className={styles.rail} aria-label="Navigation" data-nav>
         {railLink('/projects', 'Research Projects', <Folders size={24} aria-hidden />, !insights)}
         {railLink('/insights/themes', 'Platform Insights', <ChartColumn size={24} aria-hidden />, insights)}
@@ -92,7 +119,6 @@ export function AppShell() {
       )}
 
       <main className={cx(styles.content, hasPanel && styles.withPanel)}>
-        <AccessBar />
         <Outlet />
       </main>
     </div>

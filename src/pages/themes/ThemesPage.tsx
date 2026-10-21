@@ -36,7 +36,6 @@ export function ThemesPage() {
       onSelect={setPicked}
       onEdit={data.edit}
       onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
-      onBack={() => navigate('/projects')}
     />
   )
 }

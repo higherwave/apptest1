@@ -13,11 +13,10 @@ export type TaskListViewProps = {
   errorText?: string
   save: SaveBarProps
   onChange: (next: TaskForm) => void
-  onBack: () => void
 }
 
 // Presentational: the questions and follow-ups participants will be asked, in order.
-export function TaskListView({ state, project, tasks, errorText, save, onChange, onBack }: TaskListViewProps) {
+export function TaskListView({ state, project, tasks, errorText, save, onChange }: TaskListViewProps) {
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading the task list" />
   if (state === 'error' || !project) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Task List" subtitle={errorText} />
   const readOnly = !save.canEdit
@@ -25,7 +24,7 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange,
 
   return (
     <div className={styles.page}>
-      <ProjectHeader name={project.name} status={project.status} title="Task List" description="The questions and tasks you will take participants through, with follow-ups." onBack={onBack} />
+      <ProjectHeader title="Task List" description="The questions and tasks you will take participants through, with follow-ups." />
       <SaveBar {...save} />
 
       {tasks.length === 0 && <p className={styles.empty}>No tasks yet. Add the first question.</p>}

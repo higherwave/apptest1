@@ -23,7 +23,6 @@ export function JourneyPage() {
       errorText={data.themes.isError ? friendlyMessage(data.themes.error) : data.error}
       onEdit={data.edit}
       onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
-      onBack={() => navigate('/projects')}
     />
   )
 }

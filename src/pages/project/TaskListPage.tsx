@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMe, useProject, useSaveTasks } from '../../api/hooks'
 import { taskFormFromProject, tasksChanged, toTasksRequest, type TaskForm } from '../testplan/form'
@@ -9,7 +9,6 @@ import { useSaveFlow } from './useSaveFlow'
 // Container: edits a copy of the task list and saves it as a whole, against the version the person opened.
 export function TaskListPage() {
   const { projectId = '' } = useParams()
-  const navigate = useNavigate()
   const project = useProject(projectId)
   const me = useMe()
   const saveTasks = useSaveTasks(projectId)
@@ -54,7 +53,6 @@ export function TaskListPage() {
         },
       }}
       onChange={setTasks}
-      onBack={() => navigate('/projects')}
     />
   )
 }

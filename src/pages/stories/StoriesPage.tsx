@@ -84,7 +84,6 @@ export function StoriesPage() {
         checklist.mutate({ id: detail.data.id, version: detail.data.version, items }, { onError: fail })
       }}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
-      onBack={() => navigate('/projects')}
     />
   )
 }

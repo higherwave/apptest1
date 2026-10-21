@@ -17,7 +17,6 @@ export type PrioritiesViewProps = {
   onEdit: (theme: Theme, patch: ThemePatch) => void
   onResetAll: () => void
   onGoTranscripts: () => void
-  onBack: () => void
 }
 
 const IMPORTANCE_ROWS = [3, 2, 1]
@@ -27,13 +26,13 @@ const EFFORT_ITEMS = EFFORT_COLUMNS.map((n) => ({ effort: n, label: EFFORT_LABEL
 
 // Presentational: themes placed by importance (rows) and effort (columns). A theme moves by dragging it to a cell, or
 // with the two menus in its panel.
-export function PrioritiesView({ state, project, themes, selectedId, canEdit, pending, errorText, onSelect, onEdit, onResetAll, onGoTranscripts, onBack }: PrioritiesViewProps) {
+export function PrioritiesView({ state, project, themes, selectedId, canEdit, pending, errorText, onSelect, onEdit, onResetAll, onGoTranscripts }: PrioritiesViewProps) {
   const selected = themes.find((t) => t.id === selectedId) ?? null
   const anyEdited = themes.some((t) => t.edited)
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader name={project.name} status={project.status} title="Priorities" description="Importance against effort. Drag a theme, or use its menus, to override the suggestion." onBack={onBack} />}
+      {project && <ProjectHeader title="Priorities" description="Importance against effort. Drag a theme, or use its menus, to override the suggestion." />}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading priorities" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Priorities" subtitle={errorText} />}

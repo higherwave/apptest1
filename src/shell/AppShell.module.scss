@@ -3,6 +3,7 @@
 // Dark icon rail (areas) + light step panel (inside a project or Insights), after the Airtable app chrome.
 $rail-width: 5rem;
 $panel-width: 13.5rem;
+$header-height: 3.5rem;
 
 .rail {
   position: fixed;
@@ -53,7 +54,7 @@ $panel-width: 13.5rem;
 
 .panel {
   position: fixed;
-  inset-block: 0;
+  inset-block: $header-height 0;
   inset-inline-start: $rail-width;
   inline-size: $panel-width;
   z-index: 1;
@@ -150,10 +151,52 @@ $panel-width: 13.5rem;
 .content {
   margin-inline-start: $rail-width;
   padding: var(--at-space-xl);
-  min-height: 100vh;
+  min-height: calc(100vh - #{$header-height});
+  margin-block-start: $header-height;
   background: var(--at-canvas);
 }
 
 .withPanel {
   margin-inline-start: calc(#{$rail-width} + #{$panel-width});
+}
+
+// The app bar: the app's name by default; inside a project, the way back and the project's name, so pages need not repeat them.
+.appbar {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: $rail-width 0;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  block-size: $header-height;
+  padding-inline: var(--at-space-lg);
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
+  color: var(--at-ink);
+}
+
+.appName {
+  @include tokens.role('title-md');
+  margin: 0;
+  font-weight: 300;
+}
+
+.back {
+  color: var(--at-link);
+}
+
+.divider {
+  block-size: 1.5rem;
+  border-inline-start: 1px solid var(--at-hairline);
+}
+
+.projectName {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.access {
+  margin-inline-start: auto;
 }

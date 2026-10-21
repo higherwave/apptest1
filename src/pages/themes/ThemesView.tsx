@@ -21,11 +21,10 @@ export type ThemesViewProps = {
   onSelect: (id: string) => void
   onEdit: (theme: Theme, patch: ThemePatch) => void
   onGoTranscripts: () => void
-  onBack: () => void
 }
 
 // Presentational: the themes found in the transcripts, a filter, and one theme in detail with its quotes.
-export function ThemesView({ state, project, themes, stages, category, selectedId, canEdit, pending, errorText, onCategory, onSelect, onEdit, onGoTranscripts, onBack }: ThemesViewProps) {
+export function ThemesView({ state, project, themes, stages, category, selectedId, canEdit, pending, errorText, onCategory, onSelect, onEdit, onGoTranscripts }: ThemesViewProps) {
   const selected = themes.find((t) => t.id === selectedId) ?? null
   const shown = category === 'all' ? themes : themes.filter((t) => t.category === category)
   const count = (c: ThemeCategory | 'all') => (c === 'all' ? themes.length : themes.filter((t) => t.category === c).length)
@@ -39,7 +38,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader name={project.name} status={project.status} title="Themes" description="What participants said, grouped by what it means. Each one is placed on the journey map and the priorities map for you to review." onBack={onBack} />}
+      {project && <ProjectHeader title="Themes" description="What participants said, grouped by what it means. Each one is placed on the journey map and the priorities map for you to review." />}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading themes" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes" subtitle={errorText} />}

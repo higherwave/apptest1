@@ -34,7 +34,6 @@ export type StoriesViewProps = {
   onPatch: (body: { ownerTeam?: string | null; priority?: Priority }) => void
   onChecklist: (items: ChecklistInput[]) => void
   onGoRequirements: () => void
-  onBack: () => void
 }
 
 type CardProps = {
@@ -203,7 +202,7 @@ function Detail({ detail, canEdit, busy, onPatch, onChecklist, onMove, onClose }
 
 // Presentational: the four-column board with filters, drag and a "Move to" alternative, Undo, and a card panel.
 export function StoriesView(props: StoriesViewProps) {
-  const { state, project, board, stories, canEdit, moving, search, priority, themeId, openId, detail, detailBusy, undoing, errorText } = props
+  const { state, board, stories, canEdit, moving, search, priority, themeId, openId, detail, detailBusy, undoing, errorText } = props
   const [drag, setDrag] = useState<{ column: StoryStatus; before: string | null } | null>(null)
   const byId = (id: string) => board?.stories.find((s) => s.id === id)
   const drop = (e: React.DragEvent, status: StoryStatus, beforeId: string | null) => {
@@ -217,11 +216,8 @@ export function StoriesView(props: StoriesViewProps) {
   return (
     <div className={styles.page}>
       <ProjectHeader
-        name={project?.name ?? board?.projectName ?? ''}
-        status={project?.status ?? 'analyzed'}
         title="Stories"
         description="Drag a card to another column, or use its menu. Each card is a requirement or an open question from the published document."
-        onBack={props.onBack}
       />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading withOverlay={false} description="Loading the board" />}

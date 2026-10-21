@@ -129,7 +129,6 @@ export function TranscriptsPage() {
         setItems((cur) => [...(cur ?? []), ...added])
       }}
       onAddPasted={(name, text) => setItems((cur) => [...(cur ?? []), fileToItem(name, text)])}
-      onBack={() => navigate('/projects')}
     />
   )
 }

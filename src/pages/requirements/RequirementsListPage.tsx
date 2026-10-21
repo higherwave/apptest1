@@ -68,7 +68,6 @@ export function RequirementsListPage() {
           setRemoveError(friendlyMessage(err))
         }
       }}
-      onBack={() => navigate('/projects')}
     />
   )
 }

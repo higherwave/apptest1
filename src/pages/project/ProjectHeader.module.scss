@@ -6,17 +6,6 @@
   gap: var(--at-space-xs);
 }
 
-.crumb {
-  display: flex;
-  align-items: center;
-  gap: var(--at-space-sm);
-}
-
-.name {
-  @include tokens.role('title-sm');
-  color: var(--at-ink);
-}
-
 .title {
   @include tokens.role('display-md');
   margin: 0;
