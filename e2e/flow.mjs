@@ -254,7 +254,10 @@ try {
   await retype('#theme-title', 'Hard to see who is free')
   await page.keyboard.press('Tab')
   await page.waitForFunction(() => document.body.innerText.includes('Originally: Provider availability is hard to see'), { timeout: 8000 })
-  ok('renaming keeps the original visible', (await apiThemes()).some((t) => t.title === 'Hard to see who is free' && t.originalTitle === 'Provider availability is hard to see'))
+  // The page shows the new name at once and saves in the background, so wait for the save before checking the server.
+  const renamed = async () => (await apiThemes()).some((t) => t.title === 'Hard to see who is free' && t.originalTitle === 'Provider availability is hard to see')
+  for (let i = 0; i < 24 && !(await renamed()); i++) await new Promise((r) => setTimeout(r, 250))
+  ok('renaming keeps the original visible', await renamed())
   await choose('theme-stage', 'Confirm & pay')
   await new Promise((r) => setTimeout(r, 600))
   ok('choosing a stage saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 2)
