@@ -6,6 +6,7 @@ import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import type { StepKey } from '../api/client'
 import { STEPS, STEP_GROUPS } from './nav'
+import { Logo } from './Logo'
 import { PrivacyNote } from './PrivacyNote'
 import styles from './AppShell.module.scss'
 
@@ -57,7 +58,7 @@ export function AppShell() {
           </>
         ) : (
           <>
-            <Folders size={24} aria-hidden />
+            <Logo />
             <span className={styles.appName}>Signal Flow</span>
           </>
         )}

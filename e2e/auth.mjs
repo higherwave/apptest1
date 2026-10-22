@@ -38,7 +38,7 @@ try {
   const policy = await (await fetch(`${BASE}/privacy.html`)).text()
   ok('the privacy policy is plain HTML with real content, readable without running scripts', /<h1>Privacy Policy<\/h1>/.test(policy) && policy.includes('Google API Services User Data Policy') && policy.includes('do not use real personal data'))
   const about = await (await fetch(`${BASE}/about.html`)).text()
-  ok('the home page is plain HTML and links to the privacy policy', about.includes('<h1>Signal Flow</h1>') && about.includes('href="/privacy"'))
+  ok('the home page is plain HTML and links to the privacy policy', /<h1>.*Signal Flow<\/h1>/.test(about) && about.includes('href="/privacy"'))
 
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })

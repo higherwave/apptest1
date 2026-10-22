@@ -1,8 +1,8 @@
 import { Button, InlineNotification } from '@carbon/react'
-import { Folders } from '@carbon/icons-react'
 import { useState, type ReactNode } from 'react'
 import { ApiRequestError } from '../api/client'
 import { useMe } from '../api/hooks'
+import { Logo } from '../shell/Logo'
 import { PrivacyNote } from '../shell/PrivacyNote'
 import { signInWithGoogle, signOut } from './authClient'
 import styles from './AuthGate.module.scss'
@@ -22,7 +22,7 @@ function Screen({ title, children }: { title: string; children: ReactNode }) {
     <main className={styles.screen}>
       <div className={styles.card}>
         <p className={styles.brand}>
-          <Folders size={24} aria-hidden />
+          <Logo />
           <span>Signal Flow</span>
         </p>
         <h1 className={styles.title}>{title}</h1>
