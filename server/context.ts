@@ -36,7 +36,8 @@ const IDENTITY_SQL = `
 //      gives the role. A first sign-in links the invitation to the account by verified email. No invitation: 403
 //      not_invited.
 //   3. OPEN_EDITING=true: no token needed, acting as the demo owner.
-//   4. Sign-in is configured (BETTER_AUTH_*, GOOGLE_*): everyone else is refused with 401 unauthenticated.
+//   4. Sign-in is configured (BETTER_AUTH_*, GOOGLE_*): everyone else is refused with 401 unauthenticated, except that with
+//      PUBLIC_VIEW=true a visitor with no session can read (GET and HEAD on 'read' routes) as the read-only demo viewer.
 //   5. Otherwise (before sign-in exists): with DEV_TOKEN set, 'read' routes answer GET and HEAD as the read-only demo
 //      viewer and 'strict' routes refuse; with it unset, production refuses everything and anywhere else is open as the
 //      demo owner.
@@ -92,7 +93,12 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     } else if (openEditing) {
       via = 'open'
     } else if (auth) {
-      throw new ApiError(401, 'unauthenticated', 'Sign in to continue.')
+      if (env.PUBLIC_VIEW === 'true' && access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
+        anonymous = true
+        via = 'anonymous'
+      } else {
+        throw new ApiError(401, 'unauthenticated', 'Sign in to continue.')
+      }
     } else if (token) {
       if (access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
         anonymous = true

@@ -26,11 +26,24 @@ const signInAs = async (email, id = 'g-' + email) => {
 const members = async () => (await (await fetch(`${API}/api/v1/members`, { headers: { 'x-test-user': JSON.stringify({ id: 'g-david@demo.signalflow.example', email: 'david@demo.signalflow.example' }) } })).json()).data
 
 try {
-  // Signed out: the sign-in screen, not the app.
+  // Signed out, with public viewing off: the sign-in screen, not the app.
+  await fetch(`${API}/__test/public-view/false`, { method: 'POST' })
   await signInAs(null)
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Continue with Google')
-  ok('signed out, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Research Projects'))
+  ok('signed out, with public viewing off, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Research Projects'))
+
+  // Signed out, with public viewing on: the app, read-only, with a Sign in button.
+  await fetch(`${API}/__test/public-view/true`, { method: 'POST' })
+  await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+  await waitText('Research Projects')
+  const visitor = await page.evaluate(() => document.querySelector('header')?.innerText ?? '')
+  ok('a visitor can look around: projects load, the header says read-only and offers Sign in', visitor.includes('Read-only demo') && visitor.includes('Sign in') && (await page.$$('[data-tint]')).length >= 3)
+  ok('a visitor cannot start a project or remove one', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true) && (await page.$$('.cds--overflow-menu')).length === 0)
+  const first = (await (await fetch(`${API}/api/v1/projects`)).json()).data[0]
+  await page.goto(`${BASE}/projects/${first.id}/plan`, { waitUntil: 'networkidle0' })
+  await waitText('Editing is locked')
+  ok('a project opens read-only and says how to get editing access', (await text()).includes('Sign in') && (await page.evaluate(() => document.querySelector('#project-name').readOnly === true)))
 
   // A signed-in owner: the app, with their name and role and an account menu.
   await signInAs('david@demo.signalflow.example')

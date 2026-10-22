@@ -46,8 +46,10 @@ export function createApp(options: AppOptions = {}) {
 
   // Anonymous reads may be cached by the CDN for a minute, so repeated requests never reach (or wake) the
   // database. Requests with the token are never cached.
+  // With sign-in on, nothing is cached by the CDN: its cache is not keyed by cookie, so a signed-in person could be handed
+  // a copy made for an anonymous visitor.
   const cacheHeaders = (c: Context) =>
-    c.header('Cache-Control', c.get('ctx').anonymous ? 'public, s-maxage=60, stale-while-revalidate=300' : 'private, no-store')
+    c.header('Cache-Control', c.get('ctx').anonymous && !auth ? 'public, s-maxage=60, stale-while-revalidate=300' : 'private, no-store')
 
   // Liveness. Never touches the database, so uptime checks cannot wake a suspended Neon compute.
   app.get('/health', (c) =>

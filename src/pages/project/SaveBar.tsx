@@ -1,4 +1,5 @@
 import { Button, InlineNotification, Tag } from '@carbon/react'
+import { EDITING_LOCKED } from '../../auth/messages'
 import styles from './SaveBar.module.scss'
 
 export type SaveBarProps = {
@@ -46,7 +47,7 @@ export function SaveAlerts({ canEdit, conflict, error, onReload, onOverwrite }: 
   if (canEdit && !conflict && !error) return null
   return (
     <div className={styles.wrap}>
-      {!canEdit && <p className={styles.note}>Editing is locked. Use &quot;Unlock editing&quot; at the top of the page.</p>}
+      {!canEdit && <p className={styles.note}>{EDITING_LOCKED}</p>}
       {conflict && (
         <>
           <InlineNotification kind="warning" lowContrast hideCloseButton title="Changed by someone else" subtitle="This project was saved by someone else since you opened it. Nothing was overwritten." />

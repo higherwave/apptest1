@@ -201,3 +201,25 @@ test('bootstrapOwners invites owners who can then sign in, and running it twice 
   await assert.rejects(() => bootstrapOwners(own.pglite, 'no-such-workspace', ['a@b.co']), /No workspace/)
   await assert.rejects(() => bootstrapOwners(own.pglite, 'higherwave-demo', ['not an email']), /not an email/)
 })
+
+test('PUBLIC_VIEW lets a visitor look, read-only and uncached; writes, members and sign-in routes stay behind sign-in', async () => {
+  await invite('eve@invited.test', 'editor')
+  const app = await appFor({ PUBLIC_VIEW: 'true' })
+  const me = await (await app.request('/api/v1/me')).json()
+  assert.equal(me.role, 'viewer')
+  assert.equal(me.via, 'anonymous')
+  assert.equal(me.signInAvailable, true)
+  const list = await app.request('/api/v1/projects')
+  assert.equal(list.status, 200)
+  // Sign-in is on, so the CDN must never hold a copy: its cache is not keyed by cookie.
+  assert.equal(list.headers.get('cache-control'), 'private, no-store')
+  assert.equal((await app.request('/api/v1/projects', { method: 'POST', headers: json, body: newProject('By a visitor') })).status, 401)
+  assert.equal((await app.request('/api/v1/members')).status, 401)
+  assert.equal((await app.request('/api/v1/health/db')).status, 401)
+  // Signing in still gives the person their own role.
+  const signedIn = await (await app.request('/api/v1/me', { headers: who('eve@invited.test') })).json()
+  assert.equal(signedIn.role, 'editor')
+  assert.equal(signedIn.via, 'session')
+  // Off (the default here), a visitor is turned away even from reading.
+  assert.equal((await (await appFor()).request('/api/v1/projects')).status, 401)
+})

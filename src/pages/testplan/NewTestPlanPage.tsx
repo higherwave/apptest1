@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage } from '../../api/client'
 import { useCreateProject, useMe, useTemplates } from '../../api/hooks'
+import { EDITING_LOCKED } from '../../auth/messages'
 import { emptyForm, toRequest, validate, type FieldErrors, type PlanForm } from './form'
 import { NewTestPlanView } from './NewTestPlanView'
 
@@ -24,7 +25,7 @@ export function NewTestPlanPage() {
     setErrors(found)
     setSubmitError(undefined)
     if (Object.keys(found).length) return
-    if (!canEdit) return setSubmitError('Editing is locked. Use "Unlock editing" at the top of the page.')
+    if (!canEdit) return setSubmitError(EDITING_LOCKED)
     try {
       const created = await create.mutateAsync(toRequest(form))
       navigate(`/projects/${created.id}/tasks`)

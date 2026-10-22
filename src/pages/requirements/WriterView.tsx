@@ -187,7 +187,7 @@ export function WriterView(p: WriterViewProps) {
               </Button>
             </div>
           )}
-          {!p.canEdit && !published && <p className={styles.muted}>Editing is locked. Use &quot;Unlock editing&quot; at the top of the page to review steps.</p>}
+          {!p.canEdit && !published && <p className={styles.muted}>Editing is locked. Use &quot;Sign in&quot; or &quot;Unlock editing&quot; at the top of the page to review steps.</p>}
         </aside>
       </div>
 
