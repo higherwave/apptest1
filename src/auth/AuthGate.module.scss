@@ -1,0 +1,44 @@
+@use '../tokens' as tokens;
+
+.screen {
+  display: grid;
+  place-items: center;
+  min-block-size: 100vh;
+  padding: var(--at-space-lg);
+  background: var(--at-surface-soft);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-md);
+  inline-size: 100%;
+  max-inline-size: 28rem;
+  padding: var(--at-space-xl);
+  background: var(--at-canvas);
+  border-radius: var(--at-radius-lg);
+  border: 1px solid var(--at-hairline);
+}
+
+.brand {
+  @include tokens.role('label-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.title {
+  @include tokens.role('display-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 300;
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}

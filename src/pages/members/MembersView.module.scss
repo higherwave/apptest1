@@ -1,0 +1,85 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 60rem;
+}
+
+.invite {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--at-space-sm);
+}
+
+.roles {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+}
+
+// A grid with table roles (the page's design rules do not allow a raw table): one row per member.
+.table {
+  min-inline-size: 40rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.4fr) 8rem 11rem 3rem;
+  gap: var(--at-space-sm);
+  align-items: center;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child {
+    border-block-start: none;
+    background: var(--at-surface-soft);
+  }
+}
+
+.head {
+  @include tokens.role('caption');
+  padding: var(--at-space-xs) 0;
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.name {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.email {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.remove {
+  display: flex;
+  justify-content: center;
+}
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

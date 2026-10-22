@@ -6,6 +6,8 @@ import { createApp } from './app.js'
 import { authConfigured } from './auth.js'
 import type { Db } from './db.js'
 import { createDemoDatabase, fakeAuth } from './test-utils.js'
+// @ts-expect-error plain ESM tooling shared with db/
+import { bootstrapOwners } from '../db/bootstrap-owners.mjs'
 
 declare global {
   interface Response {
@@ -181,4 +183,21 @@ test('the sign-in routes are mounted when sign-in is on', async () => {
   const res = await app.request('/api/v1/auth/sign-in/social', { method: 'POST' })
   assert.equal(res.status, 200)
   assert.equal(await res.text(), 'fake auth')
+})
+
+test('bootstrapOwners invites owners who can then sign in, and running it twice changes nothing', async () => {
+  const own = await createDemoDatabase()
+  const done = await bootstrapOwners(own.pglite, 'higherwave-demo', [' First.Owner@Example.com ', 'second@example.com'])
+  assert.deepEqual(done, ['first.owner@example.com', 'second@example.com'])
+  await bootstrapOwners(own.pglite, 'higherwave-demo', ['first.owner@example.com'])
+  assert.equal((await own.pglite.query<any>(`select count(*)::int n from core.users where lower(email) = 'first.owner@example.com'`)).rows[0].n, 1)
+  const app = await appFor({}, own)
+  const me = await (await app.request('/api/v1/me', { headers: who('first.owner@example.com', 'g-first-owner') })).json()
+  assert.equal(me.role, 'owner')
+  // A viewer who is bootstrapped is promoted.
+  await invite('promote@example.com', 'viewer', own.pglite)
+  await bootstrapOwners(own.pglite, 'higherwave-demo', ['promote@example.com'])
+  assert.equal((await (await app.request('/api/v1/me', { headers: who('promote@example.com', 'g-promote') })).json()).role, 'owner')
+  await assert.rejects(() => bootstrapOwners(own.pglite, 'no-such-workspace', ['a@b.co']), /No workspace/)
+  await assert.rejects(() => bootstrapOwners(own.pglite, 'higherwave-demo', ['not an email']), /not an email/)
 })

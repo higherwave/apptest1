@@ -30,5 +30,18 @@ start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791', VIT
 await waitFor('http://localhost:8791/api/v1/health', 'The API')
 await waitFor('http://localhost:5198/', 'The app')
 
-const flow = spawn('node', ['e2e/flow.mjs'], { cwd: root, env: { ...process.env, E2E_BASE: 'http://localhost:5198', E2E_API: 'http://localhost:8791', E2E_TOKEN: TOKEN }, stdio: 'inherit' })
-flow.on('exit', (code) => { stopAll(); process.exit(code ?? 1) })
+const run = (script, env) => new Promise((resolve) => {
+  const child = spawn('node', [script], { cwd: root, env: { ...process.env, ...env }, stdio: 'inherit' })
+  child.on('exit', (code) => resolve(code ?? 1))
+})
+
+// The main flow, with the access token. Then the sign-in flow, against a second API that has the stand-in sign-in service.
+let code = await run('e2e/flow.mjs', { E2E_BASE: 'http://localhost:5198', E2E_API: 'http://localhost:8791', E2E_TOKEN: TOKEN })
+start('npx', ['tsx', 'server/dev-memory.ts'], { API_PORT: '8792', AUTH_TEST: 'true' })
+start('npx', ['vite', '--port', '5199', '--strictPort'], { API_PORT: '8792' })
+await waitFor('http://localhost:8792/api/v1/health', 'The sign-in test API')
+await waitFor('http://localhost:5199/', 'The sign-in test app')
+console.log('\nSign-in and roles')
+code = (await run('e2e/auth.mjs', { E2E_AUTH_BASE: 'http://localhost:5199', E2E_AUTH_API: 'http://localhost:8792' })) || code
+stopAll()
+process.exit(code)

@@ -30,13 +30,15 @@ export async function createDemoDatabase(): Promise<{ pglite: PGlite; db: Db }> 
   return { pglite, db: pgliteDb(pglite) }
 }
 
-// A stand-in for the sign-in service in tests and the in-memory dev server: a request whose "x-test-user" header holds
-// JSON for a person ({ id, email, name?, verified? }) is signed in as them. It never talks to Google.
+// A stand-in for the sign-in service in tests and the in-memory dev server: a request whose "x-test-user" header (or
+// "sf_test_user" cookie, which a browser test can set) holds JSON for a person ({ id, email, name?, verified? }) is
+// signed in as them. It never talks to Google, and only the tests and server/dev-memory.ts (AUTH_TEST=true) use it.
 export function fakeAuth(): AuthService {
   return {
     handler: async () => new Response('fake auth', { status: 200 }),
     async user(headers) {
-      const raw = headers.get('x-test-user')
+      const cookie = /(?:^|;\s*)sf_test_user=([^;]+)/.exec(headers.get('cookie') ?? '')?.[1]
+      const raw = headers.get('x-test-user') ?? (cookie ? decodeURIComponent(cookie) : null)
       if (!raw) return null
       const u = JSON.parse(raw)
       return { id: u.id, email: u.email, name: u.name ?? '', image: u.image ?? null, emailVerified: u.verified !== false }

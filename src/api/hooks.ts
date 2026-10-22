@@ -3,8 +3,9 @@ import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getInsightsThemes, getPlatformTheme, listCaseStudies,
   getBoard, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -18,6 +19,20 @@ export const useTemplates = () => useQuery({ queryKey: ['templates'], queryFn: l
 export const useMe = () => {
   const token = useToken()
   return useQuery({ queryKey: ['me', token], queryFn: () => getMe() })
+}
+
+export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: listMembers })
+export const useInviteMember = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (input: { email: string; role: MemberRole }) => inviteMember(input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
+}
+export const useChangeMemberRole = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: ({ id, role }: { id: string; role: MemberRole }) => changeMemberRole(id, role), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
+}
+export const useRemoveMember = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => removeMember(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
 }
 
 export const useAiStatus = () => {

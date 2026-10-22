@@ -7,6 +7,11 @@
   gap: var(--at-space-xs);
 }
 
+.who {
+  @include tokens.role('body-md');
+  color: var(--at-ink);
+}
+
 .help {
   @include tokens.role('body-md');
   margin: 0 0 var(--at-space-md);

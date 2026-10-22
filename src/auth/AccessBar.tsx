@@ -1,9 +1,11 @@
-import { Button, InlineNotification, Modal, Tag, TextInput } from '@carbon/react'
+import { Button, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Tag, TextInput } from '@carbon/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { friendlyMessage, getMe } from '../api/client'
 import { useAiStatus, useMe } from '../api/hooks'
 import { setToken } from '../api/token'
+import { signInWithGoogle, signOut } from './authClient'
 import styles from './AccessBar.module.scss'
 
 // The "Editing unlocked" badge and the Lock button are hidden unless VITE_SHOW_ACCESS_CONTROLS=true, so a shared demo looks
@@ -14,6 +16,7 @@ const showAccess = import.meta.env.VITE_SHOW_ACCESS_CONTROLS === 'true'
 export function AccessBar() {
   const me = useMe()
   const ai = useAiStatus()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [value, setValue] = useState('')
@@ -21,6 +24,10 @@ export function AccessBar() {
   const [checking, setChecking] = useState(false)
 
   const editing = me.data?.role === 'owner' || me.data?.role === 'editor'
+  const signedIn = me.data?.via === 'session'
+  // Before sign-in is the only way in, the token controls stay out of sight unless asked for; a read-only visitor of a
+  // deployment without sign-in still needs them.
+  const tokenControls = !signedIn && (showAccess || !me.data?.signInAvailable)
 
   const close = () => {
     setOpen(false)
@@ -54,7 +61,7 @@ export function AccessBar() {
 
   return (
     <div className={styles.bar}>
-      {showAccess || !editing ? (
+      {!signedIn && (showAccess || !editing) ? (
         <Tag size="sm" type={editing ? 'green' : 'gray'}>
           {editing ? 'Editing unlocked' : 'Read-only demo'}
         </Tag>
@@ -64,16 +71,34 @@ export function AccessBar() {
           {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
         </Tag>
       )}
-      {editing ? (
-        showAccess && (
-          <Button kind="ghost" size="sm" onClick={lock}>
-            Lock
+      {tokenControls &&
+        (editing ? (
+          showAccess && (
+            <Button kind="ghost" size="sm" onClick={lock}>
+              Lock
+            </Button>
+          )
+        ) : (
+          <Button kind="ghost" size="sm" onClick={() => setOpen(true)}>
+            Unlock editing
           </Button>
-        )
-      ) : (
-        <Button kind="ghost" size="sm" onClick={() => setOpen(true)}>
-          Unlock editing
+        ))}
+      {!signedIn && me.data?.signInAvailable && (
+        <Button kind="ghost" size="sm" onClick={() => signInWithGoogle()}>
+          Sign in
         </Button>
+      )}
+      {signedIn && me.data && (
+        <>
+          <span className={styles.who}>{me.data.displayName}</span>
+          <Tag size="sm" type="gray">
+            {me.data.role}
+          </Tag>
+          <OverflowMenu iconDescription="Account" flipped size="sm" aria-label="Account">
+            <OverflowMenuItem itemText="Members" onClick={() => navigate('/members')} />
+            <OverflowMenuItem itemText="Sign out" onClick={signOut} />
+          </OverflowMenu>
+        </>
       )}
 
       <Modal

@@ -1,5 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './shell/AppShell'
+import { AuthGate } from './auth/AuthGate'
+import { MembersPage } from './pages/members/MembersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
 import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { OnboardingPage } from './pages/insights/OnboardingPage'
@@ -19,6 +21,7 @@ import { NewTestPlanPage } from './pages/testplan/NewTestPlanPage'
 // Routes follow the prototype's handoff. Each placeholder is replaced by a real screen in its slice.
 export function App() {
   return (
+    <AuthGate>
     <Routes>
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/projects" replace />} />
@@ -35,6 +38,7 @@ export function App() {
         <Route path="requirements/:specId" element={<WriterPage />} />
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
+        <Route path="members" element={<MembersPage />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
         <Route path="insights/onboarding" element={<OnboardingPage />} />
@@ -42,5 +46,6 @@ export function App() {
         <Route path="*" element={<Placeholder title="Page not found" />} />
       </Route>
     </Routes>
+    </AuthGate>
   )
 }

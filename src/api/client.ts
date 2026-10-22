@@ -47,6 +47,12 @@ export const getDatabaseHealth = () => request<DatabaseHealth>('/health/db')
 export type AiStatus = components['schemas']['AiStatus']
 export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
+export type Member = components['schemas']['Member']
+export type MemberRole = Member['role']
+export const listMembers = () => request<components['schemas']['MemberList']>('/members')
+export const inviteMember = (input: components['schemas']['InviteMemberRequest']) => request<Member>('/members', { method: 'POST', body: input })
+export const changeMemberRole = (id: string, role: MemberRole) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { role } })
+export const removeMember = (id: string) => request<null>(`/members/${id}`, { method: 'DELETE' })
 export type Template = components['schemas']['Template']
 export type CreateProjectRequest = components['schemas']['CreateProjectRequest']
 export const listTemplates = () => request<components['schemas']['TemplateList']>('/templates')
