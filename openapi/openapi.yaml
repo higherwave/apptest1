@@ -46,8 +46,10 @@ paths:
     get:
       operationId: getMe
       summary: >
-        The user and workspace this request acts as. Without a token the role is viewer (the demo is read-only);
-        with the token it is the demo owner.
+        The user and workspace this request acts as, and how the request was let in (`via`): a signed-in session (the
+        person's own role), the access token or open editing (the demo owner), or, before sign-in exists, the read-only
+        demo viewer. Once sign-in is configured and editing is not open, a request with no session is refused with 401
+        `unauthenticated`.
       responses:
         '200':
           description: The current context.
@@ -55,6 +57,76 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Me' }
         '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /members:
+    get:
+      operationId: listMembers
+      summary: Everyone invited to the workspace, owners first. `invited` means they have not signed in yet.
+      responses:
+        '200':
+          description: The members.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MemberList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: inviteMember
+      summary: >
+        Owners only. Invites an email address with a role. They sign in with Google using that address; their first
+        sign-in links the invitation to their account. 409 `already_member` if they are already in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InviteMemberRequest' }
+      responses:
+        '201':
+          description: Invited.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /members/{id}:
+    patch:
+      operationId: changeMemberRole
+      summary: Owners only. Changes a member's role. 409 `last_owner` if it would leave the workspace with no owner.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeRoleRequest' }
+      responses:
+        '200':
+          description: Updated.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Member' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: removeMember
+      summary: >
+        Owners only. Removes a member and ends their open sessions. 409 `last_owner` if they are the only owner.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /projects:
     get:
@@ -756,7 +828,7 @@ components:
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error.
+        workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -1509,13 +1581,43 @@ components:
         spentUsd: { type: number }
     Me:
       type: object
-      required: [userId, email, displayName, workspaceId, workspaceName, role]
+      required: [userId, email, displayName, workspaceId, workspaceName, role, via, signInAvailable]
       properties:
         userId: { type: string }
         email: { type: string }
         displayName: { type: string }
         workspaceId: { type: string }
         workspaceName: { type: string }
+        role: { type: string, enum: [owner, editor, viewer] }
+        via: { type: string, enum: [session, token, open, anonymous], description: 'How this request was let in.' }
+        signInAvailable: { type: boolean, description: 'True when Google sign-in is configured on this deployment.' }
+    Member:
+      type: object
+      required: [id, email, displayName, role, status, avatarUrl]
+      properties:
+        id: { type: string, description: 'The membership id.' }
+        email: { type: string }
+        displayName: { type: string }
+        role: { type: string, enum: [owner, editor, viewer] }
+        status: { type: string, enum: [active, invited], description: 'Invited until their first sign-in.' }
+        avatarUrl: { type: string, nullable: true }
+    MemberList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Member' }
+    InviteMemberRequest:
+      type: object
+      required: [email, role]
+      properties:
+        email: { type: string }
+        role: { type: string, enum: [owner, editor, viewer] }
+    ChangeRoleRequest:
+      type: object
+      required: [role]
+      properties:
         role: { type: string, enum: [owner, editor, viewer] }
     Error:
       type: object

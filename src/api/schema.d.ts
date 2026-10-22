@@ -62,7 +62,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The user and workspace this request acts as. Without a token the role is viewer (the demo is read-only); with the token it is the demo owner. */
+        /** The user and workspace this request acts as, and how the request was let in (`via`): a signed-in session (the person's own role), the access token or open editing (the demo owner), or, before sign-in exists, the read-only demo viewer. Once sign-in is configured and editing is not open, a request with no session is refused with 401 `unauthenticated`. */
         get: operations["getMe"];
         put?: never;
         post?: never;
@@ -70,6 +70,42 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Everyone invited to the workspace, owners first. `invited` means they have not signed in yet. */
+        get: operations["listMembers"];
+        put?: never;
+        /** Owners only. Invites an email address with a role. They sign in with Google using that address; their first sign-in links the invitation to their account. 409 `already_member` if they are already in. */
+        post: operations["inviteMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/members/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Owners only. Removes a member and ends their open sessions. 409 `last_owner` if they are the only owner. */
+        delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        /** Owners only. Changes a member's role. 409 `last_owner` if it would leave the workspace with no owner. */
+        patch: operations["changeMemberRole"];
         trace?: never;
     };
     "/projects": {
@@ -1137,6 +1173,39 @@ export interface components {
             workspaceName: string;
             /** @enum {string} */
             role: "owner" | "editor" | "viewer";
+            /**
+             * @description How this request was let in.
+             * @enum {string}
+             */
+            via: "session" | "token" | "open" | "anonymous";
+            /** @description True when Google sign-in is configured on this deployment. */
+            signInAvailable: boolean;
+        };
+        Member: {
+            /** @description The membership id. */
+            id: string;
+            email: string;
+            displayName: string;
+            /** @enum {string} */
+            role: "owner" | "editor" | "viewer";
+            /**
+             * @description Invited until their first sign-in.
+             * @enum {string}
+             */
+            status: "active" | "invited";
+            avatarUrl: string | null;
+        };
+        MemberList: {
+            data: components["schemas"]["Member"][];
+        };
+        InviteMemberRequest: {
+            email: string;
+            /** @enum {string} */
+            role: "owner" | "editor" | "viewer";
+        };
+        ChangeRoleRequest: {
+            /** @enum {string} */
+            role: "owner" | "editor" | "viewer";
         };
         Error: {
             error: {
@@ -1183,7 +1252,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -1285,6 +1354,115 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MemberList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    inviteMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InviteMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description Invited. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    changeMemberRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Member"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

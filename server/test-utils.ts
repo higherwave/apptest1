@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
 import type { Db, Queryable } from './db.js'
+import type { AuthService } from './auth.js'
 // @ts-expect-error plain ESM helpers shared with the db/ tooling
 import { migrationFiles } from '../db/migrate.mjs'
 // @ts-expect-error plain ESM seed
@@ -27,4 +28,18 @@ export async function createDemoDatabase(): Promise<{ pglite: PGlite; db: Db }> 
   for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
   await seed(pglite)
   return { pglite, db: pgliteDb(pglite) }
+}
+
+// A stand-in for the sign-in service in tests and the in-memory dev server: a request whose "x-test-user" header holds
+// JSON for a person ({ id, email, name?, verified? }) is signed in as them. It never talks to Google.
+export function fakeAuth(): AuthService {
+  return {
+    handler: async () => new Response('fake auth', { status: 200 }),
+    async user(headers) {
+      const raw = headers.get('x-test-user')
+      if (!raw) return null
+      const u = JSON.parse(raw)
+      return { id: u.id, email: u.email, name: u.name ?? '', image: u.image ?? null, emailVerified: u.verified !== false }
+    },
+  }
 }

@@ -127,3 +127,10 @@ export const checklistSchema = z.object({
     )
     .max(50, 'A card can hold up to 50 checklist items.'),
 })
+
+// Members: an owner invites an email with a role, changes a role, or removes someone.
+export const inviteMemberSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  role: z.enum(['owner', 'editor', 'viewer']),
+})
+export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })

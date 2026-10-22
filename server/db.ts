@@ -61,19 +61,31 @@ export function wrapDb(inner: Db): Db {
   }
 }
 
+// One connection pool per app, created on first use. The data routes and the sign-in library share it, so the app never
+// holds more connections than Neon's pooler allows.
+export function lazyPool(env: Env): () => pg.Pool | undefined {
+  let pool: pg.Pool | undefined
+  return () => {
+    if (pool) return pool
+    const url = findConnectionString(env, 'pooled')
+    if (!url) return undefined
+    pool = new pg.Pool({ connectionString: cleanConnectionString(url), max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 8_000 })
+    return pool
+  }
+}
+
 // Created on first use, so a route that never touches the database (GET /health) never opens a connection.
-export function lazyPgDb(env: Env): () => Db {
+export function lazyPgDb(env: Env, getPool: () => pg.Pool | undefined = lazyPool(env)): () => Db {
   let db: Db | undefined
   return () => {
     if (db) return db
-    const url = findConnectionString(env, 'pooled')
-    if (!url) {
+    const pool = getPool()
+    if (!pool) {
       const unavailable = async (): Promise<never> => {
         throw databaseUnavailable('no connection string configured')
       }
       return { query: unavailable, transaction: unavailable }
     }
-    const pool = new pg.Pool({ connectionString: cleanConnectionString(url), max: 3, idleTimeoutMillis: 10_000, connectionTimeoutMillis: 8_000 })
     db = wrapDb({
       query: (sql, params) => pool.query(sql, params as unknown[]),
       async transaction(fn) {

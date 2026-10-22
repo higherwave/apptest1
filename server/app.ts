@@ -1,14 +1,16 @@
 import { Hono, type Context } from 'hono'
 import { z } from 'zod'
 import { ApiError, envelope } from './errors.js'
-import { lazyPgDb, type Db, type Env } from './db.js'
+import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
+import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
+import { AlreadyMember, changeRole, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember } from './members.js'
 import { requestContext } from './context.js'
 import {
   createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveTasks,
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -22,11 +24,13 @@ import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, refreshPlatformMatches } from './insights.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
-  const getDb = options.getDb ?? lazyPgDb(env)
+  const getPool = lazyPool(env)
+  const getDb = options.getDb ?? lazyPgDb(env, getPool)
+  const auth = options.auth ?? (authConfigured(env) ? makeBetterAuth(env, getPool) : undefined)
   const ai = makeAi(env, options.provider)
   const app = new Hono().basePath('/api/v1')
 
@@ -37,8 +41,8 @@ export function createApp(options: AppOptions = {}) {
   })
   app.notFound((c) => c.json(envelope('not_found', `No route for ${c.req.method} ${c.req.path}.`), 404))
 
-  const withContext = requestContext({ env, getDb }) // strict: needs the token
-  const withReadContext = requestContext({ env, getDb }, 'read') // reads are open to the read-only demo viewer
+  const withContext = requestContext({ env, getDb, auth }) // strict: a signed-in person, or the token
+  const withReadContext = requestContext({ env, getDb, auth }, 'read') // reads are also open to the read-only demo viewer, before sign-in exists
 
   // Anonymous reads may be cached by the CDN for a minute, so repeated requests never reach (or wake) the
   // database. Requests with the token are never cached.
@@ -70,7 +74,70 @@ export function createApp(options: AppOptions = {}) {
   app.get('/me', withReadContext, (c) => {
     const ctx = c.get('ctx')
     c.header('Cache-Control', 'private, no-store')
-    return c.json({ userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role })
+    return c.json({
+      userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
+      signInAvailable: !!auth,
+    })
+  })
+
+  // Sign-in itself (the Google redirect and its callback, sign-out, the session): handled by the sign-in library.
+  if (auth) app.all('/auth/*', (c) => auth.handler(c.req.raw))
+
+  // Members: anyone in the workspace can see who is in it; only owners invite, change roles and remove.
+  const requireOwner = (c: Context) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can manage members.')
+  }
+  const memberId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such member.')
+    return id
+  }
+  const memberErrors = (err: unknown): never => {
+    if (err instanceof MemberNotFound) throw new ApiError(404, 'not_found', 'No such member.')
+    if (err instanceof AlreadyMember) throw new ApiError(409, 'already_member', 'That person is already a member.')
+    if (err instanceof LastOwner) throw new ApiError(409, 'last_owner', 'A workspace needs at least one owner.')
+    throw err
+  }
+
+  app.get('/members', withContext, async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ data: await listMembers(getDb(), c.get('ctx').workspaceId) })
+  })
+
+  app.post('/members', withContext, async (c) => {
+    requireOwner(c)
+    const input = parseBody(inviteMemberSchema, await readJson(c))
+    try {
+      const member = await inviteMember(getDb(), c.get('ctx'), input)
+      c.header('Cache-Control', 'no-store')
+      return c.json(member, 201)
+    } catch (err) {
+      return memberErrors(err)
+    }
+  })
+
+  app.patch('/members/:id', withContext, async (c) => {
+    requireOwner(c)
+    const id = memberId(c)
+    const input = parseBody(changeRoleSchema, await readJson(c))
+    try {
+      c.header('Cache-Control', 'no-store')
+      return c.json(await changeRole(getDb(), c.get('ctx'), id, input.role))
+    } catch (err) {
+      return memberErrors(err)
+    }
+  })
+
+  app.delete('/members/:id', withContext, async (c) => {
+    requireOwner(c)
+    const id = memberId(c)
+    try {
+      await removeMember(getDb(), c.get('ctx'), id)
+    } catch (err) {
+      return memberErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
   })
 
   app.get('/projects', withReadContext, async (c) => {
