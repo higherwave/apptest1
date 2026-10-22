@@ -1,7 +1,6 @@
 import { Button, InlineNotification } from '@carbon/react'
 import { Folders } from '@carbon/icons-react'
 import { useState, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
 import { ApiRequestError } from '../api/client'
 import { useMe } from '../api/hooks'
 import { PrivacyNote } from '../shell/PrivacyNote'
@@ -12,8 +11,7 @@ import styles from './AuthGate.module.scss'
 // or that the signed-in Google account was not invited (403). Anything else, including loading, shows the app.
 export function AuthGate({ children }: { children: ReactNode }) {
   const me = useMe()
-  const { pathname } = useLocation()
-  const error = me.error instanceof ApiRequestError && pathname !== '/privacy' ? me.error : null // the privacy page is public
+  const error = me.error instanceof ApiRequestError ? me.error : null
   if (error?.code === 'unauthenticated') return <SignInScreen />
   if (error?.code === 'not_invited' || error?.code === 'email_unverified') return <NoAccessScreen message={error.message} />
   return <>{children}</>

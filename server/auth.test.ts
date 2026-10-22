@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import type { PGlite } from '@electric-sql/pglite'
 import { createApp } from './app.js'
-import { authConfigured } from './auth.js'
+import { authConfigured, authOptions } from './auth.js'
 import type { Db } from './db.js'
 import { createDemoDatabase, fakeAuth } from './test-utils.js'
 // @ts-expect-error plain ESM tooling shared with db/
@@ -222,4 +222,10 @@ test('PUBLIC_VIEW lets a visitor look, read-only and uncached; writes, members a
   assert.equal(signedIn.via, 'session')
   // Off (the default here), a visitor is turned away even from reading.
   assert.equal((await (await appFor()).request('/api/v1/projects')).status, 401)
+})
+
+test('BETTER_AUTH_TRUSTED_ORIGINS adds trusted addresses, and the default adds none', () => {
+  const pool = {} as never
+  assert.deepEqual(authOptions(SIGNED_IN, pool).trustedOrigins, [])
+  assert.deepEqual(authOptions({ ...SIGNED_IN, BETTER_AUTH_TRUSTED_ORIGINS: ' https://a.example , https://b.example,' }, pool).trustedOrigins, ['https://a.example', 'https://b.example'])
 })

@@ -36,6 +36,7 @@ The Neon integration adds the database variables (with a custom prefix; the code
 | `PUBLIC_VIEW` | On by default in the Vercel entry. With sign-in configured and editing closed, a visitor with no session can read (GET and HEAD) as the read-only demo viewer, so a demo link works without a login. Set it to `false` to require sign-in even to look. With sign-in on, the API tells the CDN not to cache anything, because the CDN's cache is not keyed by cookie |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | The Google OAuth client (Web application) for sign-in. Its authorized redirect URIs are `<BETTER_AUTH_URL>/api/v1/auth/callback/google` for each address the app is served from, for example `https://apptest1-eta.vercel.app/api/v1/auth/callback/google` and `http://localhost:5198/api/v1/auth/callback/google`. Mark the secret Sensitive in Vercel and keep a copy in a password manager |
 | `BETTER_AUTH_URL` | The address the app is served from, for example `https://apptest1-eta.vercel.app`. Locally, `http://localhost:5198` in `db/.env.local` |
+| `BETTER_AUTH_TRUSTED_ORIGINS` | Optional. Other addresses the app is served from, comma-separated, for example the old `vercel.app` address while moving to your own domain. `BETTER_AUTH_URL` is always trusted |
 | `BETTER_AUTH_SECRET` | A random string of 32 or more characters that signs sign-in cookies (for example `openssl rand -base64 32`). Changing it signs everyone out. Sign-in is on only when all four of the variables above are set |
 | `DEMO_WORKSPACE_SLUG`, `DEV_USER_EMAIL` | Which demo workspace and user the API acts as. Defaults: `higherwave-demo`, `david@demo.signalflow.example` |
 
@@ -54,6 +55,14 @@ someone with no invitation sees a "not invited" page. Owners invite, change role
   To make editing invite-only while keeping the demo viewable, set `OPEN_EDITING=false` in Vercel (leave `PUBLIC_VIEW` alone).
 - Tests never talk to Google: `server/test-utils.ts` has a stand-in (`fakeAuth`), and `server/auth.real.test.ts` runs the
   real library against an in-memory Postgres. `npm run e2e` also runs the sign-in flow (`e2e/auth.mjs`).
+
+## Public pages
+
+`public/privacy.html` (served at `/privacy`) and `public/about.html` (at `/about`) are plain HTML, not part of the React app, so a crawler
+such as Google's sign-in verification can read them without running scripts. Google's Branding settings use them: the home
+page is `/about` and the privacy policy is `/privacy`. The policy states what the app collects and why, so update it
+whenever that changes (for example when a live AI provider is added). The two short notice paragraphs in it also appear in
+`src/shell/privacy.ts` (the footer), so change both together.
 
 ## Cost limits
 

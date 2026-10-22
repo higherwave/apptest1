@@ -8,6 +8,9 @@ export function PrivacyNote() {
       {PRIVACY_NOTICE.map((p) => (
         <p key={p}>{p}</p>
       ))}
+      <p>
+        <a href="/privacy.html">Privacy policy</a>
+      </p>
     </footer>
   )
 }

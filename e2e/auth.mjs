@@ -35,9 +35,10 @@ try {
 
   // The privacy page is public, even when signing in is required, and the notice is at the foot of the sign-in screen.
   ok('the sign-in screen carries the privacy notice', (await text()).includes('development, testing, and demonstration environment'))
-  await page.goto(`${BASE}/privacy`, { waitUntil: 'networkidle0' })
-  await waitText('do not use real personal data')
-  ok('the privacy page opens without signing in', !(await text()).includes('Continue with Google'))
+  const policy = await (await fetch(`${BASE}/privacy.html`)).text()
+  ok('the privacy policy is plain HTML with real content, readable without running scripts', /<h1>Privacy Policy<\/h1>/.test(policy) && policy.includes('Google API Services User Data Policy') && policy.includes('do not use real personal data'))
+  const about = await (await fetch(`${BASE}/about.html`)).text()
+  ok('the home page is plain HTML and links to the privacy policy', about.includes('<h1>Signal Flow</h1>') && about.includes('href="/privacy"'))
 
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })

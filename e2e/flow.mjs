@@ -245,6 +245,7 @@ try {
   await navTo('Themes')
   await page.waitForFunction(() => document.querySelector('#theme-title')?.value.length > 0, { timeout: 8000 })
   ok('returning to Themes shows the selected theme’s name in the name box', true)
+  await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 8000 })
 
   // Choose the theme about availability; rename it and move it to another stage.
   await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Themes"] li')].find((li) => li.innerText.includes('Provider availability is hard to see')).querySelector('a, button').click())

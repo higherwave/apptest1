@@ -50,6 +50,9 @@ export function authOptions(env: Env, pool: pg.Pool, extra: Partial<BetterAuthOp
     basePath: AUTH_BASE_PATH,
     database: pool,
     ...tables,
+    // The address in BETTER_AUTH_URL is trusted automatically. List other addresses the app is served from (for example while
+    // moving to a new domain), comma-separated, so sign-in started there is accepted too.
+    trustedOrigins: (env.BETTER_AUTH_TRUSTED_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
     socialProviders: { google: { clientId: env.GOOGLE_CLIENT_ID ?? '', clientSecret: env.GOOGLE_CLIENT_SECRET ?? '' } },
     ...extra,
   }
