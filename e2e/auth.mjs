@@ -33,6 +33,12 @@ try {
   await waitText('Continue with Google')
   ok('signed out, with public viewing off, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Research Projects'))
 
+  // The privacy page is public, even when signing in is required, and the notice is at the foot of the sign-in screen.
+  ok('the sign-in screen carries the privacy notice', (await text()).includes('development, testing, and demonstration environment'))
+  await page.goto(`${BASE}/privacy`, { waitUntil: 'networkidle0' })
+  await waitText('do not use real personal data')
+  ok('the privacy page opens without signing in', !(await text()).includes('Continue with Google'))
+
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })

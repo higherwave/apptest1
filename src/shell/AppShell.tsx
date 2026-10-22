@@ -6,6 +6,7 @@ import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import type { StepKey } from '../api/client'
 import { STEPS, STEP_GROUPS } from './nav'
+import { PrivacyNote } from './PrivacyNote'
 import styles from './AppShell.module.scss'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -105,6 +106,7 @@ export function AppShell() {
 
       <main className={cx(styles.content, hasPanel && styles.withPanel)}>
         <Outlet />
+        <PrivacyNote />
       </main>
     </div>
   )

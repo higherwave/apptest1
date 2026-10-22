@@ -1,0 +1,21 @@
+@use '../tokens' as tokens;
+
+.page {
+  max-inline-size: 40rem;
+  margin: 0 auto;
+  padding: var(--at-space-xxl) var(--at-space-lg);
+}
+
+.title {
+  @include tokens.role('display-md');
+  margin: 0 0 var(--at-space-lg);
+  color: var(--at-ink);
+  font-weight: 300;
+}
+
+.text {
+  @include tokens.role('label-md');
+  margin: 0 0 var(--at-space-md);
+  color: var(--at-body);
+  font-weight: 400;
+}
