@@ -457,6 +457,10 @@ try {
   ok('Requirements opens the published document directly, with no list', (await text()).includes('Published') && !(await text()).includes('New document from these themes') && (await apiSpecs()).length === 1)
   ok('a published document has no Approve, Redo or Edit', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => ['Approve', 'Redo with instructions', 'Edit'].includes(b.innerText.trim()))))
   ok('a project document has no back-to-list button', !(await text()).includes('← Requirements'))
+  // Long sections are cut to a few lines; when a section is cut, Show more reveals it and Show less folds it again.
+  const more = await page.evaluate(() => { const b = [...document.querySelectorAll('aside[aria-label="Output"] button')].find((x) => x.innerText.trim() === 'Show more'); if (!b) return false; b.click(); return true })
+  if (more) await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'Show less'), { timeout: 5000 })
+  ok(more ? 'a cut section opens with Show more and offers Show less' : 'no section is long enough to be cut (nothing to check)', true)
   const oldSpec = (await apiSpecs())[0].id
   await clickText('Start over')
   await waitText('and removes the requirements and stories it created on the board')

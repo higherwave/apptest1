@@ -1,6 +1,7 @@
 import { Button, InlineNotification, Loading, Modal, Tag, TextArea } from '@carbon/react'
 import type { SpecDetail, SpecStep } from '../../api/client'
 import { CATEGORY_LABEL } from '../themes/themeEdits'
+import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
 import styles from './WriterView.module.scss'
 
@@ -131,23 +132,29 @@ export function WriterView(p: WriterViewProps) {
             {spec.brief.problem && (
               <>
                 <h4 className={styles.small}>Problem</h4>
-                <p className={styles.para}>{spec.brief.problem}</p>
+                <ClampedBlock label="the problem">
+                  <p className={styles.para}>{spec.brief.problem}</p>
+                </ClampedBlock>
               </>
             )}
             {spec.brief.users && (
               <>
                 <h4 className={styles.small}>Users</h4>
-                <p className={styles.para}>{spec.brief.users}</p>
+                <ClampedBlock label="the users">
+                  <p className={styles.para}>{spec.brief.users}</p>
+                </ClampedBlock>
               </>
             )}
             {spec.brief.goals && (
               <>
                 <h4 className={styles.small}>Goals</h4>
-                <ul className={styles.list}>
-                  {spec.brief.goals.map((g) => (
-                    <li key={g}>{g}</li>
-                  ))}
-                </ul>
+                <ClampedBlock label="the goals">
+                  <ul className={styles.list}>
+                    {spec.brief.goals.map((g) => (
+                      <li key={g}>{g}</li>
+                    ))}
+                  </ul>
+                </ClampedBlock>
               </>
             )}
             {spec.brief.locked && (
@@ -163,11 +170,13 @@ export function WriterView(p: WriterViewProps) {
               {spec.document.map((b) => (
                 <div key={b.heading}>
                   <h4 className={styles.small}>{b.heading}</h4>
-                  {b.lines.map((l) => (
-                    <p key={l} className={styles.para}>
-                      {l}
-                    </p>
-                  ))}
+                  <ClampedBlock label={b.heading.toLowerCase()}>
+                    {b.lines.map((l) => (
+                      <p key={l} className={styles.para}>
+                        {l}
+                      </p>
+                    ))}
+                  </ClampedBlock>
                 </div>
               ))}
             </div>

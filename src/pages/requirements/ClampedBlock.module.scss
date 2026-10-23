@@ -1,0 +1,21 @@
+@use '../../tokens' as tokens;
+
+.body {
+  @include tokens.role('label-md');
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  line-height: 1.55;
+  font-weight: 400;
+  color: var(--at-ink);
+  overflow: hidden;
+}
+
+// Four lines of text, plus the gaps between paragraphs, whatever the type size.
+.clamped {
+  max-block-size: calc(1.55em * 4 + var(--at-space-xs) * 2);
+}
+
+.toggle {
+  padding-inline-start: 0;
+}
