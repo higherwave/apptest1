@@ -1,0 +1,80 @@
+{
+  "themes": [
+    {
+      "title": "Coverage and copay are unclear until late in the booking",
+      "category": "pain_point",
+      "stage": 1,
+      "severity": -0.8,
+      "description": "Participants wanted to know up front whether a provider takes their insurance and what the visit would cost, and left the app to check their insurer's portal.",
+      "opportunity": "Show in-network status and an estimated copay on each provider card.",
+      "effort": 3,
+      "effortNote": "Requires an insurance eligibility integration and copay estimates.",
+      "quotes": [
+        {
+          "ref": "T1.U2",
+          "text": "The copay estimate is nowhere until the last step."
+        },
+        {
+          "ref": "T3.U3",
+          "text": "Show me what’s covered before I start booking."
+        }
+      ]
+    },
+    {
+      "title": "Reminders help participants feel prepared",
+      "category": "delight",
+      "stage": 4,
+      "severity": 0.8,
+      "description": "Participants said the text reminder before the visit made them confident they would not forget it.",
+      "opportunity": "Extend reminders with directions and a preparation checklist.",
+      "effort": 1,
+      "effortNote": "Extends the existing reminder messages with extra content.",
+      "quotes": [
+        {
+          "ref": "T1.U4",
+          "text": "The reminder with directions saved me a stressful morning."
+        },
+        {
+          "ref": "T3.U5",
+          "text": "The text reminder the day before is why I did not forget."
+        }
+      ]
+    },
+    {
+      "title": "Moving an appointment means calling the clinic",
+      "category": "pain_point",
+      "stage": 4,
+      "severity": -0.7,
+      "description": "Participants could not reschedule or cancel in the app and had to phone the clinic during office hours.",
+      "opportunity": "Add self-serve reschedule and cancel with clear change windows.",
+      "effort": 2,
+      "effortNote": "Self-serve changes need clinic scheduling rules and notifications.",
+      "quotes": [
+        {
+          "ref": "T2.U3",
+          "text": "I had to call the office and wait on hold just to move my visit."
+        },
+        {
+          "ref": "T3.U4",
+          "text": "Cancelling should not need a phone call during office hours."
+        }
+      ]
+    },
+    {
+      "title": "Finding open appointment times across providers takes too many steps",
+      "category": "pain_point",
+      "stage": 1,
+      "severity": -0.7,
+      "description": "Participants could not tell who was free this week from the results list and had to open each provider's profile one at a time to look for an opening.",
+      "opportunity": "Show open times for each provider in search results, with a combined calendar view.",
+      "effort": 3,
+      "effortNote": "Needs a combined availability feed across providers and a calendar view in search.",
+      "quotes": [
+        {
+          "ref": "T3.U2",
+          "text": "Gave up and called the clinic because the calendar never loaded."
+        }
+      ]
+    }
+  ]
+}

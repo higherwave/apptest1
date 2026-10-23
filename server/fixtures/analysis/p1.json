@@ -1,0 +1,204 @@
+{
+  "themes": [
+    {
+      "title": "Coverage and copay are unclear until late in the booking",
+      "category": "pain_point",
+      "stage": 1,
+      "severity": -0.8,
+      "description": "Participants wanted to know up front whether a provider takes their insurance and what the visit would cost, and left the app to check their insurer's portal.",
+      "opportunity": "Show in-network status and an estimated copay on each provider card.",
+      "effort": 3,
+      "effortNote": "Requires an insurance eligibility integration and copay estimates.",
+      "quotes": [
+        {
+          "ref": "T1.U4",
+          "text": "I wanted to know if she's in-network. I had to leave the app and dig through my insurance portal to find out if I'm covered."
+        },
+        {
+          "ref": "T2.U3",
+          "text": "The insurance thing is confusing. It lists accepted plans but doesn't say what my copay would be."
+        },
+        {
+          "ref": "T3.U4",
+          "text": "I couldn't tell if my insurance was covered until the confirmation screen."
+        }
+      ]
+    },
+    {
+      "title": "Reminders help participants feel prepared",
+      "category": "delight",
+      "stage": 4,
+      "severity": 0.8,
+      "description": "Participants said the text reminder before the visit made them confident they would not forget it.",
+      "opportunity": "Extend reminders with directions and a preparation checklist.",
+      "effort": 1,
+      "effortNote": "Extends the existing reminder messages with extra content.",
+      "quotes": [
+        {
+          "ref": "T1.U7",
+          "text": "The text message reminder the day before was great. It gave me a heads up and I didn't forget."
+        },
+        {
+          "ref": "T2.U6",
+          "text": "I got a reminder and a text message with directions, which was handy."
+        },
+        {
+          "ref": "T3.U6",
+          "text": "The reminder was nice. A heads up the morning of was perfect."
+        }
+      ]
+    },
+    {
+      "title": "Finding open appointment times across providers takes too many steps",
+      "category": "pain_point",
+      "stage": 1,
+      "severity": -0.7,
+      "description": "Participants could not tell who was free this week from the results list and had to open each provider's profile one at a time to look for an opening.",
+      "opportunity": "Show open times for each provider in search results, with a combined calendar view.",
+      "effort": 3,
+      "effortNote": "Needs a combined availability feed across providers and a calendar view in search.",
+      "quotes": [
+        {
+          "ref": "T1.U2",
+          "text": "Honestly I open the app and try to see who's available this week, but I can't tell from the list. There's no calendar until you click into each doctor."
+        },
+        {
+          "ref": "T2.U2",
+          "text": "Open slots matter most to me. I work shifts, so I need a calendar view across all providers, not one at a time."
+        },
+        {
+          "ref": "T3.U3",
+          "text": "No slots showed until I tapped each name. The availability is hidden."
+        }
+      ]
+    },
+    {
+      "title": "Moving an appointment means calling the clinic",
+      "category": "pain_point",
+      "stage": 4,
+      "severity": -0.7,
+      "description": "Participants could not reschedule or cancel in the app and had to phone the clinic during office hours.",
+      "opportunity": "Add self-serve reschedule and cancel with clear change windows.",
+      "effort": 2,
+      "effortNote": "Self-serve changes need clinic scheduling rules and notifications.",
+      "quotes": [
+        {
+          "ref": "T1.U9",
+          "text": "Later I needed to reschedule and the only option was to call the office. I was on hold for ten minutes."
+        },
+        {
+          "ref": "T2.U7",
+          "text": "To cancel I had to call the office during business hours. Why can't I cancel in the app?"
+        },
+        {
+          "ref": "T3.U7",
+          "text": "I had to reschedule by phone. Nobody picked up so I left a voicemail."
+        }
+      ]
+    },
+    {
+      "title": "The booking form asks for information the app already has",
+      "category": "pain_point",
+      "stage": 2,
+      "severity": -0.6,
+      "description": "Participants entered details they had already given, such as name and contact information, and found the form repetitive.",
+      "opportunity": "Prefill the form from the profile and remember family members.",
+      "effort": 2,
+      "effortNote": "Prefilling from the profile touches the form and account data.",
+      "quotes": [
+        {
+          "ref": "T1.U5",
+          "text": "Then the form. It asked for my address and date of birth, then asked for the same information again on the next screen. Too many steps for a checkup."
+        },
+        {
+          "ref": "T2.U4",
+          "text": "I re-enter my details every time I book for my kids. It's tedious."
+        },
+        {
+          "ref": "T3.U5",
+          "text": "There are so many fields. The long form made me nearly give up."
+        }
+      ]
+    },
+    {
+      "title": "Fees appear late and the total is higher than the listing",
+      "category": "pain_point",
+      "stage": 3,
+      "severity": -0.9,
+      "description": "Participants were surprised at confirmation by a total above the price they had seen on the listing.",
+      "opportunity": "Include every fee in the first listed price.",
+      "effort": 2,
+      "effortNote": "Pricing must include fees from the first listing, which affects backend and display.",
+      "quotes": [
+        {
+          "ref": "T1.U6",
+          "text": "At the end there was an extra fee I hadn't seen. I was surprised, the total cost was thirty dollars higher than the listing."
+        },
+        {
+          "ref": "T2.U5",
+          "text": "The price was a surprise at checkout. There was a booking fee that wasn't mentioned earlier."
+        }
+      ]
+    },
+    {
+      "title": "Follow-up instructions are easy to lose",
+      "category": "need",
+      "stage": 5,
+      "severity": -0.5,
+      "description": "Participants said instructions given after the visit were hard to find later.",
+      "opportunity": "Keep the visit summary and follow-up plan in the app.",
+      "effort": 2,
+      "effortNote": "Needs a visit summary object and a place to show it in the app.",
+      "quotes": [
+        {
+          "ref": "T1.U10",
+          "text": "After the visit I lost the instructions. There's no visit summary in the app."
+        },
+        {
+          "ref": "T3.U8",
+          "text": "Nothing arrived after the visit. I'd want notes from the doctor and the follow-up plan in one place."
+        }
+      ]
+    },
+    {
+      "title": "Ratings and recommendations decide who participants consider",
+      "category": "expectation",
+      "stage": 1,
+      "severity": 0.4,
+      "description": "Participants screen providers on star ratings and on whether friends recommend them before they look at availability.",
+      "opportunity": "Keep ratings prominent in results and make recommendations visible.",
+      "effort": 1,
+      "effortNote": "Ratings already exist; mostly a layout change.",
+      "quotes": [
+        {
+          "ref": "T1.U3",
+          "text": "I always check reviews first. If somebody has a rating under four I skip them, and I like when friends recommend someone."
+        },
+        {
+          "ref": "T3.U2",
+          "text": "I read the reviews, and the recommended badge made me pick her."
+        }
+      ]
+    },
+    {
+      "title": "Participants want to know what to bring or prepare",
+      "category": "need",
+      "stage": 4,
+      "severity": -0.3,
+      "description": "Participants asked what paperwork or steps they needed before arriving, and some made a second trip.",
+      "opportunity": "Send a visit-specific checklist after booking.",
+      "effort": 1,
+      "effortNote": "A static checklist sent after booking.",
+      "quotes": [
+        {
+          "ref": "T1.U8",
+          "text": "I wasn't sure what to bring, so I just arrived with my ID. A list of paperwork would help me prepare."
+        },
+        {
+          "ref": "T2.U8",
+          "text": "I'd like to know what to bring and if I need to arrive early to fill forms before."
+        }
+      ]
+    }
+  ]
+}

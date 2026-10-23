@@ -18,7 +18,8 @@
     "gen:api": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o src/api/schema.d.ts",
     "check:api-types": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o /tmp/signalflow-schema.check.d.ts && diff -q /tmp/signalflow-schema.check.d.ts src/api/schema.d.ts",
     "dev:api:memory": "tsx server/dev-memory.ts",
-    "e2e": "npm --prefix e2e install --silent && node e2e/run.mjs"
+    "e2e": "npm --prefix e2e install --silent && node e2e/run.mjs",
+    "ai:fixtures": "tsx scripts/make-analysis-fixtures.ts"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.89.0",
