@@ -249,5 +249,5 @@ test('finishBuild makes the landing page the root file and the app app.html', as
   assert.equal(rewrites.at(-1).destination, '/app.html')
   const catchAll = new RegExp('^' + rewrites.at(-1).source + '$')
   for (const path of ['/projects', '/sign-in', '/members', '/projects/abc/themes']) assert.ok(catchAll.test(path), path)
-  for (const path of ['/landing.html', '/privacy.html', '/about.html', '/logo.png', '/favicon.ico', '/assets/index-abc.js', '/app.html']) assert.ok(!catchAll.test(path), path)
+  for (const path of ['/landing.html', '/privacy.html', '/about.html', '/logo.png', '/favicon.ico', '/robots.txt', '/assets/index-abc.js', '/app.html']) assert.ok(!catchAll.test(path), path)
 })

@@ -69,6 +69,8 @@ edit `public/landing.html`, or move it to its own site and point the root at it.
 
 ## Public pages
 
+`public/robots.txt` asks crawlers to stay out of the app and the API and leaves the information pages open. It is a request, not access control.
+
 `public/privacy.html` (served at `/privacy`) and `public/about.html` (at `/about`) are plain HTML, not part of the React app, so a crawler
 such as Google's sign-in verification can read them without running scripts. Google's Branding settings use them: the home
 page is `/about` and the privacy policy is `/privacy`. The policy states what the app collects and why, so update it

@@ -1,0 +1,11 @@
+# Signal Flow is a development, testing, and demonstration environment. The information pages (the home page, /about and /privacy)
+# may be read by anyone. The app itself and its API hold demo data and are not meant to be indexed.
+# This file asks well-behaved crawlers to stay out; it is not access control (sign-in and roles are).
+User-agent: *
+Disallow: /api/
+Disallow: /projects
+Disallow: /insights
+Disallow: /requirements
+Disallow: /members
+Disallow: /sign-in
+Disallow: /landing.html
