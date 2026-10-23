@@ -229,3 +229,25 @@ test('BETTER_AUTH_TRUSTED_ORIGINS adds trusted addresses, and the default adds n
   assert.deepEqual(authOptions(SIGNED_IN, pool).trustedOrigins, [])
   assert.deepEqual(authOptions({ ...SIGNED_IN, BETTER_AUTH_TRUSTED_ORIGINS: ' https://a.example , https://b.example,' }, pool).trustedOrigins, ['https://a.example', 'https://b.example'])
 })
+
+test('finishBuild makes the landing page the root file and the app app.html', async () => {
+  const { mkdtempSync, writeFileSync, readFileSync, existsSync } = await import('node:fs')
+  const { tmpdir } = await import('node:os')
+  const { join } = await import('node:path')
+  // @ts-expect-error plain ESM build helper
+  const { finishBuild } = await import('../scripts/finish-build.mjs')
+  const dir = mkdtempSync(join(tmpdir(), 'dist-'))
+  writeFileSync(join(dir, 'index.html'), '<div id="root"></div>')
+  writeFileSync(join(dir, 'landing.html'), '<h1>Landing</h1>')
+  finishBuild(dir)
+  assert.equal(readFileSync(join(dir, 'index.html'), 'utf8'), '<h1>Landing</h1>')
+  assert.equal(readFileSync(join(dir, 'app.html'), 'utf8'), '<div id="root"></div>')
+  assert.ok(existsSync(join(dir, 'landing.html')))
+  assert.throws(() => finishBuild(mkdtempSync(join(tmpdir(), 'dist-'))), /Did the build run/)
+  // Every address other than the static pages must still reach the app.
+  const rewrites = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')).rewrites
+  assert.equal(rewrites.at(-1).destination, '/app.html')
+  const catchAll = new RegExp('^' + rewrites.at(-1).source + '$')
+  for (const path of ['/projects', '/sign-in', '/members', '/projects/abc/themes']) assert.ok(catchAll.test(path), path)
+  for (const path of ['/landing.html', '/privacy.html', '/about.html', '/logo.png', '/favicon.ico', '/assets/index-abc.js', '/app.html']) assert.ok(!catchAll.test(path), path)
+})

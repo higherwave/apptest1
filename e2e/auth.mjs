@@ -40,6 +40,9 @@ try {
   const about = await (await fetch(`${BASE}/about.html`)).text()
   ok('the home page is plain HTML and links to the privacy policy', /<h1>.*Signal Flow<\/h1>/.test(about) && about.includes('href="/privacy"'))
 
+  const landing = await (await fetch(`${BASE}/landing.html`)).text()
+  ok('the landing page is plain HTML with a Sign in link and a link to the read-only demo', landing.includes('href="/sign-in"') && landing.includes('href="/projects"') && landing.includes('Explore the read-only demo') && landing.includes('href="/privacy"'))
+
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
@@ -51,6 +54,13 @@ try {
   await page.goto(`${BASE}/projects/${first.id}/plan`, { waitUntil: 'networkidle0' })
   await waitText('Editing is locked')
   ok('a project opens read-only and says how to get editing access', (await text()).includes('Sign in') && (await page.evaluate(() => document.querySelector('#project-name').readOnly === true)))
+
+  // /sign-in sends someone who is already signed in straight to the projects.
+  await signInAs('david@demo.signalflow.example')
+  await page.goto(`${BASE}/sign-in`, { waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
+  ok('/sign-in takes a signed-in person to the projects', true)
+  await signInAs(null)
 
   // A signed-in owner: the app, with their name and role and an account menu.
   await signInAs('david@demo.signalflow.example')

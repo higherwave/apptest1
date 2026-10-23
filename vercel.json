@@ -16,8 +16,8 @@
       "destination": "/about.html"
     },
     {
-      "source": "/((?!assets/|favicon|apple-touch-icon.png|logo.png|privacy.html|about.html).*)",
-      "destination": "/index.html"
+      "source": "/((?!assets/|favicon|apple-touch-icon.png|logo.png|privacy.html|about.html|landing.html|app.html).*)",
+      "destination": "/app.html"
     }
   ]
 }

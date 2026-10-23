@@ -5,7 +5,7 @@ import { createAuthClient } from 'better-auth/react'
 export const authClient = createAuthClient({ baseURL: `${window.location.origin}/api/v1/auth` })
 
 // Google is the only way in. Google sends the person back to where they were.
-export const signInWithGoogle = () => authClient.signIn.social({ provider: 'google', callbackURL: window.location.pathname + window.location.search })
+export const signInWithGoogle = (callbackURL = window.location.pathname + window.location.search) => authClient.signIn.social({ provider: 'google', callbackURL })
 
 // Ends the session, then loads the app fresh so nothing from the last person stays in memory.
 export async function signOut() {

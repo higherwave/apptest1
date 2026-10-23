@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './shell/AppShell'
 import { AuthGate } from './auth/AuthGate'
+import { SignInRoute } from './auth/SignInRoute'
 import { MembersPage } from './pages/members/MembersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
 import { InsightThemesPage } from './pages/insights/InsightThemesPage'
@@ -23,6 +24,7 @@ export function App() {
   return (
     <AuthGate>
     <Routes>
+      <Route path="sign-in" element={<SignInRoute />} />
       <Route element={<AppShell />}>
         <Route index element={<Navigate to="/projects" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
