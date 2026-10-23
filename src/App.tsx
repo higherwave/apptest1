@@ -10,7 +10,7 @@ import { StoriesPage } from './pages/stories/StoriesPage'
 import { Placeholder } from './pages/Placeholder'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
 import { TaskListPage } from './pages/project/TaskListPage'
-import { RequirementsListPage } from './pages/requirements/RequirementsListPage'
+import { RequirementsEntryPage } from './pages/requirements/RequirementsEntryPage'
 import { WriterPage } from './pages/requirements/WriterPage'
 import { JourneyPage } from './pages/themes/JourneyPage'
 import { PrioritiesPage } from './pages/themes/PrioritiesPage'
@@ -35,7 +35,7 @@ export function App() {
         <Route path="projects/:projectId/themes" element={<ThemesPage />} />
         <Route path="projects/:projectId/journey" element={<JourneyPage />} />
         <Route path="projects/:projectId/prio" element={<PrioritiesPage />} />
-        <Route path="projects/:projectId/requirements" element={<RequirementsListPage />} />
+        <Route path="projects/:projectId/requirements" element={<RequirementsEntryPage />} />
         <Route path="projects/:projectId/requirements/:specId" element={<WriterPage />} />
         <Route path="requirements/:specId" element={<WriterPage />} />
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />

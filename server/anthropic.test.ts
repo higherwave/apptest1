@@ -126,7 +126,7 @@ test('drafting a requirements step goes through the live provider: one call, pri
   const reply = JSON.stringify({ reasoning: 'Participants met costs late in booking, the clearest barrier in the research.', text: 'Fees and coverage appear too late in booking.', evidence: ['T1'], alternatives: [] })
   const f = fetching(ok(reply, 2_000, 400))
   const { env, provider } = envFor(f)
-  const specId = await createProjectSpec(db, makeAi(env, provider), actor, pid.id)
+  const specId = (await createProjectSpec(db, makeAi(env, provider), actor, pid.id)).id
   assert.equal(f.calls.length, 1)
   const body = JSON.parse(f.calls[0].init.body as string)
   assert.equal(body.model, DEFAULT_ANALYSIS_MODEL)

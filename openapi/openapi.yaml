@@ -403,8 +403,9 @@ paths:
     post:
       operationId: createSpec
       summary: >
-        Starts a requirements document from the project's themes: a run with the eight fixed steps, the first one already
-        drafted and waiting for review. 409 no_analysis if the project has no themes. Needs the token.
+        Gets the project's requirements document, starting it from the project's themes if it does not exist yet (a run with the
+        eight fixed steps, the first already drafted and waiting for review). A project has one document: when it exists it is
+        returned with 200 and nothing is drafted. 409 no_analysis if the project has no themes. Needs the token.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -413,6 +414,11 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/CreateSpecRequest' }
       responses:
+        '200':
+          description: The document that already existed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecDetail' }
         '201':
           description: The new document.
           content:

@@ -1007,7 +1007,7 @@ test('starting a document drafts step 1 and leaves seven waiting; it needs analy
 })
 
 test('approving a step starts the next, in order; the brief builds from steps 1 to 3', async () => {
-  const { create, approve, approveThrough, get } = await specFixture()
+  const { create, approve, approveThrough, call, round2 } = await specFixture()
   const first = await create()
   const after1 = await (await approve(first, 1)).json()
   assert.deepEqual(after1.steps.map((s: any) => s.status), ['approved', 'review', ...Array(6).fill('pending')])
@@ -1016,9 +1016,13 @@ test('approving a step starts the next, in order; the brief builds from steps 1 
   const after3 = await approveThrough(first.id, 3)
   assert.deepEqual([after3.brief.locked, after3.brief.users !== null, Array.isArray(after3.brief.goals), after3.approved], [true, true, true, 3])
   assert.deepEqual(after3.document, [], 'the document starts with step 4')
-  const all = await approveThrough((await create()).id, 8)
+  // A project has one document: asking again returns it, with its progress, and drafts nothing.
+  const ask = await call('POST', `/projects/${round2}/specs`, {})
+  assert.equal(ask.status, 200)
+  const again = await expectSpec(ask, '/projects/{id}/specs', 'post')
+  assert.deepEqual([again.id, again.approved], [first.id, 3])
+  const all = await approveThrough(first.id, 8)
   assert.deepEqual([all.approved, all.canPublish, all.document.length], [8, true, 5])
-  assert.equal((await get(first.id)).approved, 3, 'the other document is untouched')
 })
 
 test('a step cannot be approved out of order, twice, or from a stale version', async () => {

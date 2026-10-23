@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ApiRequestError, approveStep, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, type SpecDetail, type SpecStep } from '../../api/client'
+import { ApiRequestError, approveStep, createSpec, deleteSpec, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, type SpecDetail, type SpecStep } from '../../api/client'
 import { useMe, useSpec } from '../../api/hooks'
 import { WriterView } from './WriterView'
 
@@ -20,6 +20,7 @@ export function WriterPage() {
   const [notice, setNotice] = useState<string | undefined>()
   const [freshStepId, setFreshStepId] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
+  const [startOver, setStartOver] = useState<{ error?: string } | null>(null)
   const [redoing, setRedoing] = useState<{ step: SpecStep; text: string } | null>(null)
 
   // A document just started from the list opens with its first step being written.
@@ -60,7 +61,35 @@ export function WriterPage() {
 
   const doc = spec.data
   // A stand-alone document has no project of its own to go back to, so it returns to wherever the person came from.
-  const back = () => (doc && !doc.standalone ? navigate(`/projects/${doc.projectId}/requirements`) : navigate(-1))
+  const back = () => navigate(-1)
+
+  // Throws the document away and drafts a new one from the project's current themes (its one document), which then opens.
+  async function confirmStartOver() {
+    if (!doc) return
+    setBusy(true)
+    try {
+      await deleteSpec(doc.id)
+      let fresh: SpecDetail
+      try {
+        fresh = await createSpec(doc.projectId)
+      } catch {
+        // The old document is gone and the new one could not be drafted: the Requirements step offers to try again.
+        await Promise.all([queryClient.invalidateQueries({ queryKey: ['specs'] }), queryClient.invalidateQueries({ queryKey: ['stage', doc.projectId] })])
+        setStartOver(null)
+        navigate(`/projects/${doc.projectId}/requirements`, { replace: true })
+        return
+      }
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ['specs'] }), queryClient.invalidateQueries({ queryKey: ['stage', doc.projectId] })])
+      setStartOver(null)
+      setFreshStepId(null)
+      navigate(`/projects/${doc.projectId}/requirements/${fresh.id}`, { replace: true, state: { fresh: true } })
+    } catch (err) {
+      setStartOver({ error: friendlyMessage(err) })
+      await queryClient.invalidateQueries({ queryKey: ['specs'] })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   async function publish() {
     if (!doc) return
@@ -113,6 +142,11 @@ export function WriterPage() {
       onPublish={publish}
       onViewStories={() => doc && navigate(`/projects/${doc.projectId}/stories`)}
       onBack={back}
+      startOverOpen={startOver !== null}
+      startOverError={startOver?.error}
+      onStartOver={() => setStartOver({})}
+      onCancelStartOver={() => setStartOver(null)}
+      onConfirmStartOver={confirmStartOver}
     />
   )
 }

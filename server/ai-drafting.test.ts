@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { simulatedProvider, type Ai, type AiProvider, type Usage } from './ai.js'
 import { ModelOutputError, type ModelCall } from './ai-analysis.js'
 import { buildDraftPrompt, draftWithModel, parseDraft, type DraftInput } from './ai-drafting.js'
-import { approveStep, createProjectSpec, getSpec, redoStep } from './specs.js'
+import { approveStep, createProjectSpec, deleteSpec, getSpec, redoStep } from './specs.js'
 import { createDemoDatabase } from './test-utils.js'
 
 const USAGE: Usage = { inputTokens: 800, outputTokens: 300, costUsd: 0.005, model: 'fake-model' }
@@ -116,7 +116,7 @@ const aiOf = (provider: AiProvider, env: Record<string, string> = { AI_MONTHLY_B
 test('creating a document drafts step 1 with the model and records the run, evidence and spend', async () => {
   const { db, pglite, pid, actor } = await setup()
   const p = drafter()
-  const specId = await createProjectSpec(db, aiOf(p), actor, pid)
+  const specId = (await createProjectSpec(db, aiOf(p), actor, pid)).id
   const spec = (await getSpec(db, actor.workspaceId, specId))!
   assert.equal(spec.steps[0].status, 'review')
   assert.match(spec.steps[0].text!, /Step 1 follows/)
@@ -133,7 +133,7 @@ test('approving drafts the next step with the earlier ones as context; redo pass
   const { db, pid, actor } = await setup()
   const p = drafter()
   const ai = aiOf(p)
-  const specId = await createProjectSpec(db, ai, actor, pid)
+  const specId = (await createProjectSpec(db, ai, actor, pid)).id
   let spec = (await getSpec(db, actor.workspaceId, specId))!
   await approveStep(db, ai, actor, spec.steps[0].id, spec.steps[0].version)
   spec = (await getSpec(db, actor.workspaceId, specId))!
@@ -152,7 +152,7 @@ test('approving drafts the next step with the earlier ones as context; redo pass
 test('a failed draft changes nothing: approve leaves the step in review, and create leaves no document', async () => {
   const { db, pglite, pid, actor } = await setup()
   const good = aiOf(drafter())
-  const specId = await createProjectSpec(db, good, actor, pid)
+  const specId = (await createProjectSpec(db, good, actor, pid)).id
   const spec = (await getSpec(db, actor.workspaceId, specId))!
   const failing = aiOf(drafter({ fail: true }))
   await assert.rejects(approveStep(db, failing, actor, spec.steps[0].id, spec.steps[0].version))
@@ -161,15 +161,17 @@ test('a failed draft changes nothing: approve leaves the step in review, and cre
   assert.equal(after.steps[1].status, 'pending')
   assert.equal(after.steps[0].version, spec.steps[0].version)
   await approveStep(db, good, actor, spec.steps[0].id, spec.steps[0].version) // and it can be approved again
+  const other = (await db.query(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0].id as string
+  for (const row of (await db.query(`select id from delivery.specs where project_id = $1`, [other])).rows) await deleteSpec(db, actor, row.id as string)
   const before = (await pglite.query<any>(`select count(*)::int n from delivery.specs`)).rows[0].n
-  await assert.rejects(createProjectSpec(db, failing, actor, pid))
+  await assert.rejects(createProjectSpec(db, failing, actor, other))
   assert.equal((await pglite.query<any>(`select count(*)::int n from delivery.specs`)).rows[0].n, before, 'no half-made document')
 })
 
 test('at the budget ceiling the step is drafted by the simulation and the run says so', async () => {
   const { db, pglite, pid, actor } = await setup()
   const ai = aiOf(drafter({ cost: 6 }), { AI_MONTHLY_BUDGET_USD: '5' })
-  const specId = await createProjectSpec(db, ai, actor, pid) // costs 6: now over the 5 budget
+  const specId = (await createProjectSpec(db, ai, actor, pid)).id // costs 6: now over the 5 budget
   let spec = (await getSpec(db, actor.workspaceId, specId))!
   await approveStep(db, ai, actor, spec.steps[0].id, spec.steps[0].version)
   spec = (await getSpec(db, actor.workspaceId, specId))!

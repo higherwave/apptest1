@@ -29,6 +29,11 @@ export type WriterViewProps = {
   onPublish: () => void
   onViewStories: () => void
   onBack: () => void
+  startOverOpen: boolean
+  startOverError?: string
+  onStartOver: () => void
+  onCancelStartOver: () => void
+  onConfirmStartOver: () => void
 }
 
 // Presentational: the writer. Steps on the left are reviewed one at a time; the product brief and the requirements
@@ -43,14 +48,21 @@ export function WriterView(p: WriterViewProps) {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <Button kind="ghost" size="sm" onClick={p.onBack}>
-          ← Requirements
-        </Button>
+        {spec.standalone && (
+          <Button kind="ghost" size="sm" onClick={p.onBack}>
+            ← Back
+          </Button>
+        )}
         <div className={styles.titleRow}>
           <h1 className={styles.title}>{spec.name}</h1>
           <Tag size="sm" type={published ? 'green' : 'gray'}>
             {published ? 'Published' : 'Draft'}
           </Tag>
+          {p.canEdit && !spec.standalone && (
+            <Button kind="ghost" size="sm" disabled={p.busy} onClick={p.onStartOver}>
+              Start over
+            </Button>
+          )}
         </div>
         <p className={styles.source}>
           {spec.standalone ? 'Stand-alone document, drafted from a description.' : `Built from ${spec.projectName} · ${spec.sessions} ${spec.sessions === 1 ? 'session' : 'sessions'} · ${spec.themes.length} themes`}
@@ -58,7 +70,7 @@ export function WriterView(p: WriterViewProps) {
       </header>
 
       {spec.stale && !published && (
-        <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes changed" subtitle="The project was analyzed again after this document was started. The themes below may no longer match the transcripts." />
+        <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes changed" subtitle="The project was analyzed again after this document was started. The themes below may no longer match the transcripts. Use Start over to draft it again from the new themes." />
       )}
       {spec.stale && published && (
         <InlineNotification kind="info" lowContrast hideCloseButton title="Themes changed" subtitle="The project was analyzed again after this was published. The stories on the board still point at the themes they were made from." />
@@ -203,6 +215,22 @@ export function WriterView(p: WriterViewProps) {
       >
         <p className={styles.para}>Tell the agent what to change about this step.</p>
         <TextArea id="redo-instructions" labelText="Instructions" rows={4} placeholder="e.g. Focus on the new-patient flow" value={p.redoText} onChange={(e) => p.onRedoText(e.target.value)} />
+      </Modal>
+      <Modal
+        open={p.startOverOpen}
+        danger
+        size="sm"
+        modalHeading="Start this document over?"
+        primaryButtonText="Start over"
+        secondaryButtonText="Cancel"
+        onRequestClose={p.onCancelStartOver}
+        onRequestSubmit={p.onConfirmStartOver}
+      >
+        <p>
+          This discards the current document and drafts a new one from the project&apos;s current themes
+          {published ? ', and removes the requirements and stories it created on the board' : ''}. It cannot be undone.
+        </p>
+        {p.startOverError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not started over" subtitle={p.startOverError} />}
       </Modal>
     </div>
   )

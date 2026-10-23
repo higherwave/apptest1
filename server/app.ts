@@ -356,14 +356,14 @@ export function createApp(options: AppOptions = {}) {
     requireEditor(c)
     const id = projectId(c)
     const input = parseBody(createSpecSchema, await readJson(c))
-    let created: string
+    let made: { id: string; created: boolean }
     try {
-      created = await createProjectSpec(getDb(), ai, c.get('ctx'), id, input.name)
+      made = await createProjectSpec(getDb(), ai, c.get('ctx'), id, input.name)
     } catch (err) {
       return specError(err)
     }
     c.header('Cache-Control', 'no-store')
-    return c.json(await specDetail(c, created), 201)
+    return c.json(await specDetail(c, made.id), made.created ? 201 : 200)
   })
 
   app.post('/specs/standalone', withContext, async (c) => {

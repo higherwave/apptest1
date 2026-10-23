@@ -290,7 +290,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Starts a requirements document from the project's themes: a run with the eight fixed steps, the first one already drafted and waiting for review. 409 no_analysis if the project has no themes. Needs the token. */
+        /** Gets the project's requirements document, starting it from the project's themes if it does not exist yet (a run with the eight fixed steps, the first already drafted and waiting for review). A project has one document: when it exists it is returned with 200 and nothing is drafted. 409 no_analysis if the project has no themes. Needs the token. */
         post: operations["createSpec"];
         delete?: never;
         options?: never;
@@ -1859,6 +1859,15 @@ export interface operations {
             };
         };
         responses: {
+            /** @description The document that already existed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecDetail"];
+                };
+            };
             /** @description The new document. */
             201: {
                 headers: {

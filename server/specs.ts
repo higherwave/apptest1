@@ -319,16 +319,23 @@ async function startFirstStep(db: Db, ai: Ai, ctx: Actor, specId: string): Promi
   return specId
 }
 
-export async function createProjectSpec(db: Db, ai: Ai, ctx: Actor, projectId: string, name?: string): Promise<string> {
-  const specId = await db.transaction(async (tx) => {
+// A project has one requirements document. Asking for it starts it from the project's current themes if it does not exist yet, and
+// otherwise returns the one that is there (the published one first, then the oldest), so a double click or a second tab cannot
+// make two. `created` says which happened.
+export async function createProjectSpec(db: Db, ai: Ai, ctx: Actor, projectId: string, name?: string): Promise<{ id: string; created: boolean }> {
+  const made = await db.transaction(async (tx) => {
     const p = (await tx.query(`select id, name from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])).rows[0]
     if (!p) throw new SpecNotFound()
+    await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [projectId])
+    const existing = (await tx.query(`select id from delivery.specs where project_id = $1 and workspace_id = $2 order by (status = 'published') desc, created_at, id limit 1`, [projectId, ctx.workspaceId])).rows[0]
+    if (existing) return { id: existing.id as string, created: false }
     const run = await currentAnalysisRun(tx, projectId)
     const themeIds = run ? (await tx.query(`select id from research.themes where project_id = $1 and run_id = $2`, [projectId, run.id])).rows.map((r) => r.id as string) : []
     if (!themeIds.length) throw new NoAnalysis()
-    return createSpecRows(tx, ctx, projectId, name?.trim() || p.name, themeIds)
+    return { id: await createSpecRows(tx, ctx, projectId, name?.trim() || p.name, themeIds), created: true }
   })
-  return startFirstStep(db, ai, ctx, specId)
+  if (!made.created) return made
+  return { id: await startFirstStep(db, ai, ctx, made.id), created: true }
 }
 
 // A stand-alone document has no research behind it: it is drafted from the description alone, so it lives in a project of

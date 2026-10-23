@@ -1,0 +1,11 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 75rem;
+}
+
+.actions {
+  display: flex;
+  gap: var(--at-space-sm);
+}
