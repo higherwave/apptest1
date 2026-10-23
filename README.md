@@ -56,6 +56,17 @@ someone with no invitation sees a "not invited" page. Owners invite, change role
 - Tests never talk to Google: `server/test-utils.ts` has a stand-in (`fakeAuth`), and `server/auth.real.test.ts` runs the
   real library against an in-memory Postgres. `npm run e2e` also runs the sign-in flow (`e2e/auth.mjs`).
 
+## Landing page at the root
+
+Visitors who open the bare address see `public/landing.html`: a static information page with **Sign in** (`/sign-in`, which opens
+Google) and **Explore the read-only demo** (`/projects`). The build does this in `scripts/finish-build.mjs` (run by `npm run
+build`): the app's own page becomes `dist/app.html` and the landing page becomes `dist/index.html`, and `vercel.json` sends every
+other address to `app.html`. Vercel serves a real file before it applies routing rules, which is why a routing rule for `/` was not
+used. A small script on the landing page calls `/api/v1/auth/get-session` and sends a signed-in person to `/projects`; the page is
+hidden for that moment only when scripts run, and shown anyway if the check is slow or fails. In local development (`npm run dev`)
+the app is at `/` and the landing page is at `/landing.html`. For the later production version with fuller marketing content,
+edit `public/landing.html`, or move it to its own site and point the root at it.
+
 ## Public pages
 
 `public/privacy.html` (served at `/privacy`) and `public/about.html` (at `/about`) are plain HTML, not part of the React app, so a crawler
