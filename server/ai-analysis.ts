@@ -47,6 +47,9 @@ export class TranscriptsTooLarge extends Error {}
 const EMAIL = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/g
 const PHONE = /(?<![\w.])(?:\+?\d{1,3}[\s.-]?)?(?:\(\d{3}\)|\d{3})[\s.-]?\d{3}[\s.-]?\d{4}(?![\w])/g
 
+/** Replaces email addresses and phone numbers with [email] and [phone]. */
+export const maskContact = (s: string) => s.replace(EMAIL, '[email]').replace(PHONE, '[phone]')
+
 type Speaker = { id: string; name: string; moderator: boolean; pid: string }
 type Line = { t: number; u: number; who: string; text: string; ts: string; mod: boolean; speaker: Speaker; masked: string; normalized: string }
 

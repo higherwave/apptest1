@@ -1,4 +1,4 @@
-import { callAi, type Ai } from './ai.js'
+import { callAiWithFallback, simulatedProvider, type Ai } from './ai.js'
 import type { Db, Queryable } from './db.js'
 import { ApiError } from './errors.js'
 import { currentAnalysisRun } from './transcripts.js'
@@ -235,15 +235,52 @@ export async function listSpecs(db: Queryable, workspaceId: string, filter: { pr
 
 // Writing -----------------------------------------------------------------------------------------------------
 
+type Drafted = { s: { t: string; r: string; ev: string[]; alts: { title: string; reason: string }[]; out: [string, (string | string[])?, (string[])?] }; items: Awaited<ReturnType<typeof themesForSpec>>; provider: string; promptVersion: string; byModel: boolean }
+
+// The steps already drafted before this one, as plain lines, so a model keeps the document consistent.
+async function priorSteps(db: Queryable, runId: string, position: number): Promise<{ title: string; lines: string[] }[]> {
+  const rows = (await db.query(`select title, output from core.agent_steps where run_id = $1 and position < $2 and output is not null order by position`, [runId, position])).rows
+  return rows.map((r) => {
+    const o = r.output as { text: string | null; items: string[] | null }
+    return { title: r.title as string, lines: o.items ?? (o.text ? [o.text] : []) }
+  })
+}
+
+// Gets one step's draft. This is the slow part (a model call), so it is made with the connection pool, never inside a transaction:
+// a slow call holds no lock, and its cost stays in the ledger even if saving the step later fails. When the month's budget or the
+// account's credit is used up the simulation drafts the step instead.
+async function draftStep(db: Queryable, ai: Ai, ctx: Actor, spec: Record<string, any>, position: number, redoNote?: string): Promise<Drafted> {
+  const { ctx: draft, inc, items } = await draftingContext(db, spec)
+  const prior = await priorSteps(db, spec.agent_run_id, position)
+  let byModel = false
+  let promptVersion = SPEC_PROMPT_VERSION
+  const { value, fallback } = await callAiWithFallback<Drafted['s']>(
+    db, ai, ctx.workspaceId, 'spec_step',
+    async (p) => {
+      if (!p.draftStep) {
+        const all = await p.buildSteps(draft, inc)
+        return { value: all.value[position - 1] as Drafted['s'], usage: all.usage }
+      }
+      const r = await p.draftStep({ position, ctx: draft, prior, redoNote })
+      byModel = true
+      promptVersion = r.value.promptVersion
+      return { value: r.value, usage: r.usage }
+    },
+    spec.agent_run_id,
+  )
+  const live = byModel && !fallback
+  return { s: value, items, provider: live ? ai.provider.name : simulatedProvider.name, promptVersion: live ? promptVersion : SPEC_PROMPT_VERSION, byModel: live }
+}
+
 // Writes one step's drafted content: its reasoning, output, evidence and the alternatives it considered.
-async function generateStep(tx: Queryable, ai: Ai, ctx: Actor, spec: Record<string, any>, stepId: string, position: number, redoNote?: string): Promise<void> {
-  const { ctx: draft, inc, items } = await draftingContext(tx, spec)
-  const s = ((await callAi(tx, ai, ctx.workspaceId, 'spec_step', (p) => p.buildSteps(draft, inc), spec.agent_run_id)) as { t: string; r: string; ev: string[]; alts: { title: string; reason: string }[]; out: [string, (string | string[])?, (string[])?] }[])[position - 1]
+async function storeStep(tx: Queryable, ctx: Actor, runId: string, stepId: string, drafted: Drafted, redoNote?: string): Promise<void> {
+  const { s, items } = drafted
   const [heading, second, third] = s.out
   await tx.query(
     `update core.agent_steps set reasoning = $2, edited_text = null, status = 'review', redo_note = $3, revision = revision + $4, output = $5::jsonb, approved_by = null, approved_at = null, updated_by = $6 where id = $1`,
-    [stepId, s.r + (redoNote ? ` Revised to account for: ${redoNote}.` : ''), redoNote ?? null, redoNote ? 1 : 0, JSON.stringify({ heading, text: Array.isArray(second) ? null : (second ?? null) || null, items: Array.isArray(second) ? second : (third ?? null) }), ctx.userId],
+    [stepId, s.r + (redoNote && !drafted.byModel ? ` Revised to account for: ${redoNote}.` : ''), redoNote ?? null, redoNote ? 1 : 0, JSON.stringify({ heading, text: Array.isArray(second) ? null : (second ?? null) || null, items: Array.isArray(second) ? second : (third ?? null) }), ctx.userId],
   )
+  await tx.query(`update core.agent_runs set provider = $2, prompt_version = $3 where id = $1`, [runId, drafted.provider, drafted.promptVersion])
   await tx.query(`delete from delivery.spec_step_evidence where step_id = $1`, [stepId])
   await tx.query(`delete from core.agent_step_alternatives where step_id = $1`, [stepId])
   const evidence = s.ev.flatMap((e) => {
@@ -255,7 +292,7 @@ async function generateStep(tx: Queryable, ai: Ai, ctx: Actor, spec: Record<stri
   await insertMany(tx, 'core.agent_step_alternatives', s.alts.map((a, i) => ({ workspace_id: ctx.workspaceId, step_id: stepId, position: i, title: a.title, reason: a.reason })))
 }
 
-async function createSpecRows(tx: Queryable, ai: Ai, ctx: Actor, projectId: string, name: string, themeIds: string[]): Promise<string> {
+async function createSpecRows(tx: Queryable, ctx: Actor, projectId: string, name: string, themeIds: string[]): Promise<string> {
   const runId = crypto.randomUUID()
   const specId = crypto.randomUUID()
   await tx.query(`insert into core.agent_runs (id, workspace_id, project_id, kind, status, provider, prompt_version, created_by, updated_by) values ($1, $2, $3, 'spec', 'running', 'stub', $4, $5, $5)`, [runId, ctx.workspaceId, projectId, SPEC_PROMPT_VERSION, ctx.userId])
@@ -263,39 +300,54 @@ async function createSpecRows(tx: Queryable, ai: Ai, ctx: Actor, projectId: stri
   const steps = SPEC_STEPS.map((s, i) => ({ id: crypto.randomUUID(), workspace_id: ctx.workspaceId, run_id: runId, position: i + 1, key: s.key, title: s.title, status: 'pending', created_by: ctx.userId, updated_by: ctx.userId }))
   await insertMany(tx, 'core.agent_steps', steps)
   await insertMany(tx, 'delivery.spec_themes', themeIds.map((id) => ({ spec_id: specId, theme_id: id, workspace_id: ctx.workspaceId, included: true })))
-  const spec = await specRow(tx, ctx.workspaceId, specId)
-  await generateStep(tx, ai, ctx, spec!, steps[0].id, 1) // step 1 starts at once; each approval starts the next
   await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'created', after: { name } }])
   return specId
 }
 
+// Step 1 starts at once; each approval starts the next. It is drafted after the rows are saved and outside any transaction. If it
+// cannot be drafted (the model is unavailable) the new document is removed again, so nobody is left with an empty one.
+async function startFirstStep(db: Db, ai: Ai, ctx: Actor, specId: string): Promise<string> {
+  try {
+    const spec = (await specRow(db, ctx.workspaceId, specId))!
+    const first = (await db.query(`select id from core.agent_steps where run_id = $1 and position = 1`, [spec.agent_run_id])).rows[0]
+    const drafted = await draftStep(db, ai, ctx, spec, 1)
+    await db.transaction((tx) => storeStep(tx, ctx, spec.agent_run_id, first.id as string, drafted))
+  } catch (err) {
+    await deleteSpec(db, ctx, specId).catch(() => undefined)
+    throw err
+  }
+  return specId
+}
+
 export async function createProjectSpec(db: Db, ai: Ai, ctx: Actor, projectId: string, name?: string): Promise<string> {
-  return db.transaction(async (tx) => {
+  const specId = await db.transaction(async (tx) => {
     const p = (await tx.query(`select id, name from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])).rows[0]
     if (!p) throw new SpecNotFound()
     const run = await currentAnalysisRun(tx, projectId)
     const themeIds = run ? (await tx.query(`select id from research.themes where project_id = $1 and run_id = $2`, [projectId, run.id])).rows.map((r) => r.id as string) : []
     if (!themeIds.length) throw new NoAnalysis()
-    return createSpecRows(tx, ai, ctx, projectId, name?.trim() || p.name, themeIds)
+    return createSpecRows(tx, ctx, projectId, name?.trim() || p.name, themeIds)
   })
+  return startFirstStep(db, ai, ctx, specId)
 }
 
 // A stand-alone document has no research behind it: it is drafted from the description alone, so it lives in a project of
 // its own kind and never appears in the research projects list.
 export async function createStandaloneSpec(db: Db, ai: Ai, ctx: Actor, input: { name: string; what: string }): Promise<string> {
-  return db.transaction(async (tx) => {
+  const specId = await db.transaction(async (tx) => {
     const projectId = (await tx.query(`insert into core.projects (workspace_id, name, kind, owner_id, created_by, updated_by) values ($1, $2, 'standalone', $3, $3, $3) returning id`, [ctx.workspaceId, input.name, ctx.userId])).rows[0].id as string
     await insertMany(tx, 'research.studies', [{ project_id: projectId, workspace_id: ctx.workspaceId, what_testing: input.what, created_by: ctx.userId, updated_by: ctx.userId }])
-    return createSpecRows(tx, ai, ctx, projectId, input.name, [])
+    return createSpecRows(tx, ctx, projectId, input.name, [])
   })
+  return startFirstStep(db, ai, ctx, specId)
 }
 
 // Loads a step with its spec, and refuses an action on a published document or with a stale version.
-async function lockStep(tx: Queryable, ctx: Actor, stepId: string, expected: number) {
+async function lockStep(tx: Queryable, ctx: Actor, stepId: string, expected: number, lock = true) {
   const r = (
     await tx.query(
       `select a.id, a.position, a.status, a.version, s.id as spec_id from core.agent_steps a
-       join delivery.specs s on s.agent_run_id = a.run_id where a.id = $1 and s.workspace_id = $2 for update of a`,
+       join delivery.specs s on s.agent_run_id = a.run_id where a.id = $1 and s.workspace_id = $2${lock ? ' for update of a' : ''}`,
       [stepId, ctx.workspaceId],
     )
   ).rows[0]
@@ -306,24 +358,33 @@ async function lockStep(tx: Queryable, ctx: Actor, stepId: string, expected: num
   return { step: r, spec }
 }
 
-// Approving a step starts the next one, in order. The next step is drafted from the themes included at that moment.
+// Approving a step starts the next one, in order. The next step is drafted from the themes included at that moment. The draft is made
+// first, outside the transaction; the step is then locked, checked again and approved together with saving the draft, so a failed
+// draft leaves everything as it was and the step can be approved again.
 export async function approveStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number): Promise<string> {
+  const peek = await lockStep(db, ctx, stepId, expected, false)
+  if (peek.step.status !== 'review') throw new StepOutOfOrder()
+  const nextRow = (await db.query(`select id, position, status from core.agent_steps where run_id = $1 and position = $2`, [peek.spec.agent_run_id, peek.step.position + 1])).rows[0]
+  const drafted = nextRow && nextRow.status === 'pending' ? await draftStep(db, ai, ctx, peek.spec, nextRow.position) : undefined
   return db.transaction(async (tx) => {
     const { step, spec } = await lockStep(tx, ctx, stepId, expected)
     if (step.status !== 'review') throw new StepOutOfOrder()
     await tx.query(`update core.agent_steps set status = 'approved', approved_by = $2, approved_at = now(), updated_by = $2 where id = $1`, [stepId, ctx.userId])
     const next = (await tx.query(`select id, position, status from core.agent_steps where run_id = $1 and position = $2`, [spec.agent_run_id, step.position + 1])).rows[0]
-    if (next && next.status === 'pending') await generateStep(tx, ai, ctx, spec, next.id, next.position)
+    if (next && next.status === 'pending' && drafted) await storeStep(tx, ctx, spec.agent_run_id, next.id, drafted)
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.agent_steps', entity_id: stepId, verb: 'approved' }])
     return spec.id as string
   })
 }
 
 export async function redoStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number, instructions: string): Promise<string> {
+  const peek = await lockStep(db, ctx, stepId, expected, false)
+  if (peek.step.status === 'pending') throw new StepOutOfOrder()
+  const drafted = await draftStep(db, ai, ctx, peek.spec, peek.step.position, instructions)
   return db.transaction(async (tx) => {
     const { step, spec } = await lockStep(tx, ctx, stepId, expected)
     if (step.status === 'pending') throw new StepOutOfOrder()
-    await generateStep(tx, ai, ctx, spec, stepId, step.position, instructions)
+    await storeStep(tx, ctx, spec.agent_run_id, stepId, drafted, instructions)
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.agent_steps', entity_id: stepId, verb: 'redone', after: { instructions } }])
     return spec.id as string
   })

@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs'
 import { getProvider, makeAi } from './ai.js'
 import { runAnalysis } from './analysis.js'
 import { anthropicCall, anthropicProvider, costUsd, DEFAULT_ANALYSIS_MODEL, mapFailure } from './anthropic.js'
+import { createProjectSpec, getSpec } from './specs.js'
 import { createDemoDatabase } from './test-utils.js'
 
 const KEY = 'sk-ant-test-key-do-not-leak'
@@ -118,4 +119,21 @@ test('other provider failures mark the run failed and record nothing', async () 
   await assert.rejects(runAnalysis(db, makeAi(env, provider), actor, pid.id, pid.version), (e: any) => e.code === 'ai_not_configured')
   assert.equal((await pglite.query<any>(`select count(*)::int n from core.ai_usage`)).rows[0].n, 0)
   assert.equal((await pglite.query<any>(`select count(*)::int n from core.agent_runs where project_id = $1 and status = 'running'`, [pid.id])).rows[0].n, 0)
+})
+
+test('drafting a requirements step goes through the live provider: one call, priced, saved with its evidence', async () => {
+  const { db, pglite, pid, actor } = await setup('Clinic booking, round 2')
+  const reply = JSON.stringify({ reasoning: 'Participants met costs late in booking, the clearest barrier in the research.', text: 'Fees and coverage appear too late in booking.', evidence: ['T1'], alternatives: [] })
+  const f = fetching(ok(reply, 2_000, 400))
+  const { env, provider } = envFor(f)
+  const specId = await createProjectSpec(db, makeAi(env, provider), actor, pid.id)
+  assert.equal(f.calls.length, 1)
+  const body = JSON.parse(f.calls[0].init.body as string)
+  assert.equal(body.model, DEFAULT_ANALYSIS_MODEL)
+  assert.match(body.messages[0].content, /Step 1 of 8: Frame the problem/)
+  const spend = (await pglite.query<any>(`select purpose, provider, input_tokens, cost_usd::float8 as cost from core.ai_usage`)).rows
+  assert.deepEqual(spend, [{ purpose: 'spec_step', provider: 'anthropic', input_tokens: 2_000, cost: 0.008 }])
+  const spec = (await getSpec(db, actor.workspaceId, specId))!
+  assert.equal(spec.steps[0].status, 'review')
+  assert.equal(spec.steps[0].evidence.length, 1)
 })

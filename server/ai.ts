@@ -3,7 +3,8 @@ import { ApiError } from './errors.js'
 import type { Env, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import { anthropicProvider } from './anthropic.js'
-import type { AnalysisInput } from './ai-analysis.js'
+import { ModelOutputError, type AnalysisInput } from './ai-analysis.js'
+import type { DraftInput, StepDraft } from './ai-drafting.js'
 
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
@@ -18,6 +19,8 @@ export type AiProvider = {
   buildSteps(...args: Parameters<Fn<'buildSteps'>>): Promise<Priced<ReturnType<Fn<'buildSteps'>>>>
   matchThemes(...args: Parameters<Fn<'matchThemes'>>): Promise<Priced<ReturnType<Fn<'matchThemes'>>>>
   /** Whole-project analysis by a model, given the stages and study context. Providers without it use `analyze`. */
+  /** One requirements step drafted by a model, in the shape of one simulated step. Providers without it use `buildSteps`. */
+  draftStep?(input: DraftInput): Promise<Priced<StepDraft & { promptVersion: string }>>
   analyzeProject?(input: AnalysisInput): Promise<Priced<{ themes: ReturnType<Fn<'analyze'>>; promptVersion: string }>>
 }
 export type Ai = { provider: AiProvider; env: Env }
@@ -85,4 +88,21 @@ export async function callAi<T>(db: Queryable, ai: Ai, workspaceId: string, purp
   const { value, usage } = priced
   await recordUsage(db, ai, workspaceId, purpose, usage, runId)
   return value
+}
+
+export type Fallback = 'budget' | 'credit'
+
+// Like callAi, but when the month's budget or the account's credit is used up the call is made again with the simulation, so
+// the app stays usable. `fallback` says so. An unusable model reply becomes a plain 503; nothing is saved from it.
+export async function callAiWithFallback<T>(db: Queryable, ai: Ai, workspaceId: string, purpose: Purpose, call: (p: AiProvider) => Promise<Priced<T>>, runId?: string): Promise<{ value: T; fallback?: Fallback }> {
+  try {
+    return { value: await callAi(db, ai, workspaceId, purpose, call, runId) }
+  } catch (err) {
+    const code = err instanceof ApiError ? err.code : ''
+    if (code === 'ai_budget_reached' || code === 'ai_credit_exhausted') {
+      return { value: await callAi(db, { ...ai, provider: simulatedProvider }, workspaceId, purpose, call, runId), fallback: code === 'ai_budget_reached' ? 'budget' : 'credit' }
+    }
+    if (err instanceof ModelOutputError) throw new ApiError(503, 'ai_output_unusable', 'The AI did not return a usable result. Nothing was changed; try again.')
+    throw err
+  }
 }

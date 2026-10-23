@@ -3,6 +3,7 @@
 import type { Env } from './db.js'
 import { ApiError } from './errors.js'
 import { analyzeWithModel, type AnalysisInput, type ModelCall } from './ai-analysis.js'
+import { draftWithModel } from './ai-drafting.js'
 import { simulatedProvider, type AiProvider, type Usage } from './ai.js'
 
 export const DEFAULT_ANALYSIS_MODEL = 'claude-sonnet-5-5'
@@ -59,6 +60,8 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
   if (!env.ANTHROPIC_API_KEY) return undefined
   const model = env.AI_ANALYSIS_MODEL && PRICES[env.AI_ANALYSIS_MODEL] ? env.AI_ANALYSIS_MODEL : DEFAULT_ANALYSIS_MODEL
   const call = anthropicCall(env, model, fetchImpl)
+  const draftModel = env.AI_DRAFT_MODEL && PRICES[env.AI_DRAFT_MODEL] ? env.AI_DRAFT_MODEL : DEFAULT_ANALYSIS_MODEL
+  const draftCall = draftModel === model ? call : anthropicCall(env, draftModel, fetchImpl)
   return {
     ...simulatedProvider,
     name: 'anthropic',
@@ -66,6 +69,10 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
     analyzeProject: async (input: AnalysisInput) => {
       const r = await analyzeWithModel(call, input)
       return { value: { themes: r.themes, promptVersion: r.promptVersion }, usage: r.usage }
+    },
+    draftStep: async (input) => {
+      const r = await draftWithModel(draftCall, input)
+      return { value: { ...r.draft, promptVersion: r.promptVersion }, usage: r.usage }
     },
   }
 }

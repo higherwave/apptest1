@@ -92,7 +92,14 @@ recordings replace them), and a run that saves a model-shaped analysis. Nothing 
 `AI_ANALYSIS_MODEL` (default `claude-sonnet-5-5`) and `AI_MONTHLY_BUDGET_USD` (default 10) are optional. Cost is computed from the
 reply's token counts and recorded in `core.ai_usage`, including a paid call whose reply was unusable. Provider failures (out of
 credit, rate limit, bad key, outage) become a 503 with a plain message and the run is marked failed; the current analysis is never
-replaced. `server/anthropic.test.ts` uses a fake network. Only analysis is live; drafting and matching remain simulated.
+replaced. `server/anthropic.test.ts` uses a fake network. At the app budget or when the account is out of credit, analysis and
+drafting carry on with the simulation (recorded on the run).
+
+Requirements drafting (`server/ai-drafting.ts`, prompt `spec-draft-v1`) drafts one step per call and returns the shape of one simulated
+step. The reply must match a schema, cite only themes in the document, and use only participant and session counts the app supplied
+(one retry, then a plain 503). The call is made before any transaction opens: approving or redoing drafts first, then locks, checks
+and saves together, so a failed draft changes nothing. Creating a document that cannot be drafted removes it again. `AI_DRAFT_MODEL`
+optionally picks another model for drafting. Matching remains simulated.
 
 ## Cost limits
 
