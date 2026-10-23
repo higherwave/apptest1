@@ -1,101 +1,98 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Signal Flow – from user research to requirements</title>
-  <meta name="description" content="Signal Flow turns interview transcripts into themes, requirements, and stories. A development, testing, and demonstration environment." />
-  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
-  <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
-  <link rel="shortcut icon" href="/favicon.ico" />
-  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-  <script>
-    // A signed-in person goes straight to the app. The page is hidden for a moment while that is checked (only when scripts run),
-    // and shown anyway if the check is slow or fails. The check touches no database unless there is a session cookie.
-    (function () {
-      var root = document.documentElement;
-      root.className += ' checking';
-      var show = function () { root.className = root.className.replace(' checking', ''); };
-      setTimeout(show, 1500);
-      fetch('/api/v1/auth/get-session', { credentials: 'same-origin' })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (d) { if (d && d.user) location.replace('/projects'); else show(); })
-        .catch(show);
-    })();
-  </script>
-  <style>
-    .checking body { visibility: hidden; }
-    * { box-sizing: border-box; }
-    body { margin: 0; font: 16px/1.6 'Helvetica Neue', Helvetica, Arimo, Arial, sans-serif; color: #333840; background: #fff; }
-    a { color: #1b61c9; }
-    .bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; max-width: 70rem; margin: 0 auto; padding: 1rem 1.5rem; }
-    .brand { display: flex; align-items: center; gap: 0.6rem; font-size: 1.25rem; font-weight: 300; color: #181d26; text-decoration: none; }
-    .brand img { display: block; width: 24px; height: 24px; }
-    .button { display: inline-block; padding: 0.7rem 1.4rem; border-radius: 10px; border: 1px solid #181d26; background: #181d26; color: #fff; text-decoration: none; font-weight: 500; }
-    .button.secondary { background: #fff; color: #181d26; border-color: #8a8f99; }
-    .button:focus-visible, a:focus-visible { outline: 2px solid #181d26; outline-offset: 2px; }
-    .hero { max-width: 70rem; margin: 0 auto; padding: 3.5rem 1.5rem 2.5rem; }
-    h1 { max-width: 40rem; margin: 0 0 1rem; font-size: clamp(2rem, 5vw, 3rem); font-weight: 300; line-height: 1.15; color: #181d26; }
-    .lead { max-width: 40rem; margin: 0 0 1.75rem; font-size: 1.125rem; }
-    .actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
-    .note { margin: 0.75rem 0 0; font-size: 0.875rem; color: #41454d; }
-    .features { background: #f8fafc; border-block: 1px solid #dddddd; }
-    .features .wrap { max-width: 70rem; margin: 0 auto; padding: 2.5rem 1.5rem; }
-    h2 { margin: 0 0 1.25rem; font-size: 1.5rem; font-weight: 400; color: #181d26; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: 1rem; }
-    .card { padding: 1.25rem; border-radius: 12px; background: #fff; border: 1px solid #dddddd; }
-    .card.mint { background: #e4f3ec; border-color: #e4f3ec; }
-    .card.lavender { background: #eeeafa; border-color: #eeeafa; }
-    .card.sky { background: #e6f2fa; border-color: #e6f2fa; }
-    .card.sand { background: #faf1df; border-color: #faf1df; }
-    .card h3 { margin: 0 0 0.4rem; font-size: 1.125rem; font-weight: 500; color: #181d26; }
-    .card p { margin: 0; font-size: 0.9375rem; color: #333840; }
-    .how { max-width: 70rem; margin: 0 auto; padding: 2.5rem 1.5rem; }
-    .how p { max-width: 44rem; margin: 0 0 0.75rem; }
-    footer { max-width: 70rem; margin: 0 auto; padding: 1.5rem 1.5rem 3rem; font-size: 0.8125rem; color: #41454d; border-top: 1px solid #dddddd; }
-    footer p { max-width: 60rem; margin: 0 0 0.5rem; }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Signal Flow</title>
+<meta name="description" content="Signal Flow turns interview transcripts into themes, requirements, and stories. A development, testing, and demonstration environment.">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
+<link rel="shortcut icon" href="/favicon.ico">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<script>
+// A signed-in person goes straight to the app. The page is hidden for a moment while that is checked (only when scripts run),
+// and shown anyway if the check is slow or fails. The check touches no database unless there is a session cookie.
+(function () {
+  var root = document.documentElement;
+  root.className += ' checking';
+  var show = function () { root.className = root.className.replace(' checking', ''); };
+  setTimeout(show, 1500);
+  fetch('/api/v1/auth/get-session', { credentials: 'same-origin' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.user) location.replace('/projects'); else show(); })
+    .catch(show);
+})();
+</script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500&family=Inter+Tight:wght@400;500&display=swap" rel="stylesheet">
+<style>
+.checking body{visibility:hidden}
+a:focus-visible{outline:2px solid #181d26;outline-offset:2px}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,-apple-system,"Segoe UI",sans-serif;color:#333840;background:#fff;font-size:14px}
+a{color:#1b61c9;text-decoration:none}a:hover{color:#1a3866}
+.nav{height:64px;display:flex;align-items:center;padding:0 max(48px,calc((100% - 960px)/2));border-bottom:1px solid #ddd;position:relative;z-index:2;background:#fff}
+.brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:500;color:#181d26}
+.brand img{width:32px;height:32px;display:block}
+.hero{position:relative;overflow:hidden}
+.ribbons{position:absolute;inset:0 0 0 46%;pointer-events:none;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 35%),linear-gradient(to bottom,#000 60%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0%,#000 35%),linear-gradient(to bottom,#000 60%,transparent 100%);mask-composite:intersect}
+.ribbons div{position:absolute;top:-30%;height:160%;border-radius:50%;filter:blur(12px)}
+.copy{position:relative;padding:120px max(48px,calc((100% - 960px)/2));display:flex;flex-direction:column;gap:24px}
+h1{margin:0;font-family:"Inter Tight",Inter,sans-serif;font-weight:400;font-size:48px;line-height:1.1;color:#181d26;max-width:780px}
+h1 span{color:#41454d}
+.copy p{margin:0;max-width:780px;font-size:16px;line-height:1.5;color:#333840}
+.actions{display:flex;gap:12px;margin-top:24px;flex-wrap:wrap}
+.btn{font-size:16px;font-weight:500;padding:16px 24px;border-radius:12px;border:1px solid transparent}
+.btn.primary{background:#181d26;color:#fff}.btn.primary:hover{background:#333840;color:#fff}
+.btn.secondary{background:#fff;color:#181d26;border-color:#ddd}.btn.secondary:hover{background:#f8fafc;color:#181d26}
+footer .brand{font-size:18px}
+@media(max-width:720px){.nav,.copy,footer{padding-left:24px;padding-right:24px}.copy{padding-top:72px;padding-bottom:72px}h1{font-size:34px}.ribbons{inset:0 0 0 20%;opacity:.5}}
+.what{background:#f8fafc;border-top:1px solid #ddd;border-bottom:1px solid #ddd;padding:64px 48px}
+.wrap{max-width:960px;margin:0 auto}
+h2{margin:0;font-family:"Inter Tight",Inter,sans-serif;font-weight:400;font-size:28px;line-height:1.2;color:#181d26}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:32px}
+.card{border:2px solid;background:transparent;border-radius:12px;padding:20px;color:#333840}
+.card h3{margin:0 0 12px;font-size:18px;font-weight:500;color:#181d26}
+.card p{margin:0;font-size:15px;line-height:1.6}
+.about{padding:64px 48px 0}
+.about p{margin:20px 0 0;max-width:none;font-size:17px;line-height:1.6;color:#333840}
+.legal{margin-top:24px;font-size:13px;line-height:1.6;color:#333840}
+.legal p{margin:0 0 10px;max-width:880px}
+footer{background:#e4e5e8;margin-top:64px;padding:48px}.foot{max-width:960px;margin:0 auto}
+@media(max-width:720px){.what,.about,footer{padding-left:24px;padding-right:24px}}
+</style>
 </head>
 <body>
-  <header class="bar">
-    <a class="brand" href="/"><img src="/logo.png" alt="" width="24" height="24" />Signal Flow</a>
-    <a class="button" href="/sign-in">Sign in</a>
-  </header>
-
-  <main>
-    <section class="hero">
-      <h1>From user research to requirements.</h1>
-      <p class="lead">Signal Flow helps a team plan a research study, upload interview transcripts, see the themes in them with the evidence behind each, and turn those themes into requirements and stories ready to carry into a tracker such as Jira.</p>
-      <div class="actions">
-        <a class="button" href="/sign-in">Sign in</a>
-        <a class="button secondary" href="/projects">Explore the read-only demo</a>
-      </div>
-      <p class="note">Sign-in is by invitation, with a Google account. The demo needs no account.</p>
-    </section>
-
-    <section class="features" aria-labelledby="what">
-      <div class="wrap">
-        <h2 id="what">What it does</h2>
-        <div class="grid">
-          <div class="card mint"><h3>Plan the study</h3><p>Say what is being tested, what you expect to learn, and who you will speak with, all on one page.</p></div>
-          <div class="card lavender"><h3>Find the themes</h3><p>Upload Zoom, Google Meet, or Microsoft Teams transcripts. Each theme keeps the quotes it came from.</p></div>
-          <div class="card sky"><h3>See what matters</h3><p>Themes land on a journey map and a priorities map, ready for your team to review and reorder.</p></div>
-          <div class="card sand"><h3>Write and track</h3><p>Turn themes into a reviewed brief and requirements, then follow the resulting stories across a board.</p></div>
-        </div>
-      </div>
-    </section>
-
-    <section class="how" aria-labelledby="how">
-      <h2 id="how">About this site</h2>
-      <p>Anyone can look around the demonstration without an account. Creating and editing is limited to people who have been invited, who sign in with Google. Signal Flow receives only your name, email address, and profile picture from Google. See the <a href="/privacy">privacy policy</a> for the details.</p>
-      <p>The analysis in this demonstration is simulated, and nothing you enter is sent to an AI service.</p>
-    </section>
-  </main>
-
-  <footer>
-    <p>Welcome to Signal Flow. This website is a development, testing, and demonstration environment used solely to showcase technical features and test functionality, including user authentication via Google Sign-In.</p>
-    <p>Because this is a testing environment, please do not use real personal data, sensitive information, or production credentials when interacting with this site.</p>
-    <p><a href="/privacy">Privacy policy</a> · <a href="/about">About</a> · Signal Flow is run by Higherwave (higherwave.org).</p>
-  </footer>
+<header class="nav"><div class="brand"><img src="/landing-icon.png" alt="">Signal Flow</div></header>
+<main class="hero">
+<div class="ribbons" aria-hidden="true">
+<div data-ribbon style="left:8%;width:30%;background:linear-gradient(180deg,#a8d8c4 0%,#1b61c9 70%,#a8d8c4 100%);transform:rotate(-32deg);opacity:.85"></div>
+<div data-ribbon style="left:30%;width:34%;background:linear-gradient(180deg,#8ec5f0 0%,#7c5cd6 50%,#1b61c9 100%);transform:rotate(-32deg);opacity:.9"></div>
+<div data-ribbon style="left:52%;width:26%;background:linear-gradient(180deg,#c3b5f2 0%,#2a9d8f 55%,#a8d8c4 100%);transform:rotate(-26deg);opacity:.85"></div>
+<div data-ribbon style="left:70%;width:24%;background:linear-gradient(180deg,#1b61c9 0%,#a8d8c4 60%,#c3b5f2 100%);transform:rotate(-36deg);opacity:.8"></div>
+</div>
+<div class="copy">
+<h1>A unified framework for ResearchOps, DesignOps, and ProductOps. <span>Drive decisions and insights with customer themes.</span></h1>
+<p>Signal Flow helps teams plan a research study, upload interview transcripts, and leverage AI to turn those customer themes into requirements, stories, and insights.</p>
+<div class="actions">
+<a class="btn primary" href="/sign-in">Sign in</a>
+<a class="btn secondary" href="/projects">Explore the read-only demo</a>
+</div>
+</div>
+</main>
+<section class="what"><div class="wrap"><h2>From research to requirements</h2><div class="cards">
+<div class="card" style="border-color:#a8d8c4"><h3>Plan the study</h3><p>Say what is being tested, what you expect to learn, and who you will speak with, all on one page.</p></div>
+<div class="card" style="border-color:#c3b5f2"><h3>Find the themes</h3><p>Upload Zoom, Google Meet, or Microsoft Teams transcripts. Each theme keeps the quotes it came from.</p></div>
+<div class="card" style="border-color:#8ec5f0"><h3>See what matters</h3><p>Themes land on a journey map and a priorities map, ready for your team to review and reorder.</p></div>
+<div class="card" style="border-color:#f0cf8a"><h3>Write and track</h3><p>Turn themes into a reviewed brief and requirements, then follow the resulting stories across a board.</p></div>
+</div></div></section>
+<section class="about"><div class="wrap"><h2>About this site</h2>
+<p>Anyone can look around the demonstration without an account. Creating and editing is limited to people who have been invited, who sign in with Google. Signal Flow receives only your name, email address, and profile picture from Google. See the <a href="/privacy">privacy policy</a> for the details.</p>
+<p>The analysis in this demonstration is simulated, and nothing you enter is sent to an AI service.</p>
+</div></section>
+<footer><div class="foot"><div class="brand"><img src="/landing-icon.png" alt="">Signal Flow</div>
+<div class="legal"><p>Welcome to Signal Flow. This website is a development, testing, and demonstration environment used solely to showcase technical features and test functionality, including user authentication via Google Sign-In.</p>
+<p>Because this is a testing environment, please do not use real personal data, sensitive information, or production credentials when interacting with this site.</p>
+<p><a href="/privacy">Privacy policy</a> · <a href="/about">About</a> · Signal Flow is run by Higherwave (higherwave.org).</p></div></div></footer>
+<script src="/landing-motion.js"></script>
 </body>
 </html>
