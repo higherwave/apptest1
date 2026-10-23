@@ -1577,7 +1577,7 @@ test('the simulation records no spend and the status says simulated', async () =
   assert.deepEqual(await (await off.app.request('/api/v1/ai/status')).json(), { mode: 'simulated', enabled: false })
 })
 
-test('a costly provider is recorded and stopped at the monthly budget with 503 ai_budget_reached', async () => {
+test('a costly provider is recorded, and at the monthly budget the run falls back to the simulation', async () => {
   const { app, pg, id, putTranscripts, samples, analyze } = await newStudy(costly(6), { AI_MONTHLY_BUDGET_USD: '10' })
   assert.equal((await putTranscripts(samples)).status, 200)
   assert.equal((await analyze()).status, 201) // analysis costs 6, the follow-up platform match costs 6: 12 spent
@@ -1586,10 +1586,10 @@ test('a costly provider is recorded and stopped at the monthly budget with 503 a
   assert.equal(spent.s, 12)
   const before = ((await pg.query<any>(`select version from core.projects where id = $1`, [id])).rows[0] as { version: number }).version
   const res = await analyze(before)
-  assert.equal(res.status, 503)
-  assert.equal((await expectSpec(res, '/projects/{id}/analysis-runs', 'post')).error.code, 'ai_budget_reached')
-  const runs = (await pg.query<any>(`select status::text s, count(*)::int n from core.agent_runs where project_id = $1 and kind = 'analysis' group by 1`, [id])).rows
-  assert.deepEqual(Object.fromEntries(runs.map((r: any) => [r.s, r.n])), { complete: 1, failed: 1 }, 'the refused run is marked failed, none left running')
+  assert.equal(res.status, 201, 'at the ceiling the run carries on with the simulation')
+  assert.equal((await expectSpec(res, '/projects/{id}/analysis-runs', 'post')).fallback, 'budget')
+  const runs = (await pg.query<any>(`select provider, status::text s from core.agent_runs where project_id = $1 and kind = 'analysis' order by started_at`, [id])).rows
+  assert.deepEqual(runs, [{ provider: 'fake', s: 'complete' }, { provider: 'stub', s: 'complete' }].map((r) => ({ provider: r.provider, s: r.s })), 'the second run is recorded as simulated')
   const status = await (await app.request('/api/v1/ai/status', { headers: auth })).json()
   assert.deepEqual(status, { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 12 })
   assert.deepEqual(await (await app.request('/api/v1/ai/status')).json(), { mode: 'live', enabled: true })

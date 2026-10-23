@@ -27,7 +27,7 @@
 <main>
   <nav><img src="/logo.png" alt="" width="24" height="24" /><a href="/about">Signal Flow</a> · <a href="/projects">Open the app</a></nav>
   <h1>Privacy Policy</h1>
-  <p class="meta">Signal Flow · Last updated October 22, 2026</p>
+  <p class="meta">Signal Flow · Last updated October 23, 2026</p>
 
   <div class="notice">
     <p>Welcome to Signal Flow. This website is a development, testing, and demonstration environment used solely to showcase technical features and test functionality, including user authentication via Google Sign-In.</p>
@@ -58,13 +58,16 @@
   <p>We do not use this information for advertising, marketing, profiling, or analytics, and we do not sell it or give it to anyone for those purposes.</p>
 
   <h2>Information you enter in the app</h2>
-  <p>Anything you type or upload, such as project names, participant details, and transcript text, is stored so the app can show it back to you. This is a testing environment: please use made-up or sample data only. The app's analysis features are simulated, and nothing you enter is sent to any AI service.</p>
+  <p>Anything you type or upload, such as project names, participant details, and transcript text, is stored so the app can show it back to you. This is a testing environment: please use made-up or sample data only. </p>
+
+  <h2>AI analysis</h2>
+  <p>Signal Flow can use an AI service to analyze transcripts. When this is switched on, the text of the transcripts in the project being analyzed, together with the study's journey stages and test plan, is sent to Anthropic (anthropic.com) through its API so the model can find themes. Before sending, the app replaces speaker names with labels such as P1 and removes email addresses, phone numbers, and participant names it recognizes; file names are not sent. Per Anthropic's API terms, Anthropic keeps this input and the model's output for 30 days by default for safety and security purposes. Signal Flow has not joined any Anthropic program that shares data for model improvement. Analysis is only run by invited editors and owners, never by visitors using the read-only demo. When AI analysis is switched off, or its monthly budget or credit is used up, the app uses a simulated keyword analysis and nothing is sent to an AI service. Because this is a testing environment, please enter only made-up or sample data.</p>
 
   <h2>Cookies</h2>
   <p>Signal Flow sets one first-party cookie, a session cookie (named like <code>better-auth.session_token</code>), that keeps you signed in for up to seven days or until you sign out. It is needed for sign-in to work. We do not use advertising or analytics cookies.</p>
 
   <h2>Where information is stored, and who else handles it</h2>
-  <p>The information above is stored in a Postgres database hosted by Neon (in the United States). The site is hosted by Vercel, which may keep ordinary server logs, such as IP addresses and requests, as part of hosting. Google provides the sign-in service. These providers handle information only to run the service for us. We do not share your information with anyone else, except if the law requires it.</p>
+  <p>The information above is stored in a Postgres database hosted by Neon (in the United States). The site is hosted by Vercel, which may keep ordinary server logs, such as IP addresses and requests, as part of hosting. Google provides the sign-in service, and Anthropic handles transcript text when AI analysis is on (see above). These providers handle information only to run the service for us. We do not share your information with anyone else, except if the law requires it.</p>
 
   <h2>How long we keep it, and how to have it removed</h2>
   <p>Because this is a testing environment, we keep information only while the environment exists, and it may be reset or deleted at any time without notice. An owner can remove your access on the Members page, which also ends your session. To have your name, email address, and sign-in record deleted, email <a href="mailto:david.garrett@higherwave.org">david.garrett@higherwave.org</a> and we will remove them. You can also withdraw Signal Flow's access to your Google account at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
@@ -76,7 +79,7 @@
   <p>Signal Flow is not directed at children, and it is not for people under 18.</p>
 
   <h2>Changes to this policy</h2>
-  <p>If this policy changes, for example if the app starts using an outside AI service, this page will be updated and the date above will change.</p>
+  <p>If this policy changes, for example if the app starts using another outside service, this page will be updated and the date above will change.</p>
 </main>
 </body>
 </html>

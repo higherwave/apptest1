@@ -102,10 +102,20 @@ test('an unusable reply fails the run, keeps the current analysis, and still rec
   assert.deepEqual(spend, { n: 1, i: 2000 })
 })
 
-test('a provider failure marks the run failed and records nothing', async () => {
+test('when the account is out of credit the run falls back to the simulation and says so', async () => {
   const { db, pglite, pid, actor } = await setup()
   const { env, provider } = envFor(fetching(new Response('Your credit balance is too low', { status: 400 })))
-  await assert.rejects(runAnalysis(db, makeAi(env, provider), actor, pid.id, pid.version), (e: any) => e.code === 'ai_credit_exhausted')
+  const result = await runAnalysis(db, makeAi(env, provider), actor, pid.id, pid.version)
+  assert.equal(result.fallback, 'credit')
+  assert.ok(result.themes > 0)
+  assert.deepEqual((await pglite.query<any>(`select provider, prompt_version, status::text s from core.agent_runs where id = $1`, [result.runId])).rows[0], { provider: 'stub', prompt_version: 'keyword-v1', s: 'complete' })
+  assert.equal((await pglite.query<any>(`select count(*)::int n from core.ai_usage`)).rows[0].n, 0)
+})
+
+test('other provider failures mark the run failed and record nothing', async () => {
+  const { db, pglite, pid, actor } = await setup()
+  const { env, provider } = envFor(fetching(new Response('invalid x-api-key', { status: 401 })))
+  await assert.rejects(runAnalysis(db, makeAi(env, provider), actor, pid.id, pid.version), (e: any) => e.code === 'ai_not_configured')
   assert.equal((await pglite.query<any>(`select count(*)::int n from core.ai_usage`)).rows[0].n, 0)
   assert.equal((await pglite.query<any>(`select count(*)::int n from core.agent_runs where project_id = $1 and status = 'running'`, [pid.id])).rows[0].n, 0)
 })

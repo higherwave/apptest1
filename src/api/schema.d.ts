@@ -1089,6 +1089,11 @@ export interface components {
             runId: string;
             themes: number;
             steps: string[];
+            /**
+             * @description Present when the live model could not be used (monthly budget or account credit used up) and the simulation ran instead.
+             * @enum {string}
+             */
+            fallback?: "budget" | "credit";
         };
         SaveTasksRequest: {
             tasks: {

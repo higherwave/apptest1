@@ -1471,6 +1471,7 @@ components:
         steps:
           type: array
           items: { type: string }
+        fallback: { type: string, enum: [budget, credit], description: 'Present when the live model could not be used (monthly budget or account credit used up) and the simulation ran instead.' }
     SaveTasksRequest:
       type: object
       required: [tasks]

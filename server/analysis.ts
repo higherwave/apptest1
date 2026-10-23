@@ -1,5 +1,5 @@
 import { EFFORT, STEP_TITLES, THEMES } from '../shared/stub-config.mjs'
-import { callAi, type Ai, type AiProvider } from './ai.js'
+import { callAi, simulatedProvider, type Ai, type AiProvider } from './ai.js'
 import { ANALYSIS_PROMPT_VERSION, loadAnalysisInput, ModelOutputError, TranscriptsTooLarge } from './ai-analysis.js'
 import type { Db } from './db.js'
 import { ApiError } from './errors.js'
@@ -12,7 +12,7 @@ import { transcriptsKey } from './transcripts.js'
 // A real model replaces this behind the same input and output; nothing else changes.
 const CATEGORY: Record<string, string> = { 'Pain point': 'pain_point', Need: 'need', Expectation: 'expectation', Delight: 'delight' }
 
-export type AnalysisResult = { runId: string; themes: number; steps: string[] }
+export type AnalysisResult = { runId: string; themes: number; steps: string[]; /** Set when the live model could not be used and the simulation ran instead. */ fallback?: 'budget' | 'credit' }
 export class NoTranscripts extends Error {}
 
 // A run still "running" after this long is treated as dead (the function was cut off), so it cannot block the project forever.
@@ -45,16 +45,30 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
   }
 
   try {
-    const themes = await callAi(
-      db, ai, ctx.workspaceId, 'analysis',
-      async (p) => {
-        if (!p.analyzeProject) return p.analyze(transcripts.map((t) => ({ name: t.name as string, text: t.raw_text as string })), participants, THEMES, EFFORT)
-        const r = await p.analyzeProject(await loadAnalysisInput(db, projectId))
-        return { value: r.value.themes, usage: r.usage }
-      },
-      runId,
-    )
-    return await store(db, ctx, projectId, expected, runId, themes)
+    const compute = (a: Ai) =>
+      callAi(
+        db, a, ctx.workspaceId, 'analysis',
+        async (p) => {
+          if (!p.analyzeProject) return p.analyze(transcripts.map((t) => ({ name: t.name as string, text: t.raw_text as string })), participants, THEMES, EFFORT)
+          const r = await p.analyzeProject(await loadAnalysisInput(db, projectId))
+          return { value: r.value.themes, usage: r.usage }
+        },
+        runId,
+      )
+    let fallback: AnalysisResult['fallback']
+    let themes
+    try {
+      themes = await compute(ai)
+    } catch (err) {
+      // The monthly budget or the account's credit is used up: carry on with the simulation instead of failing, and say so on the run.
+      const code = err instanceof ApiError ? err.code : ''
+      if (code !== 'ai_budget_reached' && code !== 'ai_credit_exhausted') throw err
+      fallback = code === 'ai_budget_reached' ? 'budget' : 'credit'
+      await db.query(`update core.agent_runs set provider = $2, prompt_version = 'keyword-v1' where id = $1`, [runId, simulatedProvider.name])
+      themes = await compute({ ...ai, provider: simulatedProvider })
+    }
+    const result = await store(db, ctx, projectId, expected, runId, themes)
+    return fallback ? { ...result, fallback } : result
   } catch (err) {
     await db.query(`update core.agent_runs set status = 'failed' where id = $1`, [runId]).catch(() => undefined)
     // Nothing was stored, so the current analysis is untouched. Say plainly what went wrong.
