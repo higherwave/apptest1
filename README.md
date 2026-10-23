@@ -77,7 +77,7 @@ page is `/about` and the privacy policy is `/privacy`. The policy states what th
 whenever that changes (for example when a live AI provider is added). The two short notice paragraphs in it also appear in
 `src/shell/privacy.ts` (the footer), so change both together.
 
-## AI analysis (groundwork, not switched on)
+## AI analysis (built, off until configured)
 
 `server/ai-analysis.ts` is the model-backed analysis, written and tested without any model. It builds the prompt (speakers become
 ids P1/M1; emails, phone numbers and names are masked), checks the reply against a schema (one retry with the error message), and
@@ -86,6 +86,13 @@ quotes. It returns what the simulated `analyze` returns, so saving and the scree
 slice E2 supplies the one that reaches Anthropic. `server/ai-analysis.test.ts` has unit tests, golden tests on the three demo
 projects (recorded replies in `server/fixtures/analysis`, rewritten from the demo data by `npm run ai:fixtures` until real
 recordings replace them), and a run that saves a model-shaped analysis. Nothing calls out or costs anything.
+
+`server/anthropic.ts` is the live provider (Anthropic Messages API over plain `fetch`, no automatic retries). It is used only when
+`AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY` are both set and `AI_ENABLED` is not `false`; otherwise the app stays simulated.
+`AI_ANALYSIS_MODEL` (default `claude-sonnet-5-5`) and `AI_MONTHLY_BUDGET_USD` (default 10) are optional. Cost is computed from the
+reply's token counts and recorded in `core.ai_usage`, including a paid call whose reply was unusable. Provider failures (out of
+credit, rate limit, bad key, outage) become a 503 with a plain message and the run is marked failed; the current analysis is never
+replaced. `server/anthropic.test.ts` uses a fake network. Only analysis is live; drafting and matching remain simulated.
 
 ## Cost limits
 

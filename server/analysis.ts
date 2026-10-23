@@ -1,5 +1,6 @@
 import { EFFORT, STEP_TITLES, THEMES } from '../shared/stub-config.mjs'
 import { callAi, type Ai, type AiProvider } from './ai.js'
+import { ANALYSIS_PROMPT_VERSION, loadAnalysisInput, ModelOutputError, TranscriptsTooLarge } from './ai-analysis.js'
 import type { Db } from './db.js'
 import { ApiError } from './errors.js'
 import { insertMany } from './sql.js'
@@ -36,7 +37,7 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
     await db.query(
       `insert into core.agent_runs (id, workspace_id, project_id, kind, status, input_hash, provider, prompt_version, created_by, updated_by)
        values ($1, $2, $3, 'analysis', 'running', $4, $5, $6, $7, $7)`,
-      [runId, ctx.workspaceId, projectId, transcriptsKey(transcripts as { name: string; content_hash: string }[]), ai.provider.name, ai.provider.live ? 'analysis-v1' : 'keyword-v1', ctx.userId],
+      [runId, ctx.workspaceId, projectId, transcriptsKey(transcripts as { name: string; content_hash: string }[]), ai.provider.name, ai.provider.live ? ANALYSIS_PROMPT_VERSION : 'keyword-v1', ctx.userId],
     )
   } catch (err) {
     if ((err as { code?: string }).code === '23505') throw new ApiError(409, 'run_in_progress', 'An analysis is already running for this project.')
@@ -46,12 +47,19 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
   try {
     const themes = await callAi(
       db, ai, ctx.workspaceId, 'analysis',
-      (p) => p.analyze(transcripts.map((t) => ({ name: t.name as string, text: t.raw_text as string })), participants, THEMES, EFFORT),
+      async (p) => {
+        if (!p.analyzeProject) return p.analyze(transcripts.map((t) => ({ name: t.name as string, text: t.raw_text as string })), participants, THEMES, EFFORT)
+        const r = await p.analyzeProject(await loadAnalysisInput(db, projectId))
+        return { value: r.value.themes, usage: r.usage }
+      },
       runId,
     )
     return await store(db, ctx, projectId, expected, runId, themes)
   } catch (err) {
     await db.query(`update core.agent_runs set status = 'failed' where id = $1`, [runId]).catch(() => undefined)
+    // Nothing was stored, so the current analysis is untouched. Say plainly what went wrong.
+    if (err instanceof TranscriptsTooLarge) throw new ApiError(422, 'transcripts_too_large', 'These transcripts are too long for one analysis. Remove some and try again.', 'transcripts')
+    if (err instanceof ModelOutputError) throw new ApiError(503, 'ai_output_unusable', 'The AI did not return a usable analysis. Nothing was changed; try again.')
     throw err
   }
 }

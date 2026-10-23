@@ -2,6 +2,8 @@ import { analyze, buildSteps, matchThemes } from '../shared/providers.mjs'
 import { ApiError } from './errors.js'
 import type { Env, Queryable } from './db.js'
 import { insertMany } from './sql.js'
+import { anthropicProvider } from './anthropic.js'
+import type { AnalysisInput } from './ai-analysis.js'
 
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
@@ -15,6 +17,8 @@ export type AiProvider = {
   analyze(...args: Parameters<Fn<'analyze'>>): Promise<Priced<ReturnType<Fn<'analyze'>>>>
   buildSteps(...args: Parameters<Fn<'buildSteps'>>): Promise<Priced<ReturnType<Fn<'buildSteps'>>>>
   matchThemes(...args: Parameters<Fn<'matchThemes'>>): Promise<Priced<ReturnType<Fn<'matchThemes'>>>>
+  /** Whole-project analysis by a model, given the stages and study context. Providers without it use `analyze`. */
+  analyzeProject?(input: AnalysisInput): Promise<Priced<{ themes: ReturnType<Fn<'analyze'>>; promptVersion: string }>>
 }
 export type Ai = { provider: AiProvider; env: Env }
 export type Purpose = 'analysis' | 'spec_step' | 'theme_match'
@@ -30,14 +34,14 @@ export const simulatedProvider: AiProvider = {
   matchThemes: async (...a) => ({ value: matchThemes(...a), usage: FREE }),
 }
 
-// Live providers register here by name (AI_PROVIDER). None exist yet; slice E2 adds the first.
-const LIVE: Record<string, (env: Env) => AiProvider> = {}
+// Live providers register here by name (AI_PROVIDER). A factory returns nothing when it is not fully configured (no key), so the app stays simulated.
+const LIVE: Record<string, (env: Env) => AiProvider | undefined> = { anthropic: (env) => anthropicProvider(env) }
 
 // AI_ENABLED=false is the kill switch: whatever else is set, every call is simulated.
 export function getProvider(env: Env): AiProvider {
   if (env.AI_ENABLED === 'false') return simulatedProvider
   const make = env.AI_PROVIDER ? LIVE[env.AI_PROVIDER] : undefined
-  return make ? make(env) : simulatedProvider
+  return make?.(env) ?? simulatedProvider
 }
 
 export const makeAi = (env: Env, provider: AiProvider = getProvider(env)): Ai => ({ provider, env })
@@ -61,7 +65,7 @@ export async function assertBudget(db: Queryable, ai: Ai, workspaceId: string): 
 }
 
 export async function recordUsage(db: Queryable, ai: Ai, workspaceId: string, purpose: Purpose, usage: Usage, runId?: string): Promise<void> {
-  if (!ai.provider.live) return
+  if (!ai.provider.live || (!usage.inputTokens && !usage.outputTokens && !usage.costUsd)) return
   await insertMany(db, 'core.ai_usage', [{ workspace_id: workspaceId, run_id: runId ?? null, purpose, provider: ai.provider.name, model: usage.model ?? null, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens, cost_usd: usage.costUsd }])
 }
 
@@ -69,7 +73,16 @@ export async function recordUsage(db: Queryable, ai: Ai, workspaceId: string, pu
 // `db` should be the connection pool, not an open transaction, so the ledger keeps a call's cost even if the caller's work rolls back.
 export async function callAi<T>(db: Queryable, ai: Ai, workspaceId: string, purpose: Purpose, call: (p: AiProvider) => Promise<Priced<T>>, runId?: string): Promise<T> {
   await assertBudget(db, ai, workspaceId)
-  const { value, usage } = await call(ai.provider)
+  let priced: Priced<T>
+  try {
+    priced = await call(ai.provider)
+  } catch (err) {
+    // A call that was paid for but gave nothing usable still cost money, so it is recorded before the error goes on.
+    const spent = (err as { usage?: Usage } | null)?.usage
+    if (spent) await recordUsage(db, ai, workspaceId, purpose, spent, runId)
+    throw err
+  }
+  const { value, usage } = priced
   await recordUsage(db, ai, workspaceId, purpose, usage, runId)
   return value
 }

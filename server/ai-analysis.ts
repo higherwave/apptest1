@@ -36,7 +36,7 @@ export type AnalysisInput = {
 }
 
 export class ModelOutputError extends Error {
-  constructor(public problems: string[]) {
+  constructor(public problems: string[], public usage?: Usage) {
     super(`The model's reply could not be used: ${problems.join('; ')}`)
   }
 }
@@ -300,7 +300,7 @@ export async function analyzeWithModel(call: ModelCall, input: AnalysisInput): P
     if (grounded.themes.length) return { themes: grounded.themes, usage, report: grounded.report, promptVersion: prompt.version, attempts: attempt }
     problems = ['No quote matched a participant line word for word, so no theme could be kept. Copy quotes exactly as written and give each its [T#.U#] reference.']
   }
-  throw new ModelOutputError(problems)
+  throw new ModelOutputError(problems, usage)
 }
 
 /** What the model is given about a project, read from the database: its transcripts, participants, journey stages and test items. */
