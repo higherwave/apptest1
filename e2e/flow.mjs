@@ -365,46 +365,60 @@ try {
   ok('the project’s Stories step is now unlocked', !(await navLocked('Stories')))
   ok('the document is Published', (await apiSpec(specId)).status === 'published')
 
-  // Stories: the board shows what the document created; move by menu, by drag, and in the card panel; Undo.
+  // Stories: a pipeline of four stages with counts, one stage listed at a time; move by the row's buttons, by drag onto a stage tile, and in the panel; Undo.
   const apiBoard = async () => (await fetch(`${API}/api/v1/projects/${projectId}/board`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   const storyOf = async (key) => (await apiBoard()).stories.find((s) => s.key === key)
+  const tileLabel = (status) => page.evaluate((id) => document.getElementById(id)?.getAttribute('aria-label'), `stage-${status}`)
+  const waitTile = (status, label) => page.waitForFunction((id, l) => document.getElementById(id)?.getAttribute('aria-label') === l, { timeout: 8000 }, `stage-${status}`, label)
   await page.waitForSelector('[data-testid^="card-"]')
   const board0 = await apiBoard()
-  ok('the board shows every card the document created, all in To Do', board0.stories.length === preview.requirements + preview.openQuestions && board0.stories.every((s) => s.status === 'todo')
-    && (await page.$$('[data-testid^="card-"]')).length === board0.stories.length)
+  const total = board0.stories.length
+  ok('the pipeline lists every story the document created, all in To Do', total === preview.requirements + preview.openQuestions && board0.stories.every((s) => s.status === 'todo')
+    && (await page.$$('[data-testid^="card-"]')).length === total)
+  ok('the four stage tiles show their counts', (await tileLabel('todo')) === `To Do, ${total} stories` && (await tileLabel('in_progress')) === 'In progress, 0 stories' && (await tileLabel('done')) === 'Done, 0 stories')
   const firstKey = board0.stories[0].key
   const secondKey = board0.stories[1].key
   const thirdKey = board0.stories[2].key
-  await page.click(`[data-testid="card-${firstKey}"] [aria-label="Move ${firstKey}"]`)
-  await clickText('Move to In progress', 'li, button')
-  await page.waitForFunction((k) => document.querySelector(`section[aria-label="In progress"] [data-testid="card-${k}"]`), { timeout: 8000 }, firstKey)
+  await page.click(`[data-testid="next-${firstKey}"]`)
+  await waitTile('in_progress', 'In progress, 1 story')
   await new Promise((r) => setTimeout(r, 600))
-  ok('"Move to" in a card’s menu moves it to the other column', (await storyOf(firstKey)).status === 'in_progress')
+  ok('a row\'s next button moves it to the next stage', (await storyOf(firstKey)).status === 'in_progress' && !(await page.$(`[data-testid="card-${firstKey}"]`)))
+  ok('the move is announced for screen readers, and focus stays on the stage tile', await page.evaluate((k) => document.querySelector('[role="status"][aria-live="polite"]').innerText.includes(`${k} moved to In progress`) && document.activeElement?.id === 'stage-todo', firstKey))
   await waitText(`Undo move of ${firstKey}`)
-  // Drag the second card onto the first, in In progress (dropped before it).
-  await page.evaluate((a, b) => {
+  // Drag the second row onto the In progress tile.
+  await page.evaluate((a) => {
     const dt = new DataTransfer()
     const src = document.querySelector(`[data-testid="card-${a}"]`)
-    const target = document.querySelector(`[data-testid="card-${b}"]`)
+    const tile = document.getElementById('stage-in_progress')
     src.dispatchEvent(new DragEvent('dragstart', { bubbles: true, dataTransfer: dt }))
-    target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }))
-    target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
-  }, secondKey, firstKey)
-  await page.waitForFunction((k) => document.querySelector(`section[aria-label="In progress"] [data-testid="card-${k}"]`), { timeout: 8000 }, secondKey)
+    tile.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: dt }))
+    tile.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: dt }))
+  }, secondKey)
+  await waitTile('in_progress', 'In progress, 2 stories')
   await new Promise((r) => setTimeout(r, 600))
-  const dragged = await apiBoard()
-  const inProgress = dragged.stories.filter((s) => s.status === 'in_progress').sort((a, b) => a.position - b.position).map((s) => s.key)
-  ok('dragging a card onto another puts it just before that card', inProgress.join() === [secondKey, firstKey].join(), inProgress.join())
+  ok('dragging a row onto a stage tile moves it to that stage', (await storyOf(secondKey)).status === 'in_progress')
+  await page.click('#stage-in_progress')
+  await page.waitForSelector(`section[aria-label="In progress"] [data-testid="card-${secondKey}"]`)
+  ok('choosing a stage lists only its stories', (await page.$$('[data-testid^="card-"]')).length === 2 && !!(await page.$(`[data-testid="card-${firstKey}"]`)))
   await clickText(`Undo move of ${secondKey}`)
   await new Promise((r) => setTimeout(r, 800))
-  ok('Undo puts the dragged card back in To Do', (await storyOf(secondKey)).status === 'todo' && (await storyOf(firstKey)).status === 'in_progress')
-  // The panel on the right is always there, showing a selected card (the first in To Do until another is picked).
-  ok('the detail panel is already showing a card on arrival', await page.evaluate(() => !!document.querySelector('aside[aria-label="Story details"] h2')))
-  ok('it has a Create Jira Ticket button, which needs no function yet', await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === 'Create Jira Ticket')))
-  // The card panel: details, move, and open-ended acceptance criteria. No owner or priority: it is context for a tracker.
+  ok('Undo puts the dragged story back in To Do', (await storyOf(secondKey)).status === 'todo' && (await storyOf(firstKey)).status === 'in_progress')
+  await page.click('#stage-todo')
+  await page.waitForSelector(`section[aria-label="To Do"] [data-testid="card-${secondKey}"]`)
+  // The panel on the right is always there, showing a selected story, with the stage buttons and Create Jira Ticket under it.
+  ok('the detail panel is already showing a story', await page.evaluate(() => !!document.querySelector('aside[aria-label="Story details"] h2')))
+  ok('it has a Create Jira Ticket link, which needs no function yet', await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === 'Create Jira Ticket')))
+  // The story panel: details, move, and open-ended acceptance criteria. No owner or priority: it is context for a tracker.
   await page.click(`[data-testid="card-${thirdKey}"] button`)
   await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === '+ Add criterion'), { timeout: 8000 }) // the panel has loaded, not just opened
-  ok('opening a card shows its details and acceptance criteria', (await text()).toLowerCase().includes('acceptance criteria') && (await text()).includes('Move to'))
+  ok('opening a story shows its details, acceptance criteria and the next stage', (await text()).toLowerCase().includes('acceptance criteria') && await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === 'In progress ›')))
+  await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].find((b) => b.innerText.trim() === 'In progress ›').click())
+  await waitTile('in_progress', 'In progress, 2 stories')
+  ok('the panel\'s next-stage button moves the open story', (await storyOf(thirdKey)).status === 'in_progress')
+  await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => b.innerText.trim() === '‹ To Do' && !b.disabled), { timeout: 8000 }) // the panel reloads the story after a move
+  await page.evaluate(() => [...document.querySelectorAll('aside[aria-label="Story details"] button')].find((b) => b.innerText.trim() === '‹ To Do').click())
+  await waitTile('in_progress', 'In progress, 1 story')
+  ok('and its back button returns it', (await storyOf(thirdKey)).status === 'todo')
   ok('the panel has no owner, owner team or priority', await page.evaluate(() => { const t = document.querySelector('aside[aria-label="Story details"]').innerText; return !/^(owner( team)?|priority)$/im.test(t) && !/\b(high|medium|low) priority\b/i.test(t) && !t.includes('Save owner') && !document.querySelector('#story-owner') && !document.querySelector('#story-priority') }))
   ok('criteria have no Criterion/Task switch', await page.evaluate(() => ![...document.querySelectorAll('aside[aria-label="Story details"] button')].some((b) => ['Criterion', 'Task', 'Add item'].includes(b.innerText.trim()))))
   await clickText('+ Add criterion')
@@ -413,10 +427,10 @@ try {
   await page.keyboard.press('Tab') // leaving the field saves it
   await new Promise((r) => setTimeout(r, 800))
   ok('adding a criterion saves it', (await (await fetch(`${API}/api/v1/stories/${(await storyOf(thirdKey)).id}`)).json()).checklist.some((c) => c.text === 'Works with a screen reader'))
-  ok('the panel follows the selected card', await page.evaluate((k) => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith(k), thirdKey))
+  ok('the panel follows the selected story', await page.evaluate((k) => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith(k), thirdKey))
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))
-  ok('searching narrows the board to matching cards', (await page.$$('[data-testid^="card-"]')).length >= 1 && !(await page.$(`[data-testid="card-${firstKey}"]`)) && !!(await page.$(`[data-testid="card-${thirdKey}"]`)))
+  ok('searching narrows the list to matching stories', (await page.$$('[data-testid^="card-"]')).length >= 1 && !!(await page.$(`[data-testid="card-${thirdKey}"]`)) && !(await page.$(`[data-testid="card-${secondKey}"]`)))
   ok('the Stories toolbar has search and priority only, no theme filters', !(await page.$('[aria-label="Filter by theme"]')) && !!(await page.$('#story-filter-priority')))
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')

@@ -1,7 +1,6 @@
 @use '../../tokens' as tokens;
 
 $panel-width: 24rem;
-$column-min: 14rem;
 
 .page {
   display: flex;
@@ -72,51 +71,69 @@ $column-min: 14rem;
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) $panel-width;
-  gap: var(--at-space-md);
+  gap: var(--at-space-lg);
   align-items: start;
 }
 
-.board {
+// The four stages, each with its count. The chosen one is dark; a row dragged over one turns it cream.
+.stages {
   display: grid;
-  grid-template-columns: repeat(4, minmax($column-min, 1fr));
-  gap: var(--at-space-md);
-  overflow-x: auto;
-  align-items: start;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--at-space-xs);
 }
 
-.column {
+.stage {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-sm);
-  padding: var(--at-space-md);
-  min-block-size: 12rem;
+  align-items: flex-start;
+  gap: var(--at-space-xxs);
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: var(--at-space-sm) var(--at-space-md);
   background: var(--at-surface-soft);
-  border-radius: var(--at-radius-lg);
   border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  color: var(--at-ink);
+  text-align: start;
+  user-select: none;
 
-  &[data-status='done'] {
-    background: var(--at-tint-sand);
+  &[aria-pressed='true'] {
+    background: var(--at-surface-dark);
+    border-color: var(--at-surface-dark);
+    color: var(--at-on-dark);
   }
 
   &[data-over='true'] {
-    border-color: var(--at-info-border);
-    background: var(--at-tint-blue);
+    background: var(--at-tint-cream);
+    border-color: var(--at-ink);
+    color: var(--at-ink);
   }
+
+  &[data-status='todo'] { --stage-color: var(--at-status-todo-strong); }
+  &[data-status='in_progress'] { --stage-color: var(--at-status-progress-strong); }
+  &[data-status='in_review'] { --stage-color: var(--at-status-review-strong); }
+  &[data-status='done'] { --stage-color: var(--at-status-done-strong); }
 }
 
-.columnHead {
-  @include tokens.role('title-sm');
+.stageName {
+  @include tokens.role('label-md');
   display: flex;
-  justify-content: space-between;
-  margin: 0;
-  padding-block-end: var(--at-space-xs);
-  border-block-end: 1px solid var(--at-hairline);
-  color: var(--at-ink);
+  align-items: center;
+  gap: var(--at-space-xs);
 }
 
-.count {
-  color: var(--at-text-tertiary);
-  font-weight: 400;
+.dot {
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border-radius: var(--at-radius-full);
+  background: var(--stage-color);
+}
+
+.stageCount {
+  @include tokens.role('display-md');
+  font-weight: 300;
 }
 
 .hint {
@@ -125,36 +142,57 @@ $column-min: 14rem;
   color: var(--at-muted);
 }
 
-.card {
-  position: relative;
+// The chosen stage's stories. It scrolls inside itself, so the stages above and the panel beside stay in view however many there are.
+.list {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xs);
-  padding: var(--at-space-md);
-  background: var(--at-canvas);
-  border: 1px solid var(--at-hairline);
-  border-inline-start-width: var(--at-space-xxs);
-  border-radius: var(--at-radius-md);
-  cursor: grab;
-
-  &[data-status='todo'] { border-inline-start-color: var(--at-status-todo-strong); }
-  &[data-status='in_progress'] { border-inline-start-color: var(--at-status-progress-strong); }
-  &[data-status='in_review'] { border-inline-start-color: var(--at-status-review-strong); }
-  &[data-status='done'] { border-inline-start-color: var(--at-status-done-strong); }
-
-  &[data-selected='true'] {
-    border-color: var(--at-border-strong);
-    box-shadow: 0 0 0 1px var(--at-border-strong);
-  }
-
-  &[data-over='true'] { box-shadow: 0 calc(-1 * var(--at-space-xxs)) 0 var(--at-info-border); }
-  &[data-busy='true'] { opacity: 0.6; cursor: progress; }
+  border-block-start: 1px solid var(--at-hairline);
+  max-block-size: calc(100vh - 24rem);
+  min-block-size: 18rem;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
 }
 
-.cardTop {
-  display: flex;
+.row {
+  display: grid;
+  grid-template-columns: 1rem 3rem minmax(0, 1fr) auto 4.5rem 5.5rem;
   align-items: center;
-  gap: var(--at-space-xs);
+  gap: var(--at-space-sm);
+  padding: var(--at-space-xxs) var(--at-space-xs);
+  border-block-end: 1px solid var(--at-hairline);
+  border-inline-start: var(--at-space-xxs) solid transparent;
+  cursor: grab;
+
+  &[data-selected='true'] {
+    background: var(--at-surface-soft);
+    border-inline-start-color: var(--at-ink);
+  }
+
+  &[data-busy='true'] {
+    opacity: 0.6;
+    cursor: progress;
+  }
+}
+
+.grip {
+  color: var(--at-text-tertiary);
+  letter-spacing: -0.125rem;
+}
+
+.key {
+  @include tokens.role('label-md');
+  color: var(--at-muted);
+  font-weight: 400;
+}
+
+.flags {
+  display: flex;
+  gap: var(--at-space-xxs);
+}
+
+.arrows {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .priority {
@@ -174,36 +212,52 @@ $column-min: 14rem;
   min-block-size: 0;
   padding: 0;
   text-align: start;
-  white-space: normal;
   color: var(--at-ink);
 }
 
+// One line; the whole title is in the panel.
 .title {
-  @include tokens.role('title-sm');
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
+  @include tokens.role('label-md');
+  display: block;
   overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--at-ink);
   font-weight: 400;
 }
 
-.theme,
-.progress {
-  @include tokens.role('label-md');
-  margin: 0;
-  color: var(--at-muted);
-  font-weight: 400;
-}
-
-.progress {
-  @include tokens.role('meta');
-}
-
-.menu {
+.visuallyHidden {
   position: absolute;
-  inset-block-start: var(--at-space-xxs);
-  inset-inline-end: var(--at-space-xxs);
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.nav {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--at-space-xs);
+}
+
+.navButtons {
+  display: flex;
+  gap: var(--at-space-xs);
+
+  > * {
+    flex: 1;
+    max-inline-size: none;
+  }
+}
+
+// Tertiary: a link under the buttons.
+.jira {
+  align-self: center;
+  color: var(--at-link);
 }
 
 .none,

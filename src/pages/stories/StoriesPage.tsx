@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, type BoardStory, type ChecklistInput, type Priority, type StoryStatus } from '../../api/client'
 import { useBoard, useMe, useMoveStory, useProject, useSaveChecklist, useStory, useUndoMove } from '../../api/hooks'
+import { STATUS_LABEL } from './labels'
 import { StoriesView } from './StoriesView'
 
 // Container: binds the board to the view, holds the filters and the open card, and sends moves and edits.
@@ -27,6 +28,7 @@ export function StoriesPage() {
   const [search, setSearch] = useState('')
   const [priority, setPriority] = useState<Priority | 'all'>('all')
   const [error, setError] = useState<string | undefined>()
+  const [announcement, setAnnouncement] = useState('')
   const [moving, setMoving] = useState<Set<string>>(new Set())
 
   const stories = useMemo(() => {
@@ -45,7 +47,10 @@ export function StoriesPage() {
       { story, status, beforeId },
       {
         onError: fail,
-        onSuccess: markSaved,
+        onSuccess: () => {
+          markSaved()
+          setAnnouncement(`${story.key} moved to ${STATUS_LABEL[status]}`)
+        },
         onSettled: () => setMoving((m) => { const n = new Set(m); n.delete(story.id); return n }),
       },
     )
@@ -71,6 +76,7 @@ export function StoriesPage() {
       saving={moving.size > 0 || checklist.isPending || undo.isPending}
       savedAt={savedAt}
       errorText={board.isError && !noBoard ? friendlyMessage(board.error) : error}
+      announcement={announcement}
       onSearch={setSearch}
       onPriority={setPriority}
       onOpen={setPickedId}
