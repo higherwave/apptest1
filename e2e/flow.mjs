@@ -451,18 +451,42 @@ try {
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 
-  // Requirements opens the one document directly, and a published document is read-only.
+  // Requirements opens the one document directly. A published document can be reopened: edit, approve, change themes, update the board.
   await navTo('Requirements')
   await waitText('Agent reasoning')
   ok('Requirements opens the published document directly, with no list', (await text()).includes('Published') && !(await text()).includes('New document from these themes') && (await apiSpecs()).length === 1)
-  ok('a published document has no Approve, Redo or Edit', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => ['Approve', 'Redo with instructions', 'Edit'].includes(b.innerText.trim()))))
+  ok('a published document can be edited again: Edit is offered on its steps', await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].some((b) => b.innerText.trim() === 'Edit')))
   ok('a project document has no back-to-list button', !(await text()).includes('← Requirements'))
   // Long sections are cut to a few lines; when a section is cut, Show more reveals it and Show less folds it again.
   const more = await page.evaluate(() => { const b = [...document.querySelectorAll('aside[aria-label="Output"] button')].find((x) => x.innerText.trim() === 'Show more'); if (!b) return false; b.click(); return true })
   if (more) await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'Show less'), { timeout: 5000 })
   ok(more ? 'a cut section opens with Show more and offers Show less' : 'no section is long enough to be cut (nothing to check)', true)
+  // Reopen step 2: edit it, see it go back to review and the later steps marked, approve it again.
+  await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].find((b) => b.innerText.trim() === 'Edit').click())
+  await page.waitForSelector('#step-text-2', { visible: true })
+  await page.click('#step-text-2', { clickCount: 3 })
+  await page.type('#step-text-2', 'Edited after publishing')
+  await clickText('Save edit')
+  await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'review', { timeout: 8000 })
+  await waitText('An earlier step changed after this one was written')
+  ok('editing a published step sends it back to review and marks the later steps as behind', (await apiSpec(specId)).status === 'published' && (await text()).includes('Redo it if it should follow the change'))
+  await waitApprove()
+  await clickText('Approve')
+  await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'approved', { timeout: 10000 })
+  ok('and it can be approved again', true)
+  // Exclude a theme: the board no longer matches until Update board is confirmed.
+  await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
+  await waitText('The board no longer matches this document')
+  await clickText('Update board')
+  await waitText('Update the board?')
+  ok('Update board shows what it will change first', (await text()).includes('Stories that have been moved, edited or given criteria are never removed'))
+  await clickInOpenDialog('Update board')
+  await waitText('The board matches this document.')
+  ok('confirming brings the board back in line with the document', true)
   const oldSpec = (await apiSpecs())[0].id
-  await clickText('Start over')
+  await page.waitForFunction(() => !document.querySelector('.cds--modal.is-visible'), { timeout: 5000 }) // the Update board dialog has finished closing
+  await new Promise((r) => setTimeout(r, 600)) // a closing dialog keeps catching clicks for a moment while it fades
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'Start over').click())
   await waitText('and removes the requirements and stories it created on the board')
   await page.evaluate(() => document.querySelector('.cds--modal.is-visible button.cds--btn--danger').click())
   await page.waitForFunction((old) => /\/requirements\/[0-9a-f-]{36}$/.test(location.pathname) && !location.pathname.includes(old), { timeout: 20000 }, oldSpec)
@@ -515,7 +539,7 @@ try {
   ok('locked, the Test Plan is read-only and says how to unlock', await page.evaluate(() => document.querySelector('#project-name').readOnly === true && document.body.innerText.includes('Editing is locked')))
   
 } catch (e) {
-  ok('flow completes', false, e.message)
+  ok('flow completes', false, e.message + ' at ' + String(e.stack).split('\n').filter((l) => l.includes('flow.mjs')).slice(0, 2).join(' '))
   await page.screenshot({ path: new URL('./failure.png', import.meta.url).pathname })
 }
 await browser.close()

@@ -80,8 +80,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--at-space-md);
-  position: sticky;
-  inset-block-start: var(--at-space-lg);
 }
 
 .brief,
@@ -124,6 +122,7 @@
   @include tokens.role('label-md');
   margin: 0;
   padding-inline-start: var(--at-space-md);
+  list-style: disc;
   color: var(--at-ink);
   font-weight: 400;
 }
@@ -132,4 +131,11 @@
   @include tokens.role('body-md');
   margin: 0;
   color: var(--at-muted);
+}
+
+.changes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin-block-end: var(--at-space-md);
 }

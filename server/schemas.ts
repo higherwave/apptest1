@@ -100,6 +100,7 @@ export const standaloneSpecSchema = z.object({
   name: text(120).min(1, 'Enter a name for the document.'),
   what: text(1000).min(1, 'Describe what you are specifying.'),
 })
+export const boardSyncSchema = z.object({ apply: z.boolean().optional() })
 export const includeThemeSchema = z.object({ included: z.boolean() })
 export const redoSchema = z.object({ instructions: text(500).min(1, 'Tell the agent what to change.') })
 export const editStepSchema = z.object({ text: z.string().trim().min(1, 'The text cannot be empty.').max(5000, 'The text is too long.') })

@@ -593,6 +593,35 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /specs/{id}/board-sync:
+    post:
+      operationId: syncBoard
+      summary: >
+        After publishing, brings the board in line with the document's included themes. Without apply it only previews. New
+        in-scope themes get stories in To Do; stories nobody has touched whose theme is no longer included are removed; stories that
+        have been moved, edited or given criteria are never removed, only noted. 409 not_published if the document is a draft.
+        Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BoardSyncRequest' }
+      responses:
+        '200':
+          description: What changes (or changed).
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BoardSyncPlan' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /projects/{id}/board:
     get:
       operationId: getBoard
@@ -994,7 +1023,7 @@ components:
           items: { $ref: '#/components/schemas/ParticipantInput' }
     BoardStory:
       type: object
-      required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, theme, criteriaMet, criteriaTotal, version]
+      required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, syncNote, theme, criteriaMet, criteriaTotal, version]
       properties:
         id: { type: string }
         key: { type: string, description: R1, R2 ... for requirements; Q1, Q2 ... for open questions. }
@@ -1006,6 +1035,7 @@ components:
         ownerTeam: { type: [string, 'null'] }
         summary: { type: [string, 'null'] }
         whyItMatters: { type: [string, 'null'] }
+        syncNote: { type: [string, 'null'], description: A note when the document no longer agrees with this story (see Update board). }
         nextStep: { type: [string, 'null'] }
         theme:
           type: [object, 'null']
@@ -1030,7 +1060,7 @@ components:
         position: { type: integer }
     StoryDetail:
       type: object
-      required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, theme, criteriaMet, criteriaTotal, version, specId, checklist]
+      required: [id, key, kind, title, status, position, priority, ownerTeam, summary, whyItMatters, nextStep, syncNote, theme, criteriaMet, criteriaTotal, version, specId, checklist]
       properties:
         id: { type: string }
         key: { type: string }
@@ -1042,6 +1072,7 @@ components:
         ownerTeam: { type: [string, 'null'] }
         summary: { type: [string, 'null'] }
         whyItMatters: { type: [string, 'null'] }
+        syncNote: { type: [string, 'null'], description: A note when the document no longer agrees with this story (see Update board). }
         nextStep: { type: [string, 'null'] }
         theme:
           type: [object, 'null']
@@ -1245,7 +1276,7 @@ components:
           items: { $ref: '#/components/schemas/SpecSummary' }
     SpecDetail:
       type: object
-      required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, version, sessions, themes, steps, brief, document, approved, total, canPublish, preview]
+      required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, version, sessions, themes, steps, brief, document, approved, total, canPublish, preview, boardChanges]
       properties:
         id: { type: string }
         projectId: { type: string }
@@ -1275,7 +1306,7 @@ components:
           type: array
           items:
             type: object
-            required: [id, position, key, title, status, text, originalText, edited, redoNote, revision, version, evidence, alternatives, approvedAt]
+            required: [id, position, key, title, status, text, originalText, edited, redoNote, revision, version, evidence, alternatives, approvedAt, behind]
             properties:
               id: { type: string }
               position: { type: integer }
@@ -1306,6 +1337,7 @@ components:
                     title: { type: string }
                     reason: { type: string }
               approvedAt: { type: [string, 'null'] }
+              behind: { type: boolean, description: An earlier step changed after this one was written, so it may no longer follow from it. }
         brief:
           type: object
           required: [problem, users, goals, locked]
@@ -1335,6 +1367,42 @@ components:
           properties:
             requirements: { type: integer }
             openQuestions: { type: integer }
+        boardChanges:
+          type: [integer, 'null']
+          description: Published documents only. How many board changes Update board would make; 0 when the board agrees with the document.
+    BoardChange:
+      type: object
+      required: [key, title, kind, reason]
+      properties:
+        key: { type: string }
+        title: { type: string }
+        kind: { type: string, enum: [requirement, open_question] }
+        reason: { type: string }
+    BoardSyncRequest:
+      type: object
+      properties:
+        apply: { type: boolean, description: False or missing only previews. }
+    BoardSyncPlan:
+      type: object
+      required: [add, remove, flag, clear, keep, applied]
+      properties:
+        add:
+          type: array
+          items: { $ref: '#/components/schemas/BoardChange' }
+        remove:
+          type: array
+          description: Stories nobody has touched whose theme is no longer included.
+          items: { $ref: '#/components/schemas/BoardChange' }
+        flag:
+          type: array
+          description: Stories that have been worked on; kept, with a note.
+          items: { $ref: '#/components/schemas/BoardChange' }
+        clear:
+          type: array
+          description: Stories whose note is removed because they agree with the document again.
+          items: { $ref: '#/components/schemas/BoardChange' }
+        keep: { type: integer }
+        applied: { type: boolean }
     PublishResult:
       type: object
       required: [specId, requirements, openQuestions, projectId]

@@ -418,6 +418,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/specs/{id}/board-sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** After publishing, brings the board in line with the document's included themes. Without apply it only previews. New in-scope themes get stories in To Do; stories nobody has touched whose theme is no longer included are removed; stories that have been moved, edited or given criteria are never removed, only noted. 409 not_published if the document is a draft. Needs the token. */
+        post: operations["syncBoard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/board": {
         parameters: {
             query?: never;
@@ -714,6 +731,8 @@ export interface components {
             ownerTeam: string | null;
             summary: string | null;
             whyItMatters: string | null;
+            /** @description A note when the document no longer agrees with this story (see Update board). */
+            syncNote: string | null;
             nextStep: string | null;
             theme: {
                 id: string;
@@ -748,6 +767,8 @@ export interface components {
             ownerTeam: string | null;
             summary: string | null;
             whyItMatters: string | null;
+            /** @description A note when the document no longer agrees with this story (see Update board). */
+            syncNote: string | null;
             nextStep: string | null;
             theme: {
                 id: string;
@@ -957,6 +978,8 @@ export interface components {
                     reason: string;
                 }[];
                 approvedAt: string | null;
+                /** @description An earlier step changed after this one was written */
+                behind: boolean;
             }[];
             brief: {
                 problem: string | null;
@@ -976,6 +999,30 @@ export interface components {
                 requirements: number;
                 openQuestions: number;
             };
+            /** @description Published documents only. How many board changes Update board would make; 0 when the board agrees with the document. */
+            boardChanges: number | null;
+        };
+        BoardChange: {
+            key: string;
+            title: string;
+            /** @enum {string} */
+            kind: "requirement" | "open_question";
+            reason: string;
+        };
+        BoardSyncRequest: {
+            /** @description False or missing only previews. */
+            apply?: boolean;
+        };
+        BoardSyncPlan: {
+            add: components["schemas"]["BoardChange"][];
+            /** @description Stories nobody has touched whose theme is no longer included. */
+            remove: components["schemas"]["BoardChange"][];
+            /** @description Stories that have been worked on; kept, with a note. */
+            flag: components["schemas"]["BoardChange"][];
+            /** @description Stories whose note is removed because they agree with the document again. */
+            clear: components["schemas"]["BoardChange"][];
+            keep: number;
+            applied: boolean;
         };
         PublishResult: {
             specId: string;
@@ -2102,6 +2149,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublishResult"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    syncBoard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BoardSyncRequest"];
+            };
+        };
+        responses: {
+            /** @description What changes (or changed). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BoardSyncPlan"];
                 };
             };
             400: components["responses"]["Error"];

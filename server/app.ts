@@ -10,13 +10,13 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
 import {
-  approveStep, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
-  SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
+  approveStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
+  NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { aiMode, makeAi, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
@@ -325,6 +325,7 @@ export function createApp(options: AppOptions = {}) {
   const specError = (err: unknown): never => {
     if (err instanceof SpecNotFound) throw new ApiError(404, 'not_found', 'No such document.')
     if (err instanceof SpecPublished) throw new ApiError(409, 'spec_published', 'This document is published and can no longer be changed.')
+    if (err instanceof NotPublished) throw new ApiError(409, 'not_published', 'Publish the document first: the board is made from it.')
     if (err instanceof NoAnalysis) throw new ApiError(409, 'no_analysis', 'Analyze the transcripts first: a document is built from the themes.')
     if (err instanceof StepOutOfOrder) throw new ApiError(409, 'step_not_ready', 'That step is not ready for this action yet.')
     if (err instanceof NotAllApproved) throw new ApiError(409, 'steps_not_approved', 'Every step must be approved before publishing.')
@@ -414,6 +415,21 @@ export function createApp(options: AppOptions = {}) {
   app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), ai, c.get('ctx'), stepId, v)))
   app.post('/agent-steps/:id/redo', withContext, (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), ai, c.get('ctx'), stepId, v, input.instructions)))
   app.patch('/agent-steps/:id', withContext, (c) => stepAction(c, editStepSchema, (stepId, v, input) => editStep(getDb(), c.get('ctx'), stepId, v, input.text)))
+
+  // What "Update board" would change (preview) or does (apply). Never removes a story that has been worked on.
+  app.post('/specs/:id/board-sync', withContext, async (c) => {
+    requireEditor(c)
+    const id = specId(c)
+    const input = parseBody(boardSyncSchema, await readJson(c))
+    let result
+    try {
+      result = await syncBoard(getDb(), c.get('ctx'), id, input.apply === true)
+    } catch (err) {
+      return specError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(result)
+  })
 
   app.post('/specs/:id/publish', withContext, async (c) => {
     requireEditor(c)

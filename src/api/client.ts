@@ -93,6 +93,8 @@ export const approveStep = (stepId: string, version: number) => request<SpecDeta
 export const redoStep = (stepId: string, version: number, instructions: string) => request<SpecDetail>(`/agent-steps/${stepId}/redo`, { method: 'POST', body: { instructions }, version })
 export const editStep = (stepId: string, version: number, text: string) => request<SpecDetail>(`/agent-steps/${stepId}`, { method: 'PATCH', body: { text }, version })
 export const publishSpec = (specId: string, version: number) => request<PublishResult>(`/specs/${specId}/publish`, { method: 'POST', version })
+export type BoardSyncPlan = components['schemas']['BoardSyncPlan']
+export const syncBoard = (specId: string, apply: boolean) => request<BoardSyncPlan>(`/specs/${specId}/board-sync`, { method: 'POST', body: { apply } })
 export const deleteSpec = (specId: string) => request<null>(`/specs/${specId}`, { method: 'DELETE' })
 export const listProjects = () => request<components['schemas']['ProjectList']>('/projects').then((r) => r.data)
 
@@ -107,7 +109,8 @@ export function friendlyMessage(err: unknown): string {
     if (err.code === 'not_found') return 'That project no longer exists.'
     if (err.code === 'no_transcripts') return 'Add at least one transcript before analyzing.'
     if (err.code === 'no_analysis') return 'Analyze the transcripts first: a document is built from the themes.'
-    if (err.code === 'spec_published') return 'This document is published and can no longer be changed.'
+    if (err.code === 'spec_published') return 'This document is already published. Use Update board to bring the board in line with it.'
+    if (err.code === 'not_published') return 'Publish the document first: the board is made from it.'
     if (err.code === 'step_not_ready') return 'That step is not ready for this action yet.'
     if (err.code === 'steps_not_approved') return 'Every step must be approved before publishing.'
     if (err.code === 'no_board') return 'Publish a requirements document to put its stories on the board.'

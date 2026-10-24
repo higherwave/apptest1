@@ -1,5 +1,5 @@
 import { Button, InlineNotification, Loading, Modal, Tag, TextArea } from '@carbon/react'
-import type { SpecDetail, SpecStep } from '../../api/client'
+import type { BoardSyncPlan, SpecDetail, SpecStep } from '../../api/client'
 import { CATEGORY_LABEL } from '../themes/themeEdits'
 import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
@@ -30,6 +30,11 @@ export type WriterViewProps = {
   onPublish: () => void
   onViewStories: () => void
   onBack: () => void
+  boardPlan: BoardSyncPlan | null
+  boardError?: string
+  onUpdateBoard: () => void
+  onCancelBoard: () => void
+  onConfirmBoard: () => void
   startOverOpen: boolean
   startOverError?: string
   onStartOver: () => void
@@ -44,7 +49,7 @@ export function WriterView(p: WriterViewProps) {
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading the document" />
   if (state === 'error' || !spec) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Requirements" subtitle={p.errorText} />
   const published = spec.status === 'published'
-  const locked = !p.canEdit || published
+  const locked = !p.canEdit
 
   return (
     <div className={styles.page}>
@@ -97,7 +102,11 @@ export function WriterView(p: WriterViewProps) {
               </Button>
             ))}
           </div>
-          {!published && <p className={styles.help}>Click a theme to exclude it. Changes apply to steps that have not started yet.</p>}
+          <p className={styles.help}>
+            {published
+              ? 'Click a theme to include or exclude it. The board follows when you choose Update board.'
+              : 'Click a theme to exclude it. Changes apply to steps that have not started yet.'}
+          </p>
         </section>
       )}
 
@@ -109,7 +118,6 @@ export function WriterView(p: WriterViewProps) {
               key={step.id}
               step={step}
               canEdit={p.canEdit}
-              published={published}
               busy={p.busy}
               fresh={p.freshStepId === step.id}
               editing={p.editingId === step.id}
@@ -193,6 +201,17 @@ export function WriterView(p: WriterViewProps) {
                   View stories
                 </Button>
               )}
+              {!spec.standalone && p.canEdit && spec.boardChanges !== null && spec.boardChanges > 0 && (
+                <>
+                  <p className={styles.para}>
+                    The board no longer matches this document: {spec.boardChanges} {spec.boardChanges === 1 ? 'change is' : 'changes are'} waiting.
+                  </p>
+                  <Button kind="secondary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
+                    Update board
+                  </Button>
+                </>
+              )}
+              {!spec.standalone && spec.boardChanges === 0 && <p className={styles.muted}>The board matches this document.</p>}
             </div>
           )}
           {spec.canPublish && p.canEdit && (
@@ -226,6 +245,27 @@ export function WriterView(p: WriterViewProps) {
         <TextArea id="redo-instructions" labelText="Instructions" rows={4} placeholder="e.g. Focus on the new-patient flow" value={p.redoText} onChange={(e) => p.onRedoText(e.target.value)} />
       </Modal>
       <Modal
+        open={p.boardPlan !== null}
+        size="sm"
+        modalHeading="Update the board?"
+        primaryButtonText="Update board"
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={p.busy}
+        onRequestClose={p.onCancelBoard}
+        onRequestSubmit={p.onConfirmBoard}
+      >
+        {p.boardPlan && (
+          <>
+            <BoardChanges title="Added to To Do" items={p.boardPlan.add} />
+            <BoardChanges title="Removed (nobody had touched them)" items={p.boardPlan.remove} />
+            <BoardChanges title="Kept, with a note (they have been worked on)" items={p.boardPlan.flag} />
+            <BoardChanges title="Note removed" items={p.boardPlan.clear} />
+            <p className={styles.para}>Stories that have been moved, edited or given criteria are never removed.</p>
+          </>
+        )}
+        {p.boardError && <InlineNotification kind="error" lowContrast hideCloseButton title="Board not updated" subtitle={p.boardError} />}
+      </Modal>
+      <Modal
         open={p.startOverOpen}
         danger
         size="sm"
@@ -242,5 +282,21 @@ export function WriterView(p: WriterViewProps) {
         {p.startOverError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not started over" subtitle={p.startOverError} />}
       </Modal>
     </div>
+  )
+}
+
+function BoardChanges({ title, items }: { title: string; items: BoardSyncPlan['add'] }) {
+  if (!items.length) return null
+  return (
+    <section className={styles.changes}>
+      <h4 className={styles.small}>{title}</h4>
+      <ul className={styles.list}>
+        {items.map((c) => (
+          <li key={`${c.key}-${c.reason}`}>
+            {c.key} · {c.title} ({c.reason.toLowerCase()})
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

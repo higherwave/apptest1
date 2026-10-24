@@ -80,6 +80,11 @@ function Card({ story, canEdit, busy, over, selected, onOpen, onMove, onDragOver
             Question
           </Tag>
         )}
+        {story.syncNote && (
+          <Tag size="sm" type="warm-gray" title={story.syncNote}>
+            Out of step
+          </Tag>
+        )}
       </div>
       <Button kind="ghost" size="sm" className={styles.open} aria-pressed={selected} onClick={() => onOpen(story.id)}>
         <span className={styles.title}>
@@ -172,6 +177,8 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
           </div>
         )}
       </div>
+
+      {detail.syncNote && <InlineNotification kind="warning" lowContrast hideCloseButton title="Out of step with the document" subtitle={detail.syncNote} />}
 
       {(detail.whyItMatters || detail.nextStep) && (
         <div className={styles.note}>

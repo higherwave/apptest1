@@ -109,3 +109,9 @@
     overflow: visible;
   }
 }
+
+.behind {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}

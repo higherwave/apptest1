@@ -1137,20 +1137,99 @@ test('publishing needs every step approved, then makes requirements and stories 
   assert.equal((await call('POST', `/specs/${spec.id}/publish`, undefined, published.version)).status, 409, 'cannot publish twice')
 })
 
-test('a published document is read-only: no approving, redoing, editing or changing themes', async () => {
-  const { app, idOf, call } = await specFixture()
-  const p1 = await idOf('Clinic booking, usability round 1')
-  const spec = (await (await app.request(`/api/v1/specs?projectId=${p1}`)).json()).data[0]
-  const detail = await (await app.request(`/api/v1/specs/${spec.id}`)).json()
-  const step = detail.steps[0]
-  for (const [method, path, body] of [['POST', `/agent-steps/${step.id}/approve`, undefined], ['POST', `/agent-steps/${step.id}/redo`, { instructions: 'x' }], ['PATCH', `/agent-steps/${step.id}`, { text: 'x' }]] as const) {
-    const res = await call(method, path, body, step.version)
-    assert.equal(res.status, 409, path)
-    assert.equal((await res.json()).error.code, 'spec_published')
+// A published document can be reopened ------------------------------------------------------------------------------------
+
+async function publishedRound2() {
+  const f = await specFixture()
+  const first = await f.create()
+  const done = await f.approveThrough(first.id, 8)
+  const res = await f.call('POST', `/specs/${done.id}/publish`, undefined, done.version)
+  assert.equal(res.status, 201)
+  const stories = async () => (await f.pg.query<any>(`select s.key, s.kind::text, s.status::text, s.sync_note, t.title from delivery.stories s left join research.themes t on t.id = s.theme_id where s.spec_id = $1 order by s.key`, [done.id])).rows as { key: string; kind: string; status: string; sync_note: string | null; title: string }[]
+  const include = async (themeId: string, included: boolean) => {
+    const cur = await f.get(done.id)
+    const r = await f.call('PUT', `/specs/${done.id}/themes/${themeId}`, { included }, cur.version)
+    assert.equal(r.status, 200, 'inclusion on a published document')
   }
-  const theme = await call('PUT', `/specs/${spec.id}/themes/${detail.themes[0].id}`, { included: false }, detail.version)
-  assert.equal(theme.status, 409)
-  assert.equal((await theme.json()).error.code, 'spec_published')
+  const sync = async (apply: boolean) => expectSpec(await f.call('POST', `/specs/${done.id}/board-sync`, { apply }), '/specs/{id}/board-sync', 'post')
+  return { ...f, id: done.id, stories, include, sync }
+}
+
+test('a published document can be reopened: edit, redo and approve work, later steps are marked behind, publishing twice is still refused', async () => {
+  const { id, get, call } = await publishedRound2()
+  let spec = await get(id)
+  assert.ok(spec.steps.every((s: any) => !s.behind), 'nothing is behind to begin with')
+  // Edit step 2: it goes back to review, and the steps written after it are behind.
+  const edit = await call('PATCH', `/agent-steps/${spec.steps[1].id}`, { text: 'Edited users' }, spec.steps[1].version)
+  assert.equal(edit.status, 200)
+  spec = await expectSpec(edit, '/agent-steps/{id}', 'patch')
+  assert.deepEqual(spec.steps.map((s: any) => s.status), ['approved', 'review', ...Array(6).fill('approved')])
+  assert.deepEqual(spec.steps.map((s: any) => s.behind), [false, false, ...Array(6).fill(true)])
+  assert.equal(spec.status, 'published')
+  // Approving it again drafts nothing (the next step already exists) and keeps the others behind.
+  const approved = await expectSpec(await call('POST', `/agent-steps/${spec.steps[1].id}/approve`, undefined, spec.steps[1].version), '/agent-steps/{id}/approve', 'post')
+  assert.equal(approved.steps[1].status, 'approved')
+  assert.ok(approved.steps.slice(2).every((s: any) => s.behind))
+  // Redoing step 4 brings that step up to date; steps after it stay behind, steps before it are unaffected.
+  const redo = await expectSpec(await call('POST', `/agent-steps/${approved.steps[3].id}/redo`, { instructions: 'Shorter' }, approved.steps[3].version), '/agent-steps/{id}/redo', 'post')
+  assert.deepEqual(redo.steps.map((s: any) => s.behind), [false, false, true, false, true, true, true, true])
+  const again = await call('POST', `/specs/${id}/publish`, undefined, redo.version)
+  assert.equal(again.status, 409)
+  assert.equal((await again.json()).error.code, 'spec_published')
+})
+
+test('Update board: previews first, removes only untouched stories, keeps and notes worked-on ones, adds new ones, and undoes the note when they agree again', async () => {
+  const { id, get, call, stories, include, sync, pg } = await publishedRound2()
+  const spec = await get(id)
+  assert.equal(spec.boardChanges, 0, 'a fresh publish agrees with the board')
+  const inScope = spec.themes.filter((t: any) => t.included && t.effort <= 2)
+  assert.ok(inScope.length >= 2)
+  const [moved, idle] = inScope
+  const before = await stories()
+  // Someone works on one card: it moves to In progress.
+  const cardOf = async (title: string) => (await pg.query<any>(`select id, version from delivery.stories where spec_id = $1 and theme_id = (select id from research.themes where title = $2 and project_id = (select project_id from delivery.specs where id = $1) limit 1)`, [id, title])).rows[0] as { id: string; version: number }
+  const card = await cardOf(moved.title)
+  assert.equal((await call('POST', `/stories/${card.id}/move`, { status: 'in_progress', beforeId: null }, card.version)).status, 200)
+  // Exclude both themes.
+  await include(moved.id, false)
+  await include(idle.id, false)
+  assert.equal((await get(id)).boardChanges, 2)
+  const preview = await sync(false)
+  assert.equal(preview.applied, false)
+  assert.deepEqual([preview.remove.length, preview.flag.length, preview.add.length], [1, 1, 0])
+  assert.match(preview.remove[0].reason, /no longer included/)
+  assert.deepEqual((await stories()).map((s) => s.key), before.map((s) => s.key), 'a preview changes nothing')
+  // Apply: the idle story goes, the worked-on one stays with a note.
+  const applied = await sync(true)
+  assert.equal(applied.applied, true)
+  const after = await stories()
+  assert.ok(!after.some((s) => s.title === idle.title), 'the untouched story was removed')
+  const kept = after.find((s) => s.title === moved.title)!
+  assert.deepEqual([kept.status, !!kept.sync_note], ['in_progress', true])
+  assert.equal((await get(id)).boardChanges, 0, 'the board agrees again, so nothing more to do')
+  assert.equal((await sync(true)).applied, false, 'asking twice changes nothing')
+  // Bring both back: the kept story loses its note, and the removed theme gets a new story at the end of To Do with a new key.
+  await include(moved.id, true)
+  await include(idle.id, true)
+  const plan = await sync(false)
+  assert.deepEqual([plan.add.length, plan.clear.length, plan.remove.length], [1, 1, 0])
+  await sync(true)
+  const final = await stories()
+  assert.equal(final.find((s) => s.title === moved.title)!.sync_note, null)
+  const readded = final.find((s) => s.title === idle.title)!
+  assert.deepEqual([readded.status, readded.kind, before.some((s) => s.key === readded.key)], ['todo', 'requirement', false], 'a fresh key, never a reused one')
+  const keys = final.map((s) => s.key)
+  assert.equal(new Set(keys).size, keys.length)
+})
+
+test('Update board needs a published document and an editing role', async () => {
+  const { create, call, app } = await specFixture()
+  const draft = await create()
+  const res = await call('POST', `/specs/${draft.id}/board-sync`, { apply: false })
+  assert.equal(res.status, 409)
+  assert.equal((await expectSpec(res, '/specs/{id}/board-sync', 'post')).error.code, 'not_published')
+  assert.equal((await call('POST', `/specs/${draft.id}/board-sync`, {}, undefined, { 'content-type': 'application/json' })).status, 401)
+  void app
 })
 
 test('a stand-alone document is drafted from a description alone, stays out of the projects list, and publishes no stories', async () => {

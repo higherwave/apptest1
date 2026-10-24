@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ApiRequestError, approveStep, createSpec, deleteSpec, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, type SpecDetail, type SpecStep } from '../../api/client'
+import { ApiRequestError, approveStep, createSpec, deleteSpec, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
 import { useMe, useSpec } from '../../api/hooks'
 import { WriterView } from './WriterView'
 
@@ -20,6 +20,7 @@ export function WriterPage() {
   const [notice, setNotice] = useState<string | undefined>()
   const [freshStepId, setFreshStepId] = useState<string | null>(null)
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
+  const [board, setBoard] = useState<{ plan: BoardSyncPlan; error?: string } | null>(null)
   const [startOver, setStartOver] = useState<{ error?: string } | null>(null)
   const [redoing, setRedoing] = useState<{ step: SpecStep; text: string } | null>(null)
 
@@ -62,6 +63,37 @@ export function WriterPage() {
   const doc = spec.data
   // A stand-alone document has no project of its own to go back to, so it returns to wherever the person came from.
   const back = () => navigate(-1)
+
+  // "Update board": shows what would change first, then does it once confirmed.
+  async function previewBoard() {
+    if (!doc) return
+    setBusy(true)
+    setError(undefined)
+    try {
+      setBoard({ plan: await syncBoard(doc.id, false) })
+    } catch (err) {
+      setError(friendlyMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function confirmBoard() {
+    if (!doc || !board) return
+    setBusy(true)
+    try {
+      await syncBoard(doc.id, true)
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['spec', specId] }),
+        queryClient.invalidateQueries({ queryKey: ['board', doc.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['stage', doc.projectId] }),
+      ])
+      setBoard(null)
+    } catch (err) {
+      setBoard({ ...board, error: friendlyMessage(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
 
   // Throws the document away and drafts a new one from the project's current themes (its one document), which then opens.
   async function confirmStartOver() {
@@ -142,6 +174,11 @@ export function WriterPage() {
       onPublish={publish}
       onViewStories={() => doc && navigate(`/projects/${doc.projectId}/stories`)}
       onBack={back}
+      boardPlan={board?.plan ?? null}
+      boardError={board?.error}
+      onUpdateBoard={previewBoard}
+      onCancelBoard={() => setBoard(null)}
+      onConfirmBoard={confirmBoard}
       startOverOpen={startOver !== null}
       startOverError={startOver?.error}
       onStartOver={() => setStartOver({})}

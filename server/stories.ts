@@ -17,6 +17,8 @@ export type BoardStory = {
   summary: string | null
   whyItMatters: string | null
   nextStep: string | null
+  /** Set when the document no longer agrees with this story (see "Update board"). */
+  syncNote: string | null
   theme: { id: string; title: string; category: string; participantCount: number; totalParticipants: number } | null
   criteriaMet: number
   criteriaTotal: number
@@ -46,7 +48,7 @@ export class NothingToUndo extends Error {}
 export class CannotUndo extends Error {}
 
 const STORY_SQL = `
-  select s.id, s.spec_id, s.key, s.kind, s.title, s.status, s.position::float8 as position, s.priority, s.owner_team, s.summary, s.why_it_matters, s.next_step, s.version,
+  select s.id, s.spec_id, s.key, s.kind, s.title, s.status, s.position::float8 as position, s.priority, s.owner_team, s.summary, s.why_it_matters, s.next_step, s.sync_note, s.version,
          t.id as theme_id, coalesce(o.title, t.title) as theme_title, t.category as theme_category, st.participant_count::int as ppl, st.total_participants::int as total,
          (select count(*)::int from delivery.story_checklist c where c.story_id = s.id and c.kind = 'criterion') as criteria_total,
          (select count(*)::int from delivery.story_checklist c where c.story_id = s.id and c.kind = 'criterion' and c.met) as criteria_met
@@ -58,7 +60,7 @@ const STORY_SQL = `
 function toStory(r: Record<string, any>): BoardStory {
   return {
     id: r.id, key: r.key, kind: r.kind, title: r.title, status: r.status, position: Number(r.position), priority: r.priority, ownerTeam: r.owner_team ?? null,
-    summary: r.summary ?? null, whyItMatters: r.why_it_matters ?? null, nextStep: r.next_step ?? null,
+    summary: r.summary ?? null, whyItMatters: r.why_it_matters ?? null, nextStep: r.next_step ?? null, syncNote: r.sync_note ?? null,
     theme: r.theme_id ? { id: r.theme_id, title: r.theme_title, category: r.theme_category, participantCount: r.ppl ?? 0, totalParticipants: r.total ?? 0 } : null,
     criteriaMet: r.criteria_met, criteriaTotal: r.criteria_total, version: r.version,
   }

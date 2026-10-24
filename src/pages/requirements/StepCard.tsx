@@ -6,7 +6,6 @@ import styles from './StepCard.module.scss'
 export type StepCardProps = {
   step: SpecStep
   canEdit: boolean
-  published: boolean
   busy: boolean
   /** The step was drafted just now in this session, so its text is revealed gradually. */
   fresh: boolean
@@ -24,10 +23,10 @@ const STATUS_LABEL = { pending: 'Waiting', review: 'Needs review', approved: 'Ap
 
 // Presentational: one of the eight steps. A waiting step is dimmed; a step under review shows Approve and Redo; an
 // approved step can still be edited, which sends it back for review.
-export function StepCard({ step, canEdit, published, busy, fresh, editing, draft, onDraft, onEditStart, onEditSave, onEditCancel, onApprove, onRedo }: StepCardProps) {
+export function StepCard({ step, canEdit, busy, fresh, editing, draft, onDraft, onEditStart, onEditSave, onEditCancel, onApprove, onRedo }: StepCardProps) {
   const { shown, done } = useTypedText(step.text ?? '', fresh)
   const open = step.status !== 'pending'
-  const editable = canEdit && !published && open && !editing
+  const editable = canEdit && open && !editing
   return (
     <article className={styles.card} data-state={step.status} aria-label={`Step ${step.position}: ${step.title}`}>
       <header className={styles.head}>
@@ -52,6 +51,7 @@ export function StepCard({ step, canEdit, published, busy, fresh, editing, draft
           ) : (
             <p className={styles.text}>{shown}</p>
           )}
+          {step.behind && !editing && <p className={styles.behind}>An earlier step changed after this one was written. Redo it if it should follow the change.</p>}
           {(step.edited || step.revision > 0) && !editing && (
             <div className={styles.flags}>
               {step.edited && (
@@ -99,7 +99,7 @@ export function StepCard({ step, canEdit, published, busy, fresh, editing, draft
               </Button>
             </div>
           )}
-          {!editing && step.status === 'review' && done && canEdit && !published && (
+          {!editing && step.status === 'review' && done && canEdit && (
             <div className={styles.actions}>
               <Button kind="primary" size="md" disabled={busy} onClick={onApprove}>
                 Approve
