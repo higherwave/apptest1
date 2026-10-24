@@ -1,6 +1,7 @@
 @use '../../tokens' as tokens;
 
-$panel-width: 24rem;
+$panel-width: 18rem;
+$column-min: 0;
 
 .page {
   display: flex;
@@ -71,69 +72,52 @@ $panel-width: 24rem;
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) $panel-width;
-  gap: var(--at-space-lg);
+  gap: var(--at-space-sm);
   align-items: start;
 }
 
-// The four stages, each with its count. The chosen one is dark; a row dragged over one turns it cream.
-.stages {
+.board {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax($column-min, 1fr));
   gap: var(--at-space-xs);
+  overflow-x: auto;
+  align-items: start;
 }
 
-.stage {
+.column {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  gap: var(--at-space-xxs);
-  inline-size: 100%;
-  max-inline-size: none;
-  block-size: auto;
-  min-block-size: 0;
-  padding: var(--at-space-sm) var(--at-space-md);
+  gap: var(--at-space-xs);
+  padding: var(--at-space-xs);
+  min-block-size: 10rem;
   background: var(--at-surface-soft);
+  border-radius: var(--at-radius-lg);
   border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
-  color: var(--at-ink);
-  text-align: start;
-  user-select: none;
 
-  &[aria-pressed='true'] {
-    background: var(--at-surface-dark);
-    border-color: var(--at-surface-dark);
-    color: var(--at-on-dark);
+  &[data-status='done'] {
+    background: var(--at-tint-sand);
   }
 
   &[data-over='true'] {
-    background: var(--at-tint-cream);
-    border-color: var(--at-ink);
-    color: var(--at-ink);
+    border-color: var(--at-info-border);
+    background: var(--at-tint-blue);
   }
-
-  &[data-status='todo'] { --stage-color: var(--at-status-todo-strong); }
-  &[data-status='in_progress'] { --stage-color: var(--at-status-progress-strong); }
-  &[data-status='in_review'] { --stage-color: var(--at-status-review-strong); }
-  &[data-status='done'] { --stage-color: var(--at-status-done-strong); }
 }
 
-.stageName {
+.columnHead {
   @include tokens.role('label-md');
+  font-weight: 500;
   display: flex;
-  align-items: center;
-  gap: var(--at-space-xs);
+  justify-content: space-between;
+  margin: 0;
+  padding-block-end: var(--at-space-xs);
+  border-block-end: 1px solid var(--at-hairline);
+  color: var(--at-ink);
 }
 
-.dot {
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: var(--at-radius-full);
-  background: var(--stage-color);
-}
-
-.stageCount {
-  @include tokens.role('display-md');
-  font-weight: 300;
+.count {
+  color: var(--at-text-tertiary);
+  font-weight: 400;
 }
 
 .hint {
@@ -142,57 +126,36 @@ $panel-width: 24rem;
   color: var(--at-muted);
 }
 
-// The chosen stage's stories. It scrolls inside itself, so the stages above and the panel beside stay in view however many there are.
-.list {
+.card {
+  position: relative;
   display: flex;
   flex-direction: column;
-  border-block-start: 1px solid var(--at-hairline);
-  max-block-size: calc(100vh - 24rem);
-  min-block-size: 18rem;
-  overflow-y: auto;
-  scrollbar-gutter: stable;
-}
-
-.row {
-  display: grid;
-  grid-template-columns: 1rem 3rem minmax(0, 1fr) auto 4.5rem 5.5rem;
-  align-items: center;
-  gap: var(--at-space-sm);
-  padding: var(--at-space-xxs) var(--at-space-xs);
-  border-block-end: 1px solid var(--at-hairline);
-  border-inline-start: var(--at-space-xxs) solid transparent;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-xs) var(--at-space-sm);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-inline-start-width: var(--at-space-xxs);
+  border-radius: var(--at-radius-md);
   cursor: grab;
 
+  &[data-status='todo'] { border-inline-start-color: var(--at-status-todo-strong); }
+  &[data-status='in_progress'] { border-inline-start-color: var(--at-status-progress-strong); }
+  &[data-status='in_review'] { border-inline-start-color: var(--at-status-review-strong); }
+  &[data-status='done'] { border-inline-start-color: var(--at-status-done-strong); }
+
   &[data-selected='true'] {
-    background: var(--at-surface-soft);
-    border-inline-start-color: var(--at-ink);
+    border-color: var(--at-border-strong);
+    box-shadow: 0 0 0 1px var(--at-border-strong);
   }
 
-  &[data-busy='true'] {
-    opacity: 0.6;
-    cursor: progress;
-  }
+  &[data-over='true'] { box-shadow: 0 calc(-1 * var(--at-space-xxs)) 0 var(--at-info-border); }
+  &[data-busy='true'] { opacity: 0.6; cursor: progress; }
 }
 
-.grip {
-  color: var(--at-text-tertiary);
-  letter-spacing: -0.125rem;
-}
-
-.key {
-  @include tokens.role('label-md');
-  color: var(--at-muted);
-  font-weight: 400;
-}
-
-.flags {
+.cardTop {
   display: flex;
-  gap: var(--at-space-xxs);
-}
-
-.arrows {
-  display: flex;
-  justify-content: flex-end;
+  align-items: center;
+  gap: var(--at-space-xs);
 }
 
 .priority {
@@ -212,52 +175,51 @@ $panel-width: 24rem;
   min-block-size: 0;
   padding: 0;
   text-align: start;
+  white-space: normal;
   color: var(--at-ink);
 }
 
-// One line; the whole title is in the panel.
 .title {
   @include tokens.role('label-md');
-  display: block;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--at-ink);
   font-weight: 400;
 }
 
-.visuallyHidden {
-  position: absolute;
-  inline-size: 1px;
-  block-size: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+.themeTag {
+  align-self: flex-start;
+  max-inline-size: 100%;
+  margin: 0;
 }
 
-.nav {
+.cards {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: var(--at-space-xs);
+  max-block-size: calc(100vh - 20rem); // a long stage scrolls inside its column, not the page
+  overflow-y: auto;
 }
 
-.navButtons {
-  display: flex;
-  gap: var(--at-space-xs);
-
-  > * {
-    flex: 1;
-    max-inline-size: none;
-  }
+.theme,
+.progress {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-muted);
+  font-weight: 400;
 }
 
-// Tertiary: a link under the buttons.
-.jira {
-  align-self: center;
-  color: var(--at-link);
+.progress {
+  @include tokens.role('meta');
+}
+
+.menu {
+  position: absolute;
+  inset-block-start: var(--at-space-xxs);
+  inset-inline-end: var(--at-space-xxs);
 }
 
 .none,
@@ -412,7 +374,36 @@ $panel-width: 24rem;
   }
 }
 
-.footer {
+.visuallyHidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.nav {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--at-space-xs);
+}
+
+.navButtons {
+  display: flex;
+  gap: var(--at-space-xs);
+
+  > * {
+    flex: 1;
+    max-inline-size: none;
+  }
+}
+
+// Tertiary: a link under the buttons.
+.jira {
+  align-self: center;
+  color: var(--at-link);
 }

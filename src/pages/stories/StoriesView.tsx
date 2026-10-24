@@ -1,7 +1,7 @@
-import { Button, Dropdown, InlineNotification, Loading, Search, Tag, TextArea } from '@carbon/react'
-import { useRef, useState } from 'react'
+import { Button, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
+import { useEffect, useRef, useState } from 'react'
 import { COLUMNS } from '../../../shared/board.mjs'
-import { ChevronLeft, ChevronRight, Close } from '@carbon/icons-react'
+import { Close } from '@carbon/icons-react'
 import type { Board, BoardStory, ChecklistInput, Priority, ProjectDetail, StoryDetail, StoryStatus } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { STATUS_HINT, STATUS_LABEL } from './labels'
@@ -39,39 +39,44 @@ export type StoriesViewProps = {
   onGoRequirements: () => void
 }
 
-type RowProps = {
+type CardProps = {
   story: BoardStory
   canEdit: boolean
   busy: boolean
+  over: boolean
   selected: boolean
   onOpen: (id: string) => void
-  onMove: (story: BoardStory, status: StoryStatus) => void
+  onMove: (story: BoardStory, status: StoryStatus, beforeId: string | null) => void
+  onDragOver: (id: string) => void
+  onDrop: (e: React.DragEvent) => void
 }
 
-// One story in the list: its key, title (opens the details), flags, priority, and previous and next stage buttons. The row can also be dragged
-// onto a stage tile; the buttons are the way to do the same without a mouse.
-function Row({ story, canEdit, busy, selected, onOpen, onMove }: RowProps) {
-  const at = COLUMNS.indexOf(story.status)
-  const prev: StoryStatus | undefined = COLUMNS[at - 1]
-  const next: StoryStatus | undefined = COLUMNS[at + 1]
+function Card({ story, canEdit, busy, over, selected, onOpen, onMove, onDragOver, onDrop }: CardProps) {
   return (
-    <div
-      className={styles.row}
+    <article
+      className={styles.card}
       data-status={story.status}
-      data-selected={selected}
+      data-over={over}
       data-busy={busy}
+      data-selected={selected}
       data-testid={`card-${story.key}`}
       draggable={canEdit && !busy}
       onDragStart={(e) => e.dataTransfer.setData('text/plain', story.id)}
+      onDragOver={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onDragOver(story.id)
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onDrop(e)
+      }}
     >
-      <span className={styles.grip} aria-hidden>
-        ⋮⋮
-      </span>
-      <span className={styles.key}>{story.key}</span>
-      <Button kind="ghost" size="sm" className={styles.open} aria-pressed={selected} onClick={() => onOpen(story.id)}>
-        <span className={styles.title}>{story.title}</span>
-      </Button>
-      <span className={styles.flags}>
+      <div className={styles.cardTop}>
+        <span className={styles.priority} data-priority={story.priority}>
+          {PRIORITY_LABEL[story.priority]}
+        </span>
         {story.kind === 'open_question' && (
           <Tag size="sm" type="purple">
             Question
@@ -82,19 +87,32 @@ function Row({ story, canEdit, busy, selected, onOpen, onMove }: RowProps) {
             Out of step
           </Tag>
         )}
-      </span>
-      <span className={styles.priority} data-priority={story.priority}>
-        {PRIORITY_LABEL[story.priority]}
-      </span>
-      <span className={styles.arrows}>
-        {canEdit && (
-          <>
-            <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription={prev ? `Move ${story.key} to ${STATUS_LABEL[prev]}` : `${story.key} is in the first stage`} tooltipPosition="left" data-testid={`prev-${story.key}`} disabled={busy || !prev} onClick={() => prev && onMove(story, prev)} />
-            <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription={next ? `Move ${story.key} to ${STATUS_LABEL[next]}` : `${story.key} is in the last stage`} tooltipPosition="left" data-testid={`next-${story.key}`} disabled={busy || !next} onClick={() => next && onMove(story, next)} />
-          </>
-        )}
-      </span>
-    </div>
+      </div>
+      <Button kind="ghost" size="sm" className={styles.open} aria-pressed={selected} onClick={() => onOpen(story.id)}>
+        <span className={styles.title}>
+          {story.key} — {story.title}
+        </span>
+      </Button>
+      {story.theme && (
+        <Tag className={styles.themeTag} size="sm" type="gray" title={story.theme.title}>
+          {story.theme.title}
+        </Tag>
+      )}
+      {(story.ownerTeam || story.criteriaTotal > 0) && (
+        <p className={styles.progress}>
+          {[story.ownerTeam, story.criteriaTotal > 0 ? `${story.criteriaMet} of ${story.criteriaTotal} criteria met` : null].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      {canEdit && (
+        <div className={styles.menu}>
+          <OverflowMenu iconDescription={`Move ${story.key}`} flipped size="sm">
+            {COLUMNS.filter((c: StoryStatus) => c !== story.status).map((c: StoryStatus) => (
+              <OverflowMenuItem key={c} itemText={`Move to ${STATUS_LABEL[c]}`} onClick={() => onMove(story, c, null)} />
+            ))}
+          </OverflowMenu>
+        </div>
+      )}
+    </article>
   )
 }
 
@@ -263,33 +281,33 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
   )
 }
 
-// Presentational: the stories as a pipeline. Four stage tiles with counts sit above the list of the chosen stage and a panel for the selected
-// story. A story moves by dragging its row onto a tile, with the buttons on its row, or with the buttons in the panel.
+// Presentational: the four-column board with filters, drag and a "Move to" alternative, Undo, and a static panel for the selected card.
 export function StoriesView(props: StoriesViewProps) {
   const { state, board, stories, canEdit, moving, search, priority, openId, detail, detailBusy, undoing, saving, savedAt, errorText, announcement } = props
-  const [stage, setStage] = useState<StoryStatus>('todo')
-  const [over, setOver] = useState<StoryStatus | null>(null)
+  const [drag, setDrag] = useState<{ column: StoryStatus; before: string | null } | null>(null)
   const byId = (id: string) => board?.stories.find((s) => s.id === id)
-  const inStage = (status: StoryStatus) => stories.filter((s) => s.status === status).sort((a, b) => a.position - b.position)
-  const opened = openId ? byId(openId) : undefined
-  const inProgress = board?.stories.filter((s) => s.status === 'in_progress').length ?? 0
-  const list = inStage(stage)
-  const choose = (status: StoryStatus) => {
-    setStage(status)
-    const first = inStage(status)[0]
-    if (first && opened?.status !== status) props.onOpen(first.id)
-  }
-  const move = (story: BoardStory, status: StoryStatus) => {
-    props.onMove(story, status, null)
-    // The row leaves this list, so keyboard focus goes to the stage that is showing.
-    requestAnimationFrame(() => document.getElementById(`stage-${stage}`)?.focus())
-  }
-  const drop = (e: React.DragEvent, status: StoryStatus) => {
+  const drop = (e: React.DragEvent, status: StoryStatus, beforeId: string | null) => {
     e.preventDefault()
-    setOver(null)
+    setDrag(null)
     const story = byId(e.dataTransfer.getData('text/plain'))
-    if (story && story.status !== status) props.onMove(story, status, null)
+    if (story && story.id !== beforeId) move(story, status, beforeId)
   }
+  const opened = openId ? byId(openId) : undefined
+  // A card that moves is re-created in its new column, so keyboard focus follows it there.
+  const followKey = useRef<string | null>(null)
+  const move = (story: BoardStory, status: StoryStatus, beforeId: string | null) => {
+    followKey.current = story.key
+    props.onMove(story, status, beforeId)
+  }
+  useEffect(() => {
+    const key = followKey.current
+    const open = key ? document.querySelector<HTMLElement>(`[data-testid="card-${key}"] button`) : null
+    if (key && open && open !== document.activeElement && stories.find((s) => s.key === key)) {
+      followKey.current = null
+      open.focus()
+    }
+  }, [stories])
+  const inProgress = board?.stories.filter((s) => s.status === 'in_progress').length ?? 0
 
   return (
     <div className={styles.page}>
@@ -299,7 +317,7 @@ export function StoriesView(props: StoriesViewProps) {
           description={
             board
               ? `${board.stories.length} ${board.stories.length === 1 ? 'story' : 'stories'} from the requirements document. ${inProgress} in progress; open questions need a scope decision.`
-              : 'Each story is a requirement or an open question from the published document.'
+              : 'Each card is a requirement or an open question from the published document.'
           }
         />
         {state === 'ready' && (
@@ -345,41 +363,49 @@ export function StoriesView(props: StoriesViewProps) {
               </Button>
             )}
           </div>
-          <div className={styles.stages} role="group" aria-label="Stages">
-            {COLUMNS.map((status: StoryStatus) => (
-              <Button
-                key={status}
-                id={`stage-${status}`}
-                kind="ghost"
-                className={styles.stage}
-                data-status={status}
-                data-over={over === status}
-                aria-pressed={stage === status}
-                aria-label={`${STATUS_LABEL[status]}, ${inStage(status).length} ${inStage(status).length === 1 ? 'story' : 'stories'}`}
-                onClick={() => choose(status)}
-                onDragOver={(e: React.DragEvent) => {
-                  e.preventDefault()
-                  if (over !== status) setOver(status)
-                }}
-                onDragLeave={() => setOver(null)}
-                onDrop={(e: React.DragEvent) => drop(e, status)}
-              >
-                <span className={styles.stageName}>
-                  <span className={styles.dot} aria-hidden />
-                  {STATUS_LABEL[status]}
-                </span>
-                <span className={styles.stageCount}>{inStage(status).length}</span>
-              </Button>
-            ))}
-          </div>
-          <p className={styles.hint}>{STATUS_HINT[stage]}</p>
           <div className={styles.layout}>
-            <section className={styles.list} aria-label={STATUS_LABEL[stage]}>
-              {list.map((s) => (
-                <Row key={s.id} story={s} canEdit={canEdit} busy={moving.has(s.id)} selected={openId === s.id} onOpen={props.onOpen} onMove={move} />
-              ))}
-              {list.length === 0 && <p className={styles.none}>Nothing here under the current filters.</p>}
-            </section>
+            <div className={styles.board}>
+              {COLUMNS.map((status: StoryStatus) => {
+                const cards = stories.filter((s) => s.status === status).sort((a, b) => a.position - b.position)
+                return (
+                  <section
+                    key={status}
+                    className={styles.column}
+                    data-status={status}
+                    data-over={drag?.column === status && drag.before === null}
+                    aria-label={STATUS_LABEL[status]}
+                    onDragOver={(e) => {
+                      e.preventDefault()
+                      if (drag?.column !== status || drag.before !== null) setDrag({ column: status, before: null })
+                    }}
+                    onDragLeave={() => setDrag(null)}
+                    onDrop={(e) => drop(e, status, null)}
+                  >
+                    <h2 className={styles.columnHead} title={STATUS_HINT[status]}>
+                      {STATUS_LABEL[status]} <span className={styles.count}>{cards.length}</span>
+                    </h2>
+                    <div className={styles.cards}>
+                    {cards.map((s) => (
+                      <div key={s.id}>
+                        <Card
+                          story={s}
+                          canEdit={canEdit}
+                          busy={moving.has(s.id)}
+                          over={drag?.column === status && drag.before === s.id}
+                          selected={openId === s.id}
+                          onOpen={props.onOpen}
+                          onMove={move}
+                          onDragOver={(id) => (drag?.column !== status || drag.before !== id) && setDrag({ column: status, before: id })}
+                          onDrop={(e) => drop(e, status, s.id)}
+                        />
+                      </div>
+                    ))}
+                    {cards.length === 0 && <p className={styles.none}>Nothing here under the current filters.</p>}
+                    </div>
+                  </section>
+                )
+              })}
+            </div>
             <aside className={styles.panel} aria-label="Story details">
               {opened ? (
                 <Panel
@@ -389,7 +415,7 @@ export function StoriesView(props: StoriesViewProps) {
                   canEdit={canEdit}
                   busy={detailBusy}
                   onChecklist={props.onChecklist}
-                  onMove={(status) => props.onMove(opened, status, null)}
+                  onMove={(status) => move(opened, status, null)}
                 />
               ) : (
                 <p className={styles.none}>Select a story to see its details.</p>
