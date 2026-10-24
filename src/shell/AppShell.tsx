@@ -7,7 +7,7 @@ import { AccessBar } from '../auth/AccessBar'
 import type { StepKey } from '../api/client'
 import { STEPS, STEP_GROUPS } from './nav'
 import { Logo } from './Logo'
-import { PrivacyNote } from './PrivacyNote'
+import { SiteFooter } from './SiteFooter'
 import styles from './AppShell.module.scss'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -107,7 +107,7 @@ export function AppShell() {
 
       <main className={cx(styles.content, hasPanel && styles.withPanel)}>
         <Outlet />
-        <PrivacyNote />
+        <SiteFooter />
       </main>
     </div>
   )

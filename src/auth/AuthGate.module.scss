@@ -1,11 +1,19 @@
 @use '../tokens' as tokens;
 
+.page {
+  display: flex;
+  flex-direction: column;
+  min-block-size: 100vh;
+  padding-block-end: var(--at-space-xl); // the footer's band reaches back over this
+  padding-inline: var(--at-space-xl); // and over this
+  background: var(--at-surface-soft);
+}
+
 .screen {
   display: grid;
+  flex: 1;
   place-items: center;
-  min-block-size: 100vh;
   padding: var(--at-space-lg);
-  background: var(--at-surface-soft);
 }
 
 .card {

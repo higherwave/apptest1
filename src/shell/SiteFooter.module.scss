@@ -1,0 +1,56 @@
+@use '../tokens' as tokens;
+
+// Pushes the footer to the foot of the window on a short page, and leaves room above it on a long one.
+.slot {
+  margin-block-start: auto;
+  padding-block-start: var(--at-space-xxl);
+}
+
+// A grey band. The page around it is padded, so the band reaches back out to the edges of the content area.
+.footer {
+  margin-inline: calc(-1 * var(--at-space-xl));
+  margin-block-end: calc(-1 * var(--at-space-xl));
+  padding: var(--at-space-xxl) var(--at-space-xl);
+  background: var(--at-surface-footer);
+}
+
+.inner {
+  max-inline-size: 60rem;
+  margin-inline: auto;
+}
+
+.brand {
+  @include tokens.role('title-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 500;
+}
+
+.mark {
+  display: block;
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+
+.legal {
+  @include tokens.role('meta');
+  margin-block-start: var(--at-space-lg);
+  color: var(--at-body);
+  line-height: 1.6;
+
+  p {
+    margin: 0 0 var(--at-space-xs);
+  }
+
+  a {
+    color: var(--at-link);
+    text-decoration: none;
+
+    &:hover {
+      color: var(--at-link-active);
+    }
+  }
+}

@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react'
 import { ApiRequestError } from '../api/client'
 import { useMe } from '../api/hooks'
 import { Logo } from '../shell/Logo'
-import { PrivacyNote } from '../shell/PrivacyNote'
+import { SiteFooter } from '../shell/SiteFooter'
 import { signInWithGoogle, signOut } from './authClient'
 import styles from './AuthGate.module.scss'
 
@@ -19,17 +19,19 @@ export function AuthGate({ children }: { children: ReactNode }) {
 
 function Screen({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <main className={styles.screen}>
-      <div className={styles.card}>
-        <p className={styles.brand}>
-          <Logo />
-          <span>Signal Flow</span>
-        </p>
-        <h1 className={styles.title}>{title}</h1>
-        {children}
-        <PrivacyNote />
-      </div>
-    </main>
+    <div className={styles.page}>
+      <main className={styles.screen}>
+        <div className={styles.card}>
+          <p className={styles.brand}>
+            <Logo />
+            <span>Signal Flow</span>
+          </p>
+          <h1 className={styles.title}>{title}</h1>
+          {children}
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
   )
 }
 
