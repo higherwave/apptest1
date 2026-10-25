@@ -92,6 +92,24 @@ export async function callAi<T>(db: Queryable, ai: Ai, workspaceId: string, purp
 
 export type Fallback = 'budget' | 'credit'
 
+// Notes what went wrong with a model call, for the owner's "last AI problem" report. It never throws: a failure to write the note must not
+// turn a handled problem into a second one. Only the problem is kept, never the research text.
+async function noteProblem(db: Queryable, workspaceId: string, purpose: Purpose, code: string, message: string, detail?: string): Promise<void> {
+  try {
+    await insertMany(db, 'core.ai_problems', [{ workspace_id: workspaceId, purpose, code, message, detail: detail ? detail.slice(0, 500) : null }])
+  } catch (err) {
+    console.error('could not record an AI problem', err instanceof Error ? err.message : err)
+  }
+}
+
+export type AiProblem = { at: string; purpose: string; code: string; message: string; detail: string | null }
+
+/** The most recent problems in the past 30 days, newest first. */
+export async function recentAiProblems(db: Queryable, workspaceId: string, limit = 10): Promise<AiProblem[]> {
+  const rows = (await db.query(`select created_at, purpose, code, message, detail from core.ai_problems where workspace_id = $1 and created_at > now() - interval '30 days' order by created_at desc limit $2`, [workspaceId, limit])).rows
+  return rows.map((r) => ({ at: new Date(r.created_at).toISOString(), purpose: r.purpose, code: r.code, message: r.message, detail: r.detail }))
+}
+
 // Like callAi, but when the month's budget or the account's credit is used up the call is made again with the simulation, so
 // the app stays usable. `fallback` says so. An unusable model reply becomes a plain 503; nothing is saved from it.
 export async function callAiWithFallback<T>(db: Queryable, ai: Ai, workspaceId: string, purpose: Purpose, call: (p: AiProvider) => Promise<Priced<T>>, runId?: string): Promise<{ value: T; fallback?: Fallback }> {
@@ -100,12 +118,17 @@ export async function callAiWithFallback<T>(db: Queryable, ai: Ai, workspaceId: 
   } catch (err) {
     const code = err instanceof ApiError ? err.code : ''
     if (code === 'ai_budget_reached' || code === 'ai_credit_exhausted') {
+      await noteProblem(db, workspaceId, purpose, code, (err as ApiError).message, 'The simulation was used instead.')
       return { value: await callAi(db, { ...ai, provider: simulatedProvider }, workspaceId, purpose, call, runId), fallback: code === 'ai_budget_reached' ? 'budget' : 'credit' }
     }
     if (err instanceof ModelOutputError) {
       console.error(`ai_output_unusable (${purpose}): ${err.problems.join('; ').slice(0, 500)}`) // the problems only, never the text, so the Vercel log shows why
-      throw new ApiError(503, 'ai_output_unusable', 'The AI did not return a usable result. Nothing was changed; try again.')
+      const unusable = new ApiError(503, 'ai_output_unusable', 'The AI did not return a usable result. Nothing was changed; try again.')
+      await noteProblem(db, workspaceId, purpose, unusable.code, unusable.message, err.problems.join('; '))
+      throw unusable
     }
+    if (err instanceof ApiError && code.startsWith('ai_')) await noteProblem(db, workspaceId, purpose, code, err.message)
+    else if (!(err instanceof ApiError)) await noteProblem(db, workspaceId, purpose, 'ai_unexpected', 'The AI step stopped on an unexpected error.', err instanceof Error ? err.message.slice(0, 200) : undefined)
     throw err
   }
 }

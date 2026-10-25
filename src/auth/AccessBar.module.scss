@@ -21,3 +21,39 @@
 .error {
   margin-top: var(--at-space-md);
 }
+
+.problems {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  margin: 0 0 var(--at-space-md);
+  padding: 0;
+  list-style: none;
+}
+
+.problem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  padding-block-end: var(--at-space-md);
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.problemHead {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+  font-weight: 500;
+}
+
+.problemText {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.problemDetail {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}

@@ -10,6 +10,7 @@ import styles from './AccessBar.module.scss'
 
 // The "Editing unlocked" badge and the Lock button are hidden unless VITE_SHOW_ACCESS_CONTROLS=true, so a shared demo looks
 // clean; editing itself works the same either way. A read-only visitor still sees how to unlock.
+const PURPOSE_LABEL: Record<string, string> = { analysis: 'Transcript analysis', spec_step: 'Requirements drafting', theme_match: 'Theme matching' }
 const showAccess = import.meta.env.VITE_SHOW_ACCESS_CONTROLS === 'true'
 
 // Shows whether this tab can edit, and asks for the access token to unlock editing.
@@ -19,6 +20,7 @@ export function AccessBar() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
+  const [problemOpen, setProblemOpen] = useState(false)
   const [value, setValue] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
@@ -71,6 +73,11 @@ export function AccessBar() {
           {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
         </Tag>
       )}
+      {ai.data?.problems && (
+        <Button kind="ghost" size="sm" onClick={() => setProblemOpen(true)}>
+          AI problems ({ai.data.problems.length})
+        </Button>
+      )}
       {tokenControls &&
         (editing ? (
           showAccess && (
@@ -100,6 +107,22 @@ export function AccessBar() {
           </OverflowMenu>
         </>
       )}
+
+      <Modal open={problemOpen} passiveModal size="md" modalHeading="Recent AI problems" onRequestClose={() => setProblemOpen(false)}>
+        <ul className={styles.problems}>
+          {ai.data?.problems?.map((p) => (
+            <li key={`${p.at}-${p.code}`} className={styles.problem}>
+              <p className={styles.problemHead}>
+                {new Date(p.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · {PURPOSE_LABEL[p.purpose] ?? p.purpose}
+              </p>
+              <p className={styles.problemText}>{p.message}</p>
+              {p.detail && <p className={styles.problemDetail}>{p.detail}</p>}
+              <p className={styles.problemDetail}>{p.code}</p>
+            </li>
+          ))}
+        </ul>
+        <p className={styles.help}>The last 10 problems from the past 30 days. Nothing from the research is stored with them.</p>
+      </Modal>
 
       <Modal
         open={open}

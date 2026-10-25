@@ -19,7 +19,7 @@ import {
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
-import { aiMode, makeAi, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
+import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, refreshPlatformMatches } from './insights.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
@@ -63,8 +63,11 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     const mode = aiMode(ai)
-    if (ctx.anonymous || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false' })
-    return c.json({ mode, enabled: true, budgetUsd: monthlyBudgetUsd(env), spentUsd: await spentThisMonthUsd(getDb(), ctx.workspaceId) })
+    // Owners and editors also see what recently went wrong with model calls (visitors never do).
+    const found = !ctx.anonymous && (ctx.role === 'owner' || ctx.role === 'editor') ? await recentAiProblems(getDb(), ctx.workspaceId).catch(() => []) : []
+    const lastProblem = found.length ? { problems: found } : {}
+    if (ctx.anonymous || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false', ...lastProblem })
+    return c.json({ mode, enabled: true, budgetUsd: monthlyBudgetUsd(env), spentUsd: await spentThisMonthUsd(getDb(), ctx.workspaceId), ...lastProblem })
   })
 
   // Reaches the database, so it needs the same access as the data routes.

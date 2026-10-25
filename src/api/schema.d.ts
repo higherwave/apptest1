@@ -1233,6 +1233,18 @@ export interface components {
             enabled: boolean;
             budgetUsd?: number;
             spentUsd?: number;
+            /** @description The most recent problems with model calls in the past 30 days (up to 10, newest first). Only owners and editors receive it, and only when there are some. */
+            problems?: {
+                /** Format: date-time */
+                at: string;
+                /** @description analysis, spec_step or theme_match. */
+                purpose: string;
+                /** @description For example ai_output_unusable, ai_credit_exhausted or ai_budget_reached. */
+                code: string;
+                message: string;
+                /** @description What was wrong with the reply, or what the app did instead. Never research text. */
+                detail: string | null;
+            }[];
         };
         Me: {
             userId: string;

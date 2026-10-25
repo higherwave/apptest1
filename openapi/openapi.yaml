@@ -1674,6 +1674,18 @@ components:
         enabled: { type: boolean, description: 'False when the AI_ENABLED=false kill switch is set.' }
         budgetUsd: { type: number }
         spentUsd: { type: number }
+        problems:
+          type: array
+          description: The most recent problems with model calls in the past 30 days (up to 10, newest first). Only owners and editors receive it, and only when there are some.
+          items:
+            type: object
+            required: [at, purpose, code, message, detail]
+            properties:
+              at: { type: string, format: date-time }
+              purpose: { type: string, description: 'analysis, spec_step or theme_match.' }
+              code: { type: string, description: 'For example ai_output_unusable, ai_credit_exhausted or ai_budget_reached.' }
+              message: { type: string }
+              detail: { type: [string, 'null'], description: 'What was wrong with the reply, or what the app did instead. Never research text.' }
     Me:
       type: object
       required: [userId, email, displayName, workspaceId, workspaceName, role, via, signInAvailable]

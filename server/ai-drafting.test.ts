@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { simulatedProvider, type Ai, type AiProvider, type Usage } from './ai.js'
 import { ModelOutputError, type ModelCall } from './ai-analysis.js'
 import { buildDraftPrompt, draftWithModel, parseDraft, type DraftInput } from './ai-drafting.js'
+import { recentAiProblems } from './ai.js'
 import { approveStep, createProjectSpec, deleteSpec, getSpec, redoStep } from './specs.js'
 import { createDemoDatabase } from './test-utils.js'
 
@@ -160,6 +161,8 @@ test('a failed draft changes nothing: approve leaves the step in review, and cre
   assert.equal(after.steps[0].status, 'review', 'not approved')
   assert.equal(after.steps[1].status, 'pending')
   assert.equal(after.steps[0].version, spec.steps[0].version)
+  const noted = await recentAiProblems(db, actor.workspaceId)
+  assert.ok(noted.length >= 1 && noted[0].purpose === 'spec_step' && noted[0].code === 'ai_unexpected', 'the failure is on record for the owner')
   await approveStep(db, good, actor, spec.steps[0].id, spec.steps[0].version) // and it can be approved again
   const other = (await db.query(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0].id as string
   for (const row of (await db.query(`select id from delivery.specs where project_id = $1`, [other])).rows) await deleteSpec(db, actor, row.id as string)
