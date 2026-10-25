@@ -1,4 +1,6 @@
-import { Button, Tag, TextArea } from '@carbon/react'
+import { ChevronDown, ChevronUp } from '@carbon/icons-react'
+import { Button, InlineNotification, Loading, Tag, TextArea } from '@carbon/react'
+import { useState } from 'react'
 import type { SpecStep } from '../../api/client'
 import { useTypedText } from './useTypedText'
 import styles from './StepCard.module.scss'
@@ -9,6 +11,10 @@ export type StepCardProps = {
   busy: boolean
   /** The step was drafted just now in this session, so its text is revealed gradually. */
   fresh: boolean
+  /** The model is working on this step: writing it for the first time, or rewriting it after a redo. */
+  progress?: 'writing' | 'rewriting'
+  /** Why the last action on this step failed. */
+  error?: string
   editing: boolean
   draft: string
   onDraft: (text: string) => void
@@ -22,13 +28,18 @@ export type StepCardProps = {
 const STATUS_LABEL = { pending: 'Waiting', review: 'Needs review', approved: 'Approved' } as const
 
 // Presentational: one of the eight steps. A waiting step is dimmed; a step under review shows Approve and Redo; an
-// approved step can still be edited, which sends it back for review.
-export function StepCard({ step, canEdit, busy, fresh, editing, draft, onDraft, onEditStart, onEditSave, onEditCancel, onApprove, onRedo }: StepCardProps) {
+// approved step folds down to its title row (open it again at any time) and can still be edited, which sends it back for review.
+export function StepCard({ step, canEdit, busy, fresh, progress, error, editing, draft, onDraft, onEditStart, onEditSave, onEditCancel, onApprove, onRedo }: StepCardProps) {
   const { shown, done } = useTypedText(step.text ?? '', fresh)
-  const open = step.status !== 'pending'
-  const editable = canEdit && open && !editing
+  // A choice made by opening or closing the card holds only while the step keeps its status; a new status starts from the default again
+  // (approved folds, anything else is open), so approving a step folds it away.
+  const [choice, setChoice] = useState<{ status: string; open: boolean } | null>(null)
+  const started = step.status !== 'pending' || progress === 'writing'
+  const open = started && (editing || !!progress || (choice?.status === step.status ? choice.open : step.status !== 'approved'))
+  const foldable = step.status === 'approved' && !editing
+  const editable = canEdit && open && !editing && step.status !== 'pending'
   return (
-    <article className={styles.card} data-state={step.status} aria-label={`Step ${step.position}: ${step.title}`}>
+    <article className={styles.card} data-state={progress === 'writing' ? 'review' : step.status} aria-busy={progress ? true : undefined} aria-label={`Step ${step.position}: ${step.title}`}>
       <header className={styles.head}>
         <span className={styles.dot} aria-hidden="true">
           {step.position}
@@ -37,14 +48,32 @@ export function StepCard({ step, canEdit, busy, fresh, editing, draft, onDraft, 
         <span className={styles.state} data-state={step.status}>
           {STATUS_LABEL[step.status]}
         </span>
-        {editable && done && (
+        {editable && done && !progress && (
           <Button kind="ghost" size="sm" disabled={busy} onClick={onEditStart}>
             Edit
           </Button>
         )}
+        {foldable && (
+          <Button
+            kind="ghost"
+            size="sm"
+            hasIconOnly
+            renderIcon={open ? ChevronUp : ChevronDown}
+            iconDescription={open ? `Collapse step ${step.position}` : `Expand step ${step.position}`}
+            aria-expanded={open}
+            onClick={() => setChoice({ status: step.status, open: !open })}
+          />
+        )}
       </header>
 
-      {open && (
+      {open && progress && (
+        <div className={styles.working} role="status">
+          <Loading small withOverlay={false} description={progress === 'writing' ? `Writing step ${step.position}` : `Rewriting step ${step.position}`} />
+          <span>{progress === 'writing' ? 'Writing this step from the approved ones. This can take up to half a minute.' : 'Rewriting this step with your instructions. This can take up to half a minute.'}</span>
+        </div>
+      )}
+
+      {open && !progress && (
         <div className={styles.body}>
           {editing ? (
             <TextArea id={`step-text-${step.position}`} labelText={`Text of step ${step.position}`} hideLabel rows={6} value={draft} onChange={(e) => onDraft(e.target.value)} />
@@ -99,6 +128,7 @@ export function StepCard({ step, canEdit, busy, fresh, editing, draft, onDraft, 
               </Button>
             </div>
           )}
+          {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not done" subtitle={error} />}
           {!editing && step.status === 'review' && done && canEdit && (
             <div className={styles.actions}>
               <Button kind="primary" size="md" disabled={busy} onClick={onApprove}>

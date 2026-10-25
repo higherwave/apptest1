@@ -102,7 +102,10 @@ export async function callAiWithFallback<T>(db: Queryable, ai: Ai, workspaceId: 
     if (code === 'ai_budget_reached' || code === 'ai_credit_exhausted') {
       return { value: await callAi(db, { ...ai, provider: simulatedProvider }, workspaceId, purpose, call, runId), fallback: code === 'ai_budget_reached' ? 'budget' : 'credit' }
     }
-    if (err instanceof ModelOutputError) throw new ApiError(503, 'ai_output_unusable', 'The AI did not return a usable result. Nothing was changed; try again.')
+    if (err instanceof ModelOutputError) {
+      console.error(`ai_output_unusable (${purpose}): ${err.problems.join('; ').slice(0, 500)}`) // the problems only, never the text, so the Vercel log shows why
+      throw new ApiError(503, 'ai_output_unusable', 'The AI did not return a usable result. Nothing was changed; try again.')
+    }
     throw err
   }
 }

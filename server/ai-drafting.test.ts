@@ -180,3 +180,12 @@ test('at the budget ceiling the step is drafted by the simulation and the run sa
   const run = (await pglite.query<any>(`select provider, prompt_version from core.agent_runs where id = (select agent_run_id from delivery.specs where id = $1)`, [specId])).rows[0]
   assert.deepEqual(run, { provider: 'stub', prompt_version: 'spec-steps-v1' })
 })
+
+test('a wordy reply is cut to the limits instead of refused, so it does not cost a second model call', () => {
+  const long = 'x'.repeat(2_000)
+  const r = parseDraft(JSON.stringify({ reasoning: long, text: long, evidence: [], alternatives: [] }), INPUT)
+  assert.ok(r.ok)
+  if (r.ok) assert.deepEqual([r.draft.r.length, (r.draft.out[1] as string).length], [1_200, 1_500])
+  const items = parseDraft(JSON.stringify({ reasoning: 'Goals follow from the stated outcomes and the top pain point.', items: Array(14).fill(long) }), { ...INPUT, position: 3 })
+  assert.ok(items.ok && Array.isArray(items.draft.out[1]) && items.draft.out[1].length === 10 && items.draft.out[1][0].length === 300)
+})

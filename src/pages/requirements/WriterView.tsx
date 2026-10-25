@@ -5,6 +5,9 @@ import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
 import styles from './WriterView.module.scss'
 
+/** What the model is busy with: approving a step also writes the next one; a redo rewrites the step itself. */
+export type StepWork = { kind: 'approve' | 'redo'; id: string; nextId: string | null }
+
 export type WriterViewProps = {
   state: 'loading' | 'error' | 'ready'
   spec?: SpecDetail
@@ -13,6 +16,8 @@ export type WriterViewProps = {
   errorText?: string
   notice?: string
   freshStepId: string | null
+  work: StepWork | null
+  stepError: { id: string; text: string } | null
   editingId: string | null
   draft: string
   redoing: SpecStep | null
@@ -116,7 +121,9 @@ export function WriterView(p: WriterViewProps) {
           {spec.steps.map((step) => (
             <StepCard
               key={step.id}
-              step={step}
+              step={p.work?.kind === 'approve' && p.work.id === step.id ? { ...step, status: 'approved' } : step}
+              progress={p.work?.nextId === step.id ? 'writing' : p.work?.kind === 'redo' && p.work.id === step.id ? 'rewriting' : undefined}
+              error={p.stepError?.id === step.id ? p.stepError.text : undefined}
               canEdit={p.canEdit}
               busy={p.busy}
               fresh={p.freshStepId === step.id}

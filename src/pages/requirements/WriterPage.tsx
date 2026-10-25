@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, approveStep, createSpec, deleteSpec, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
 import { useMe, useSpec } from '../../api/hooks'
-import { WriterView } from './WriterView'
+import { WriterView, type StepWork } from './WriterView'
 
 // Container: runs the review flow. Each action is sent with the version of the step (or the document) the person is
 // looking at; the answer is the document as it is now, which replaces the cached copy. A step drafted by an action
@@ -22,6 +22,8 @@ export function WriterPage() {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [board, setBoard] = useState<{ plan: BoardSyncPlan; error?: string } | null>(null)
   const [startOver, setStartOver] = useState<{ error?: string } | null>(null)
+  const [work, setWork] = useState<StepWork | null>(null)
+  const [stepError, setStepError] = useState<{ id: string; text: string } | null>(null)
   const [redoing, setRedoing] = useState<{ step: SpecStep; text: string } | null>(null)
 
   // A document just started from the list opens with its first step being written.
@@ -33,11 +35,15 @@ export function WriterPage() {
 
   const canEdit = me.data?.role === 'owner' || me.data?.role === 'editor'
 
-  async function act(run: () => Promise<SpecDetail>, animate: boolean) {
+  // `working` says which step is being approved, rewritten or written, so the page can show it at once; `errorStepId` puts a failure
+  // next to that step (where the person is looking) instead of in the banner at the top of the page.
+  async function act(run: () => Promise<SpecDetail>, animate: boolean, working?: StepWork) {
     const before = spec.data
     setBusy(true)
     setError(undefined)
     setNotice(undefined)
+    setStepError(null)
+    setWork(working ?? null)
     try {
       const next = await run()
       queryClient.setQueryData(['spec', specId], next)
@@ -51,11 +57,13 @@ export function WriterPage() {
         await queryClient.invalidateQueries({ queryKey: ['spec', specId] })
         setNotice('Someone else changed this document, so it has been reloaded. Your last action was not applied.')
       } else {
-        setError(friendlyMessage(err))
+        if (working) setStepError({ id: working.id, text: friendlyMessage(err) })
+        else setError(friendlyMessage(err))
         if (err instanceof ApiRequestError && (err.code === 'step_not_ready' || err.code === 'spec_published')) await queryClient.invalidateQueries({ queryKey: ['spec', specId] })
       }
       return false
     } finally {
+      setWork(null)
       setBusy(false)
     }
   }
@@ -154,6 +162,8 @@ export function WriterPage() {
       freshStepId={freshStepId}
       editingId={editing?.id ?? null}
       draft={editing?.text ?? ''}
+      work={work}
+      stepError={stepError}
       redoing={redoing?.step ?? null}
       redoText={redoing?.text ?? ''}
       onToggleTheme={(themeId, included) => doc && act(() => setSpecTheme(doc.id, themeId, doc.version, included), false)}
@@ -164,12 +174,18 @@ export function WriterPage() {
         const step = doc?.steps.find((s) => s.id === editing?.id)
         if (step && editing && (await act(() => editStep(step.id, step.version, editing.text), false))) setEditing(null)
       }}
-      onApprove={(step) => act(() => approveStep(step.id, step.version), true)}
+      onApprove={(step) => {
+        const next = doc?.steps.find((s) => s.position === step.position + 1)
+        return act(() => approveStep(step.id, step.version), true, { kind: 'approve', id: step.id, nextId: next?.status === 'pending' ? next.id : null })
+      }}
       onRedo={(step) => setRedoing({ step, text: '' })}
       onRedoText={(text) => setRedoing((r) => (r ? { ...r, text } : r))}
       onCancelRedo={() => setRedoing(null)}
       onSubmitRedo={async () => {
-        if (redoing && (await act(() => redoStep(redoing.step.id, redoing.step.version, redoing.text.trim()), true))) setRedoing(null)
+        if (!redoing) return
+        const { step, text } = redoing
+        setRedoing(null) // the dialog closes at once and the step shows that it is being rewritten
+        if (!(await act(() => redoStep(step.id, step.version, text.trim()), true, { kind: 'redo', id: step.id, nextId: null }))) setRedoing({ step, text })
       }}
       onPublish={publish}
       onViewStories={() => doc && navigate(`/projects/${doc.projectId}/stories`)}

@@ -350,6 +350,15 @@ try {
 
   await approveNext() // step 1
   ok('approving step 1 starts step 2', await page.evaluate(() => [...document.querySelectorAll('article')].slice(0, 3).map((a) => a.dataset.state).join(',') === 'approved,review,pending'))
+  await waitApprove()
+  ok('an approved step is folded to its title row, and opens again from its chevron', await page.evaluate(() => {
+    const a = document.querySelector('article[aria-label^="Step 1"]')
+    return a.dataset.state === 'approved' && !a.querySelector('p') && a.querySelector('button[aria-expanded="false"]') !== null
+  }))
+  await page.evaluate(() => document.querySelector('article[aria-label^="Step 1"] button[aria-expanded]').click())
+  await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 1"] button[aria-expanded="true"]') !== null)
+  ok('opening it shows its text; closing folds it again', await page.evaluate(() => document.querySelector('article[aria-label^="Step 1"] p') !== null))
+  await page.evaluate(() => document.querySelector('article[aria-label^="Step 1"] button[aria-expanded]').click())
   await approveNext() // step 2
   await approveNext() // step 3
   await waitText('Brief locked. Drafting begins.')
@@ -465,6 +474,9 @@ try {
   await navTo('Requirements')
   await waitText('Agent reasoning')
   ok('Requirements opens the published document directly, with no list', (await text()).includes('Published') && !(await text()).includes('New document from these themes') && (await apiSpecs()).length === 1)
+  // Approved steps are folded to their title rows; open step 2 to reach its Edit button.
+  await page.evaluate(() => document.querySelector('article[aria-label^="Step 2"] button[aria-expanded="false"]').click())
+  await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"] button[aria-expanded="true"]') !== null)
   ok('a published document can be edited again: Edit is offered on its steps', await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].some((b) => b.innerText.trim() === 'Edit')))
   ok('a project document has no back-to-list button', !(await text()).includes('← Requirements'))
   // Long sections are cut to a few lines; when a section is cut, Show more reveals it and Show less folds it again.
@@ -478,6 +490,7 @@ try {
   await page.type('#step-text-2', 'Edited after publishing')
   await clickText('Save edit')
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'review', { timeout: 8000 })
+  await page.evaluate(() => document.querySelector('article[aria-label^="Step 3"] button[aria-expanded="false"]')?.click()) // the "behind" note sits inside the folded step
   await waitText('An earlier step changed after this one was written')
   ok('editing a published step sends it back to review and marks the later steps as behind', (await apiSpec(specId)).status === 'published' && (await text()).includes('Redo it if it should follow the change'))
   await waitApprove()
@@ -485,6 +498,7 @@ try {
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'approved', { timeout: 10000 })
   ok('and it can be approved again', true)
   // Exclude a theme: the board no longer matches until Update board is confirmed.
+  await page.waitForFunction(() => { const b = document.querySelector('section[aria-label="Themes used"] button'); return b && !b.disabled }, { timeout: 15000 }) // the step shows approved at once, before the save finishes
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
   await waitText('The board no longer matches this document')
   await clickText('Update board')

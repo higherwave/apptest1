@@ -10,6 +10,7 @@
   background: var(--at-canvas);
 
   &[data-state='pending'] { opacity: 0.55; }
+  &[aria-busy='true'] { opacity: 1; }
   &[data-state='review'] { border-color: var(--at-ink); }
 }
 
@@ -114,4 +115,12 @@
   @include tokens.role('meta');
   margin: 0;
   color: var(--at-muted);
+}
+
+.working {
+  @include tokens.role('body-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  color: var(--at-body);
 }
