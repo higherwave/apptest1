@@ -15,7 +15,7 @@ import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
 import {
-  approveStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
+  approveStep, draftWaitingStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
@@ -412,7 +412,8 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     return c.json(await specDetail(c, id))
   }
-  app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), ai, c.get('ctx'), stepId, v)))
+  app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), ai, c.get('ctx'), stepId, v, c.req.query('draftNext') !== 'false')))
+  app.post('/agent-steps/:id/draft', withContext, (c) => stepAction(c, null, (stepId, v) => draftWaitingStep(getDb(), ai, c.get('ctx'), stepId, v)))
   app.post('/agent-steps/:id/redo', withContext, (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), ai, c.get('ctx'), stepId, v, input.instructions)))
   app.patch('/agent-steps/:id', withContext, (c) => stepAction(c, editStepSchema, (stepId, v, input) => editStep(getDb(), c.get('ctx'), stepId, v, input.text)))
 

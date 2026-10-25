@@ -349,6 +349,8 @@ try {
   ok('editing a step keeps my text and leaves it under review', await page.evaluate(() => document.querySelector('article[data-state="review"]') !== null) && (await apiSpec(specId)).steps[0].edited === true)
 
   await approveNext() // step 1
+  // The approval is made first; step 2 starts only after it has gone through.
+  await page.waitForFunction(() => [...document.querySelectorAll('article')].slice(0, 3).map((a) => a.dataset.state).join(',') === 'approved,review,pending', { timeout: 10000 }).catch(() => {})
   ok('approving step 1 starts step 2', await page.evaluate(() => [...document.querySelectorAll('article')].slice(0, 3).map((a) => a.dataset.state).join(',') === 'approved,review,pending'))
   await waitApprove()
   ok('the next step is brought into view and holds the focus', await page.evaluate(() => { const a = document.querySelector('article[aria-label^="Step 2"]'); const r = a.getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2 && a.contains(document.activeElement) || document.activeElement === a }))

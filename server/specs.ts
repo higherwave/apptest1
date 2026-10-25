@@ -375,12 +375,13 @@ async function lockStep(tx: Queryable, ctx: Actor, stepId: string, expected: num
 
 // Approving a step starts the next one, in order. The next step is drafted from the themes included at that moment. The draft is made
 // first, outside the transaction; the step is then locked, checked again and approved together with saving the draft, so a failed
-// draft leaves everything as it was and the step can be approved again.
-export async function approveStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number): Promise<string> {
+// draft leaves everything as it was and the step can be approved again. With `draftNext` false only the approval is made (it is quick)
+// and the next step is drafted by a separate request, so the screen can show each in turn.
+export async function approveStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number, draftNext = true): Promise<string> {
   const peek = await lockStep(db, ctx, stepId, expected, false)
   if (peek.step.status !== 'review') throw new StepOutOfOrder()
   const nextRow = (await db.query(`select id, position, status from core.agent_steps where run_id = $1 and position = $2`, [peek.spec.agent_run_id, peek.step.position + 1])).rows[0]
-  const drafted = nextRow && nextRow.status === 'pending' ? await draftStep(db, ai, ctx, peek.spec, nextRow.position) : undefined
+  const drafted = draftNext && nextRow && nextRow.status === 'pending' ? await draftStep(db, ai, ctx, peek.spec, nextRow.position) : undefined
   return db.transaction(async (tx) => {
     const { step, spec } = await lockStep(tx, ctx, stepId, expected)
     if (step.status !== 'review') throw new StepOutOfOrder()
@@ -388,6 +389,26 @@ export async function approveStep(db: Db, ai: Ai, ctx: Actor, stepId: string, ex
     const next = (await tx.query(`select id, position, status from core.agent_steps where run_id = $1 and position = $2`, [spec.agent_run_id, step.position + 1])).rows[0]
     if (next && next.status === 'pending' && drafted) await storeStep(tx, ctx, spec.agent_run_id, next.id, drafted)
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.agent_steps', entity_id: stepId, verb: 'approved' }])
+    return spec.id as string
+  })
+}
+
+// Drafts a waiting step whose earlier step is approved: the second half of approving, when approving was asked not to draft. Drafted
+// first, outside the transaction, then saved only if the step is still waiting.
+export async function draftWaitingStep(db: Db, ai: Ai, ctx: Actor, stepId: string, expected: number): Promise<string> {
+  const ready = async (q: Queryable, step: Record<string, any>, runId: string) => {
+    if (step.status !== 'pending') return false
+    const before = step.position === 1 ? 'approved' : (await q.query(`select status from core.agent_steps where run_id = $1 and position = $2`, [runId, step.position - 1])).rows[0]?.status
+    return before === 'approved'
+  }
+  const peek = await lockStep(db, ctx, stepId, expected, false)
+  if (!(await ready(db, peek.step, peek.spec.agent_run_id))) throw new StepOutOfOrder()
+  const drafted = await draftStep(db, ai, ctx, peek.spec, peek.step.position)
+  return db.transaction(async (tx) => {
+    const { step, spec } = await lockStep(tx, ctx, stepId, expected)
+    if (!(await ready(tx, step, spec.agent_run_id))) throw new StepOutOfOrder()
+    await storeStep(tx, ctx, spec.agent_run_id, stepId, drafted)
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.agent_steps', entity_id: stepId, verb: 'drafted' }])
     return spec.id as string
   })
 }

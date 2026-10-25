@@ -89,7 +89,9 @@ export const getSpec = (id: string) => request<SpecDetail>(`/specs/${id}`)
 export const createSpec = (projectId: string, name?: string) => request<SpecDetail>(`/projects/${projectId}/specs`, { method: 'POST', body: name ? { name } : {} })
 export const setSpecTheme = (specId: string, themeId: string, version: number, included: boolean) => request<SpecDetail>(`/specs/${specId}/themes/${themeId}`, { method: 'PUT', body: { included }, version })
 // Step actions carry the step's own version, so two people reviewing the same step cannot both succeed.
-export const approveStep = (stepId: string, version: number) => request<SpecDetail>(`/agent-steps/${stepId}/approve`, { method: 'POST', version })
+// Approving makes only the approval; the next step is then started with draftWaitingStep, so the page can show each in turn.
+export const approveStep = (stepId: string, version: number) => request<SpecDetail>(`/agent-steps/${stepId}/approve?draftNext=false`, { method: 'POST', version })
+export const draftWaitingStep = (stepId: string, version: number) => request<SpecDetail>(`/agent-steps/${stepId}/draft`, { method: 'POST', version })
 export const redoStep = (stepId: string, version: number, instructions: string) => request<SpecDetail>(`/agent-steps/${stepId}/redo`, { method: 'POST', body: { instructions }, version })
 export const editStep = (stepId: string, version: number, text: string) => request<SpecDetail>(`/agent-steps/${stepId}`, { method: 'PATCH', body: { text }, version })
 export const publishSpec = (specId: string, version: number) => request<PublishResult>(`/specs/${specId}/publish`, { method: 'POST', version })

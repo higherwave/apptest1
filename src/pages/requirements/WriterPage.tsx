@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ApiRequestError, approveStep, createSpec, deleteSpec, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
+import { ApiRequestError, approveStep, createSpec, deleteSpec, draftWaitingStep, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
 import { useMe, useSpec } from '../../api/hooks'
 import { WriterView, type StepWork } from './WriterView'
 
@@ -66,6 +66,12 @@ export function WriterPage() {
       setWork(null)
       setBusy(false)
     }
+  }
+
+  // Starts a waiting step whose earlier step is approved. Uses the step as the cache holds it right now, because approving has just changed it.
+  async function writeStep(stepId: string) {
+    const step = queryClient.getQueryData<SpecDetail>(['spec', specId])?.steps.find((s) => s.id === stepId)
+    if (step?.status === 'pending') await act(() => draftWaitingStep(step.id, step.version), true, { kind: 'write', id: step.id, nextId: step.id })
   }
 
   const doc = spec.data
@@ -174,10 +180,13 @@ export function WriterPage() {
         const step = doc?.steps.find((s) => s.id === editing?.id)
         if (step && editing && (await act(() => editStep(step.id, step.version, editing.text), false))) setEditing(null)
       }}
-      onApprove={(step) => {
+      onApprove={async (step) => {
+        // Approving is quick. The next step is only started once the approval has gone through.
         const next = doc?.steps.find((s) => s.position === step.position + 1)
-        return act(() => approveStep(step.id, step.version), true, { kind: 'approve', id: step.id, nextId: next?.status === 'pending' ? next.id : null })
+        const approved = await act(() => approveStep(step.id, step.version), false, { kind: 'approve', id: step.id, nextId: null })
+        if (approved && next?.status === 'pending') await writeStep(next.id)
       }}
+      onWrite={(step) => writeStep(step.id)}
       onRedo={(step) => setRedoing({ step, text: '' })}
       onRedoText={(text) => setRedoing((r) => (r ? { ...r, text } : r))}
       onCancelRedo={() => setRedoing(null)}

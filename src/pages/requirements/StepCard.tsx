@@ -22,6 +22,9 @@ export type StepCardProps = {
   onEditSave: () => void
   onEditCancel: () => void
   onApprove: () => void
+  /** A waiting step whose earlier steps are approved can be started by hand (after a failed attempt, or when the page is reopened). */
+  canWrite: boolean
+  onWrite: () => void
   onRedo: () => void
 }
 
@@ -29,12 +32,13 @@ const STATUS_LABEL = { pending: 'Waiting', review: 'Needs review', approved: 'Ap
 
 // Presentational: one of the eight steps. A waiting step is dimmed; a step under review shows Approve and Redo; an
 // approved step folds down to its title row (open it again at any time) and can still be edited, which sends it back for review.
-export function StepCard({ step, canEdit, busy, fresh, progress, error, editing, draft, onDraft, onEditStart, onEditSave, onEditCancel, onApprove, onRedo }: StepCardProps) {
+export function StepCard({ step, canEdit, busy, fresh, progress, error, editing, draft, onDraft, onEditStart, onEditSave, onEditCancel, onApprove, canWrite, onWrite, onRedo }: StepCardProps) {
   const { shown, done } = useTypedText(step.text ?? '', fresh)
   // A choice made by opening or closing the card holds only while the step keeps its status; a new status starts from the default again
   // (approved folds, anything else is open), so approving a step folds it away.
   const [choice, setChoice] = useState<{ status: string; open: boolean } | null>(null)
   const started = step.status !== 'pending' || progress === 'writing'
+  const ready = step.status === 'pending' && canWrite && !progress
   const open = started && progress !== 'approving' && (editing || !!progress || (choice?.status === step.status ? choice.open : step.status !== 'approved'))
   // The step the person should look at next (one that has started to be written, or one that failed) is brought into view and given focus.
   const card = useRef<HTMLElement>(null)
@@ -48,7 +52,7 @@ export function StepCard({ step, canEdit, busy, fresh, progress, error, editing,
   const foldable = step.status === 'approved' && !editing
   const editable = canEdit && open && !editing && step.status !== 'pending'
   return (
-    <article ref={card} tabIndex={-1} className={styles.card} data-state={progress === 'writing' ? 'review' : step.status} aria-busy={progress ? true : undefined} aria-label={`Step ${step.position}: ${step.title}`}>
+    <article ref={card} tabIndex={-1} className={styles.card} data-state={progress === 'writing' || ready ? 'review' : step.status} aria-busy={progress ? true : undefined} aria-label={`Step ${step.position}: ${step.title}`}>
       <header className={styles.head}>
         <span className={styles.dot} aria-hidden="true">
           {step.position}
@@ -81,6 +85,17 @@ export function StepCard({ step, canEdit, busy, fresh, progress, error, editing,
           />
         )}
       </header>
+
+      {ready && (
+        <div className={styles.body}>
+          {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not written" subtitle={error} />}
+          <div className={styles.actions}>
+            <Button kind="primary" size="md" disabled={busy} onClick={onWrite}>
+              {error ? 'Try again' : 'Write this step'}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {open && progress && (
         <div className={styles.working} role="status">

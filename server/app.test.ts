@@ -1039,6 +1039,22 @@ test('a step cannot be approved out of order, twice, or from a stale version', a
   assert.equal((await call('POST', `/agent-steps/${spec.steps[0].id}/approve`)).status, 428)
 })
 
+test('approving can be asked not to start the next step, which is then started on its own, and only when the one before it is approved', async () => {
+  const { create, call } = await specFixture()
+  const spec = await create()
+  const early = await call('POST', `/agent-steps/${spec.steps[1].id}/draft`, undefined, spec.steps[1].version)
+  assert.equal((await expectSpec(early, '/agent-steps/{id}/draft', 'post')).error.code, 'step_not_ready', 'step 1 is not approved yet')
+  const quick = await (await call('POST', `/agent-steps/${spec.steps[0].id}/approve?draftNext=false`, undefined, spec.steps[0].version)).json()
+  assert.deepEqual(quick.steps.slice(0, 3).map((s: any) => s.status), ['approved', 'pending', 'pending'], 'only the approval was made')
+  const drafted = await call('POST', `/agent-steps/${spec.steps[1].id}/draft`, undefined, quick.steps[1].version)
+  assert.equal(drafted.status, 200)
+  assert.deepEqual((await expectSpec(drafted, '/agent-steps/{id}/draft', 'post')).steps.slice(0, 3).map((s: any) => s.status), ['approved', 'review', 'pending'])
+  const twice = await call('POST', `/agent-steps/${spec.steps[1].id}/draft`, undefined, quick.steps[1].version)
+  assert.equal(twice.status, 409, 'a step that is already written cannot be written again')
+  const skip = await call('POST', `/agent-steps/${spec.steps[3].id}/draft`, undefined, spec.steps[3].version)
+  assert.equal((await expectSpec(skip, '/agent-steps/{id}/draft', 'post')).error.code, 'step_not_ready', 'step 3 is not approved')
+})
+
 test('redo redraws a step with the instructions, and an approved step goes back under review', async () => {
   const { create, call, approve, approveThrough } = await specFixture()
   const spec = await create()

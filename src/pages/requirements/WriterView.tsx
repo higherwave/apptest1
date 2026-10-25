@@ -5,8 +5,8 @@ import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
 import styles from './WriterView.module.scss'
 
-/** What the model is busy with: approving a step also writes the next one; a redo rewrites the step itself. */
-export type StepWork = { kind: 'approve' | 'redo'; id: string; nextId: string | null }
+/** What the page is busy with, step by step: approving a step, then (once that has gone through) writing the next one; or a redo. */
+export type StepWork = { kind: 'approve' | 'write' | 'redo'; id: string; nextId: string | null }
 
 export type WriterViewProps = {
   state: 'loading' | 'error' | 'ready'
@@ -28,6 +28,7 @@ export type WriterViewProps = {
   onEditSave: () => void
   onEditCancel: () => void
   onApprove: (step: SpecStep) => void
+  onWrite: (step: SpecStep) => void
   onRedo: (step: SpecStep) => void
   onRedoText: (text: string) => void
   onSubmitRedo: () => void
@@ -134,6 +135,8 @@ export function WriterView(p: WriterViewProps) {
               onEditSave={p.onEditSave}
               onEditCancel={p.onEditCancel}
               onApprove={() => p.onApprove(step)}
+              canWrite={p.canEdit && !published && step.status === 'pending' && (spec.steps.find((s) => s.position === step.position - 1)?.status ?? 'approved') === 'approved'}
+              onWrite={() => p.onWrite(step)}
               onRedo={() => p.onRedo(step)}
             />
           ))}

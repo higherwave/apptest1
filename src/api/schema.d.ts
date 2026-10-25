@@ -359,8 +359,25 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Approves the step under review, and starts the next one. If-Match is the step's version. Needs the token. */
+        /** Approves the step under review, and starts the next one (unless draftNext is false, when only the approval is made and the next step is started with POST /agent-steps/{id}/draft). If-Match is the step's version. Needs the token. */
         post: operations["approveStep"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/agent-steps/{id}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Drafts a waiting step whose earlier step is approved (409 step_not_ready otherwise). If-Match is the step's version. Needs the token. */
+        post: operations["draftWaitingStep"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2046,6 +2063,33 @@ export interface operations {
         };
     };
     approveStep: {
+        parameters: {
+            query?: {
+                draftNext?: boolean;
+            };
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SpecSaved"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    draftWaitingStep: {
         parameters: {
             query?: never;
             header: {

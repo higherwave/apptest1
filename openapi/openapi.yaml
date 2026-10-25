@@ -511,7 +511,27 @@ paths:
   /agent-steps/{id}/approve:
     post:
       operationId: approveStep
-      summary: Approves the step under review, and starts the next one. If-Match is the step's version. Needs the token.
+      summary: >
+        Approves the step under review, and starts the next one (unless draftNext is false, when only the approval is made and the next
+        step is started with POST /agent-steps/{id}/draft). If-Match is the step's version. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { name: draftNext, in: query, required: false, schema: { type: boolean, default: true } }
+      responses:
+        '200': { $ref: '#/components/responses/SpecSaved' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /agent-steps/{id}/draft:
+    post:
+      operationId: draftWaitingStep
+      summary: Drafts a waiting step whose earlier step is approved (409 step_not_ready otherwise). If-Match is the step's version. Needs the token.
       parameters:
         - { $ref: '#/components/parameters/Id' }
         - { $ref: '#/components/parameters/IfMatch' }
