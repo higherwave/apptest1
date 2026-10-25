@@ -448,7 +448,17 @@ try {
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))
   ok('searching narrows the board to matching cards', (await page.$$('[data-testid^="card-"]')).length >= 1 && !(await page.$(`[data-testid="card-${firstKey}"]`)) && !!(await page.$(`[data-testid="card-${thirdKey}"]`)))
-  ok('the Stories toolbar has search and priority only, no theme filters', !(await page.$('[aria-label="Filter by theme"]')) && !!(await page.$('#story-filter-priority')))
+  ok('the Stories toolbar has search and priority only, no theme filters', !(await page.$('[aria-label="Filter by theme"]')) && !!(await page.$('#story-filter-priority')) && (await page.$$('#story-filter-priority button')).length === 3)
+  // Priority buttons: clearing the search first, High narrows the board to high-priority stories and pressing it again shows all.
+  await page.click('#story-search', { clickCount: 3 })
+  await page.keyboard.press('Backspace')
+  const highCount = (await apiBoard()).stories.filter((s) => s.priority === 'high').length
+  await page.evaluate(() => [...document.querySelectorAll('#story-filter-priority button')].find((b) => b.innerText.trim() === 'High').click())
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="card-"]').length === n, { timeout: 5000 }, highCount)
+  ok('the High button shows only high-priority stories', true)
+  await page.evaluate(() => [...document.querySelectorAll('#story-filter-priority button')].find((b) => b.innerText.trim() === 'High').click())
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="card-"]').length === n, { timeout: 5000 }, (await apiBoard()).stories.length)
+  ok('pressing it again shows every story', true)
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 

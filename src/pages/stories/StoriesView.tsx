@@ -1,4 +1,4 @@
-import { Button, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
+import { Button, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
 import { useEffect, useRef, useState } from 'react'
 import { COLUMNS } from '../../../shared/board.mjs'
 import { ChevronDown, ChevronUp, Close } from '@carbon/icons-react'
@@ -9,7 +9,8 @@ import styles from './StoriesView.module.scss'
 
 const PRIORITY_LABEL: Record<Priority | 'all', string> = { all: 'All', high: 'High', medium: 'Medium', low: 'Low' }
 // Themes beyond these go under a "more" menu so the filter row stays on one line.
-const PRIORITIES: (Priority | 'all')[] = ['all', 'high', 'medium', 'low']
+// One button per priority; pressing the active one again shows every priority.
+const PRIORITY_FILTERS: Priority[] = ['high', 'medium', 'low']
 // A stage lists this many cards, then offers the rest. Searching or filtering lists every match.
 const CARDS_PER_STAGE = 10
 
@@ -369,30 +370,28 @@ export function StoriesView(props: StoriesViewProps) {
       {state === 'ready' && board && (
         <>
           <div className={styles.toolbar}>
-            <div className={styles.search}>
-              <Search id="story-search" size="md" labelText="Search stories" placeholder="Search requirements, themes, owners" value={search} onChange={(e: { target: { value: string } }) => props.onSearch(e.target.value)} onClear={() => props.onSearch('')} />
+            <div className={styles.toolbarStart}>
+              <div className={styles.search}>
+                <Search id="story-search" size="md" labelText="Search stories" placeholder="Search requirements, themes, owners" value={search} onChange={(e: { target: { value: string } }) => props.onSearch(e.target.value)} onClear={() => props.onSearch('')} />
+              </div>
             </div>
-            <div className={styles.priorityFilter}>
-              <span className={styles.filterLabel}>Priority</span>
-              <Dropdown
-                id="story-filter-priority"
-                titleText="Priority filter"
-                hideLabel
-                label="Priority"
-                items={PRIORITIES}
-                itemToString={(p: Priority | 'all' | null) => (p ? PRIORITY_LABEL[p] : '')}
-                selectedItem={priority}
-                onChange={({ selectedItem }: { selectedItem: Priority | 'all' | null | undefined }) => props.onPriority(selectedItem ?? 'all')}
-              />
+            <div id="story-filter-priority" className={styles.priorityFilter} role="group" aria-label="Filter by priority">
+              {PRIORITY_FILTERS.map((p) => (
+                <Button key={p} kind={priority === p ? 'primary' : 'tertiary'} size="md" aria-pressed={priority === p} onClick={() => props.onPriority(priority === p ? 'all' : p)}>
+                  {PRIORITY_LABEL[p]}
+                </Button>
+              ))}
             </div>
-            <Button kind="ghost" size="md" disabled={stories.length === 0} onClick={() => setExpanded(allOpen ? new Set() : new Set(stories.map((s) => s.id)))}>
-              {allOpen ? 'Collapse all cards' : 'Expand all cards'}
-            </Button>
-            {canEdit && board.lastMove && (
-              <Button kind="secondary" size="md" disabled={undoing} onClick={props.onUndo}>
-                Undo move of {board.lastMove.key}
+            <div className={styles.toolbarEnd}>
+              <Button kind="ghost" size="md" disabled={stories.length === 0} onClick={() => setExpanded(allOpen ? new Set() : new Set(stories.map((s) => s.id)))}>
+                {allOpen ? 'Collapse all cards' : 'Expand all cards'}
               </Button>
-            )}
+              {canEdit && board.lastMove && (
+                <Button kind="secondary" size="md" disabled={undoing} onClick={props.onUndo}>
+                  Undo move of {board.lastMove.key}
+                </Button>
+              )}
+            </div>
           </div>
           <div className={styles.layout}>
             <div className={styles.board}>

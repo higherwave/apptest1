@@ -38,35 +38,37 @@ $column-min: 0;
   }
 }
 
-// Search on the left, priority on the right.
+// Search on the left, the priority buttons centered, and the card and undo controls on the right.
 .toolbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
   gap: var(--at-space-md);
-  flex-wrap: wrap;
+
+  @media (max-width: 64rem) {
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: start;
+  }
 }
+
+.toolbarStart,
+.toolbarEnd {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.toolbarEnd { justify-content: flex-end; }
 
 .search {
   flex: 0 1 18rem;
   min-inline-size: 12rem;
 }
 
-.filterLabel {
-  @include tokens.role('label-md');
-  color: var(--at-body);
-  font-weight: 400;
-}
-
 .priorityFilter {
   display: flex;
   align-items: center;
   gap: var(--at-space-xs);
-  margin-inline-start: auto;
-  min-inline-size: 12rem;
-
-  > :last-child {
-    flex: 1;
-  }
 }
 
 .layout {
