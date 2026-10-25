@@ -8,6 +8,9 @@
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
   background: var(--at-canvas);
+  scroll-margin-block-start: var(--at-space-xl);
+
+  &:focus { outline: none; }
 
   &[data-state='pending'] { opacity: 0.55; }
   &[aria-busy='true'] { opacity: 1; }
@@ -123,4 +126,10 @@
   align-items: center;
   gap: var(--at-space-sm);
   color: var(--at-body);
+}
+
+.approving {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xs);
 }

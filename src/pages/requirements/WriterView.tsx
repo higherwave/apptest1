@@ -122,7 +122,7 @@ export function WriterView(p: WriterViewProps) {
             <StepCard
               key={step.id}
               step={p.work?.kind === 'approve' && p.work.id === step.id ? { ...step, status: 'approved' } : step}
-              progress={p.work?.nextId === step.id ? 'writing' : p.work?.kind === 'redo' && p.work.id === step.id ? 'rewriting' : undefined}
+              progress={p.work?.kind === 'approve' && p.work.id === step.id ? 'approving' : p.work?.nextId === step.id ? 'writing' : p.work?.kind === 'redo' && p.work.id === step.id ? 'rewriting' : undefined}
               error={p.stepError?.id === step.id ? p.stepError.text : undefined}
               canEdit={p.canEdit}
               busy={p.busy}

@@ -351,6 +351,7 @@ try {
   await approveNext() // step 1
   ok('approving step 1 starts step 2', await page.evaluate(() => [...document.querySelectorAll('article')].slice(0, 3).map((a) => a.dataset.state).join(',') === 'approved,review,pending'))
   await waitApprove()
+  ok('the next step is brought into view and holds the focus', await page.evaluate(() => { const a = document.querySelector('article[aria-label^="Step 2"]'); const r = a.getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2 && a.contains(document.activeElement) || document.activeElement === a }))
   ok('an approved step is folded to its title row, and opens again from its chevron', await page.evaluate(() => {
     const a = document.querySelector('article[aria-label^="Step 1"]')
     return a.dataset.state === 'approved' && !a.querySelector('p') && a.querySelector('button[aria-expanded="false"]') !== null

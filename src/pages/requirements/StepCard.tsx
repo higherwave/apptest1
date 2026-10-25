@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Tag, TextArea } from '@carbon/react'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { SpecStep } from '../../api/client'
 import { useTypedText } from './useTypedText'
 import styles from './StepCard.module.scss'
@@ -11,8 +11,8 @@ export type StepCardProps = {
   busy: boolean
   /** The step was drafted just now in this session, so its text is revealed gradually. */
   fresh: boolean
-  /** The model is working on this step: writing it for the first time, or rewriting it after a redo. */
-  progress?: 'writing' | 'rewriting'
+  /** The step is being approved (it closes and shows that), or the model is writing it for the first time or rewriting it after a redo. */
+  progress?: 'approving' | 'writing' | 'rewriting'
   /** Why the last action on this step failed. */
   error?: string
   editing: boolean
@@ -35,18 +35,34 @@ export function StepCard({ step, canEdit, busy, fresh, progress, error, editing,
   // (approved folds, anything else is open), so approving a step folds it away.
   const [choice, setChoice] = useState<{ status: string; open: boolean } | null>(null)
   const started = step.status !== 'pending' || progress === 'writing'
-  const open = started && (editing || !!progress || (choice?.status === step.status ? choice.open : step.status !== 'approved'))
+  const open = started && progress !== 'approving' && (editing || !!progress || (choice?.status === step.status ? choice.open : step.status !== 'approved'))
+  // The step the person should look at next (one that has started to be written, or one that failed) is brought into view and given focus.
+  const card = useRef<HTMLElement>(null)
+  const spotlight = progress === 'writing' || !!error
+  useEffect(() => {
+    if (!spotlight || !card.current) return
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    card.current.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' })
+    card.current.focus({ preventScroll: true })
+  }, [spotlight])
   const foldable = step.status === 'approved' && !editing
   const editable = canEdit && open && !editing && step.status !== 'pending'
   return (
-    <article className={styles.card} data-state={progress === 'writing' ? 'review' : step.status} aria-busy={progress ? true : undefined} aria-label={`Step ${step.position}: ${step.title}`}>
+    <article ref={card} tabIndex={-1} className={styles.card} data-state={progress === 'writing' ? 'review' : step.status} aria-busy={progress ? true : undefined} aria-label={`Step ${step.position}: ${step.title}`}>
       <header className={styles.head}>
         <span className={styles.dot} aria-hidden="true">
           {step.position}
         </span>
         <h3 className={styles.title}>{step.title}</h3>
         <span className={styles.state} data-state={step.status}>
-          {STATUS_LABEL[step.status]}
+          {progress === 'approving' ? (
+            <span className={styles.approving} role="status">
+              <Loading small withOverlay={false} description={`Approving step ${step.position}`} />
+              Approving…
+            </span>
+          ) : (
+            STATUS_LABEL[step.status]
+          )}
         </span>
         {editable && done && !progress && (
           <Button kind="ghost" size="sm" disabled={busy} onClick={onEditStart}>
