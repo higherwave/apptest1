@@ -8,7 +8,7 @@ export const STEPS: { key: string; label: string; group: StepGroup }[] = [
   { key: 'transcripts', label: 'Transcripts', group: 'Discovery' },
   { key: 'themes', label: 'Themes', group: 'Analysis' },
   { key: 'journey', label: 'Journey Map', group: 'Analysis' },
-  { key: 'prio', label: 'Priorities', group: 'Analysis' },
+  { key: 'prio', label: 'Priorities', group: 'Strategy' },
   { key: 'requirements', label: 'Requirements', group: 'Strategy' },
   { key: 'stories', label: 'Stories', group: 'Delivery' },
 ]
