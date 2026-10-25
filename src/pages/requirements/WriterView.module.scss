@@ -162,3 +162,9 @@
   gap: var(--at-space-xs);
   margin-block-end: var(--at-space-md);
 }
+
+.bannerActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-sm);
+}

@@ -486,6 +486,7 @@ try {
   await page.evaluate(() => document.querySelector('article[aria-label^="Step 2"] button[aria-expanded="false"]').click())
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"] button[aria-expanded="true"]') !== null)
   ok('a published document can be edited again: Edit is offered on its steps', await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].some((b) => b.innerText.trim() === 'Edit')))
+  ok('once published, the banner stays under the title and shows View stories', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Published"]'); return !!b && b.previousElementSibling?.tagName === 'HEADER' && [...b.querySelectorAll('button')].some((x) => x.innerText.trim() === 'View stories') && ![...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'View stories') }))
   ok('a project document has no back-to-list button', !(await text()).includes('← Requirements'))
   // Long sections are cut to a few lines; when a section is cut, Show more reveals it and Show less folds it again.
   const more = await page.evaluate(() => { const b = [...document.querySelectorAll('aside[aria-label="Output"] button')].find((x) => x.innerText.trim() === 'Show more'); if (!b) return false; b.click(); return true })

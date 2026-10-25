@@ -93,9 +93,34 @@ export function WriterView(p: WriterViewProps) {
         </p>
       </header>
 
-      {p.canEdit && (spec.canPublish || (published && !spec.standalone && spec.boardChanges !== null && spec.boardChanges > 0)) && (
-        <section ref={banner} tabIndex={-1} className={styles.ready} aria-label={spec.canPublish ? 'Ready to publish' : 'Board update waiting'}>
-          {spec.canPublish ? (
+      {(published || (spec.canPublish && p.canEdit)) && (
+        <section ref={banner} tabIndex={-1} className={styles.ready} aria-label={published ? 'Published' : 'Ready to publish'}>
+          {published ? (
+            <>
+              <h2 className={styles.blockTitle}>Published {spec.publishedAt ? new Date(spec.publishedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</h2>
+              <p className={styles.para}>
+                {spec.preview.requirements} requirements and {spec.preview.openQuestions} open questions are on the board.
+              </p>
+              {!spec.standalone && p.canEdit && spec.boardChanges !== null && spec.boardChanges > 0 && (
+                <p className={styles.para}>
+                  The board no longer matches this document: {spec.boardChanges} {spec.boardChanges === 1 ? 'change is' : 'changes are'} waiting.
+                </p>
+              )}
+              {!spec.standalone && spec.boardChanges === 0 && <p className={styles.muted}>The board matches this document.</p>}
+              {!spec.standalone && (
+                <div className={styles.bannerActions}>
+                  <Button kind={p.canEdit && (spec.boardChanges ?? 0) > 0 ? 'secondary' : 'primary'} size="md" onClick={p.onViewStories}>
+                    View stories
+                  </Button>
+                  {p.canEdit && spec.boardChanges !== null && spec.boardChanges > 0 && (
+                    <Button kind="primary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
+                      Update board
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
             <>
               <h2 className={styles.blockTitle}>Ready to publish</h2>
               <p className={styles.para}>
@@ -105,16 +130,6 @@ export function WriterView(p: WriterViewProps) {
               </p>
               <Button kind="primary" size="md" disabled={p.busy} onClick={p.onPublish}>
                 Publish
-              </Button>
-            </>
-          ) : (
-            <>
-              <h2 className={styles.blockTitle}>Board update waiting</h2>
-              <p className={styles.para}>
-                The board no longer matches this document: {spec.boardChanges} {spec.boardChanges === 1 ? 'change is' : 'changes are'} waiting.
-              </p>
-              <Button kind="primary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
-                Update board
               </Button>
             </>
           )}
@@ -259,20 +274,6 @@ export function WriterView(p: WriterViewProps) {
             </div>
           )}
 
-          {published && (
-            <div className={styles.ready}>
-              <h3 className={styles.blockTitle}>Published {spec.publishedAt ? new Date(spec.publishedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : ''}</h3>
-              <p className={styles.para}>
-                {spec.preview.requirements} requirements and {spec.preview.openQuestions} open questions are on the board.
-              </p>
-              {!spec.standalone && (
-                <Button kind="primary" size="md" onClick={p.onViewStories}>
-                  View stories
-                </Button>
-              )}
-              {!spec.standalone && spec.boardChanges === 0 && <p className={styles.muted}>The board matches this document.</p>}
-            </div>
-          )}
           {!p.canEdit && !published && <p className={styles.muted}>Editing is locked. Use &quot;Sign in&quot; or &quot;Unlock editing&quot; at the top of the page to review steps.</p>}
         </aside>
       </div>
