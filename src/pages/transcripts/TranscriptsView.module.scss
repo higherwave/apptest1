@@ -22,14 +22,8 @@
   gap: var(--at-space-sm);
 }
 
-// The tool's instructions, as a soft strip under the tabs.
-.help {
-  @include tokens.role('body-md');
-  margin: 0;
-  padding: var(--at-space-md) var(--at-space-lg);
-  border-radius: var(--at-radius-md);
-  background: var(--at-surface-soft);
-  color: var(--at-body);
+.add :global(.cds--inline-notification) {
+  max-inline-size: none;
 }
 
 .drop {

@@ -6,7 +6,7 @@ import { ProjectHeader } from '../project/ProjectHeader'
 import { SaveAlerts, type SaveBarProps } from '../project/SaveBar'
 import { AnalysisProgress } from './AnalysisProgress'
 import type { Platform, TranscriptErrors, TranscriptItem } from './form'
-import { ACCEPTED_FILES, PLATFORM_DROP, PLATFORM_HELP, PLATFORM_LABEL, PLATFORM_SHORT } from './platformHelp'
+import { ACCEPTED_FILES, PLATFORM_DROP, PLATFORM_FILES, PLATFORM_LABEL, PLATFORM_SHORT } from './platformHelp'
 import styles from './TranscriptsView.module.scss'
 
 export type TranscriptsViewProps = {
@@ -51,6 +51,13 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
 
       {!readOnly && (
         <section className={styles.add} aria-label="Add a transcript">
+          <InlineNotification
+            kind="info"
+            lowContrast
+            hideCloseButton
+            title="How this page works"
+            subtitle="Pick the tool your session was recorded in, then drop its transcript file into the box or click to browse. Add one transcript per session, open any of them to check or edit the text, then choose Save and analyze to find the themes."
+          />
           <div className={styles.tools} role="group" aria-label="Meeting tool">
             {PLATFORMS.map((p) => (
               <Button key={p} kind={tool === p ? 'primary' : 'tertiary'} size="md" aria-pressed={tool === p} onClick={() => setTool(p)}>
@@ -58,9 +65,6 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
               </Button>
             ))}
           </div>
-          <p className={styles.help}>
-            {PLATFORM_HELP.find((p) => p.key === tool)?.name}: {PLATFORM_HELP.find((p) => p.key === tool)?.text}
-          </p>
           <div className={styles.drop}>
             <FileUploaderDropContainer
               accept={ACCEPTED_FILES}
@@ -69,7 +73,7 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
               labelText={(
                 <span className={styles.dropText}>
                   <span className={styles.dropTitle}>Drop {PLATFORM_DROP[tool]} transcripts here, or click to browse</span>
-                  <span className={styles.dropTypes}>.vtt, .txt, .sbv, .srt</span>
+                  <span className={styles.dropTypes}>{PLATFORM_LABEL[tool]} usually exports {PLATFORM_FILES[tool].join(' or ')}. Also accepts {ACCEPTED_FILES.filter((f) => !PLATFORM_FILES[tool].includes(f)).join(', ')}.</span>
                 </span>
               ) as unknown as string}
               onAddFiles={(_, { addedFiles }) => onAddFiles(addedFiles, tool)}
