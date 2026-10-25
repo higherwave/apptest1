@@ -44,6 +44,24 @@
   background: var(--at-surface-soft);
 }
 
+.contextHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.count {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+.themeList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
 .label {
   @include tokens.role('caption');
   margin: 0;
@@ -94,7 +112,12 @@
 
 .brief { background: var(--at-tint-cream); }
 .document { border: 1px solid var(--at-hairline); }
-.ready { background: var(--at-tint-mint); align-items: flex-start; }
+.ready {
+  background: var(--at-tint-mint);
+  align-items: flex-start;
+
+  &:focus { outline: none; }
+}
 
 .blockTitle {
   @include tokens.role('caption');

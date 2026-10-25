@@ -22,6 +22,7 @@ export function WriterPage() {
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null)
   const [board, setBoard] = useState<{ plan: BoardSyncPlan; error?: string } | null>(null)
   const [startOver, setStartOver] = useState<{ error?: string } | null>(null)
+  const [readyCue, setReadyCue] = useState(0)
   const [work, setWork] = useState<StepWork | null>(null)
   const [stepError, setStepError] = useState<{ id: string; text: string } | null>(null)
   const [redoing, setRedoing] = useState<{ step: SpecStep; text: string } | null>(null)
@@ -47,6 +48,9 @@ export function WriterPage() {
     try {
       const next = await run()
       queryClient.setQueryData(['spec', specId], next)
+      // The document has just become ready to publish (or the published one has changes for the board): bring that banner into view.
+      const waiting = (d?: SpecDetail) => !!d && (d.canPublish || (d.status === 'published' && !d.standalone && (d.boardChanges ?? 0) > 0))
+      if (waiting(next) && !waiting(before)) setReadyCue((c) => c + 1)
       // The step that has just been drafted (it entered review, or was redone), not one that was merely edited.
       const drafted = animate ? next.steps.find((s) => s.status === 'review' && (before?.steps.find((b) => b.id === s.id)?.status !== 'review' || s.revision > (before?.steps.find((b) => b.id === s.id)?.revision ?? 0))) : undefined
       setFreshStepId(drafted?.id ?? null)
@@ -168,6 +172,7 @@ export function WriterPage() {
       freshStepId={freshStepId}
       editingId={editing?.id ?? null}
       draft={editing?.text ?? ''}
+      readyCue={readyCue}
       work={work}
       stepError={stepError}
       redoing={redoing?.step ?? null}

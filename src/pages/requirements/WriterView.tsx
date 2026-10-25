@@ -1,4 +1,6 @@
+import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, Tag, TextArea } from '@carbon/react'
+import { useEffect, useRef, useState } from 'react'
 import type { BoardSyncPlan, SpecDetail, SpecStep } from '../../api/client'
 import { CATEGORY_LABEL } from '../themes/themeEdits'
 import { ClampedBlock } from './ClampedBlock'
@@ -16,6 +18,8 @@ export type WriterViewProps = {
   errorText?: string
   notice?: string
   freshStepId: string | null
+  /** Goes up each time the document has just become ready to publish (or to update the board), so the page brings the banner into view. */
+  readyCue: number
   work: StepWork | null
   stepError: { id: string; text: string } | null
   editingId: string | null
@@ -52,6 +56,14 @@ export type WriterViewProps = {
 // document on the right build up as steps are approved.
 export function WriterView(p: WriterViewProps) {
   const { state, spec } = p
+  const [themesOpen, setThemesOpen] = useState(false)
+  const banner = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (p.readyCue === 0 || !banner.current) return
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    window.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' })
+    banner.current.focus({ preventScroll: true })
+  }, [p.readyCue])
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading the document" />
   if (state === 'error' || !spec) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Requirements" subtitle={p.errorText} />
   const published = spec.status === 'published'
@@ -81,6 +93,34 @@ export function WriterView(p: WriterViewProps) {
         </p>
       </header>
 
+      {p.canEdit && (spec.canPublish || (published && !spec.standalone && spec.boardChanges !== null && spec.boardChanges > 0)) && (
+        <section ref={banner} tabIndex={-1} className={styles.ready} aria-label={spec.canPublish ? 'Ready to publish' : 'Board update waiting'}>
+          {spec.canPublish ? (
+            <>
+              <h2 className={styles.blockTitle}>Ready to publish</h2>
+              <p className={styles.para}>
+                {spec.standalone
+                  ? 'Every step is approved. Publishing marks this document final.'
+                  : `Every step is approved. Publishing creates ${spec.preview.requirements} requirements and ${spec.preview.openQuestions} open questions on the Stories board, all in To Do.`}
+              </p>
+              <Button kind="primary" size="md" disabled={p.busy} onClick={p.onPublish}>
+                Publish
+              </Button>
+            </>
+          ) : (
+            <>
+              <h2 className={styles.blockTitle}>Board update waiting</h2>
+              <p className={styles.para}>
+                The board no longer matches this document: {spec.boardChanges} {spec.boardChanges === 1 ? 'change is' : 'changes are'} waiting.
+              </p>
+              <Button kind="primary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
+                Update board
+              </Button>
+            </>
+          )}
+        </section>
+      )}
+
       {spec.stale && !published && (
         <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes changed" subtitle="The project was analyzed again after this document was started. The themes below may no longer match the transcripts. Use Start over to draft it again from the new themes." />
       )}
@@ -92,27 +132,46 @@ export function WriterView(p: WriterViewProps) {
 
       {spec.themes.length > 0 && (
         <section className={styles.context} aria-label="Themes used">
-          <h2 className={styles.label}>Themes used</h2>
-          <div className={styles.chips}>
-            {spec.themes.map((t) => (
-              <Button
-                key={t.id}
-                size="sm"
-                kind={t.included ? 'secondary' : 'ghost'}
-                aria-pressed={t.included}
-                disabled={locked || p.busy}
-                title={`${CATEGORY_LABEL[t.category]} · ${t.participantCount} of ${t.totalParticipants} participants`}
-                onClick={() => p.onToggleTheme(t.id, !t.included)}
-              >
-                {t.title}
-              </Button>
-            ))}
+          <div className={styles.contextHead}>
+            <h2 className={styles.label}>Themes used</h2>
+            <span className={styles.count}>
+              {spec.themes.filter((t) => t.included).length} of {spec.themes.length} {spec.themes.length === 1 ? 'theme' : 'themes'} included
+            </span>
+            <Button
+              kind="ghost"
+              size="sm"
+              renderIcon={themesOpen ? ChevronUp : ChevronDown}
+              aria-expanded={themesOpen}
+              aria-controls="themes-used-list"
+              onClick={() => setThemesOpen((o) => !o)}
+            >
+              {themesOpen ? 'Hide themes' : published ? 'Select a theme to include or exclude it' : 'Select a theme to exclude it'}
+            </Button>
           </div>
-          <p className={styles.help}>
-            {published
-              ? 'Click a theme to include or exclude it. The board follows when you choose Update board.'
-              : 'Click a theme to exclude it. Changes apply to steps that have not started yet.'}
-          </p>
+          {themesOpen && (
+            <div id="themes-used-list" className={styles.themeList}>
+              <div className={styles.chips}>
+                {spec.themes.map((t) => (
+                  <Button
+                    key={t.id}
+                    size="sm"
+                    kind={t.included ? 'secondary' : 'ghost'}
+                    aria-pressed={t.included}
+                    disabled={locked || p.busy}
+                    title={`${CATEGORY_LABEL[t.category]} · ${t.participantCount} of ${t.totalParticipants} participants`}
+                    onClick={() => p.onToggleTheme(t.id, !t.included)}
+                  >
+                    {t.title}
+                  </Button>
+                ))}
+              </div>
+              <p className={styles.help}>
+                {published
+                  ? 'Click a theme to include or exclude it. The board follows when you choose Update board.'
+                  : 'Click a theme to exclude it. Changes apply to steps that have not started yet.'}
+              </p>
+            </div>
+          )}
         </section>
       )}
 
@@ -211,30 +270,7 @@ export function WriterView(p: WriterViewProps) {
                   View stories
                 </Button>
               )}
-              {!spec.standalone && p.canEdit && spec.boardChanges !== null && spec.boardChanges > 0 && (
-                <>
-                  <p className={styles.para}>
-                    The board no longer matches this document: {spec.boardChanges} {spec.boardChanges === 1 ? 'change is' : 'changes are'} waiting.
-                  </p>
-                  <Button kind="secondary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
-                    Update board
-                  </Button>
-                </>
-              )}
               {!spec.standalone && spec.boardChanges === 0 && <p className={styles.muted}>The board matches this document.</p>}
-            </div>
-          )}
-          {spec.canPublish && p.canEdit && (
-            <div className={styles.ready}>
-              <h3 className={styles.blockTitle}>Ready to publish</h3>
-              <p className={styles.para}>
-                {spec.standalone
-                  ? 'Every step is approved. Publishing marks this document final.'
-                  : `Every step is approved. Publishing creates ${spec.preview.requirements} requirements and ${spec.preview.openQuestions} open questions on the Stories board, all in To Do.`}
-              </p>
-              <Button kind="primary" size="md" disabled={p.busy} onClick={p.onPublish}>
-                Publish
-              </Button>
             </div>
           )}
           {!p.canEdit && !published && <p className={styles.muted}>Editing is locked. Use &quot;Sign in&quot; or &quot;Unlock editing&quot; at the top of the page to review steps.</p>}

@@ -326,6 +326,9 @@ try {
   ok('the first step is being written, then offers Approve and Redo', (await text()).includes('Redo with instructions'))
 
   // Exclude a theme; then redo step 1 with instructions.
+  ok('the themes start folded, with their count', await page.evaluate(() => !document.querySelector('section[aria-label="Themes used"] [aria-pressed]') && /\d+ of \d+ themes? included/.test(document.querySelector('section[aria-label="Themes used"]').innerText)))
+  await page.evaluate(() => { const b = document.querySelector('section[aria-label="Themes used"] button[aria-expanded="false"]'); if (b) b.click() })
+  await page.waitForSelector('section[aria-label="Themes used"] [aria-pressed]')
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.innerText.trim() === 'Insurance coverage is unclear up front').click())
   await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.innerText.trim() === 'Insurance coverage is unclear up front')?.getAttribute('aria-pressed') === 'false', { timeout: 8000 })
   ok('clicking a theme excludes it', (await apiSpec(specId)).themes.find((t) => t.title === 'Insurance coverage is unclear up front').included === false)
@@ -368,6 +371,8 @@ try {
   ok('after steps 1 to 3 the product brief is locked and filled', (await text()).includes('Problem') && (await text()).includes('Goals'))
   for (let i = 4; i <= 8; i++) await approveNext()
   await waitText('Ready to publish')
+  await page.waitForFunction(() => { const r = document.querySelector('section[aria-label="Ready to publish"]')?.getBoundingClientRect(); return r && r.top >= 0 && r.bottom <= innerHeight && scrollY === 0 }, { timeout: 5000 }).catch(() => {}) // the scroll is smooth
+  ok('when the last step is approved, the Publish banner sits under the title and is in view', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Ready to publish"]'); const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && b.previousElementSibling?.tagName === 'HEADER' }))
   ok('with all eight approved, the document is ready to publish', (await text()).toLowerCase().includes('requirements document'))
   const preview = (await apiSpec(specId)).preview
   ok('and says what the board will get', (await text()).includes(`creates ${preview.requirements} requirements and ${preview.openQuestions} open questions`), JSON.stringify(preview))
@@ -502,6 +507,8 @@ try {
   ok('and it can be approved again', true)
   // Exclude a theme: the board no longer matches until Update board is confirmed.
   await page.waitForFunction(() => { const b = document.querySelector('section[aria-label="Themes used"] button'); return b && !b.disabled }, { timeout: 15000 }) // the step shows approved at once, before the save finishes
+  await page.evaluate(() => { const b = document.querySelector('section[aria-label="Themes used"] button[aria-expanded="false"]'); if (b) b.click() })
+  await page.waitForSelector('section[aria-label="Themes used"] [aria-pressed]')
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
   await waitText('The board no longer matches this document')
   await clickText('Update board')
