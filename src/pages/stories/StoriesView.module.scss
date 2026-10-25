@@ -200,8 +200,6 @@ $column-min: 0;
   display: flex;
   flex-direction: column;
   gap: var(--at-space-xs);
-  max-block-size: calc(100vh - 20rem); // a long stage scrolls inside its column, not the page
-  overflow-y: auto;
 }
 
 .theme,
@@ -236,12 +234,8 @@ $column-min: 0;
   gap: var(--at-space-md);
 }
 
-// The panel stays put while the board scrolls past it.
+// The panel is as tall as its content and scrolls with the page, so nothing inside it is ever cut off or needs its own scrollbar.
 .panel {
-  position: sticky;
-  inset-block-start: calc(3.5rem + var(--at-space-md));
-  max-block-size: calc(100vh - 3.5rem - 2 * var(--at-space-md));
-  overflow-y: auto;
   padding: var(--at-space-lg);
   background: var(--at-surface-soft);
   border: 1px solid var(--at-hairline);
