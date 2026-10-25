@@ -392,6 +392,10 @@ try {
   const firstKey = board0.stories[0].key
   const secondKey = board0.stories[1].key
   const thirdKey = board0.stories[2].key
+  ok('cards start folded to their title: no priority, theme or Move menu until opened', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="card-"]')].every((c) => !/priority/i.test(c.innerText) && !c.querySelector('[aria-label^="Move "]') && c.querySelector('button[aria-expanded="false"]'))))
+  await page.click(`[data-testid="card-${firstKey}"] button[aria-expanded]`)
+  await page.waitForSelector(`[data-testid="card-${firstKey}"] [aria-label="Move ${firstKey}"]`)
+  ok('an opened card shows its theme and, at the bottom, its priority', await page.evaluate((k) => { const c = document.querySelector(`[data-testid="card-${k}"]`); const p = [...c.querySelectorAll('p')].find((x) => /priority$/i.test(x.innerText.trim())); return !!p && p.getBoundingClientRect().top > c.querySelector('button').getBoundingClientRect().bottom }, firstKey))
   await page.click(`[data-testid="card-${firstKey}"] [aria-label="Move ${firstKey}"]`)
   await clickText('Move to In progress', 'li, button')
   await page.waitForFunction((k) => document.querySelector(`section[aria-label="In progress"] [data-testid="card-${k}"]`), { timeout: 8000 }, firstKey)

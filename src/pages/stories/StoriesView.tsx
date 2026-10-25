@@ -1,7 +1,7 @@
 import { Button, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem, Search, Tag, TextArea } from '@carbon/react'
 import { useEffect, useRef, useState } from 'react'
 import { COLUMNS } from '../../../shared/board.mjs'
-import { Close } from '@carbon/icons-react'
+import { ChevronDown, ChevronUp, Close } from '@carbon/icons-react'
 import type { Board, BoardStory, ChecklistInput, Priority, ProjectDetail, StoryDetail, StoryStatus } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { STATUS_HINT, STATUS_LABEL } from './labels'
@@ -10,6 +10,8 @@ import styles from './StoriesView.module.scss'
 const PRIORITY_LABEL: Record<Priority | 'all', string> = { all: 'All', high: 'High', medium: 'Medium', low: 'Low' }
 // Themes beyond these go under a "more" menu so the filter row stays on one line.
 const PRIORITIES: (Priority | 'all')[] = ['all', 'high', 'medium', 'low']
+// A stage lists this many cards, then offers the rest. Searching or filtering lists every match.
+const CARDS_PER_STAGE = 10
 
 export type StoriesViewProps = {
   state: 'loading' | 'error' | 'empty' | 'ready'
@@ -45,13 +47,16 @@ type CardProps = {
   busy: boolean
   over: boolean
   selected: boolean
+  /** Open shows the theme, owner, progress and priority; closed shows the title only. */
+  expanded: boolean
+  onToggle: (id: string) => void
   onOpen: (id: string) => void
   onMove: (story: BoardStory, status: StoryStatus, beforeId: string | null) => void
   onDragOver: (id: string) => void
   onDrop: (e: React.DragEvent) => void
 }
 
-function Card({ story, canEdit, busy, over, selected, onOpen, onMove, onDragOver, onDrop }: CardProps) {
+function Card({ story, canEdit, busy, over, selected, expanded, onToggle, onOpen, onMove, onDragOver, onDrop }: CardProps) {
   return (
     <article
       className={styles.card}
@@ -73,44 +78,58 @@ function Card({ story, canEdit, busy, over, selected, onOpen, onMove, onDragOver
         onDrop(e)
       }}
     >
-      <div className={styles.cardTop}>
-        <span className={styles.priority} data-priority={story.priority}>
-          {PRIORITY_LABEL[story.priority]}
-        </span>
-        {story.kind === 'open_question' && (
-          <Tag size="sm" type="purple">
-            Question
-          </Tag>
-        )}
-        {story.syncNote && (
-          <Tag size="sm" type="warm-gray" title={story.syncNote}>
-            Out of step
-          </Tag>
-        )}
+      <div className={styles.cardHead}>
+        <Button kind="ghost" size="sm" className={styles.open} aria-pressed={selected} onClick={() => onOpen(story.id)}>
+          <span className={styles.title} data-expanded={expanded}>
+            {story.key} — {story.title}
+          </span>
+        </Button>
+        <Button
+          kind="ghost"
+          size="sm"
+          hasIconOnly
+          renderIcon={expanded ? ChevronUp : ChevronDown}
+          iconDescription={expanded ? `Collapse ${story.key}` : `Expand ${story.key}`}
+          tooltipPosition="left"
+          aria-expanded={expanded}
+          onClick={() => onToggle(story.id)}
+        />
       </div>
-      <Button kind="ghost" size="sm" className={styles.open} aria-pressed={selected} onClick={() => onOpen(story.id)}>
-        <span className={styles.title}>
-          {story.key} — {story.title}
-        </span>
-      </Button>
-      {story.theme && (
-        <Tag className={styles.themeTag} size="sm" type="gray" title={story.theme.title}>
-          {story.theme.title}
+      {story.syncNote && (
+        <Tag className={styles.themeTag} size="sm" type="warm-gray" title={story.syncNote}>
+          Out of step
         </Tag>
       )}
-      {(story.ownerTeam || story.criteriaTotal > 0) && (
-        <p className={styles.progress}>
-          {[story.ownerTeam, story.criteriaTotal > 0 ? `${story.criteriaMet} of ${story.criteriaTotal} criteria met` : null].filter(Boolean).join(' · ')}
-        </p>
-      )}
-      {canEdit && (
-        <div className={styles.menu}>
-          <OverflowMenu iconDescription={`Move ${story.key}`} flipped size="sm">
-            {COLUMNS.filter((c: StoryStatus) => c !== story.status).map((c: StoryStatus) => (
-              <OverflowMenuItem key={c} itemText={`Move to ${STATUS_LABEL[c]}`} onClick={() => onMove(story, c, null)} />
-            ))}
-          </OverflowMenu>
-        </div>
+      {expanded && (
+        <>
+          {story.kind === 'open_question' && (
+            <Tag className={styles.themeTag} size="sm" type="purple">
+              Question
+            </Tag>
+          )}
+          {story.theme && (
+            <Tag className={styles.themeTag} size="sm" type="gray" title={story.theme.title}>
+              {story.theme.title}
+            </Tag>
+          )}
+          {(story.ownerTeam || story.criteriaTotal > 0) && (
+            <p className={styles.progress}>
+              {[story.ownerTeam, story.criteriaTotal > 0 ? `${story.criteriaMet} of ${story.criteriaTotal} criteria met` : null].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          <div className={styles.cardFoot}>
+            <p className={styles.priority} data-priority={story.priority}>
+              {PRIORITY_LABEL[story.priority]} priority
+            </p>
+            {canEdit && (
+              <OverflowMenu iconDescription={`Move ${story.key}`} flipped size="sm">
+                {COLUMNS.filter((c: StoryStatus) => c !== story.status).map((c: StoryStatus) => (
+                  <OverflowMenuItem key={c} itemText={`Move to ${STATUS_LABEL[c]}`} onClick={() => onMove(story, c, null)} />
+                ))}
+              </OverflowMenu>
+            )}
+          </div>
+        </>
       )}
     </article>
   )
@@ -285,6 +304,14 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
 export function StoriesView(props: StoriesViewProps) {
   const { state, board, stories, canEdit, moving, search, priority, openId, detail, detailBusy, undoing, saving, savedAt, errorText, announcement } = props
   const [drag, setDrag] = useState<{ column: StoryStatus; before: string | null } | null>(null)
+  // Cards start folded to their title; these are the ones opened, and the stages that list every card instead of the first few.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [listAll, setListAll] = useState<Set<StoryStatus>>(new Set())
+  const [lastMovedId, setLastMovedId] = useState<string | null>(null)
+  const toggleCard = (id: string) => setExpanded((e) => { const n = new Set(e); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const toggleStage = (status: StoryStatus) => setListAll((l) => { const n = new Set(l); if (n.has(status)) n.delete(status); else n.add(status); return n })
+  const filtering = search.trim() !== '' || priority !== 'all'
+  const allOpen = stories.length > 0 && stories.every((s) => expanded.has(s.id))
   const byId = (id: string) => board?.stories.find((s) => s.id === id)
   const drop = (e: React.DragEvent, status: StoryStatus, beforeId: string | null) => {
     e.preventDefault()
@@ -297,6 +324,7 @@ export function StoriesView(props: StoriesViewProps) {
   const followKey = useRef<string | null>(null)
   const move = (story: BoardStory, status: StoryStatus, beforeId: string | null) => {
     followKey.current = story.key
+    setLastMovedId(story.id)
     props.onMove(story, status, beforeId)
   }
   useEffect(() => {
@@ -357,6 +385,9 @@ export function StoriesView(props: StoriesViewProps) {
                 onChange={({ selectedItem }: { selectedItem: Priority | 'all' | null | undefined }) => props.onPriority(selectedItem ?? 'all')}
               />
             </div>
+            <Button kind="ghost" size="md" disabled={stories.length === 0} onClick={() => setExpanded(allOpen ? new Set() : new Set(stories.map((s) => s.id)))}>
+              {allOpen ? 'Collapse all cards' : 'Expand all cards'}
+            </Button>
             {canEdit && board.lastMove && (
               <Button kind="secondary" size="md" disabled={undoing} onClick={props.onUndo}>
                 Undo move of {board.lastMove.key}
@@ -367,6 +398,9 @@ export function StoriesView(props: StoriesViewProps) {
             <div className={styles.board}>
               {COLUMNS.map((status: StoryStatus) => {
                 const cards = stories.filter((s) => s.status === status).sort((a, b) => a.position - b.position)
+                // The card open in the panel and the one just moved are always listed, even past the first few.
+                const everyCard = filtering || listAll.has(status) || cards.length <= CARDS_PER_STAGE
+                const listed = everyCard ? cards : cards.filter((s, i) => i < CARDS_PER_STAGE || s.id === openId || s.id === lastMovedId)
                 return (
                   <section
                     key={status}
@@ -385,7 +419,7 @@ export function StoriesView(props: StoriesViewProps) {
                       {STATUS_LABEL[status]} <span className={styles.count}>{cards.length}</span>
                     </h2>
                     <div className={styles.cards}>
-                    {cards.map((s) => (
+                    {listed.map((s) => (
                       <div key={s.id}>
                         <Card
                           story={s}
@@ -393,6 +427,8 @@ export function StoriesView(props: StoriesViewProps) {
                           busy={moving.has(s.id)}
                           over={drag?.column === status && drag.before === s.id}
                           selected={openId === s.id}
+                          expanded={expanded.has(s.id)}
+                          onToggle={toggleCard}
                           onOpen={props.onOpen}
                           onMove={move}
                           onDragOver={(id) => (drag?.column !== status || drag.before !== id) && setDrag({ column: status, before: id })}
@@ -401,6 +437,11 @@ export function StoriesView(props: StoriesViewProps) {
                       </div>
                     ))}
                     {cards.length === 0 && <p className={styles.none}>Nothing here under the current filters.</p>}
+                    {!filtering && cards.length > CARDS_PER_STAGE && (
+                      <Button kind="ghost" size="sm" aria-expanded={listAll.has(status)} onClick={() => toggleStage(status)}>
+                        {listAll.has(status) ? `Show first ${CARDS_PER_STAGE} only` : `Show ${cards.length - listed.length} more`}
+                      </Button>
+                    )}
                     </div>
                   </section>
                 )
