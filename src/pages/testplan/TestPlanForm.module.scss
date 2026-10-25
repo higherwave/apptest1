@@ -49,13 +49,7 @@
 .cardHead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-}
-
-.cardTitle {
-  @include tokens.role('title-sm');
-  margin: 0;
-  color: var(--at-ink);
+  justify-content: flex-end;
 }
 
 .outcomes {

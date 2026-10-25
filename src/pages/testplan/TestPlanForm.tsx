@@ -50,14 +50,13 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
         <h2 id="items-label" className={styles.label}>What are we testing?</h2>
         {form.testItems.map((item, i) => (
           <div key={i} className={styles.card} role="group" aria-label={`Test item ${i + 1}`}>
-            <div className={styles.cardHead}>
-              <h3 className={styles.cardTitle}>Test Item {i + 1}</h3>
-              {!readOnly && form.testItems.length > 1 && (
+            {!readOnly && form.testItems.length > 1 && (
+              <div className={styles.cardHead}>
                 <Button kind="ghost" size="sm" onClick={() => onChange({ ...form, testItems: form.testItems.filter((_, j) => j !== i) })}>
                   Remove test item
                 </Button>
-              )}
-            </div>
+              </div>
+            )}
             <TextArea
               id={`item-${i}-description`}
               labelText="Description"

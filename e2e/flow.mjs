@@ -76,7 +76,7 @@ try {
   await page.type('#item-0-outcome-1', 'Fewer calls to the clinic')
   await clickText('+ Add test item')
   await page.waitForSelector('#item-1-description')
-  ok('a second test item can be added', await page.evaluate(() => document.body.innerText.includes('Test Item 2')))
+  ok('a second test item can be added', await page.evaluate(() => document.querySelectorAll('[id^="item-"][id$="-description"]').length === 2 && !document.body.innerText.includes('Test Item')))
   await page.type('#p-name-0', 'Ada Lovelace')
   await page.type('#p-email-0', 'not-an-email')
   await page.type('#p-phone-0', '(555) 010-0000')
