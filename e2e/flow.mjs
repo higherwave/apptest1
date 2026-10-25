@@ -125,7 +125,7 @@ try {
   ok('a draft project opens on its Test Plan', true)
   await page.waitForFunction(() => document.querySelector('[data-nav] a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
   const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-nav] a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.dataset.label, { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
-  ok('Plan steps are open and Analyze and Deliver steps are locked with a hint',
+  ok('Discovery steps are open and Analysis, Strategy and Delivery steps are locked with a hint',
     !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Journey Map', 'Priorities', 'Requirements', 'Stories'].every((k) => navState[k].disabled && navState[k].hint),
     JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
   await page.waitForSelector('#project-name')
