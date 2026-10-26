@@ -101,7 +101,7 @@ export function AccessBar() {
           <Tag size="sm" type="gray">
             {me.data.role}
           </Tag>
-          <OverflowMenu iconDescription="Account" flipped size="sm" aria-label="Account">
+          <OverflowMenu iconDescription="Account" align="bottom-end" flipped size="sm" aria-label="Account">
             <OverflowMenuItem itemText="Members" onClick={() => navigate('/members')} />
             <OverflowMenuItem itemText="Sign out" onClick={signOut} />
           </OverflowMenu>
