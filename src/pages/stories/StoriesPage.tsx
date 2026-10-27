@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, type BoardStory, type ChecklistInput, type Priority, type StoryStatus } from '../../api/client'
 import { useBoard, useMe, useMoveStory, useProject, useSaveChecklist, useStory, useUndoMove } from '../../api/hooks'
 import { STATUS_LABEL } from './labels'
@@ -9,6 +9,7 @@ import { StoriesView } from './StoriesView'
 export function StoriesPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const project = useProject(projectId)
   const board = useBoard(projectId)
   const me = useMe()
@@ -23,6 +24,22 @@ export function StoriesPage() {
   }, [board.data])
   const openId = pickedId && board.data?.stories.some((s) => s.id === pickedId) ? pickedId : firstId
   const detail = useStory(openId)
+  // Arriving from a requirement's Story link on the Design step: that card is selected, listed even past the first few, and brought into view, once.
+  const arrivedAt = useRef<string | null>(null)
+  const wanted = params.get('open')
+  const target = wanted ? board.data?.stories.find((s) => s.key === wanted) : undefined
+  useEffect(() => {
+    if (target && arrivedAt.current !== target.key) setPickedId(target.id)
+  }, [target])
+  useEffect(() => {
+    if (!target || arrivedAt.current === target.key || openId !== target.id) return
+    arrivedAt.current = target.key
+    const card = document.querySelector<HTMLElement>(`[data-testid="card-${target.key}"]`)
+    if (!card) return
+    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    card.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' })
+    card.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
+  }, [target, openId, board.data])
   const [savedAt, setSavedAt] = useState<string | undefined>()
   const markSaved = () => setSavedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
   const [search, setSearch] = useState('')

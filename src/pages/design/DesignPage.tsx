@@ -58,6 +58,7 @@ export function DesignPage() {
       openKey={params.get('open')}
       onSave={onSave}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
+      onViewStory={(key) => navigate(`/projects/${projectId}/stories?open=${encodeURIComponent(key)}`)}
     />
   )
 }

@@ -484,6 +484,11 @@ try {
   await page.waitForSelector('[data-testid="design-R2"] [data-frame]', { timeout: 8000 })
   await page.waitForFunction(() => { const r = document.querySelector('[data-testid="design-R2"]').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2 }, { timeout: 6000 })
   ok('it lands on Design with that requirement’s row open and in view, while the others stay folded', await page.evaluate(() => document.querySelector('[data-testid="design-R2"] h3 button').getAttribute('aria-expanded') === 'true' && document.querySelector('[data-testid="design-R1"] h3 button').getAttribute('aria-expanded') === 'false'))
+  // And back: the opened row has a Story link to its card, which is selected on the board.
+  ok('an opened design row has a Story link at the top right', await page.evaluate(() => { const a = [...document.querySelectorAll('[data-testid="design-R2"] a')].find((x) => x.innerText.trim().startsWith('Story')); const row = document.querySelector('[data-testid="design-R2"]').getBoundingClientRect(); const r = a?.getBoundingClientRect(); return !!r && a.getAttribute('href').endsWith('/stories?open=R2') && r.right > row.right - 80 }))
+  await page.evaluate(() => [...document.querySelectorAll('[data-testid="design-R2"] a')].find((x) => x.innerText.trim().startsWith('Story')).click())
+  await page.waitForFunction(() => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith('R2'), { timeout: 8000 })
+  ok('it lands on Stories with that card selected in the panel', await page.evaluate(() => document.querySelector('[data-testid="card-R2"] button[aria-pressed="true"]') !== null))
   await navTo('Stories')
   await page.waitForSelector('[data-testid="card-Q1"]')
   await page.click('[data-testid="card-Q1"] button')

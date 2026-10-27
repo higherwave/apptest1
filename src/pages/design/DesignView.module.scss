@@ -197,6 +197,20 @@ $frame-max: 44rem;
   color: var(--at-ink);
 }
 
+.contextTop {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-xs) var(--at-space-md);
+}
+
+.storyLink {
+  @include tokens.role('label-md');
+  margin-inline-start: auto;
+  color: var(--at-link);
+}
+
 .meta {
   display: flex;
   flex-wrap: wrap;

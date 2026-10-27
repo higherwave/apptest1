@@ -18,6 +18,8 @@ export type DesignViewProps = {
   openKey?: string | null
   onSave: (storyId: string, body: DesignRequest) => Promise<unknown>
   onGoRequirements: () => void
+  /** Opens the Stories board with this requirement's card selected. */
+  onViewStory: (key: string) => void
 }
 
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' } as const
@@ -25,7 +27,7 @@ const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' } as const
 // One requirement as an accordion item. The heading row is the requirement's title with what has been done so far; opened, it shows
 // the research behind it, then the prototype (link and thumbnail) on the left and the design notes on the right. The link and the
 // notes save when the field is left, if they changed; a picture saves as soon as it is chosen.
-function Row({ item, canEdit, open, onToggle, onSave }: { item: DesignItem; canEdit: boolean; open: boolean; onToggle: () => void; onSave: DesignViewProps['onSave'] }) {
+function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory }: { item: DesignItem; projectId: string; canEdit: boolean; open: boolean; onToggle: () => void; onSave: DesignViewProps['onSave']; onViewStory: DesignViewProps['onViewStory'] }) {
   return (
     <li className={styles.item} data-testid={`design-${item.key}`} data-open={open}>
       <h3 className={styles.itemHead}>
@@ -53,7 +55,7 @@ function Row({ item, canEdit, open, onToggle, onSave }: { item: DesignItem; canE
           </span>
         </Button>
       </h3>
-      {open && <RowBody item={item} canEdit={canEdit} onSave={onSave} />}
+      {open && <RowBody item={item} projectId={projectId} canEdit={canEdit} onSave={onSave} onViewStory={onViewStory} />}
     </li>
   )
 }
@@ -67,7 +69,7 @@ const hostOf = (url: string) => {
   }
 }
 
-function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; onSave: DesignViewProps['onSave'] }) {
+function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: DesignItem; projectId: string; canEdit: boolean; onSave: DesignViewProps['onSave']; onViewStory: DesignViewProps['onViewStory'] }) {
   const [notes, setNotes] = useState(item.notes ?? '')
   const [pictureError, setPictureError] = useState<string | undefined>()
   const [linkOpen, setLinkOpen] = useState(false)
@@ -112,16 +114,28 @@ function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean
   return (
     <div id={`design-body-${item.key}`} className={styles.itemBody}>
       <div className={styles.context}>
-        <div className={styles.meta}>
-          {item.theme && (
-            <Tag size="sm" type="gray" title={item.theme.title}>
-              {item.theme.title}
-            </Tag>
-          )}
-          <span className={styles.muted}>
-            {item.theme ? `${item.theme.participantCount} of ${item.theme.totalParticipants} participants · ` : ''}
-            {PRIORITY_LABEL[item.priority]} priority
-          </span>
+        <div className={styles.contextTop}>
+          <div className={styles.meta}>
+            {item.theme && (
+              <Tag size="sm" type="gray" title={item.theme.title}>
+                {item.theme.title}
+              </Tag>
+            )}
+            <span className={styles.muted}>
+              {item.theme ? `${item.theme.participantCount} of ${item.theme.totalParticipants} participants · ` : ''}
+              {PRIORITY_LABEL[item.priority]} priority
+            </span>
+          </div>
+          <a
+            className={styles.storyLink}
+            href={`/projects/${projectId}/stories?open=${encodeURIComponent(item.key)}`}
+            onClick={(e) => {
+              e.preventDefault()
+              onViewStory(item.key)
+            }}
+          >
+            Story →
+          </a>
         </div>
         {(item.whyItMatters ?? item.summary) && (
           <ClampedBlock label={`why ${item.key} matters`}>
@@ -348,7 +362,7 @@ export function DesignView(props: DesignViewProps) {
               </div>
               <ul className={styles.list} aria-label="Requirements and their prototypes">
                 {design.items.map((item) => (
-                  <Row key={item.storyId} item={item} canEdit={canEdit} open={opened.has(item.storyId)} onToggle={() => toggle(item.storyId)} onSave={props.onSave} />
+                  <Row key={item.storyId} item={item} projectId={design.projectId} canEdit={canEdit} open={opened.has(item.storyId)} onToggle={() => toggle(item.storyId)} onSave={props.onSave} onViewStory={props.onViewStory} />
                 ))}
               </ul>
             </>
