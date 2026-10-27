@@ -1,11 +1,12 @@
-import { ChartColumn, Folders, Locked } from '@carbon/icons-react'
+import { ChartColumn, Folders } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
 import type { MouseEvent, ReactNode } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import type { StepKey } from '../api/client'
-import { STEPS, STEP_GROUPS } from './nav'
+import { STEPS } from './nav'
+import { StepNav, type StepItem } from './StepNav'
 import { Logo } from './Logo'
 import { SiteFooter } from './SiteFooter'
 import styles from './AppShell.module.scss'
@@ -32,6 +33,22 @@ export function AppShell() {
   const stage = useProjectStage(projectId ?? undefined)
   const projectDetail = useProject(projectId ?? undefined)
   const hasPanel = !!projectId || creating
+
+  // The steps as the strip shows them: open, locked (with the reason) and which one is showing.
+  const stepItems: StepItem[] = STEPS.map((s, i) => {
+    const tab = projectId ? stage.data?.tabs[s.key as StepKey] : undefined
+    const locked = creating ? s.key !== 'plan' : tab ? !tab.enabled : false
+    return {
+      key: s.key,
+      label: s.label,
+      group: s.group,
+      number: i + 1,
+      to: creating ? '/projects/new' : `/projects/${projectId}/${s.key}`,
+      active: creating ? s.key === 'plan' : project?.[2] === s.key,
+      locked,
+      hint: creating ? 'Create the project first' : (tab?.hint ?? undefined),
+    }
+  })
 
   const railLink = (to: string, label: string, icon: ReactNode, active: boolean) => (
     <a href={to} data-label={label} aria-current={active ? 'page' : undefined} className={cx(styles.railLink, active && styles.railActive)} onClick={go(to)}>
@@ -72,43 +89,13 @@ export function AppShell() {
         {railLink('/insights/themes', 'Platform Insights', <ChartColumn size={24} aria-hidden />, insights)}
       </nav>
 
-      {hasPanel && (
-        <nav className={styles.panel} aria-label="Project steps" data-nav>
-          {(projectId || creating) &&
-            STEP_GROUPS.map((group) => (
-              <div key={group} className={styles.group}>
-                <p className={styles.groupLabel}>{group}</p>
-                {STEPS.filter((s) => s.group === group).map((s) => {
-                  const tab = projectId ? stage.data?.tabs[s.key as StepKey] : undefined
-                  const locked = creating ? s.key !== 'plan' : tab ? !tab.enabled : false
-                  const active = creating ? s.key === 'plan' : project?.[2] === s.key
-                  const to = creating ? '/projects/new' : `/projects/${projectId}/${s.key}`
-                  return (
-                    <a
-                      key={s.key}
-                      href={to}
-                      data-label={s.label}
-                      aria-current={active ? 'page' : undefined}
-                      aria-disabled={locked || undefined}
-                      title={locked ? (creating ? 'Create the project first' : (tab?.hint ?? undefined)) : undefined}
-                      className={cx(styles.step, active && styles.stepActive, locked && styles.locked)}
-                      onClick={locked || creating ? (e: MouseEvent) => e.preventDefault() : go(to)}
-                    >
-                      <span className={styles.number} aria-hidden>{STEPS.indexOf(s) + 1}</span>
-                      <span className={styles.stepLabel}>{s.label}</span>
-                      {locked && <Locked size={16} className={styles.lock} aria-hidden />}
-                    </a>
-                  )
-                })}
-              </div>
-            ))}
-        </nav>
-      )}
-
-      <main className={cx(styles.content, hasPanel && styles.withPanel)}>
-        <Outlet />
-        <SiteFooter />
-      </main>
+      <div className={styles.stage}>
+        {hasPanel && <StepNav items={stepItems} onGo={navigate} />}
+        <main className={styles.content}>
+          <Outlet />
+          <SiteFooter />
+        </main>
+      </div>
     </div>
   )
 }

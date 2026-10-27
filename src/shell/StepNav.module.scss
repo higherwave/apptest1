@@ -1,0 +1,119 @@
+@use '../tokens' as tokens;
+
+// The project's steps as a horizontal strip under the app bar.
+.strip {
+  background: var(--at-surface-soft);
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.groups {
+  display: flex;
+  padding: var(--at-space-sm) var(--at-space-lg) 0;
+  overflow-x: auto;
+}
+
+.group {
+  flex: none;
+  padding-inline: var(--at-space-md);
+
+  & + & { border-inline-start: 1px solid var(--at-hairline); }
+  &:first-child { padding-inline-start: 0; }
+}
+
+.groupLabel {
+  @include tokens.role('caption');
+  margin: 0;
+  padding: 0 var(--at-space-xxs) var(--at-space-xs);
+  color: var(--at-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.groupLabelActive {
+  color: var(--at-ink);
+  font-weight: 700;
+}
+
+.tabs {
+  display: flex;
+  gap: var(--at-space-xxs);
+  overflow-x: auto;
+}
+
+.chips {
+  display: flex;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-sm) var(--at-space-md) var(--at-space-sm);
+  overflow-x: auto;
+}
+
+.strip > .tabs {
+  padding-inline: var(--at-space-md);
+}
+
+.tab {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  align-items: flex-start;
+  min-block-size: 2.75rem;
+  padding: var(--at-space-xs) var(--at-space-sm) var(--at-space-sm);
+  border-block-end: 0.1875rem solid transparent;
+  color: var(--at-body);
+  text-decoration: none;
+  white-space: nowrap;
+  @include tokens.role('body-md');
+
+  &:hover { background: var(--at-surface-strong); }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--at-ink);
+    outline-offset: -0.125rem;
+  }
+}
+
+.tabActive {
+  border-block-end-color: var(--at-ink);
+  background: var(--at-canvas);
+  color: var(--at-ink);
+  font-weight: 700;
+
+  &:hover { background: var(--at-canvas); }
+}
+
+.number {
+  display: grid;
+  place-items: center;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border-radius: var(--at-radius-full);
+  color: var(--at-muted);
+  @include tokens.role('meta');
+
+  .tabActive & {
+    background: var(--at-ink);
+    color: var(--at-on-primary);
+  }
+}
+
+.tabLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+}
+
+// A step that is not open yet: muted, with a lock, and not clickable. The reason is in the link's title.
+.tabLocked {
+  color: var(--at-text-disabled);
+  cursor: not-allowed;
+
+  &:hover { background: transparent; }
+
+  .number { color: var(--at-text-disabled); }
+}
+
+.lock {
+  flex: none;
+  fill: currentColor;
+}

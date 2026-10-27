@@ -211,6 +211,16 @@ try {
   ok('when it finishes, the person lands on Themes', true)
   ok('Themes, Journey Map, Priorities and Requirements are now open; Stories is still locked',
     !(await navLocked('Themes')) && !(await navLocked('Journey Map')) && !(await navLocked('Priorities')) && !(await navLocked('Requirements')) && (await navLocked('Stories')))
+  // The steps are a horizontal strip: every group in one line when wide, one group at a time when narrow.
+  ok('wide: one strip shows every group and all eight steps', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return ['Discovery', 'Analysis', 'Strategy', 'Delivery'].every((g) => n.innerText.includes(g.toUpperCase()) || n.innerText.includes(g)) && n.querySelectorAll('a').length === 8 }))
+  await page.setViewport({ width: 800, height: 900 })
+  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length < 8, { timeout: 5000 })
+  ok('narrow: group buttons, and only the open step’s group is listed', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return n.querySelectorAll('button[aria-pressed]').length === 4 && n.querySelectorAll('a').length >= 1 && n.querySelectorAll('a').length < 8 }))
+  await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] button')].find((b) => b.innerText.trim() === 'Delivery').click())
+  await page.waitForFunction(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label).join() === 'Stories', { timeout: 5000 })
+  ok('narrow: picking a group lists that group’s steps', true)
+  await page.setViewport({ width: 1400, height: 900 })
+  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length === 8, { timeout: 5000 })
   const apiProjects = async () => (await (await fetch(`${API}/api/v1/projects`)).json()).data
   const mine = async () => (await apiProjects()).find((p) => p.id === projectId)
   ok('the project is Analyzed with 3 sessions and 9 themes', await mine().then((p) => p.status === 'analyzed' && p.sessions === 3 && p.themes === 9))
@@ -524,6 +534,7 @@ try {
   await page.waitForFunction(() => { const b = document.querySelector('section[aria-label="Themes used"] button'); return b && !b.disabled }, { timeout: 15000 }) // the step shows approved at once, before the save finishes
   await page.evaluate(() => { const b = document.querySelector('section[aria-label="Themes used"] button[aria-expanded="false"]'); if (b) b.click() })
   await page.waitForSelector('section[aria-label="Themes used"] [aria-pressed]')
+  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].some((b) => b.getAttribute('aria-pressed') === 'true' && !b.disabled), { timeout: 15000 }) // theme buttons wait while a save is running
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
   await waitText('The board no longer matches this document')
   await clickText('Update board')
