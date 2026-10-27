@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp, Link as LinkIcon } from '@carbon/icons-react'
 import { Button, FileUploaderDropContainer, InlineNotification, Loading, Modal, Tag, TextArea, TextInput } from '@carbon/react'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { designImageUrl, type Design, type DesignItem, type DesignRequest } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { ClampedBlock } from '../requirements/ClampedBlock'
@@ -14,6 +14,8 @@ export type DesignViewProps = {
   saving: boolean
   savedAt?: string
   errorText?: string
+  /** A requirement key (R3) to open and bring into view when the table first shows, as the Stories panel's Design link asks. */
+  openKey?: string | null
   onSave: (storyId: string, body: DesignRequest) => Promise<unknown>
   onGoRequirements: () => void
 }
@@ -251,6 +253,21 @@ export function DesignView(props: DesignViewProps) {
   const { state, design, canEdit, saving, savedAt, errorText } = props
   const [decisionsOpen, setDecisionsOpen] = useState(false)
   const [opened, setOpened] = useState<Set<string>>(new Set())
+  // Arriving from a story's Design link: that requirement's row opens and is brought into view, once.
+  const arrived = useRef<string | null>(null)
+  const target = props.openKey && design ? design.items.find((i) => i.key === props.openKey) : undefined
+  useEffect(() => {
+    if (!target || arrived.current === target.key) return
+    arrived.current = target.key
+    setOpened((o) => new Set(o).add(target.storyId))
+    requestAnimationFrame(() => {
+      const row = document.querySelector<HTMLElement>(`[data-testid="design-${target.key}"]`)
+      if (!row) return
+      const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+      row.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' })
+      row.querySelector<HTMLElement>('h3 button')?.focus({ preventScroll: true })
+    })
+  }, [target])
   const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const decisions = design?.decisions
   const hasDecisions = !!decisions && (!!decisions.reasoning || decisions.alternatives.length > 0)

@@ -91,6 +91,7 @@ export function StoriesPage() {
         checklist.mutate({ id: detail.data.id, version: detail.data.version, items }, { onError: fail, onSuccess: markSaved })
       }}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
+      onViewDesign={(story) => navigate(`/projects/${projectId}/design?open=${encodeURIComponent(story.key)}`)}
     />
   )
 }

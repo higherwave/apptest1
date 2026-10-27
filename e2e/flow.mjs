@@ -474,6 +474,21 @@ try {
 
   // Design: a row per requirement with a prototype link, a picture and design notes.
   const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  // From the Stories panel, a requirement links to its row in Design, which opens and comes into view; an open question has no such link.
+  await navTo('Stories')
+  await page.waitForSelector('[data-testid="card-R2"]')
+  await page.click('[data-testid="card-R2"] button')
+  await page.waitForFunction(() => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith('R2'), { timeout: 8000 })
+  ok('a requirement’s panel has a Design link to its row', await page.evaluate(() => document.querySelector('aside[aria-label="Story details"] a')?.getAttribute('href')?.endsWith('/design?open=R2') === true))
+  await page.evaluate(() => document.querySelector('aside[aria-label="Story details"] a').click())
+  await page.waitForSelector('[data-testid="design-R2"] [data-frame]', { timeout: 8000 })
+  await page.waitForFunction(() => { const r = document.querySelector('[data-testid="design-R2"]').getBoundingClientRect(); return r.top >= 0 && r.top < innerHeight / 2 }, { timeout: 6000 })
+  ok('it lands on Design with that requirement’s row open and in view, while the others stay folded', await page.evaluate(() => document.querySelector('[data-testid="design-R2"] h3 button').getAttribute('aria-expanded') === 'true' && document.querySelector('[data-testid="design-R1"] h3 button').getAttribute('aria-expanded') === 'false'))
+  await navTo('Stories')
+  await page.waitForSelector('[data-testid="card-Q1"]')
+  await page.click('[data-testid="card-Q1"] button')
+  await page.waitForFunction(() => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith('Q1'), { timeout: 8000 })
+  ok('an open question’s panel has no Design link', await page.evaluate(() => !document.querySelector('aside[aria-label="Story details"] a')))
   await navTo('Design')
   await page.waitForSelector('[data-testid^="design-"]')
   ok('the Design step lists one row per requirement, none for open questions', (await page.$$('[data-testid^="design-"]')).length === preview.requirements && !(await page.$('[data-testid="design-Q1"]')))

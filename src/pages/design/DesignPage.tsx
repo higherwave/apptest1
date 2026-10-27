@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, type DesignRequest } from '../../api/client'
 import { useDesign, useMe, useSaveDesign } from '../../api/hooks'
 import { DesignView } from './DesignView'
@@ -10,6 +10,7 @@ import { DesignView } from './DesignView'
 export function DesignPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const queryClient = useQueryClient()
   const design = useDesign(projectId)
   const me = useMe()
@@ -54,6 +55,7 @@ export function DesignPage() {
       saving={pending > 0}
       savedAt={savedAt}
       errorText={design.isError && !noBoard ? friendlyMessage(design.error) : error}
+      openKey={params.get('open')}
       onSave={onSave}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
     />

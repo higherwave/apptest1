@@ -40,6 +40,8 @@ export type StoriesViewProps = {
   onUndo: () => void
   onChecklist: (items: ChecklistInput[]) => void
   onGoRequirements: () => void
+  /** Opens the Design step with this requirement's row open. */
+  onViewDesign: (story: BoardStory) => void
 }
 
 type CardProps = {
@@ -138,6 +140,9 @@ function Card({ story, canEdit, busy, over, selected, expanded, onToggle, onOpen
 
 type PanelProps = Pick<StoriesViewProps, 'canEdit' | 'onChecklist'> & {
   story: BoardStory
+  /** Where the requirement's design row is, for the Design link. Open questions have none. */
+  designHref?: string
+  onViewDesign: () => void
   detail?: StoryDetail
   busy: boolean
   onMove: (status: StoryStatus) => void
@@ -145,7 +150,7 @@ type PanelProps = Pick<StoriesViewProps, 'canEdit' | 'onChecklist'> & {
 
 // The static panel on the right: whatever card is selected, with its status and acceptance criteria to edit. It is context to
 // carry into a tracker such as Jira, so it holds no owner or priority.
-function Panel({ story, detail, canEdit, busy, onChecklist, onMove }: PanelProps) {
+function Panel({ story, designHref, onViewDesign, detail, canEdit, busy, onChecklist, onMove }: PanelProps) {
   return (
     <div className={styles.panelBody}>
       <p className={styles.panelKicker}>
@@ -169,6 +174,18 @@ function Panel({ story, detail, canEdit, busy, onChecklist, onMove }: PanelProps
           </Tag>
         )}
       </div>
+      {designHref && (
+        <a
+          className={styles.designLink}
+          href={designHref}
+          onClick={(e) => {
+            e.preventDefault()
+            onViewDesign()
+          }}
+        >
+          Design →
+        </a>
+      )}
       {!detail && <Loading small withOverlay={false} description="Loading the story" />}
       {detail && <Editable key={detail.id} detail={detail} canEdit={canEdit} busy={busy} onChecklist={onChecklist} onMove={onMove} />}
     </div>
@@ -451,6 +468,8 @@ export function StoriesView(props: StoriesViewProps) {
                 <Panel
                   key={opened.id}
                   story={opened}
+                  designHref={opened.kind === 'requirement' && board ? `/projects/${board.projectId}/design?open=${encodeURIComponent(opened.key)}` : undefined}
+                  onViewDesign={() => props.onViewDesign(opened)}
                   detail={detail && detail.id === opened.id ? detail : undefined}
                   canEdit={canEdit}
                   busy={detailBusy}

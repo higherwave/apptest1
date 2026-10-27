@@ -271,6 +271,12 @@ $column-min: 0;
   font-weight: 500;
 }
 
+.designLink {
+  @include tokens.role('label-md');
+  align-self: flex-start;
+  color: var(--at-link);
+}
+
 .tags {
   display: flex;
   flex-wrap: wrap;
