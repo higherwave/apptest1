@@ -1,6 +1,6 @@
-import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, FileUploaderDropContainer, InlineNotification, Loading, Tag, TextArea, TextInput } from '@carbon/react'
-import { useState } from 'react'
+import { ChevronDown, ChevronUp, Link as LinkIcon } from '@carbon/icons-react'
+import { Button, FileUploaderDropContainer, InlineNotification, Loading, Modal, Tag, TextArea, TextInput } from '@carbon/react'
+import { useRef, useState } from 'react'
 import { designImageUrl, type Design, type DesignItem, type DesignRequest } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { ClampedBlock } from '../requirements/ClampedBlock'
@@ -56,15 +56,26 @@ function Row({ item, canEdit, open, onToggle, onSave }: { item: DesignItem; canE
   )
 }
 
+const LINK_OK = /^https?:\/\/\S+$/i
+const hostOf = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '')
+  } catch {
+    return url
+  }
+}
+
 function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; onSave: DesignViewProps['onSave'] }) {
-  const [url, setUrl] = useState(item.prototypeUrl ?? '')
   const [notes, setNotes] = useState(item.notes ?? '')
   const [pictureError, setPictureError] = useState<string | undefined>()
+  const [linkOpen, setLinkOpen] = useState(false)
+  const [link, setLink] = useState('')
+  const [dragging, setDragging] = useState(false)
+  const picker = useRef<HTMLButtonElement>(null)
   const clean = (v: string) => (v.trim() === '' ? null : v.trim())
-  const body = (extra: Partial<DesignRequest> = {}): DesignRequest => ({ prototypeUrl: clean(url), notes: clean(notes), ...extra })
-  const dirty = clean(url) !== item.prototypeUrl || clean(notes) !== item.notes
-  const commit = () => {
-    if (dirty) void onSave(item.storyId, body())
+  const body = (extra: Partial<DesignRequest> = {}): DesignRequest => ({ prototypeUrl: item.prototypeUrl, notes: clean(notes), ...extra })
+  const commitNotes = () => {
+    if (clean(notes) !== item.notes) void onSave(item.storyId, body())
   }
   const choose = async (files: File[]) => {
     setPictureError(undefined)
@@ -77,10 +88,23 @@ function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean
       setPictureError(err instanceof Error ? err.message : 'The picture could not be added.')
     }
   }
-  const picture = item.hasImage ? (
-    <img className={styles.thumb} src={designImageUrl(item.storyId, item.version)} alt={`Prototype of ${item.key}: ${item.title}`} />
-  ) : (
-    <div className={styles.noThumb}>No picture yet</div>
+  const openLink = () => {
+    setLink(item.prototypeUrl ?? '')
+    setLinkOpen(true)
+  }
+  const linkValid = LINK_OK.test(link.trim())
+  const saveLink = () => {
+    if (!linkValid) return
+    setLinkOpen(false)
+    void onSave(item.storyId, body({ prototypeUrl: link.trim() }))
+  }
+  const hasLink = !!item.prototypeUrl
+  const upload = () => picker.current?.click()
+  const picture = item.hasImage ? <img className={styles.thumb} src={designImageUrl(item.storyId, item.version)} alt={`Prototype of ${item.key}: ${item.title}`} /> : null
+  const open = (child: React.ReactNode) => (
+    <a className={styles.frameLink} href={item.prototypeUrl ?? undefined} target="_blank" rel="noopener noreferrer" aria-label={`Open the prototype of ${item.key} in a new tab`}>
+      {child}
+    </a>
   )
 
   return (
@@ -107,44 +131,59 @@ function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean
       <div className={styles.split}>
         <div className={styles.cell}>
           <h4 className={styles.colHead}>Prototype</h4>
-          {item.prototypeUrl ? (
-            <a className={styles.thumbLink} href={item.prototypeUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open the prototype of ${item.key} in a new tab`}>
-              {picture}
-            </a>
-          ) : (
-            picture
-          )}
-          {item.prototypeUrl && (
-            <a className={styles.open} href={item.prototypeUrl} target="_blank" rel="noopener noreferrer">
-              Open prototype ↗
-            </a>
-          )}
-          {canEdit && (
-            <>
-              <TextInput
-                id={`design-url-${item.key}`}
-                size="sm"
-                labelText={`Prototype link for ${item.key}`}
-                hideLabel
-                placeholder="Paste the prototype link"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onBlur={commit}
-              />
-              <div className={styles.drop}>
-                <FileUploaderDropContainer
-                  accept={['image/png', 'image/jpeg', 'image/webp']}
-                  labelText={item.hasImage ? 'Drop a new picture or click' : 'Drop a screenshot or click'}
-                  onAddFiles={(_, { addedFiles }) => void choose(addedFiles)}
-                />
+          <div
+            className={styles.frame}
+            data-frame
+            data-filled={item.hasImage || hasLink}
+            data-dragging={dragging}
+            onDragOver={canEdit ? (e) => { e.preventDefault(); setDragging(true) } : undefined}
+            onDragLeave={canEdit ? () => setDragging(false) : undefined}
+            onDrop={canEdit ? (e) => { e.preventDefault(); setDragging(false); void choose([...e.dataTransfer.files]) } : undefined}
+          >
+            {item.hasImage && (hasLink ? open(picture) : picture)}
+            {!item.hasImage && hasLink && open(
+              <span className={styles.linkTile}>
+                <LinkIcon size={32} aria-hidden />
+                <span>{hostOf(item.prototypeUrl!)}</span>
+              </span>,
+            )}
+            {!item.hasImage && !hasLink && (
+              <div className={styles.empty}>
+                <p className={styles.emptyText}>{canEdit ? 'Add the prototype' : 'No prototype yet'}</p>
+                {canEdit && <p className={styles.emptyHint}>Upload a screenshot, link the prototype, or both. You can also drop an image here.</p>}
               </div>
-              {item.hasImage && (
-                <Button kind="ghost" size="sm" onClick={() => void onSave(item.storyId, body({ image: null }))}>
-                  Remove picture
+            )}
+            {canEdit && (
+              <div className={styles.actions} data-empty={!item.hasImage && !hasLink}>
+                <Button kind={item.hasImage || hasLink ? 'secondary' : 'primary'} size="sm" onClick={upload}>
+                  {item.hasImage ? 'Replace screenshot' : 'Upload screenshot'}
                 </Button>
-              )}
-              {pictureError && <p className={styles.error}>{pictureError}</p>}
-            </>
+                <Button kind="secondary" size="sm" onClick={openLink}>
+                  {hasLink ? 'Edit link' : 'Link prototype'}
+                </Button>
+                {item.hasImage && (
+                  <Button kind="ghost" size="sm" onClick={() => void onSave(item.storyId, body({ image: null }))}>
+                    Remove screenshot
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+          {hasLink && (
+            <a className={styles.open} href={item.prototypeUrl!} target="_blank" rel="noopener noreferrer">
+              Open prototype ↗ <span className={styles.muted}>{hostOf(item.prototypeUrl!)}</span>
+            </a>
+          )}
+          {pictureError && <p className={styles.error}>{pictureError}</p>}
+          {canEdit && (
+            <div className={styles.hiddenPicker}>
+              <FileUploaderDropContainer
+                innerRef={picker}
+                accept={['image/png', 'image/jpeg', 'image/webp']}
+                labelText={`Choose a screenshot for ${item.key}`}
+                onAddFiles={(_, { addedFiles }) => void choose(addedFiles)}
+              />
+            </div>
           )}
         </div>
 
@@ -155,17 +194,54 @@ function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean
               id={`design-notes-${item.key}`}
               labelText={`Design notes for ${item.key}`}
               hideLabel
-              rows={8}
+              rows={10}
               placeholder="Alternatives explored, and why this direction"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              onBlur={commit}
+              onBlur={commitNotes}
             />
           ) : (
             <p className={styles.notes}>{item.notes ?? 'No design notes yet.'}</p>
           )}
         </div>
       </div>
+
+      <Modal
+        open={linkOpen}
+        size="sm"
+        modalHeading={hasLink ? `Edit the prototype link for ${item.key}` : `Link the prototype for ${item.key}`}
+        primaryButtonText="Save link"
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={!linkValid}
+        onRequestClose={() => setLinkOpen(false)}
+        onRequestSubmit={saveLink}
+      >
+        <TextInput
+          id={`design-link-${item.key}`}
+          labelText="Prototype link"
+          placeholder="https://"
+          value={link}
+          invalid={link.trim() !== '' && !linkValid}
+          invalidText="Enter a link that starts with http:// or https://."
+          onChange={(e) => setLink(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') saveLink()
+          }}
+        />
+        {hasLink && (
+          <Button
+            kind="ghost"
+            size="sm"
+            className={styles.removeLink}
+            onClick={() => {
+              setLinkOpen(false)
+              void onSave(item.storyId, body({ prototypeUrl: null }))
+            }}
+          >
+            Remove link
+          </Button>
+        )}
+      </Modal>
     </div>
   )
 }

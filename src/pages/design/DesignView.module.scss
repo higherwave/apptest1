@@ -1,6 +1,6 @@
 @use '../../tokens' as tokens;
 
-$thumb-width: 16rem;
+$frame-max: 44rem;
 
 .page {
   display: flex;
@@ -163,7 +163,7 @@ $thumb-width: 16rem;
 // Opened: the prototype on the left, the design notes on the right.
 .split {
   display: grid;
-  grid-template-columns: minmax(0, #{$thumb-width + 2rem}) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(0, 1fr);
   gap: var(--at-space-lg);
 
   @media (max-width: 64rem) {
@@ -204,52 +204,113 @@ $thumb-width: 16rem;
   gap: var(--at-space-xs);
 }
 
-.thumbLink {
+// The prototype box: a picture, a link tile, or an empty box with the two ways to fill it. Once filled, the actions appear over the
+// bottom of the box on hover or keyboard focus (and always on touch screens).
+.frame {
+  position: relative;
+  inline-size: 100%;
+  max-inline-size: $frame-max;
+  overflow: hidden;
+  border: 1px dashed var(--at-border-strong);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+
+  &[data-filled='true'] { border-style: solid; border-color: var(--at-hairline); }
+  &[data-dragging='true'] { border-color: var(--at-info-border); background: var(--at-tint-blue); }
+}
+
+.frameLink {
   display: block;
   color: inherit;
   text-decoration: none;
-  inline-size: 100%;
-  max-inline-size: $thumb-width;
 }
 
 .thumb {
   display: block;
   inline-size: 100%;
-  max-inline-size: $thumb-width;
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
 }
 
-.noThumb {
+.linkTile {
   @include tokens.role('body-md');
-  display: grid;
-  place-items: center;
-  inline-size: 100%;
-  max-inline-size: $thumb-width;
-  min-block-size: 7rem;
-  border: 1px dashed var(--at-border-strong);
-  border-radius: var(--at-radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--at-space-xs);
+  min-block-size: 12rem;
+  color: var(--at-link);
+
+  svg { fill: currentColor; }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--at-space-xxs);
+  min-block-size: 10rem;
+  padding: var(--at-space-lg) var(--at-space-md) var(--at-space-sm);
+  text-align: center;
+}
+
+.emptyText {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.emptyHint {
+  @include tokens.role('meta');
+  margin: 0;
   color: var(--at-muted);
+}
+
+.actions {
+  position: absolute;
+  inset-inline: var(--at-space-xs);
+  inset-block-end: var(--at-space-xs);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-xs);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+  box-shadow: 0 0 0 1px var(--at-hairline);
+  opacity: 0;
+  transition: opacity 120ms ease;
+
+  &[data-empty='true'] {
+    position: static;
+    padding-block-end: var(--at-space-lg);
+    opacity: 1;
+    box-shadow: none;
+    background: transparent;
+  }
+
+  .frame:hover &,
+  .frame:focus-within & { opacity: 1; }
+
+  @media (hover: none) { opacity: 1; }
+}
+
+.hiddenPicker {
+  position: absolute;
+  inline-size: 0.0625rem;
+  block-size: 0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.removeLink {
+  margin-block-start: var(--at-space-sm);
 }
 
 .open {
   @include tokens.role('label-md');
   color: var(--at-link);
-}
-
-.drop {
-  inline-size: 100%;
-  max-inline-size: $thumb-width;
-
-  :global(.cds--file),
-  :global(.cds--file-browse-btn) {
-    max-inline-size: 100%;
-  }
-
-  :global(.cds--file__drop-container) {
-    min-block-size: 3rem;
-    padding: var(--at-space-xs);
-  }
 }
 
 .notes {

@@ -1,6 +1,6 @@
-// Turns a picked screenshot into a small picture to keep: at most 640 px wide, as JPEG, sent as base64. A prototype's thumbnail
+// Turns a picked screenshot into a small picture to keep: at most 960 px wide, as JPEG, sent as base64. A prototype's thumbnail
 // does not need more, and it keeps each row of the database small.
-const MAX_WIDTH = 640
+const MAX_WIDTH = 960
 const MAX_INPUT_BYTES = 15 * 1024 * 1024
 
 export type Thumbnail = { type: 'image/jpeg'; data: string }
