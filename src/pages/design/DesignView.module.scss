@@ -98,42 +98,78 @@ $thumb-width: 16rem;
   line-height: 1.55;
 }
 
-// The table: three columns, a row per requirement.
-.table {
+// The list: one accordion item per requirement.
+.listTools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.list {
   display: flex;
   flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
   overflow: hidden;
 }
 
-.headRow,
-.row {
+.item + .item { border-block-start: 1px solid var(--at-hairline); }
+
+.itemHead { margin: 0; }
+
+// The heading row is one wide button: the title and what has been done on the left, the chevron on the right.
+.headButton {
+  inline-size: 100%;
+  max-inline-size: none;
+  min-block-size: 3.5rem;
+  white-space: normal;
+  color: var(--at-ink);
+  text-align: start;
+
+  &:hover { background: var(--at-surface-soft); }
+}
+
+.headText {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-xs) var(--at-space-md);
+  min-inline-size: 0;
+}
+
+.status {
+  display: inline-flex;
+  gap: var(--at-space-xxs);
+}
+
+.itemBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-xs) var(--at-space-lg) var(--at-space-lg);
+  background: var(--at-surface-soft);
+}
+
+.context {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+// Opened: the prototype on the left, the design notes on the right.
+.split {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, #{$thumb-width + 2rem}) minmax(0, 1.2fr);
+  grid-template-columns: minmax(0, #{$thumb-width + 2rem}) minmax(0, 1fr);
   gap: var(--at-space-lg);
-  padding: var(--at-space-md) var(--at-space-lg);
 
   @media (max-width: 64rem) {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-
-.headRow {
-  background: var(--at-surface-soft);
-  border-block-end: 1px solid var(--at-hairline);
-
-  @media (max-width: 64rem) { display: none; }
-}
-
-.colHead {
-  @include tokens.role('caption');
-  color: var(--at-muted);
-  text-transform: uppercase;
-}
-
-.row + .row { border-block-start: 1px solid var(--at-hairline); }
-.headRow + .row { border-block-start: 0; }
 
 .cell {
   display: flex;
@@ -149,9 +185,15 @@ $thumb-width: 16rem;
   align-items: stretch;
 }
 
+.colHead {
+  @include tokens.role('caption');
+  margin: 0;
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
 .reqTitle {
   @include tokens.role('title-sm');
-  margin: 0;
   color: var(--at-ink);
 }
 
@@ -164,6 +206,8 @@ $thumb-width: 16rem;
 
 .thumbLink {
   display: block;
+  color: inherit;
+  text-decoration: none;
   inline-size: 100%;
   max-inline-size: $thumb-width;
 }

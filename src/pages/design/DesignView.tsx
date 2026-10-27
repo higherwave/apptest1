@@ -20,9 +20,43 @@ export type DesignViewProps = {
 
 const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' } as const
 
-// One row: the requirement and the research behind it, its prototype (link and thumbnail), and the design notes. The link and the
+// One requirement as an accordion item. The heading row is the requirement's title with what has been done so far; opened, it shows
+// the research behind it, then the prototype (link and thumbnail) on the left and the design notes on the right. The link and the
 // notes save when the field is left, if they changed; a picture saves as soon as it is chosen.
-function Row({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; onSave: DesignViewProps['onSave'] }) {
+function Row({ item, canEdit, open, onToggle, onSave }: { item: DesignItem; canEdit: boolean; open: boolean; onToggle: () => void; onSave: DesignViewProps['onSave'] }) {
+  return (
+    <li className={styles.item} data-testid={`design-${item.key}`} data-open={open}>
+      <h3 className={styles.itemHead}>
+        <Button
+          kind="ghost"
+          size="md"
+          className={styles.headButton}
+          renderIcon={open ? ChevronUp : ChevronDown}
+          aria-expanded={open}
+          aria-controls={`design-body-${item.key}`}
+          onClick={onToggle}
+        >
+          <span className={styles.headText}>
+            <span className={styles.reqTitle}>
+              {item.key} — {item.title}
+            </span>
+            <span className={styles.status}>
+              <Tag size="sm" type={item.prototypeUrl || item.hasImage ? 'green' : 'gray'}>
+                {item.prototypeUrl || item.hasImage ? 'Prototype' : 'No prototype'}
+              </Tag>
+              <Tag size="sm" type={item.notes ? 'green' : 'gray'}>
+                {item.notes ? 'Notes' : 'No notes'}
+              </Tag>
+            </span>
+          </span>
+        </Button>
+      </h3>
+      {open && <RowBody item={item} canEdit={canEdit} onSave={onSave} />}
+    </li>
+  )
+}
+
+function RowBody({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; onSave: DesignViewProps['onSave'] }) {
   const [url, setUrl] = useState(item.prototypeUrl ?? '')
   const [notes, setNotes] = useState(item.notes ?? '')
   const [pictureError, setPictureError] = useState<string | undefined>()
@@ -50,11 +84,8 @@ function Row({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; on
   )
 
   return (
-    <div className={styles.row} role="row" data-testid={`design-${item.key}`}>
-      <div className={styles.cell} role="cell">
-        <h3 className={styles.reqTitle}>
-          {item.key} — {item.title}
-        </h3>
+    <div id={`design-body-${item.key}`} className={styles.itemBody}>
+      <div className={styles.context}>
         <div className={styles.meta}>
           {item.theme && (
             <Tag size="sm" type="gray" title={item.theme.title}>
@@ -73,63 +104,67 @@ function Row({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; on
         )}
       </div>
 
-      <div className={styles.cell} role="cell">
-        {item.prototypeUrl ? (
-          <a className={styles.thumbLink} href={item.prototypeUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open the prototype of ${item.key} in a new tab`}>
-            {picture}
-          </a>
-        ) : (
-          picture
-        )}
-        {item.prototypeUrl && (
-          <a className={styles.open} href={item.prototypeUrl} target="_blank" rel="noopener noreferrer">
-            Open prototype ↗
-          </a>
-        )}
-        {canEdit && (
-          <>
-            <TextInput
-              id={`design-url-${item.key}`}
-              size="sm"
-              labelText={`Prototype link for ${item.key}`}
+      <div className={styles.split}>
+        <div className={styles.cell}>
+          <h4 className={styles.colHead}>Prototype</h4>
+          {item.prototypeUrl ? (
+            <a className={styles.thumbLink} href={item.prototypeUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open the prototype of ${item.key} in a new tab`}>
+              {picture}
+            </a>
+          ) : (
+            picture
+          )}
+          {item.prototypeUrl && (
+            <a className={styles.open} href={item.prototypeUrl} target="_blank" rel="noopener noreferrer">
+              Open prototype ↗
+            </a>
+          )}
+          {canEdit && (
+            <>
+              <TextInput
+                id={`design-url-${item.key}`}
+                size="sm"
+                labelText={`Prototype link for ${item.key}`}
+                hideLabel
+                placeholder="Paste the prototype link"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onBlur={commit}
+              />
+              <div className={styles.drop}>
+                <FileUploaderDropContainer
+                  accept={['image/png', 'image/jpeg', 'image/webp']}
+                  labelText={item.hasImage ? 'Drop a new picture or click' : 'Drop a screenshot or click'}
+                  onAddFiles={(_, { addedFiles }) => void choose(addedFiles)}
+                />
+              </div>
+              {item.hasImage && (
+                <Button kind="ghost" size="sm" onClick={() => void onSave(item.storyId, body({ image: null }))}>
+                  Remove picture
+                </Button>
+              )}
+              {pictureError && <p className={styles.error}>{pictureError}</p>}
+            </>
+          )}
+        </div>
+
+        <div className={`${styles.cell} ${styles.notesCell}`}>
+          <h4 className={styles.colHead}>Design notes</h4>
+          {canEdit ? (
+            <TextArea
+              id={`design-notes-${item.key}`}
+              labelText={`Design notes for ${item.key}`}
               hideLabel
-              placeholder="Paste the prototype link"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
+              rows={8}
+              placeholder="Alternatives explored, and why this direction"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
               onBlur={commit}
             />
-            <div className={styles.drop}>
-              <FileUploaderDropContainer
-                accept={['image/png', 'image/jpeg', 'image/webp']}
-                labelText={item.hasImage ? 'Drop a new picture or click' : 'Drop a screenshot or click'}
-                onAddFiles={(_, { addedFiles }) => void choose(addedFiles)}
-              />
-            </div>
-            {item.hasImage && (
-              <Button kind="ghost" size="sm" onClick={() => void onSave(item.storyId, body({ image: null }))}>
-                Remove picture
-              </Button>
-            )}
-            {pictureError && <p className={styles.error}>{pictureError}</p>}
-          </>
-        )}
-      </div>
-
-      <div className={`${styles.cell} ${styles.notesCell}`} role="cell">
-        {canEdit ? (
-          <TextArea
-            id={`design-notes-${item.key}`}
-            labelText={`Design notes for ${item.key}`}
-            hideLabel
-            rows={6}
-            placeholder="Alternatives explored, and why this direction"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            onBlur={commit}
-          />
-        ) : (
-          <p className={styles.notes}>{item.notes ?? 'No design notes yet.'}</p>
-        )}
+          ) : (
+            <p className={styles.notes}>{item.notes ?? 'No design notes yet.'}</p>
+          )}
+        </div>
       </div>
     </div>
   )
@@ -139,6 +174,8 @@ function Row({ item, canEdit, onSave }: { item: DesignItem; canEdit: boolean; on
 export function DesignView(props: DesignViewProps) {
   const { state, design, canEdit, saving, savedAt, errorText } = props
   const [decisionsOpen, setDecisionsOpen] = useState(false)
+  const [opened, setOpened] = useState<Set<string>>(new Set())
+  const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const decisions = design?.decisions
   const hasDecisions = !!decisions && (!!decisions.reasoning || decisions.alternatives.length > 0)
   const withPrototype = design?.items.filter((i) => i.prototypeUrl).length ?? 0
@@ -210,22 +247,18 @@ export function DesignView(props: DesignViewProps) {
           {design.items.length === 0 ? (
             <p className={styles.muted}>This document has no requirements, only open questions, so there is nothing to design yet.</p>
           ) : (
-            <div className={styles.table} role="table" aria-label="Requirements and their prototypes">
-              <div className={styles.headRow} role="row">
-                <div className={styles.colHead} role="columnheader">
-                  Requirement
-                </div>
-                <div className={styles.colHead} role="columnheader">
-                  Prototype
-                </div>
-                <div className={styles.colHead} role="columnheader">
-                  Design notes
-                </div>
+            <>
+              <div className={styles.listTools}>
+                <Button kind="ghost" size="sm" onClick={() => setOpened(opened.size === design.items.length ? new Set() : new Set(design.items.map((i) => i.storyId)))}>
+                  {opened.size === design.items.length ? 'Collapse all' : 'Expand all'}
+                </Button>
               </div>
-              {design.items.map((item) => (
-                <Row key={item.storyId} item={item} canEdit={canEdit} onSave={props.onSave} />
-              ))}
-            </div>
+              <ul className={styles.list} aria-label="Requirements and their prototypes">
+                {design.items.map((item) => (
+                  <Row key={item.storyId} item={item} canEdit={canEdit} open={opened.has(item.storyId)} onToggle={() => toggle(item.storyId)} onSave={props.onSave} />
+                ))}
+              </ul>
+            </>
           )}
         </>
       )}

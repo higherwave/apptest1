@@ -477,6 +477,10 @@ try {
   await navTo('Design')
   await page.waitForSelector('[data-testid^="design-"]')
   ok('the Design step lists one row per requirement, none for open questions', (await page.$$('[data-testid^="design-"]')).length === preview.requirements && !(await page.$('[data-testid="design-Q1"]')))
+  ok('rows start folded to the requirement’s title, with what has been done', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="design-"]')].every((r) => r.querySelector('h3 button[aria-expanded="false"]') && !r.querySelector('input, textarea')) && /No prototype/.test(document.querySelector('[data-testid="design-R1"]').innerText)))
+  await page.click('[data-testid="design-R1"] h3 button')
+  await page.waitForSelector('#design-url-R1')
+  ok('opened, a row shows the prototype on the left and the design notes on the right', await page.evaluate(() => { const u = document.querySelector('#design-url-R1').getBoundingClientRect(); const n = document.querySelector('#design-notes-R1').getBoundingClientRect(); return u.right <= n.left + 1 }))
   await page.click('#design-url-R1')
   await page.type('#design-url-R1', 'https://example.com/prototype-r1')
   await page.click('#design-notes-R1') // leaving the link saves it
