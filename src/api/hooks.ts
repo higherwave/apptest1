@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getInsightsThemes, getPlatformTheme, listCaseStudies,
-  getBoard, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getBoard, getDesign, saveDesignItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -123,3 +123,15 @@ export const useSaveChecklist = (projectId: string) => useStoryEdit(projectId, (
 export const useInsightsThemes = () => useQuery({ queryKey: ['insights', 'themes'], queryFn: getInsightsThemes })
 export const usePlatformTheme = (id: string | null) => useQuery({ queryKey: ['insights', 'theme', id], queryFn: () => getPlatformTheme(id!), enabled: !!id })
 export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })
+
+// The Design table of a project. A save returns the row as it is now and is merged into the cached table.
+export const useDesign = (projectId: string | undefined) => useQuery({ queryKey: ['design', projectId], queryFn: () => getDesign(projectId!), enabled: !!projectId })
+export const useSaveDesign = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { storyId: string; version: number; body: DesignRequest }) => saveDesignItem(v.storyId, v.version, v.body),
+    onSuccess: (item) => {
+      queryClient.setQueryData(['design', projectId], (d: Awaited<ReturnType<typeof getDesign>> | undefined) => (d ? { ...d, items: d.items.map((i) => (i.storyId === item.storyId ? item : i)) } : d))
+    },
+  })
+}

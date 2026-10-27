@@ -59,7 +59,7 @@ try {
   await page.waitForSelector('#item-0-description') // the form shows once the test methods have loaded
   ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('← Research Projects'))
   ok('one page holds the name, methods, test items and participants', await page.evaluate(() => ['#project-name', '#item-0-description', '#p-name-0', '#p-phone-0'].every((sel) => document.querySelector(sel)) && document.body.innerText.includes('Test methods') && !document.body.innerText.includes('Starting template')))
-  ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 7 }))
+  ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 8 }))
   await clickText('Save test plan')
   await waitText('Enter a project name.')
   ok('Save asks for a project name', true)
@@ -212,15 +212,15 @@ try {
   ok('Themes, Journey Map, Priorities and Requirements are now open; Stories is still locked',
     !(await navLocked('Themes')) && !(await navLocked('Journey Map')) && !(await navLocked('Priorities')) && !(await navLocked('Requirements')) && (await navLocked('Stories')))
   // The steps are a horizontal strip: every group in one line when wide, one group at a time when narrow.
-  ok('wide: one strip shows every group and all eight steps', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return ['Discovery', 'Analysis', 'Strategy', 'Delivery'].every((g) => n.innerText.includes(g.toUpperCase()) || n.innerText.includes(g)) && n.querySelectorAll('a').length === 8 }))
+  ok('wide: one strip shows every group and all nine steps', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return ['Discovery', 'Analysis', 'Strategy', 'Delivery'].every((g) => n.innerText.includes(g.toUpperCase()) || n.innerText.includes(g)) && n.querySelectorAll('a').length === 9 }))
   await page.setViewport({ width: 800, height: 900 })
-  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length < 8, { timeout: 5000 })
-  ok('narrow: group buttons, and only the open step’s group is listed', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return n.querySelectorAll('button[aria-pressed]').length === 4 && n.querySelectorAll('a').length >= 1 && n.querySelectorAll('a').length < 8 }))
+  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length < 9, { timeout: 5000 })
+  ok('narrow: group buttons, and only the open step’s group is listed', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return n.querySelectorAll('button[aria-pressed]').length === 4 && n.querySelectorAll('a').length >= 1 && n.querySelectorAll('a').length < 9 }))
   await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] button')].find((b) => b.innerText.trim() === 'Delivery').click())
   await page.waitForFunction(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label).join() === 'Stories', { timeout: 5000 })
   ok('narrow: picking a group lists that group’s steps', true)
   await page.setViewport({ width: 1400, height: 900 })
-  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length === 8, { timeout: 5000 })
+  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length === 9, { timeout: 5000 })
   const apiProjects = async () => (await (await fetch(`${API}/api/v1/projects`)).json()).data
   const mine = async () => (await apiProjects()).find((p) => p.id === projectId)
   ok('the project is Analyzed with 3 sessions and 9 themes', await mine().then((p) => p.status === 'analyzed' && p.sessions === 3 && p.themes === 9))
@@ -471,6 +471,26 @@ try {
   ok('pressing it again shows every story', true)
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
+
+  // Design: a row per requirement with a prototype link, a picture and design notes.
+  const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  await navTo('Design')
+  await page.waitForSelector('[data-testid^="design-"]')
+  ok('the Design step lists one row per requirement, none for open questions', (await page.$$('[data-testid^="design-"]')).length === preview.requirements && !(await page.$('[data-testid="design-Q1"]')))
+  await page.click('#design-url-R1')
+  await page.type('#design-url-R1', 'https://example.com/prototype-r1')
+  await page.click('#design-notes-R1') // leaving the link saves it
+  await page.type('#design-notes-R1', 'Fees move onto the card; a modal was rejected.')
+  await page.click('h1') // leaving the notes saves them
+  await page.waitForFunction(() => document.body.innerText.includes('All changes saved at'), { timeout: 8000 })
+  const d1 = (await designApi()).items.find((i) => i.key === 'R1')
+  ok('the link and notes are saved and the link opens in a new tab', d1.prototypeUrl === 'https://example.com/prototype-r1' && d1.notes.startsWith('Fees move onto the card') && await page.evaluate(() => { const a = [...document.querySelectorAll('[data-testid="design-R1"] a')].find((x) => x.innerText.includes('Open prototype')); return !!a && a.target === '_blank' && a.rel.includes('noopener') }))
+  const pngFile = join(mkdtempSync(join(tmpdir(), 'sf-')), 'proto.png')
+  writeFileSync(pngFile, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'))
+  await (await page.$('[data-testid="design-R1"] input[type=file]')).uploadFile(pngFile)
+  await page.waitForFunction(() => { const i = document.querySelector('[data-testid="design-R1"] img'); return i && i.complete && i.naturalWidth > 0 }, { timeout: 10000 })
+  ok('a picture is shrunk, saved and shown as the thumbnail', (await designApi()).items.find((i) => i.key === 'R1').hasImage === true)
+  ok('removing the picture clears it', await (async () => { await clickText('Remove picture'); await page.waitForFunction(() => !document.querySelector('[data-testid="design-R1"] img'), { timeout: 8000 }); return (await designApi()).items.find((i) => i.key === 'R1').hasImage === false })())
 
   // Platform Insights: themes across projects, where one comes from, case studies, onboarding.
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Platform Insights').click())

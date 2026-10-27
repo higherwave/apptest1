@@ -1,4 +1,4 @@
-// The eight project steps in order, grouped as in the prototype's side menu.
+// The nine project steps in order, grouped as in the prototype's side menu.
 export const STEP_GROUPS = ['Discovery', 'Analysis', 'Strategy', 'Delivery'] as const
 export type StepGroup = (typeof STEP_GROUPS)[number]
 
@@ -10,6 +10,7 @@ export const STEPS: { key: string; label: string; group: StepGroup }[] = [
   { key: 'journey', label: 'Journey Map', group: 'Analysis' },
   { key: 'prio', label: 'Priorities', group: 'Strategy' },
   { key: 'requirements', label: 'Requirements', group: 'Strategy' },
+  { key: 'design', label: 'Design', group: 'Strategy' },
   { key: 'stories', label: 'Stories', group: 'Delivery' },
 ]
 

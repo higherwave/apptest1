@@ -135,3 +135,19 @@ export const inviteMemberSchema = z.object({
   role: z.enum(['owner', 'editor', 'viewer']),
 })
 export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
+
+// A design row: where the prototype is, what it looks like, and the notes. The picture is a small downscaled image sent as base64
+// (at most about 600 KB of it); leaving `image` out keeps the current one, null removes it.
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+export const designSchema = z.object({
+  prototypeUrl: text(2000)
+    .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Enter a link that starts with http:// or https://.')
+    .transform((v) => (v === '' ? null : v))
+    .nullish()
+    .transform((v) => v ?? null),
+  notes: optionalText(4000),
+  image: z
+    .object({ type: z.enum(IMAGE_TYPES), data: z.string().max(820_000, 'The picture is too large.').regex(/^[A-Za-z0-9+/]+={0,2}$/, 'The picture is not valid.') })
+    .nullable()
+    .optional(),
+})

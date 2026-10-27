@@ -1,0 +1,222 @@
+@use '../../tokens' as tokens;
+
+$thumb-width: 16rem;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 90rem;
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.saved {
+  @include tokens.role('label-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin: var(--at-space-xs) 0 0;
+  color: var(--at-muted);
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.savedDot {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: var(--at-radius-full);
+  background: var(--at-signature-forest);
+
+  &[data-saving='true'] { background: var(--at-signature-mustard); }
+}
+
+.muted {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-md);
+}
+
+.decisions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+}
+
+.decisionsHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.decisionsBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.label {
+  @include tokens.role('caption');
+  margin: 0;
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.sub {
+  @include tokens.role('meta');
+  margin: var(--at-space-sm) 0 0;
+  color: var(--at-muted);
+  font-weight: 500;
+}
+
+.struck {
+  text-decoration: line-through;
+  color: var(--at-muted);
+}
+
+.why {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 400;
+  line-height: 1.55;
+}
+
+// The table: three columns, a row per requirement.
+.table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  overflow: hidden;
+}
+
+.headRow,
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, #{$thumb-width + 2rem}) minmax(0, 1.2fr);
+  gap: var(--at-space-lg);
+  padding: var(--at-space-md) var(--at-space-lg);
+
+  @media (max-width: 64rem) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.headRow {
+  background: var(--at-surface-soft);
+  border-block-end: 1px solid var(--at-hairline);
+
+  @media (max-width: 64rem) { display: none; }
+}
+
+.colHead {
+  @include tokens.role('caption');
+  color: var(--at-muted);
+  text-transform: uppercase;
+}
+
+.row + .row { border-block-start: 1px solid var(--at-hairline); }
+.headRow + .row { border-block-start: 0; }
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+
+  > * { max-inline-size: 100%; }
+}
+
+.notesCell {
+  align-items: stretch;
+}
+
+.reqTitle {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.thumbLink {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: $thumb-width;
+}
+
+.thumb {
+  display: block;
+  inline-size: 100%;
+  max-inline-size: $thumb-width;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+}
+
+.noThumb {
+  @include tokens.role('body-md');
+  display: grid;
+  place-items: center;
+  inline-size: 100%;
+  max-inline-size: $thumb-width;
+  min-block-size: 7rem;
+  border: 1px dashed var(--at-border-strong);
+  border-radius: var(--at-radius-md);
+  color: var(--at-muted);
+}
+
+.open {
+  @include tokens.role('label-md');
+  color: var(--at-link);
+}
+
+.drop {
+  inline-size: 100%;
+  max-inline-size: $thumb-width;
+
+  :global(.cds--file),
+  :global(.cds--file-browse-btn) {
+    max-inline-size: 100%;
+  }
+
+  :global(.cds--file__drop-container) {
+    min-block-size: 3rem;
+    padding: var(--at-space-xs);
+  }
+}
+
+.notes {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  white-space: pre-wrap;
+}
+
+.error {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-error, var(--at-signature-coral));
+}

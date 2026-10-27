@@ -45,6 +45,14 @@ export type DatabaseHealth = { status: 'ok'; database: 'reachable'; migrations: 
 export const getHealth = () => request<Health>('/health')
 export const getDatabaseHealth = () => request<DatabaseHealth>('/health/db')
 export type AiStatus = components['schemas']['AiStatus']
+export type Design = components['schemas']['Design']
+export type DesignItem = components['schemas']['DesignItem']
+export type DesignRequest = components['schemas']['DesignRequest']
+export const getDesign = (projectId: string) => request<Design>(`/projects/${projectId}/design`)
+// The row's version is 0 when nothing has been saved for the requirement yet.
+export const saveDesignItem = (storyId: string, version: number, body: DesignRequest) => request<DesignItem>(`/stories/${storyId}/design`, { method: 'PUT', body, version })
+export const designImageUrl = (storyId: string, version: number) => `/api/v1/stories/${storyId}/design/image?v=${version}`
+
 export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
 export type Member = components['schemas']['Member']

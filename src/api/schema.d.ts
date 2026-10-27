@@ -418,6 +418,57 @@ export interface paths {
         patch: operations["editStep"];
         trace?: never;
     };
+    "/projects/{id}/design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Design step: one row per requirement of the project's published document, with its prototype link, thumbnail flag and design notes, and the document's own considered-and-rejected list. 404 no_board until a document is published. */
+        get: operations["getDesign"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stories/{id}/design": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Saves the prototype link, notes and (optionally) the thumbnail for one requirement. If-Match is the row's version, 0 when nothing has been saved yet. Leaving image out keeps the picture, null removes it. Needs the token. */
+        put: operations["saveDesignItem"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stories/{id}/design/image": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The thumbnail of one requirement's prototype, as the image itself. 404 when there is none. */
+        get: operations["getDesignImage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/specs/{id}/publish": {
         parameters: {
             query?: never;
@@ -659,6 +710,7 @@ export interface components {
                 journey: components["schemas"]["StageTab"];
                 prio: components["schemas"]["StageTab"];
                 requirements: components["schemas"]["StageTab"];
+                design: components["schemas"]["StageTab"];
                 stories: components["schemas"]["StageTab"];
             };
         };
@@ -1225,6 +1277,50 @@ export interface components {
             highPriority: number;
             createdAt: string;
             version: number;
+        };
+        DesignItem: {
+            storyId: string;
+            /** @description R1, R2 ... */
+            key: string;
+            title: string;
+            /** @enum {string} */
+            priority: "low" | "medium" | "high";
+            summary: string | null;
+            whyItMatters: string | null;
+            theme: {
+                title: string;
+                participantCount: number;
+                totalParticipants: number;
+            } | null;
+            prototypeUrl: string | null;
+            notes: string | null;
+            hasImage: boolean;
+            /** @description 0 when nothing has been saved for this requirement yet. */
+            version: number;
+        };
+        Design: {
+            specId: string;
+            specName: string;
+            projectId: string;
+            decisions: {
+                reasoning: string | null;
+                alternatives: {
+                    title: string;
+                    reason: string;
+                }[];
+            };
+            items: components["schemas"]["DesignItem"][];
+        };
+        DesignRequest: {
+            /** @description A link starting with http:// or https://. */
+            prototypeUrl?: string | null;
+            notes?: string | null;
+            /** @description A small downscaled picture, base64 (at most about 600 KB decoded). */
+            image?: {
+                /** @enum {string} */
+                type: "image/jpeg" | "image/png" | "image/webp";
+                data: string;
+            } | null;
         };
         AiStatus: {
             /** @enum {string} */
@@ -2182,6 +2278,90 @@ export interface operations {
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getDesign: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The design table. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Design"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    saveDesignItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DesignRequest"];
+            };
+        };
+        responses: {
+            /** @description The row as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignItem"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    getDesignImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/webp": string;
+                };
+            };
+            404: components["responses"]["Error"];
         };
     };
     publishSpec: {

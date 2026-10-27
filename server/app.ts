@@ -10,7 +10,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, designSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -19,6 +19,7 @@ import {
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
+import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, refreshPlatformMatches } from './insights.js'
@@ -480,6 +481,49 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json(board)
+  })
+
+
+  // The Design step ------------------------------------------------------------------------------------------
+
+  app.get('/projects/:id/design', withReadContext, async (c) => {
+    const id = projectId(c)
+    const ctx = c.get('ctx')
+    if (!(await getProjectDetail(getDb(), ctx.workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    let design
+    try {
+      design = await getDesign(getDb(), ctx.workspaceId, id)
+    } catch (err) {
+      if (err instanceof NoBoard) throw new ApiError(404, 'no_board', 'Publish a requirements document first: the design table is made from it.')
+      throw err
+    }
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(design)
+  })
+
+  app.put('/stories/:id/design', withContext, async (c) => {
+    requireEditor(c)
+    const id = storyId(c)
+    const expected = expectedVersion(c)
+    const input = parseBody(designSchema, await readJson(c))
+    const image = input.image === undefined ? undefined : input.image === null ? null : { type: input.image.type, data: Buffer.from(input.image.data, 'base64') }
+    if (image && image.data.length > 600_000) throw new ApiError(422, 'validation_failed', 'The picture is too large.', 'image')
+    try {
+      await saveDesignItem(getDb(), c.get('ctx'), id, expected, { prototypeUrl: input.prototypeUrl, notes: input.notes, image })
+    } catch (err) {
+      if (err instanceof DesignConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this row since you opened it.', undefined, { current: { version: err.current } })
+      return storyError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json((await getDesignItem(getDb(), c.get('ctx').workspaceId, id))!)
+  })
+
+  // The thumbnail itself. The page asks for it with the row's version in the address, so a new picture is a new address.
+  app.get('/stories/:id/design/image', withReadContext, async (c) => {
+    const img = await getDesignImage(getDb(), c.get('ctx').workspaceId, storyId(c))
+    if (!img) throw new ApiError(404, 'not_found', 'There is no picture.')
+    return new Response(new Uint8Array(img.data), { headers: { 'content-type': img.type, 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
   })
 
   // Platform Insights ------------------------------------------------------------------------------------

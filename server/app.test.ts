@@ -482,7 +482,7 @@ test('GET /projects/:id/stage: the server decides which steps are open', async (
     assert.deepEqual([r2.themes.enabled, r2.requirements.enabled, r2.stories.enabled, r2.stories.hint], [true, true, false, 'Publish the requirements first'])
     // Draft: only the plan steps.
     const draft = await tabs('New patient intake (draft)')
-    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, journey: false, prio: false, requirements: false, stories: false })
+    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, journey: false, prio: false, requirements: false, design: false, stories: false })
     assert.equal(draft.themes.hint, 'Save and analyze a transcript first')
   })
 })
@@ -1706,4 +1706,85 @@ test('only one analysis may run per project; a run that never finished stops blo
   assert.equal((await expectSpec(blocked, '/projects/{id}/analysis-runs', 'post')).error.code, 'run_in_progress')
   await pg.query(`update core.agent_runs set started_at = now() - interval '20 minutes' where project_id = $1 and status = 'running'`, [id])
   assert.equal((await analyze()).status, 201)
+})
+
+// The Design step ---------------------------------------------------------------------------------------------
+
+// A 1 x 1 pixel PNG, the smallest picture the endpoint will keep.
+const PIXEL = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=='
+
+test('the design table lists the requirements (not the open questions) in order, with the document’s considered-and-rejected list', async () => {
+  const { app, p1 } = await boardFixture()
+  const res = await app.request(`/api/v1/projects/${p1}/design`)
+  const body = await expectSpec(res, '/projects/{id}/design')
+  assert.deepEqual(body.items.map((i: any) => i.key), ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'])
+  assert.ok(body.items.every((i: any) => i.version === 0 && i.prototypeUrl === null && i.notes === null && i.hasImage === false), 'nothing saved yet')
+  assert.match(body.items.find((i: any) => i.key === 'R3').theme.title, /Price surprises/)
+  assert.ok(body.decisions.alternatives.length > 0 && body.decisions.reasoning, 'the requirements step’s own decisions are shown once')
+  assert.equal(body.specName, 'Clinic booking, usability round 1')
+})
+
+test('a project with no published document has no design table (404 no_board)', async () => {
+  const { app, pg } = await boardFixture()
+  const id = ((await pg.query<any>(`select id from core.projects where name = 'New patient intake (draft)'`)).rows[0] as { id: string }).id
+  const res = await app.request(`/api/v1/projects/${id}/design`)
+  assert.equal(res.status, 404)
+  assert.equal((await expectSpec(res, '/projects/{id}/design')).error.code, 'no_board')
+})
+
+test('saving a row keeps the link and notes, versions it, and a second save needs the new version', async () => {
+  const { app, p1, send } = await boardFixture()
+  const table = async () => (await (await app.request(`/api/v1/projects/${p1}/design`)).json()).items
+  const r3 = (await table()).find((i: any) => i.key === 'R3')
+  const res = await send(app, 'PUT', `/stories/${r3.storyId}/design`, { prototypeUrl: ' https://www.figma.com/design/abc/Fees ', notes: 'Showed fees on the card; rejected a modal.' }, 0)
+  assert.equal(res.status, 200)
+  const saved = await expectSpec(res, '/stories/{id}/design', 'put')
+  assert.deepEqual([saved.prototypeUrl, saved.notes, saved.version, saved.hasImage], ['https://www.figma.com/design/abc/Fees', 'Showed fees on the card; rejected a modal.', 1, false])
+  const stale = await send(app, 'PUT', `/stories/${r3.storyId}/design`, { prototypeUrl: null, notes: 'Old' }, 0)
+  assert.equal(stale.status, 409)
+  const conflict = await expectSpec(stale, '/stories/{id}/design', 'put')
+  assert.deepEqual([conflict.error.code, conflict.current.version], ['version_conflict', 1])
+  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/design`, { prototypeUrl: 'https://example.com/p', notes: '' }, 1)).status, 200)
+  const again = (await table()).find((i: any) => i.key === 'R3')
+  assert.deepEqual([again.prototypeUrl, again.notes, again.version], ['https://example.com/p', null, 2])
+  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/design`, { notes: 'x' }, undefined)).status, 428)
+})
+
+test('a prototype link must be http or https; open questions have no design row', async () => {
+  const { app, send, story } = await boardFixture()
+  const r1 = await story('R1')
+  for (const bad of ['javascript:alert(1)', 'figma.com/file/x', 'ftp://example.com/x', 'https://exa mple.com']) {
+    const res = await send(app, 'PUT', `/stories/${r1.id}/design`, { prototypeUrl: bad, notes: null }, 0)
+    assert.equal(res.status, 422, bad)
+  }
+  const q1 = await story('Q1')
+  assert.equal((await send(app, 'PUT', `/stories/${q1.id}/design`, { prototypeUrl: null, notes: 'x' }, 0)).status, 404)
+})
+
+test('a thumbnail is kept, served as an image, replaced or removed; leaving image out keeps it', async () => {
+  const { app, send, story, p1 } = await boardFixture()
+  const r2 = await story('R2')
+  const put = (body: unknown, v: number) => send(app, 'PUT', `/stories/${r2.id}/design`, body, v)
+  const first = await (await put({ prototypeUrl: null, notes: null, image: { type: 'image/png', data: PIXEL } }, 0)).json()
+  assert.equal(first.hasImage, true)
+  const img = await app.request(`/api/v1/stories/${r2.id}/design/image?v=${first.version}`)
+  assert.equal(img.status, 200)
+  assert.equal(img.headers.get('content-type'), 'image/png')
+  assert.equal(Buffer.from(await img.arrayBuffer()).toString('base64'), PIXEL)
+  const kept = await (await put({ prototypeUrl: 'https://example.com/a', notes: 'n' }, first.version)).json()
+  assert.deepEqual([kept.hasImage, kept.version], [true, 2], 'the picture stays when image is left out')
+  const gone = await (await put({ prototypeUrl: 'https://example.com/a', notes: 'n', image: null }, kept.version)).json()
+  assert.equal(gone.hasImage, false)
+  assert.equal((await app.request(`/api/v1/stories/${r2.id}/design/image`)).status, 404)
+  assert.equal((await put({ prototypeUrl: null, notes: null, image: { type: 'image/svg+xml', data: PIXEL } }, gone.version)).status, 422, 'only png, jpeg and webp')
+  assert.equal((await put({ prototypeUrl: null, notes: null, image: { type: 'image/png', data: 'not base64!' } }, gone.version)).status, 422)
+  void p1
+})
+
+test('only editors can save design rows; a visitor can read the table', async () => {
+  const { app, p1, story } = await boardFixture()
+  const r1 = await story('R1')
+  const anon = await app.request(`/api/v1/stories/${r1.id}/design`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '0' }, body: JSON.stringify({ prototypeUrl: null, notes: 'x' }) })
+  assert.ok([401, 403].includes(anon.status))
+  assert.equal((await app.request(`/api/v1/projects/${p1}/design`)).status, 200)
 })

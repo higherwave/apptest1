@@ -589,6 +589,62 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/design:
+    get:
+      operationId: getDesign
+      summary: >
+        The Design step: one row per requirement of the project's published document, with its prototype link, thumbnail flag and design
+        notes, and the document's own considered-and-rejected list. 404 no_board until a document is published.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The design table.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Design' }
+        '404': { $ref: '#/components/responses/Error' }
+  /stories/{id}/design:
+    put:
+      operationId: saveDesignItem
+      summary: >
+        Saves the prototype link, notes and (optionally) the thumbnail for one requirement. If-Match is the row's version, 0 when nothing
+        has been saved yet. Leaving image out keeps the picture, null removes it. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DesignRequest' }
+      responses:
+        '200':
+          description: The row as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignItem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /stories/{id}/design/image:
+    get:
+      operationId: getDesignImage
+      summary: The thumbnail of one requirement's prototype, as the image itself. 404 when there is none.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The picture.
+          content:
+            image/jpeg: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/webp: { schema: { type: string, format: binary } }
+        '404': { $ref: '#/components/responses/Error' }
   /specs/{id}/publish:
     post:
       operationId: publishSpec
@@ -923,7 +979,7 @@ components:
       properties:
         tabs:
           type: object
-          required: [plan, tasks, transcripts, themes, journey, prio, requirements, stories]
+          required: [plan, tasks, transcripts, themes, journey, prio, requirements, design, stories]
           properties:
             plan: { $ref: '#/components/schemas/StageTab' }
             tasks: { $ref: '#/components/schemas/StageTab' }
@@ -932,6 +988,7 @@ components:
             journey: { $ref: '#/components/schemas/StageTab' }
             prio: { $ref: '#/components/schemas/StageTab' }
             requirements: { $ref: '#/components/schemas/StageTab' }
+            design: { $ref: '#/components/schemas/StageTab' }
             stories: { $ref: '#/components/schemas/StageTab' }
     StageTab:
       type: object
@@ -1666,6 +1723,62 @@ components:
         highPriority: { type: integer, description: Themes whose suggested priority is high. }
         createdAt: { type: string }
         version: { type: integer }
+    DesignItem:
+      type: object
+      required: [storyId, key, title, priority, summary, whyItMatters, theme, prototypeUrl, notes, hasImage, version]
+      properties:
+        storyId: { type: string }
+        key: { type: string, description: 'R1, R2 ...' }
+        title: { type: string }
+        priority: { type: string, enum: [low, medium, high] }
+        summary: { type: [string, 'null'] }
+        whyItMatters: { type: [string, 'null'] }
+        theme:
+          type: [object, 'null']
+          required: [title, participantCount, totalParticipants]
+          properties:
+            title: { type: string }
+            participantCount: { type: integer }
+            totalParticipants: { type: integer }
+        prototypeUrl: { type: [string, 'null'] }
+        notes: { type: [string, 'null'] }
+        hasImage: { type: boolean }
+        version: { type: integer, description: '0 when nothing has been saved for this requirement yet.' }
+    Design:
+      type: object
+      required: [specId, specName, projectId, decisions, items]
+      properties:
+        specId: { type: string }
+        specName: { type: string }
+        projectId: { type: string }
+        decisions:
+          type: object
+          required: [reasoning, alternatives]
+          properties:
+            reasoning: { type: [string, 'null'] }
+            alternatives:
+              type: array
+              items:
+                type: object
+                required: [title, reason]
+                properties:
+                  title: { type: string }
+                  reason: { type: string }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/DesignItem' }
+    DesignRequest:
+      type: object
+      properties:
+        prototypeUrl: { type: [string, 'null'], description: 'A link starting with http:// or https://.' }
+        notes: { type: [string, 'null'] }
+        image:
+          type: [object, 'null']
+          description: A small downscaled picture, base64 (at most about 600 KB decoded).
+          required: [type, data]
+          properties:
+            type: { type: string, enum: [image/jpeg, image/png, image/webp] }
+            data: { type: string }
     AiStatus:
       type: object
       required: [mode, enabled]
