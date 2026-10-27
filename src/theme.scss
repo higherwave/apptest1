@@ -171,6 +171,16 @@
   padding-inline: var(--at-space-sm);
 }
 
+// Carbon pins a button's icon to the right edge, so labelled icon buttons
+// keep room for it; the padding above would otherwise put the icon on the text.
+.cds--btn:has(> .cds--btn__icon):not(.cds--btn--icon-only) {
+  padding-inline-end: calc(var(--at-space-md) + 1rem + var(--at-space-sm));
+}
+
+.cds--btn--sm:has(> .cds--btn__icon):not(.cds--btn--icon-only) {
+  padding-inline-end: calc(var(--at-space-sm) + 1rem + var(--at-space-sm));
+}
+
 .cds--btn--primary {
   background: var(--at-primary);
   color: var(--at-on-primary);
