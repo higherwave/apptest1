@@ -202,6 +202,7 @@ export function WriterPage() {
         if (!(await act(() => redoStep(step.id, step.version, text.trim()), true, { kind: 'redo', id: step.id, nextId: null }))) setRedoing({ step, text })
       }}
       onPublish={publish}
+      onViewDesign={() => doc && navigate(`/projects/${doc.projectId}/design`)}
       onViewStories={() => doc && navigate(`/projects/${doc.projectId}/stories`)}
       onBack={back}
       boardPlan={board?.plan ?? null}

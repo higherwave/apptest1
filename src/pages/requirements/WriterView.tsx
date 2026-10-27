@@ -39,6 +39,7 @@ export type WriterViewProps = {
   onCancelRedo: () => void
   onPublish: () => void
   onViewStories: () => void
+  onViewDesign: () => void
   onBack: () => void
   boardPlan: BoardSyncPlan | null
   boardError?: string
@@ -67,6 +68,7 @@ export function WriterView(p: WriterViewProps) {
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading the document" />
   if (state === 'error' || !spec) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Requirements" subtitle={p.errorText} />
   const published = spec.status === 'published'
+  const boardWaiting = p.canEdit && spec.boardChanges !== null && spec.boardChanges > 0
   const locked = !p.canEdit
 
   return (
@@ -109,10 +111,13 @@ export function WriterView(p: WriterViewProps) {
               {!spec.standalone && spec.boardChanges === 0 && <p className={styles.muted}>The board matches this document.</p>}
               {!spec.standalone && (
                 <div className={styles.bannerActions}>
-                  <Button kind={p.canEdit && (spec.boardChanges ?? 0) > 0 ? 'secondary' : 'primary'} size="md" onClick={p.onViewStories}>
+                  <Button kind={boardWaiting ? 'secondary' : 'primary'} size="md" onClick={p.onViewDesign}>
+                    View design
+                  </Button>
+                  <Button kind="secondary" size="md" onClick={p.onViewStories}>
                     View stories
                   </Button>
-                  {p.canEdit && spec.boardChanges !== null && spec.boardChanges > 0 && (
+                  {boardWaiting && (
                     <Button kind="primary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
                       Update board
                     </Button>
