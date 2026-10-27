@@ -56,7 +56,7 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
             lowContrast
             hideCloseButton
             title="How this page works"
-            subtitle="Pick the tool your session was recorded in, then drop its transcript file into the box or click to browse. Add one transcript per session, open any of them to check or edit the text, then choose Save and analyze to find the themes."
+            subtitle="Pick the tool your sessions were recorded in, then drop one or several transcript files into the box (or click to browse). Each file is treated as one session. Open any of them to check or edit the text, then choose Save and analyze to find the themes."
           />
           <div className={styles.tools} role="group" aria-label="Meeting tool">
             {PLATFORMS.map((p) => (
