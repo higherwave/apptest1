@@ -152,7 +152,7 @@ export function WriterPage() {
         queryClient.invalidateQueries({ queryKey: ['specs'] }),
         queryClient.invalidateQueries({ queryKey: ['stage', doc.projectId] }),
       ])
-      if (!doc.standalone) navigate(`/projects/${doc.projectId}/stories`)
+      if (!doc.standalone) navigate(`/projects/${doc.projectId}/design`)
     } catch (err) {
       setError(friendlyMessage(err))
       await queryClient.invalidateQueries({ queryKey: ['spec', specId] })

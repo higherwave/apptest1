@@ -387,10 +387,11 @@ try {
   const preview = (await apiSpec(specId)).preview
   ok('and says what the board will get', (await text()).includes(`creates ${preview.requirements} requirements and ${preview.openQuestions} open questions`), JSON.stringify(preview))
   await clickText('Publish')
-  await page.waitForFunction(() => /\/stories$/.test(location.pathname), { timeout: 15000 })
-  ok('publishing opens Stories', true)
+  await page.waitForFunction(() => /\/design$/.test(location.pathname), { timeout: 15000 })
+  ok('publishing opens Design, the next step', true)
   ok('the project’s Stories step is now unlocked', !(await navLocked('Stories')))
   ok('the document is Published', (await apiSpec(specId)).status === 'published')
+  await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
 
   // Stories: the board shows what the document created; move by menu, by drag, and in the card panel; Undo.
   const apiBoard = async () => (await fetch(`${API}/api/v1/projects/${projectId}/board`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
