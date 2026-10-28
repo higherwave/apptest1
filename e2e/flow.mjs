@@ -475,6 +475,9 @@ try {
 
   // Design: a row per requirement with a prototype link, a picture and design notes.
   const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  await page.goto(`${BASE}/projects/${projectId}/design`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid^="design-R"]', { timeout: 8000 })
+  ok('with nothing designed yet, the first requirement opens on arrival', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="design-R"]')]; return rows.length > 1 && rows[0].dataset.open === 'true' && !!rows[0].querySelector('[data-frame]') && rows.slice(1).every((r) => r.dataset.open === 'false') }))
   // From the Stories panel, a requirement links to its row in Design, which opens and comes into view; an open question has no such link.
   await navTo('Stories')
   await page.waitForSelector('[data-testid="card-R2"]')
@@ -498,8 +501,7 @@ try {
   await navTo('Design')
   await page.waitForSelector('[data-testid^="design-"]')
   ok('the Design step lists one row per requirement, none for open questions', (await page.$$('[data-testid^="design-"]')).length === preview.requirements && !(await page.$('[data-testid="design-Q1"]')))
-  ok('rows start folded to the requirement’s title, with what has been done', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="design-"]')].every((r) => r.querySelector('h3 button[aria-expanded="false"]') && !r.querySelector('input, textarea')) && /No prototype/.test(document.querySelector('[data-testid="design-R1"]').innerText)))
-  await page.click('[data-testid="design-R1"] h3 button')
+  ok('rows other than the first start folded to the requirement’s title, with what has been done', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="design-"]')].slice(1).every((r) => r.querySelector('h3 button[aria-expanded="false"]') && !r.querySelector('input, textarea')) && /No prototype/.test(document.querySelector('[data-testid="design-R1"]').innerText)))
   await page.waitForSelector('[data-testid="design-R1"] [data-frame]')
   ok('opened, a row shows the prototype on the left (the wider column) and the design notes on the right', await page.evaluate(() => { const f = document.querySelector('[data-testid="design-R1"] [data-frame]').getBoundingClientRect(); const n = document.querySelector('#design-notes-R1').getBoundingClientRect(); return f.right <= n.left + 1 && f.width > n.width }))
   ok('an empty prototype box offers Upload screenshot and Link prototype', await page.evaluate(() => { const t = [...document.querySelectorAll('[data-testid="design-R1"] [data-frame] button')].map((b) => b.innerText.trim()); return t.includes('Upload screenshot') && t.includes('Link prototype') }))

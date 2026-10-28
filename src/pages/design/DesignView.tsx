@@ -166,7 +166,7 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
             {!item.hasImage && !hasLink && (
               <div className={styles.empty}>
                 <p className={styles.emptyText}>{canEdit ? 'Add the prototype' : 'No prototype yet'}</p>
-                {canEdit && <p className={styles.emptyHint}>Upload a screenshot, link the prototype, or both. You can also drop an image here.</p>}
+                {canEdit && <p className={styles.emptyHint}>Link the live prototype, upload a screenshot, or both. You can also drop an image here. Then note the design decisions on the right.</p>}
               </div>
             )}
             {canEdit && (
@@ -282,6 +282,14 @@ export function DesignView(props: DesignViewProps) {
       row.querySelector<HTMLElement>('h3 button')?.focus({ preventScroll: true })
     })
   }, [target])
+  // Nothing designed yet (first visit): open the first requirement so the way in is on screen. Once, and not when a link asked for a row.
+  const started = useRef(false)
+  useEffect(() => {
+    if (started.current || !design || props.openKey) return
+    started.current = true
+    const first = design.items[0]
+    if (first && design.items.every((i) => !i.hasImage && !i.prototypeUrl && !i.notes)) setOpened((o) => new Set(o).add(first.storyId))
+  }, [design, props.openKey])
   const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const decisions = design?.decisions
   const hasDecisions = !!decisions && (!!decisions.reasoning || decisions.alternatives.length > 0)
