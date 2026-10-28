@@ -24,7 +24,6 @@ export function InsightThemesPage() {
       errorText={overview.isError ? friendlyMessage(overview.error) : undefined}
       onSelect={(id) => setParams({ theme: id }, { replace: true })}
       onOpenTranscripts={(projectId) => navigate(`/projects/${projectId}/transcripts`)}
-      onOpenStep={(projectId, step) => navigate(`/projects/${projectId}/${step}`)}
     />
   )
 }

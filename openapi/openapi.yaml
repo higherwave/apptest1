@@ -1305,13 +1305,13 @@ components:
               opportunity: { type: boolean, description: 'Not addressed, not a delight, and raised in two or more projects or by three or more people.' }
               requirements:
                 type: array
+                description: The requirements written for it. The same requirement in several projects is one entry, with how many projects wrote it and the strongest newest finding among them.
                 items:
                   type: object
-                  required: [key, title, projectId, result]
+                  required: [title, projectCount, result]
                   properties:
-                    key: { type: string }
                     title: { type: string }
-                    projectId: { type: string, format: uuid }
+                    projectCount: { type: integer }
                     result:
                       type: [string, 'null']
                       enum: [worked, needs_attention, too_early, null]

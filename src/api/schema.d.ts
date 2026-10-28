@@ -979,11 +979,10 @@ export interface components {
                 trend: "new" | "growing" | "steady" | "fading" | null;
                 /** @description Not addressed, not a delight, and raised in two or more projects or by three or more people. */
                 opportunity: boolean;
+                /** @description The requirements written for it. The same requirement in several projects is one entry, with how many projects wrote it and the strongest newest finding among them. */
                 requirements: {
-                    key: string;
                     title: string;
-                    /** Format: uuid */
-                    projectId: string;
+                    projectCount: number;
                     /** @enum {string|null} */
                     result: "worked" | "needs_attention" | "too_early" | null;
                 }[];

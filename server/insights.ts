@@ -20,8 +20,8 @@ export type PlatformThemeRow = {
   trend: ThemeTrend
   /** Raised again and again, or by several people, and still without a requirement. */
   opportunity: boolean
-  /** The requirements written for it, with the newest finding on each. */
-  requirements: { key: string; title: string; projectId: string; result: 'worked' | 'needs_attention' | 'too_early' | null }[]
+  /** The requirements written for it, the same requirement in several projects counted once, with the strongest newest finding among them. */
+  requirements: { title: string; projectCount: number; result: 'worked' | 'needs_attention' | 'too_early' | null }[]
   /** Per project that raised it: how many of that project's participants did. */
   sources: { projectId: string; participantCount: number }[]
 }
@@ -77,6 +77,21 @@ export type CaseStudy = {
   opportunities: number
   /** A request to paste into an AI tool to make the presentation. */
   prompt: string
+}
+
+// The same requirement written in several projects is one requirement: titles that match once case and punctuation are ignored are merged,
+// keeping how many projects wrote it and the strongest finding among them. (Later, similar titles can be merged here too.)
+const FINDING_RANK = { needs_attention: 3, worked: 2, too_early: 1 } as const
+export function distinctRequirements(rows: { title: string; projectId: string; result: 'worked' | 'needs_attention' | 'too_early' | null }[]): PlatformThemeRow['requirements'] {
+  const merged = new Map<string, { title: string; projects: Set<string>; result: 'worked' | 'needs_attention' | 'too_early' | null }>()
+  for (const r of rows) {
+    const key = r.title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
+    const m = merged.get(key) ?? { title: r.title, projects: new Set<string>(), result: null }
+    m.projects.add(r.projectId)
+    if ((r.result ? FINDING_RANK[r.result] : 0) > (m.result ? FINDING_RANK[m.result] : 0)) m.result = r.result
+    merged.set(key, m)
+  }
+  return [...merged.values()].map((m) => ({ title: m.title, projectCount: m.projects.size, result: m.result })).sort((a, b) => b.projectCount - a.projectCount || a.title.localeCompare(b.title))
 }
 
 // A theme's trend: where it was raised, share of each project's participants, oldest project first.
@@ -190,8 +205,9 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
       })
       .sort((a, b) => a.projectId.localeCompare(b.projectId) || (Number(a.key.replace(/\D/g, '')) || 0) - (Number(b.key.replace(/\D/g, '')) || 0))
     const status = statusOf(requirements.map((r) => r.result))
+    const distinct = distinctRequirements(requirements)
     const opportunity = status === 'not_addressed' && t.category !== 'delight' && (c.projects >= 2 || c.participants >= 3)
-    return { id: t.id, title: t.title, category: t.category, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements, sources }
+    return { id: t.id, title: t.title, category: t.category, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources }
   })
   // Reach first: raised in the most projects, then by the most people.
   themes.sort((a, b) => b.projectCount - a.projectCount || b.participantCount - a.participantCount || a.title.localeCompare(b.title))

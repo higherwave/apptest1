@@ -15,8 +15,6 @@ export type InsightThemesViewProps = {
   errorText?: string
   onSelect: (id: string) => void
   onOpenTranscripts: (projectId: string) => void
-  /** Opens a step of one of the projects, such as its Measure page. */
-  onOpenStep: (projectId: string, step: 'measure' | 'stories') => void
 }
 
 type Row = InsightsThemes['themes'][number]
@@ -34,7 +32,7 @@ const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => numbe
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
 // Presentational: recommendations, then the themes seen across projects, and where the selected theme comes from.
-export function InsightThemesView({ state, overview, selectedId, detail, detailFailed, errorText, onSelect, onOpenTranscripts, onOpenStep }: InsightThemesViewProps) {
+export function InsightThemesView({ state, overview, selectedId, detail, detailFailed, errorText, onSelect, onOpenTranscripts }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter | null>(null)
   const shown = overview ? (filter ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : overview.themes) : []
   return (
@@ -104,7 +102,7 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
                     <p className={styles.panelText}>
                       Raised by {detail.participantCount} of {detail.totalParticipants} participants across {detail.projectCount} of {plural(detail.totalProjects, 'project')}.
                     </p>
-                    <WhatHappened row={overview.themes.find((t) => t.id === detail.id)} projects={overview.projects} onOpenStep={onOpenStep} />
+                    <WhatHappened row={overview.themes.find((t) => t.id === detail.id)} />
                     <div className={styles.happened}>
                       <h3 className={styles.label}>Mentioned in</h3>
                       <ul className={styles.projectList} aria-label="Projects that mentioned this theme">
@@ -143,8 +141,9 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
   )
 }
 
-// Under a theme: what became of it. A requirement for each project that wrote one, with its newest finding, or a note that it is an opportunity.
-function WhatHappened({ row, projects, onOpenStep }: { row?: Row; projects: InsightsThemes['projects']; onOpenStep: InsightThemesViewProps['onOpenStep'] }) {
+// Under a theme: what became of it, in terms that hold across projects. Each distinct requirement once (no keys), with how many projects
+// wrote it and how it did, or a note that it is an opportunity.
+function WhatHappened({ row }: { row?: Row }) {
   if (!row) return null
   return (
     <div className={styles.happened} data-testid="what-happened">
@@ -155,15 +154,11 @@ function WhatHappened({ row, projects, onOpenStep }: { row?: Row; projects: Insi
         </p>
       ) : (
         row.requirements.map((r) => (
-          <div key={`${r.projectId}-${r.key}`} className={styles.req}>
-            <p className={styles.panelText}>
-              <strong>{r.key}</strong> {r.title} <span className={styles.muted}>· {projects.find((p) => p.id === r.projectId)?.name}</span>
-            </p>
+          <div key={r.title} className={styles.req}>
+            <p className={styles.panelText}>{r.title}</p>
             <div className={styles.reqTags}>
               <Tag size="sm" type={r.result ? STATUS[r.result].tag : 'blue'}>{r.result ? RESULT_LABEL[r.result] : 'Not measured yet'}</Tag>
-              <Button kind="ghost" size="sm" className={styles.open} onClick={() => onOpenStep(r.projectId, 'measure')}>
-                Open Measure
-              </Button>
+              <span className={styles.muted}>written in {plural(r.projectCount, 'project')}</span>
             </div>
           </div>
         ))

@@ -1,4 +1,5 @@
 // Run with: npm run test:api   (tsx + Node's test runner; uses an in-memory Postgres, no Neon compute)
+import { distinctRequirements } from './insights.js'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -1870,12 +1871,13 @@ test('themes say what became of them: not addressed (an opportunity when it keep
   assert.deepEqual([availability.status, availability.opportunity, availability.requirements.length], ['not_addressed', true, 0])
   const fees = await row('Fees appear late at checkout')
   assert.equal(fees.status, 'in_progress')
-  assert.deepEqual(fees.requirements.map((r: any) => [r.key, r.result]), [['R3', null]])
+  assert.equal(fees.requirements.length, 1)
+  assert.deepEqual([fees.requirements[0].projectCount, fees.requirements[0].result], [1, null])
   assert.equal(fees.opportunity, false, 'it has a requirement')
   const prep = await row('A prep checklist before the visit is valued')
   assert.equal(prep.opportunity, false, 'a delight is never an opportunity')
   // A finding on the fees requirement moves it on; the newest one counts.
-  const story = (await d.query(`select st.id from delivery.stories st join delivery.specs sp on sp.id = st.spec_id where sp.project_id = $1 and st.key = $2`, [fees.requirements[0].projectId, fees.requirements[0].key])).rows[0] as { id: string }
+  const story = (await d.query(`select st.id from delivery.stories st join insights.platform_theme_sources s on s.theme_id = st.theme_id where st.kind = 'requirement' and s.platform_theme_id = $1 limit 1`, [fees.id])).rows[0] as { id: string }
   const save = async (verdicts: string[]) => {
     await d.query(`delete from delivery.success_measures where story_id = $1`, [story.id])
     const checkins = verdicts.map((v, i) => ({ on: `2026-11-0${i + 1}`, value: 'x', verdict: v, note: null }))
@@ -1984,4 +1986,19 @@ test('each case study carries a few quotes, how many of its themes are still opp
     assert.ok(c.opportunities >= 0 && c.opportunities <= c.themes.length)
   }
   assert.ok(body.data.some((c: any) => c.quotes.length > 0))
+})
+
+test('the same requirement written in several projects is one, with how many wrote it and the strongest finding', () => {
+  const rows = [
+    { title: 'Show the full price, including fees', projectId: 'a', result: null },
+    { title: 'Show the full price — including fees!', projectId: 'b', result: 'too_early' as const },
+    { title: 'show the full price including fees', projectId: 'c', result: 'worked' as const },
+    { title: 'Show the full price including fees', projectId: 'c', result: 'needs_attention' as const },
+    { title: 'Let people reschedule in the app', projectId: 'a', result: null },
+  ]
+  assert.deepEqual(distinctRequirements(rows), [
+    { title: 'Show the full price, including fees', projectCount: 3, result: 'needs_attention' },
+    { title: 'Let people reschedule in the app', projectCount: 1, result: null },
+  ])
+  assert.deepEqual(distinctRequirements([]), [])
 })
