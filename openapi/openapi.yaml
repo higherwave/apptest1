@@ -1415,9 +1415,10 @@ components:
               opportunities: { type: integer, description: How many of the themes they raised are opportunities. }
     PlatformJourney:
       type: object
-      required: [projectCount, stages]
+      required: [projectCount, totalParticipants, stages]
       properties:
         projectCount: { type: integer, description: Analysed projects folded in. }
+        totalParticipants: { type: integer, description: Participants across those projects. }
         stages:
           type: array
           items:

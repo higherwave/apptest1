@@ -1070,6 +1070,8 @@ export interface components {
         PlatformJourney: {
             /** @description Analysed projects folded in. */
             projectCount: number;
+            /** @description Participants across those projects. */
+            totalParticipants: number;
             stages: {
                 name: string;
                 /** @description Projects whose journey map has this stage. */

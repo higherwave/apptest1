@@ -1928,6 +1928,7 @@ test('the platform journey folds every project’s stages into one, with each th
   const body = await expectSpec(res, '/insights/journey')
   assert.match(res.headers.get('cache-control') ?? '', /public/)
   assert.equal(body.projectCount, 3)
+  assert.equal(body.totalParticipants, 13)
   assert.deepEqual(body.stages.map((s: any) => s.name), ['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'])
   assert.ok(body.stages.every((s: any) => s.projectCount === 3))
   const find = body.stages[0]

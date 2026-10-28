@@ -14,11 +14,11 @@ export type JourneyStage = {
   themes: JourneyTheme[]
   opportunities: number
 }
-export type PlatformJourney = { projectCount: number; stages: JourneyStage[] }
+export type PlatformJourney = { projectCount: number; totalParticipants: number; stages: JourneyStage[] }
 
 export async function getPlatformJourney(db: Queryable, workspaceId: string): Promise<PlatformJourney> {
   const projects = await projectsWithAnalysis(db, workspaceId)
-  if (projects.length === 0) return { projectCount: 0, stages: [] }
+  if (projects.length === 0) return { projectCount: 0, totalParticipants: 0, stages: [] }
   const [overview, stageRows, placed] = await Promise.all([
     getThemesOverview(db, workspaceId),
     db.query(`select study_id, position, name from research.study_stages where workspace_id = $1 and study_id = any($2::uuid[])`, [workspaceId, projects.map((p) => p.id)]),
@@ -66,5 +66,5 @@ export async function getPlatformJourney(db: Queryable, workspaceId: string): Pr
     const sev = severities.get(s.key) ?? []
     return { name: s.name, projectCount: s.projects.size, sentiment: sev.length ? mean(sev) : null, themes, opportunities: themes.filter((t) => t.opportunity).length }
   })
-  return { projectCount: projects.length, stages: out }
+  return { projectCount: projects.length, totalParticipants: projects.reduce((n, p) => n + p.participants, 0), stages: out }
 }
