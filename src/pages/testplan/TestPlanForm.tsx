@@ -5,7 +5,7 @@ import styles from './TestPlanForm.module.scss'
 
 type TestPlanFormProps = { form: PlanForm; errors: FieldErrors; methodOptions: string[]; readOnly?: boolean; onChange: (next: PlanForm) => void }
 
-// The whole test plan on one page: name, methods, test items (each with its own outcomes) and participants.
+// The whole test plan on one page: name, methods, test items (a description and one expected outcome each) and participants.
 // Shared by New test plan and a project's Test Plan step.
 export function TestPlanForm({ form, errors, methodOptions, readOnly = false, onChange }: TestPlanFormProps) {
   const setItem = (i: number, patch: Partial<PlanItem>) => onChange({ ...form, testItems: form.testItems.map((it, j) => (j === i ? { ...it, ...patch } : it)) })
@@ -47,7 +47,9 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
       </section>
 
       <section className={styles.section} aria-labelledby="items-label">
-        <h2 id="items-label" className={styles.label}>What are we testing?</h2>
+        <h2 id="items-label" className={styles.label}>
+          What are we testing? <span className={styles.optional}>optional</span>
+        </h2>
         {form.testItems.map((item, i) => (
           <div key={i} className={styles.card} role="group" aria-label={`Test item ${i + 1}`}>
             {!readOnly && form.testItems.length > 1 && (
@@ -57,46 +59,26 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
                 </Button>
               </div>
             )}
-            <TextArea
-              id={`item-${i}-description`}
-              labelText="Description"
-              placeholder="The feature, flow, or concept, and what you want to learn"
-              rows={3}
-              readOnly={readOnly}
-              value={item.description}
-              onChange={(e) => setItem(i, { description: e.target.value })}
-            />
-            <div className={styles.outcomes}>
-              <span className={styles.fieldLabel} id={`item-${i}-outcomes`}>Outcomes expected</span>
-              {item.outcomes.map((outcome, k) => (
-                <div key={k} className={styles.outcomeRow}>
-                  <TextInput
-                    id={`item-${i}-outcome-${k}`}
-                    labelText={`Outcome ${k + 1} of test item ${i + 1}`}
-                    hideLabel
-                    placeholder="What would success look like?"
-                    readOnly={readOnly}
-                    value={outcome}
-                    onChange={(e) => setItem(i, { outcomes: item.outcomes.map((o, j) => (j === k ? e.target.value : o)) })}
-                  />
-                  {!readOnly && (
-                    <Button
-                      kind="ghost"
-                      size="lg"
-                      hasIconOnly
-                      renderIcon={Close}
-                      iconDescription="Remove outcome"
-                      disabled={item.outcomes.length === 1}
-                      onClick={() => setItem(i, { outcomes: item.outcomes.filter((_, j) => j !== k) })}
-                    />
-                  )}
-                </div>
-              ))}
-              {!readOnly && (
-                <Button className={styles.add} kind="ghost" size="sm" onClick={() => setItem(i, { outcomes: [...item.outcomes, ''] })}>
-                  + Add outcome
-                </Button>
-              )}
+            <div className={styles.pair}>
+              <TextArea
+                id={`item-${i}-description`}
+                labelText="Description"
+                placeholder="The feature, flow, or concept, and what you want to learn"
+                rows={3}
+                readOnly={readOnly}
+                value={item.description}
+                onChange={(e) => setItem(i, { description: e.target.value })}
+              />
+              {/* One outcome a test item. A plan saved earlier with more than one keeps the others, which are not shown here. */}
+              <TextArea
+                id={`item-${i}-outcome-0`}
+                labelText="Outcome expected"
+                placeholder="What would success look like?"
+                rows={3}
+                readOnly={readOnly}
+                value={item.outcomes[0] ?? ''}
+                onChange={(e) => setItem(i, { outcomes: [e.target.value, ...item.outcomes.slice(1)] })}
+              />
             </div>
           </div>
         ))}

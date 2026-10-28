@@ -71,9 +71,8 @@ try {
   ok('a test method toggles on when chosen', await page.evaluate(() => [...document.querySelectorAll('button[aria-pressed]')].find((b) => b.innerText.trim() === 'Card sort').getAttribute('aria-pressed') === 'true'))
   await page.type('#item-0-description', 'Whether first-time users can book')
   await page.type('#item-0-outcome-0', 'Most finish in under two minutes')
-  await clickText('+ Add outcome')
-  await page.waitForSelector('#item-0-outcome-1')
-  await page.type('#item-0-outcome-1', 'Fewer calls to the clinic')
+  ok('a test item has one outcome, beside its description, and no way to add another', await page.evaluate(() => { const d = document.querySelector('#item-0-description').getBoundingClientRect(); const o = document.querySelector('#item-0-outcome-0').getBoundingClientRect(); return Math.abs(d.top - o.top) <= 2 && d.right <= o.left + 2 && !document.querySelector('#item-0-outcome-1') && !document.body.innerText.includes('Add outcome') && !document.body.innerText.includes('Outcomes expected') && /Outcome expected/i.test(document.querySelector('#item-0-outcome-0').closest('.cds--form-item').innerText) }))
+  ok('What are we testing? is marked optional', await page.evaluate(() => /what are we testing\?\s*optional/i.test(document.querySelector('#items-label').innerText)))
   await clickText('+ Add test item')
   await page.waitForSelector('#item-1-description')
   ok('a second test item can be added', await page.evaluate(() => document.querySelectorAll('[id^="item-"][id$="-description"]').length === 2 && !document.body.innerText.includes('Test Item')))
@@ -91,8 +90,8 @@ try {
   ok('creating opens the new project’s Task List', true, page.url().replace(BASE, ''))
   const createdId = page.url().match(/projects\/([0-9a-f-]{36})\//)[1]
   const created = await (await fetch(`${API}/api/v1/projects/${createdId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  ok('the plan was saved: one test item with both outcomes (the empty second one dropped), the method and the phone number',
-    created.testItems.length === 1 && created.testItems[0].description === 'Whether first-time users can book' && created.testItems[0].outcomes.length === 2 && created.study.methods.join() === 'Card sort' && created.participants[0].phone === '(555) 010-0000',
+  ok('the plan was saved: one test item with its one outcome, the method and the phone number',
+    created.testItems.length === 1 && created.testItems[0].description === 'Whether first-time users can book' && created.testItems[0].outcomes.length === 1 && created.study.methods.join() === 'Card sort' && created.participants[0].phone === '(555) 010-0000',
     JSON.stringify(created.testItems))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('E2E Study')
@@ -163,6 +162,19 @@ try {
   await clickText('Reload their version')
   await page.waitForFunction(() => document.querySelector('#item-0-description')?.value === 'Their second wording', { timeout: 8000 })
   ok('Reload their version discards my edit and shows theirs', true)
+
+  // A plan saved earlier with two outcomes shows the first and keeps the second when something else is edited.
+  ok('someone saves a test item with two outcomes through the API', (await apiPutStudy({ testItems: [{ description: 'Two outcomes', outcomes: ['First outcome', 'Second outcome'] }] })).status === 200)
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('#item-0-outcome-0')
+  ok('the page shows the first outcome only', await page.evaluate(() => document.querySelector('#item-0-outcome-0').value === 'First outcome' && !document.querySelector('#item-0-outcome-1')))
+  await retype('#item-0-description', 'Two outcomes, reworded')
+  await clickText('Save test plan')
+  await waitText('All changes saved at')
+  ok('editing the description keeps the second outcome', (await apiGet()).testItems[0].outcomes.join('|') === 'First outcome|Second outcome')
+  await apiPutStudy({ testItems: [{ description: 'Their second wording', outcomes: [] }] })
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('#project-name')
 
   // Participants: add one, save, and the existing ones keep their identity.
   const before = (await apiGet()).participants.map((p) => p.id)

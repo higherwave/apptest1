@@ -18,11 +18,6 @@
   color: var(--at-body);
 }
 
-.fieldLabel {
-  @include tokens.role('body-md');
-  color: var(--at-muted);
-}
-
 .chips {
   display: flex;
   flex-wrap: wrap;
@@ -50,19 +45,6 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-}
-
-.outcomes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-}
-
-.outcomeRow {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: var(--at-space-xs);
-  align-items: start;
 }
 
 // Text-style add actions sit flush left, in link blue.
@@ -135,4 +117,23 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// A test item's description and its expected outcome, side by side.
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-md);
+
+  @media (max-width: 48rem) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.optional {
+  @include tokens.role('meta');
+  margin-inline-start: var(--at-space-xs);
+  color: var(--at-muted);
+  font-weight: 400;
+  text-transform: none;
 }
