@@ -209,6 +209,7 @@ $frame-max: 44rem;
 // Under the prototype box: the live link on the left, the way back to the story on the right.
 .frameFoot {
   inline-size: 100%;
+  max-inline-size: $frame-max; // the same width as the box above, so the link lines up with its right edge
   display: flex;
   align-items: center;
   justify-content: space-between;
