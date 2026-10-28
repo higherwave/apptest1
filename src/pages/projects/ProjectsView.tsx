@@ -119,9 +119,13 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                     </span>
                     {STAT_STEPS.map((s) => (
                       <span key={s.key} role="cell">
-                        <a className={styles.rowLink} href={stepHref(project, s.step)} aria-label={`${project[s.key]} ${s.label} of ${project.name}`} onClick={goTo((step) => onGo(project, step), s.step)}>
+                        {project.status === 'analyzed' ? (
+                          <a className={styles.rowLink} href={stepHref(project, s.step)} aria-label={`${project[s.key]} ${s.label} of ${project.name}`} onClick={goTo((step) => onGo(project, step), s.step)}>
                           {project[s.key]}
                         </a>
+                        ) : (
+                          project[s.key]
+                        )}
                       </span>
                     ))}
                     <span role="cell">

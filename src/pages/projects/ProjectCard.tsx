@@ -34,9 +34,13 @@ export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProp
             {STAT_STEPS.map((s) => (
               <div key={s.key}>
                 <dd className={styles.value}>
-                  <a className={styles.statLink} href={stepHref(project, s.step)} aria-label={`${project[s.key]} ${s.label}`} onClick={goTo((step) => onGo(project, step), s.step)}>
+                  {analyzed ? (
+                    <a className={styles.statLink} href={stepHref(project, s.step)} aria-label={`${project[s.key]} ${s.label}`} onClick={goTo((step) => onGo(project, step), s.step)}>
                     {project[s.key]}
                   </a>
+                  ) : (
+                    project[s.key]
+                  )}
                 </dd>
                 <dt className={styles.label}>{s.label}</dt>
               </div>

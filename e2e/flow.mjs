@@ -585,6 +585,7 @@ try {
     const tints = new Set(cards.filter((c) => c.dataset.status === 'analyzed').map(bg))
     return !!mine && /1\s*Measurements/.test(mine.innerText) && !cards.some((c) => /High priority/.test(c.innerText)) && mine.dataset.status === 'analyzed' && bg(mine) !== 'rgba(0, 0, 0, 0)' && tints.size > 1 && (!draft || (bg(draft) === 'rgba(0, 0, 0, 0)' && getComputedStyle(draft).borderTopWidth === '1px'))
   }))
+  ok('a draft’s counts are plain numbers, not links', await page.evaluate(() => [...document.querySelectorAll('[data-status="draft"]')].every((c) => c.querySelectorAll('dl a').length === 0)))
   const stat = (label) => page.evaluate((l) => { const c = [...document.querySelectorAll('[data-status]')].find((x) => x.innerText.startsWith('Intake v2')); const d = [...c.querySelectorAll('dl > div')].find((x) => x.innerText.includes(l)); const a = d.querySelector('a'); const href = a.getAttribute('href'); a.click(); return href }, label)
   ok('the Sessions count links to the Test Plan', (await stat('Sessions')).endsWith('/plan'))
   await page.waitForFunction(() => location.pathname.endsWith('/plan'), { timeout: 8000 })
