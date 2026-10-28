@@ -47,7 +47,8 @@ export function App() {
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<MembersPage />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
-        <Route path="insights/customers" element={<CustomersPage />} />
+        <Route path="insights/personas" element={<CustomersPage />} />
+        <Route path="insights/customers" element={<Navigate to="/insights/personas" replace />} />
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
         <Route path="insights/journey" element={<PlatformJourneyPage />} />
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />

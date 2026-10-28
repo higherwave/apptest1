@@ -76,10 +76,10 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
   }
   return (
     <div className={styles.page}>
-      <InsightsHeader title="Platform Insights" description="Who the customers are, in the words of the people we have talked to" />
+      <InsightsHeader title="Platform Insights" description="Who our customers are, in the words of the people we have talked to" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading withOverlay={false} description="Loading customers" />}
-      {state === 'empty' && <p className={styles.muted}>No customers yet. Analyze a project’s transcripts and the people in it appear here, grouped by their role.</p>}
+      {state === 'loading' && <Loading withOverlay={false} description="Loading personas" />}
+      {state === 'empty' && <p className={styles.muted}>No personas yet. Analyze a project’s transcripts and the people in it appear here, grouped by their role.</p>}
       {state === 'ready' && customers && (
         <>
           <div className={styles.listTools}>
@@ -90,7 +90,7 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
               {opened.size === groups.length ? 'Collapse all' : 'Expand all'}
             </Button>
           </div>
-          <ul className={styles.list} aria-label="Customer groups">
+          <ul className={styles.list} aria-label="Personas">
             {groups.map((g) => {
               const open = opened.has(g.key)
               return (
