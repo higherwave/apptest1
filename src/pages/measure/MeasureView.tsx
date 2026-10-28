@@ -89,6 +89,7 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
       <div className={styles.split}>
         <div className={styles.cell}>
           <h4 className={styles.colHead}>How we will know it worked</h4>
+          <p className={styles.muted}>Record expectations, source data, and metrics</p>
           <TextInput
             id={`measure-metric-${item.key}`}
             labelText="What will tell us?"
@@ -116,28 +117,7 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
 
         <div className={styles.cell}>
           <h4 className={styles.colHead}>Check-ins</h4>
-          {item.checkins.length === 0 ? (
-            <p className={styles.muted}>{canEdit ? 'None yet. Once it has been out for a while, add what you see and whether it worked.' : 'No check-ins yet.'}</p>
-          ) : (
-            <ul className={styles.checkins} aria-label={`Check-ins for ${item.key}`}>
-              {newestFirst.map(({ c, i }) => {
-                const v = VERDICTS.find((x) => x.key === c.verdict)!
-                return (
-                  <li key={`${c.on}-${i}`} className={styles.checkin}>
-                    <div className={styles.checkinLine}>
-                      <span className={styles.day}>{dayLabel(c.on)}</span>
-                      <Tag size="sm" type={v.tag}>{v.label}</Tag>
-                      <span className={styles.seen}>{c.value}</span>
-                      {canEdit && (
-                        <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove the ${dayLabel(c.on)} check-in`} tooltipPosition="left" onClick={() => void onSave(item.storyId, body({ checkins: item.checkins.filter((_, j) => j !== i) }))} />
-                      )}
-                    </div>
-                    {c.note && <p className={styles.noteText}>{c.note}</p>}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          <p className={styles.muted}>Record what you see after launch, and whether it worked</p>
           {canEdit && (
             <form
               className={styles.add}
@@ -165,6 +145,28 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
                 Add check-in
               </Button>
             </form>
+          )}
+          {item.checkins.length === 0 ? (
+            <p className={styles.muted}>No check-ins yet.</p>
+          ) : (
+            <ul className={styles.checkins} aria-label={`Check-ins for ${item.key}`}>
+              {newestFirst.map(({ c, i }) => {
+                const v = VERDICTS.find((x) => x.key === c.verdict)!
+                return (
+                  <li key={`${c.on}-${i}`} className={styles.checkin}>
+                    <div className={styles.checkinLine}>
+                      <span className={styles.day}>{dayLabel(c.on)}</span>
+                      <Tag size="sm" type={v.tag}>{v.label}</Tag>
+                      <span className={styles.seen}>{c.value}</span>
+                      {canEdit && (
+                        <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove the ${dayLabel(c.on)} check-in`} tooltipPosition="left" onClick={() => void onSave(item.storyId, body({ checkins: item.checkins.filter((_, j) => j !== i) }))} />
+                      )}
+                    </div>
+                    {c.note && <p className={styles.noteText}>{c.note}</p>}
+                  </li>
+                )
+              })}
+            </ul>
           )}
         </div>
       </div>

@@ -538,6 +538,8 @@ try {
   ok('Measure lists one folded row per requirement, all "Not measured", with a count of each result', await page.evaluate((n) => { const rows = [...document.querySelectorAll('[data-testid^="measure-"]')]; const sum = document.querySelector('section[aria-label="Results so far"]').innerText; return rows.length === n && rows.every((r) => r.dataset.open === 'false' && /Not measured/.test(r.innerText)) && /Not measured yet/.test(sum) }, preview.requirements))
   await page.click('[data-testid="measure-R1"] h3 button')
   await page.waitForSelector('#measure-metric-R1', { visible: true })
+  ok('both columns have a description under their heading', await page.evaluate(() => { const t = document.querySelector('[data-testid="measure-R1"]').innerText; return t.includes('Record expectations, source data, and metrics') && t.includes('Record what you see after launch') }))
+  ok('the fields line up across the columns, row by row', await page.evaluate(() => { const top = (sel) => Math.round(document.querySelector(sel).getBoundingClientRect().top); const near = (a, b) => Math.abs(top(a) - top(b)) <= 3; return near('#measure-metric-R1', '#measure-on-R1') && near('#measure-source-R1', '#measure-value-R1') && near('#measure-baseline-R1', '#measure-note-R1') }))
   await page.type('#measure-metric-R1', 'Support calls about booking fees')
   await page.type('#measure-baseline-R1', '120 a week')
   await page.type('#measure-target-R1', '60 a week')
