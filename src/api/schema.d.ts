@@ -1097,14 +1097,18 @@ export interface components {
                  * @enum {string}
                  */
                 matchMethod: "auto" | "manual";
-                quotes: {
-                    /** Format: uuid */
-                    id: string;
-                    text: string;
-                    speaker: string;
-                    session: string;
-                    timestamp: string | null;
-                }[];
+            }[];
+            /** @description The one to five quotes that make the theme's point best, from different people where possible. */
+            quotes: {
+                /** Format: uuid */
+                id: string;
+                text: string;
+                speaker: string;
+                session: string;
+                timestamp: string | null;
+                /** Format: uuid */
+                projectId: string;
+                projectName: string;
             }[];
         };
         CaseStudy: {

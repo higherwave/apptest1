@@ -57,8 +57,9 @@ export type PlatformThemeDetail = {
     participantCount: number
     projectParticipants: number
     matchMethod: 'auto' | 'manual'
-    quotes: InsightQuote[]
   }[]
+  /** The one to five quotes that make the theme's point best, from different people where possible. */
+  quotes: (InsightQuote & { projectId: string; projectName: string })[]
 }
 export type CaseStudy = {
   id: string
@@ -208,9 +209,37 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
   return { projects, totalParticipants: projects.reduce((n, p) => n + p.participants, 0), summary, themes, recommendations }
 }
 
-const QUOTES_PER_PROJECT = 3
+const MAX_QUOTES = 5
+const STOP = new Set(['the', 'and', 'that', 'this', 'with', 'for', 'are', 'before', 'without', 'from', 'about', 'when', 'what', 'their', 'they', 'have', 'been', 'into', 'across'])
 
-// One platform theme, with where it came from: per project, how many participants raised it and some of what they said.
+// How well one line says what the theme says: it uses the theme's own words (its title's and the matcher's keywords) and is a full thought,
+// neither a fragment nor a speech.
+function pointScore(text: string, title: string): number {
+  const lower = text.toLowerCase()
+  const words = lower.split(/\s+/).filter(Boolean).length
+  const titleWords = [...new Set(title.toLowerCase().split(/[^a-z]+/).filter((w) => w.length >= 4 && !STOP.has(w)))]
+  const stems = titleWords.filter((w) => lower.includes(w.slice(0, Math.max(4, w.length - 2))))
+  const keywords = ((PLATFORM_KEYWORDS as Record<string, string[]>)[title] ?? []).filter((k) => new RegExp(k, 'i').test(text))
+  return stems.length + keywords.length * 2 + (words >= 8 && words <= 40 ? 1 : 0) - (words < 6 ? 2 : 0) - (words > 60 ? 1 : 0)
+}
+
+// The few quotes that carry the theme: best-scoring first, one per person, at most two from the same project, only those nearly as good as the
+// best (so a weak theme shows one or two, a strong one up to five).
+export function pickQuotes<T extends { id: string; text: string; speaker: string; projectId: string }>(rows: T[], title: string): T[] {
+  const scored = rows.map((r, i) => ({ r, i, score: pointScore(r.text, title) })).sort((a, b) => b.score - a.score || a.i - b.i)
+  if (!scored.length) return []
+  const bar = Math.max(1, scored[0].score * 0.6)
+  const picked: typeof scored = []
+  for (const s of scored) {
+    if (picked.length >= MAX_QUOTES) break
+    if (picked.length > 0 && s.score < bar) break
+    if (picked.some((p) => p.r.id === s.r.id || p.r.speaker === s.r.speaker) || picked.filter((p) => p.r.projectId === s.r.projectId).length >= 2) continue
+    picked.push(s)
+  }
+  return picked.map((p) => p.r)
+}
+
+// One platform theme: which projects raised it and how many of their participants, and the few quotes that make its point.
 export async function getPlatformTheme(db: Queryable, workspaceId: string, id: string): Promise<PlatformThemeDetail | undefined> {
   const theme = (await db.query(`select id, title, category from insights.platform_themes where id = $1 and workspace_id = $2`, [id, workspaceId])).rows[0]
   if (!theme) return undefined
@@ -234,22 +263,20 @@ export async function getPlatformTheme(db: Queryable, workspaceId: string, id: s
   for (const p of projects) {
     const mine = rows.rows.filter((r) => r.project_id === p.id)
     if (!mine.length) continue
-    const seen = new Set<string>()
-    const quotes: InsightQuote[] = []
-    for (const r of mine) {
-      if (seen.has(r.utterance_id) || quotes.length >= QUOTES_PER_PROJECT) continue
-      seen.add(r.utterance_id)
-      quotes.push({ id: r.utterance_id, text: r.text, speaker: r.speaker, session: r.session, timestamp: r.timestamp_label ?? null })
-    }
     sources.push({
       projectId: p.id, projectName: p.name, color: p.color, participantCount: new Set(mine.map((r) => r.person)).size, projectParticipants: p.participants,
-      matchMethod: mine.some((r) => r.match_method === 'manual') ? 'manual' : 'auto', quotes,
+      matchMethod: mine.some((r) => r.match_method === 'manual') ? 'manual' : 'auto',
     })
   }
+  const nameOf = new Map(projects.map((p) => [p.id, p.name]))
+  const seen = new Set<string>()
+  const all = rows.rows
+    .filter((r) => !seen.has(r.utterance_id) && seen.add(r.utterance_id))
+    .map((r) => ({ id: r.utterance_id as string, text: r.text as string, speaker: r.speaker as string, session: r.session as string, timestamp: (r.timestamp_label ?? null) as string | null, projectId: r.project_id as string, projectName: nameOf.get(r.project_id) ?? '' }))
   return {
     id: theme.id, title: theme.title, category: theme.category,
     participantCount: sources.reduce((n, s) => n + s.participantCount, 0), totalParticipants: projects.reduce((n, p) => n + p.participants, 0),
-    projectCount: sources.length, totalProjects: projects.length, sources,
+    projectCount: sources.length, totalProjects: projects.length, sources, quotes: pickQuotes(all, theme.title),
   }
 }
 

@@ -1427,7 +1427,7 @@ components:
               opportunities: { type: integer }
     PlatformThemeDetail:
       type: object
-      required: [id, title, category, participantCount, totalParticipants, projectCount, totalProjects, sources]
+      required: [id, title, category, participantCount, totalParticipants, projectCount, totalProjects, sources, quotes]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -1440,7 +1440,7 @@ components:
           type: array
           items:
             type: object
-            required: [projectId, projectName, color, participantCount, projectParticipants, matchMethod, quotes]
+            required: [projectId, projectName, color, participantCount, projectParticipants, matchMethod]
             properties:
               projectId: { type: string, format: uuid }
               projectName: { type: string }
@@ -1448,17 +1448,22 @@ components:
               participantCount: { type: integer }
               projectParticipants: { type: integer }
               matchMethod: { type: string, enum: [auto, manual], description: 'manual when someone tagged a theme by hand.' }
-              quotes:
-                type: array
-                items:
-                  type: object
-                  required: [id, text, speaker, session, timestamp]
-                  properties:
-                    id: { type: string, format: uuid }
-                    text: { type: string }
-                    speaker: { type: string }
-                    session: { type: string }
-                    timestamp: { type: [string, 'null'] }
+        quotes:
+          type: array
+          description: The one to five quotes that make the theme's point best, from different people where possible.
+          minItems: 0
+          maxItems: 5
+          items:
+            type: object
+            required: [id, text, speaker, session, timestamp, projectId, projectName]
+            properties:
+              id: { type: string, format: uuid }
+              text: { type: string }
+              speaker: { type: string }
+              session: { type: string }
+              timestamp: { type: [string, 'null'] }
+              projectId: { type: string, format: uuid }
+              projectName: { type: string }
     CaseStudy:
       type: object
       required: [id, title, summary, outcome, ownerTeam, date, color, themes, quotes, opportunities, prompt]

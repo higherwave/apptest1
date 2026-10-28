@@ -1567,18 +1567,21 @@ test('Insights themes: three analysed projects, 13 participants, themes in the c
   assert.match(body.recommendations[0].title, /live provider availability/)
 })
 
-test('one platform theme shows, per project, who raised it and what they said', async () => {
+test('one platform theme shows which projects raised it and the few quotes that make its point', async () => {
   const { app, titled } = await insightsFixture()
   const t = await titled('Provider availability is hard to see')
   const res = await app.request(`/api/v1/insights/themes/${t.id}`)
   const body = await expectSpec(res, '/insights/themes/{id}')
   assert.deepEqual([body.participantCount, body.totalParticipants, body.projectCount, body.totalProjects], [11, 13, 3, 3])
   assert.deepEqual(body.sources.map((s: any) => [s.participantCount, s.projectParticipants]), [[3, 3], [3, 4], [5, 6]])
-  for (const s of body.sources) {
-    assert.ok(s.quotes.length >= 1 && s.quotes.length <= 3)
-    assert.equal(new Set(s.quotes.map((q: any) => q.id)).size, s.quotes.length, 'no quote twice')
-    assert.ok(s.quotes.every((q: any) => q.text && q.speaker && q.session))
-  }
+  // No quotes per project any more: the few that make the point, from different people, at most two from one project.
+  assert.ok(body.sources.every((s: any) => s.quotes === undefined))
+  assert.ok(body.quotes.length >= 1 && body.quotes.length <= 5)
+  assert.equal(new Set(body.quotes.map((q: any) => q.id)).size, body.quotes.length, 'no quote twice')
+  assert.equal(new Set(body.quotes.map((q: any) => q.speaker)).size, body.quotes.length, 'one per person')
+  assert.ok(body.quotes.every((q: any) => q.text && q.speaker && q.session && q.projectName))
+  for (const p of new Set(body.quotes.map((q: any) => q.projectId))) assert.ok(body.quotes.filter((q: any) => q.projectId === p).length <= 2)
+  assert.match(body.quotes[0].text, /availab|slot|calendar|open times/i, 'the best line uses the theme’s own words')
   assert.equal(body.sources[0].matchMethod, 'auto')
   const prep = await titled('A prep checklist before the visit is valued')
   const detail = await (await app.request(`/api/v1/insights/themes/${prep.id}`)).json()

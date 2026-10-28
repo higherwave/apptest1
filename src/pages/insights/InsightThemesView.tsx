@@ -37,7 +37,6 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 export function InsightThemesView({ state, overview, selectedId, detail, detailFailed, errorText, onSelect, onOpenTranscripts, onOpenStep }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter | null>(null)
   const shown = overview ? (filter ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : overview.themes) : []
-  const projectOf = (id: string) => overview?.projects.find((p) => p.id === id)
   return (
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
@@ -60,87 +59,84 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
             </div>
           </section>
 
-          <div className={styles.split}>
-            <section className={styles.section} aria-labelledby="themes-heading">
-              <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
-              <section className={styles.cards} aria-label="What the themes add up to">
-                {FILTERS.map((f) => {
-                  const n = f.count(overview)
-                  return (
-                    <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(filter === f.key ? null : f.key)}>
-                      <span className={styles.cardNum}>{n}</span>
-                      <span>{f.label}</span>
-                    </Button>
-                  )
-                })}
-              </section>
+          <section className={styles.section} aria-labelledby="themes-heading">
+            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+            <section className={styles.cards} aria-label="What the themes add up to">
+              {FILTERS.map((f) => {
+                const n = f.count(overview)
+                return (
+                  <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(filter === f.key ? null : f.key)}>
+                    <span className={styles.cardNum}>{n}</span>
+                    <span>{f.label}</span>
+                  </Button>
+                )
+              })}
+            </section>
+
+            <div className={styles.split}>
               <div className={styles.list}>
                 {shown.map((t) => (
                   <ClickableTile key={t.id} className={styles.row} data-selected={t.id === selectedId} data-testid={`platform-theme-${t.id}`} onClick={() => onSelect(t.id)}>
-                    <div className={styles.rowMain}>
-                      <p className={styles.rowTitle}>{t.title}</p>
-                      <div className={styles.chips}>
-                        <CategoryBadge category={t.category} />
-                        {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
-                        <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
-                        {t.trend && <Tag size="sm" type="gray">{TREND[t.trend]}</Tag>}
-                        {t.sources.map((s) => (
-                          <span key={s.projectId} className={styles.chip}>
-                            {projectOf(s.projectId)?.name}
-                          </span>
-                        ))}
-                      </div>
+                    <p className={styles.rowTitle}>{t.title}</p>
+                    <div className={styles.chips}>
+                      <CategoryBadge category={t.category} />
+                      {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
+                      <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
+                      {t.trend && <Tag size="sm" type="gray">{TREND[t.trend]}</Tag>}
                     </div>
                     <div className={styles.rowCount}>
                       <p className={styles.count}>
-                        {t.participantCount} of {overview.totalParticipants} participants
+                        {t.participantCount} of {overview.totalParticipants} participants <span className={styles.countSub}>· {plural(t.projectCount, 'project')}</span>
                       </p>
-                      <p className={styles.countSub}>{plural(t.projectCount, 'project')}</p>
                       <ProgressBar label={`${t.title}: participants`} hideLabel size="small" value={t.participantCount} max={Math.max(overview.totalParticipants, 1)} />
                     </div>
                   </ClickableTile>
                 ))}
               </div>
-            </section>
 
-            <aside className={styles.panel} aria-label="Where this comes from">
-              <h2 className={styles.label}>Where this comes from</h2>
-              {detailFailed && <p className={styles.empty}>This theme could not be loaded.</p>}
-              {!detail && !detailFailed && <Loading withOverlay={false} small description="Loading" />}
-              {detail && detail.id === selectedId && (
-                <>
-                  <p className={styles.panelTitle}>{detail.title}</p>
-                  <p className={styles.panelText}>
-                    Raised by {detail.participantCount} of {detail.totalParticipants} participants across {detail.projectCount} of {plural(detail.totalProjects, 'project')}.
-                  </p>
-                  <WhatHappened row={overview.themes.find((t) => t.id === detail.id)} projects={overview.projects} onOpenStep={onOpenStep} />
-                  {detail.sources.map((s) => (
-                    <div key={s.projectId} className={styles.source}>
-                      <div className={styles.sourceHead}>
-                        <span className={styles.chip} data-tint={s.color}>{s.projectName}</span>
-                        <span className={styles.panelText}>
-                          {s.participantCount} of {s.projectParticipants} participants
-                        </span>
-                        {s.matchMethod === 'manual' && <Tag size="sm" type="gray">Tagged by hand</Tag>}
-                      </div>
-                      {s.quotes.map((q) => (
-                        <blockquote key={q.id} className={styles.quote}>
-                          <p className={styles.quoteText}>“{q.text}”</p>
-                          <p className={styles.quoteMeta}>
-                            {q.speaker} · {q.session}
-                            {q.timestamp ? ` · ${q.timestamp}` : ''}
-                            <Button kind="ghost" size="sm" className={styles.open} onClick={() => onOpenTranscripts(s.projectId)}>
-                              Open transcript
-                            </Button>
-                          </p>
-                        </blockquote>
-                      ))}
+              <aside className={styles.panel} aria-label="Where this comes from">
+                <h2 className={styles.label}>Where this comes from</h2>
+                {detailFailed && <p className={styles.empty}>This theme could not be loaded.</p>}
+                {!detail && !detailFailed && <Loading withOverlay={false} small description="Loading" />}
+                {detail && detail.id === selectedId && (
+                  <>
+                    <p className={styles.panelTitle}>{detail.title}</p>
+                    <p className={styles.panelText}>
+                      Raised by {detail.participantCount} of {detail.totalParticipants} participants across {detail.projectCount} of {plural(detail.totalProjects, 'project')}.
+                    </p>
+                    <WhatHappened row={overview.themes.find((t) => t.id === detail.id)} projects={overview.projects} onOpenStep={onOpenStep} />
+                    <div className={styles.happened}>
+                      <h3 className={styles.label}>Mentioned in</h3>
+                      <ul className={styles.projectList} aria-label="Projects that mentioned this theme">
+                        {detail.sources.map((s) => (
+                          <li key={s.projectId} className={styles.projectItem}>
+                            <span>{s.projectName}</span>
+                            <span className={styles.muted}>{s.participantCount} of {s.projectParticipants} participants</span>
+                          </li>
+                        ))}
+                      </ul>
                     </div>
-                  ))}
-                </>
-              )}
-            </aside>
-          </div>
+                    {detail.quotes.length > 0 && (
+                      <div className={styles.happened}>
+                        <h3 className={styles.label}>In their words</h3>
+                        {detail.quotes.map((q) => (
+                          <blockquote key={q.id} className={styles.quote}>
+                            <p className={styles.quoteText}>“{q.text}”</p>
+                            <p className={styles.quoteMeta}>
+                              {q.speaker} · {q.projectName}
+                              <Button kind="ghost" size="sm" className={styles.open} onClick={() => onOpenTranscripts(q.projectId)}>
+                                Open transcript
+                              </Button>
+                            </p>
+                          </blockquote>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </aside>
+            </div>
+          </section>
         </>
       )}
     </div>
