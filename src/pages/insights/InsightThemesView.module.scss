@@ -198,3 +198,72 @@
   min-block-size: 0;
   padding: 0 var(--at-space-xs);
 }
+
+// The counts above the list; picking one filters the list to it.
+.cards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--at-space-md);
+
+  @media (max-width: 48rem) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.card {
+  @include tokens.role('body-md');
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--at-space-xxs);
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 0.125rem solid transparent;
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+  color: var(--at-body);
+  text-align: start;
+
+  &:hover { background: var(--at-surface-strong); }
+  &[data-kind='worked'] { background: var(--at-tint-mint); }
+  &[data-kind='needs_attention'] { background: var(--at-tint-coral); }
+  &[data-kind='opportunities'] { background: var(--at-tint-lavender); }
+  &[aria-pressed='true'] { border-color: var(--at-ink); }
+  &:disabled { opacity: 0.6; }
+}
+
+.cardNum {
+  @include tokens.role('title-md');
+  color: var(--at-ink);
+}
+
+.countSub {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.happened {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.req {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+}
+
+.reqTags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.muted { color: var(--at-muted); }

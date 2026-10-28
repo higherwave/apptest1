@@ -5,12 +5,22 @@ import { insertMany } from './sql.js'
 
 export type Category = 'pain_point' | 'need' | 'expectation' | 'delight'
 export type InsightProject = { id: string; name: string; color: string; participants: number }
+/** What became of a theme: no requirement yet, a requirement not yet measured, or the newest finding on its requirements. */
+export type ThemeStatus = 'not_addressed' | 'in_progress' | 'too_early' | 'worked' | 'needs_attention'
+/** How its reach changed from one project to the next (null when there is only one project to look at). */
+export type ThemeTrend = 'new' | 'growing' | 'steady' | 'fading' | null
 export type PlatformThemeRow = {
   id: string
   title: string
   category: Category
   participantCount: number
   projectCount: number
+  status: ThemeStatus
+  trend: ThemeTrend
+  /** Raised again and again, or by several people, and still without a requirement. */
+  opportunity: boolean
+  /** The requirements written for it, with the newest finding on each. */
+  requirements: { key: string; title: string; projectId: string; result: 'worked' | 'needs_attention' | 'too_early' | null }[]
   /** Per project that raised it: how many of that project's participants did. */
   sources: { projectId: string; participantCount: number }[]
 }
@@ -26,6 +36,7 @@ export type Recommendation = {
 export type ThemesOverview = {
   projects: InsightProject[]
   totalParticipants: number
+  summary: { recurring: number; opportunities: number; needsAttention: number; worked: number }
   themes: PlatformThemeRow[]
   recommendations: Recommendation[]
 }
@@ -58,6 +69,33 @@ export type CaseStudy = {
   date: string | null
   color: string
   themes: { id: string; title: string }[]
+}
+
+// A theme's trend: where it was raised, share of each project's participants, oldest project first.
+function trendOf(projects: InsightProject[], sources: { projectId: string; participantCount: number }[]): ThemeTrend {
+  if (projects.length < 2 || sources.length === 0) return null
+  const share = (projectId: string) => {
+    const s = sources.find((x) => x.projectId === projectId)
+    const p = projects.find((x) => x.id === projectId)
+    return s && p && p.participants > 0 ? s.participantCount / p.participants : 0
+  }
+  const latest = projects[projects.length - 1]
+  const raisedIn = projects.filter((p) => sources.some((s) => s.projectId === p.id))
+  if (!sources.some((s) => s.projectId === latest.id)) return 'fading'
+  if (raisedIn.length === 1) return 'new'
+  const earlier = raisedIn.slice(0, -1)
+  const before = earlier.reduce((n, p) => n + share(p.id), 0) / earlier.length
+  const change = share(latest.id) - before
+  return change >= 0.1 ? 'growing' : change <= -0.1 ? 'fading' : 'steady'
+}
+
+// What became of a theme, from the newest finding on each requirement written for it.
+function statusOf(results: ('worked' | 'needs_attention' | 'too_early' | null)[]): ThemeStatus {
+  if (results.length === 0) return 'not_addressed'
+  if (results.includes('needs_attention')) return 'needs_attention'
+  if (results.includes('worked')) return 'worked'
+  if (results.includes('too_early')) return 'too_early'
+  return 'in_progress'
 }
 
 export class PlatformThemeNotFound extends Error {}
@@ -94,7 +132,7 @@ async function projectsWithAnalysis(db: Queryable, workspaceId: string): Promise
 
 // Themes across every analysed project, the recommendations drawn from them, and the numbers behind both.
 export async function getThemesOverview(db: Queryable, workspaceId: string): Promise<ThemesOverview> {
-  const [projects, themeRows, people, recRows, recLinks] = await Promise.all([
+  const [projects, themeRows, people, recRows, recLinks, storyRows] = await Promise.all([
     projectsWithAnalysis(db, workspaceId),
     db.query(`select id, title, category from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
     db.query(PEOPLE, [workspaceId]),
@@ -102,6 +140,16 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     db.query(
       `select rt.recommendation_id, pt.id as theme_id, pt.title from insights.recommendation_themes rt join insights.platform_themes pt on pt.id = rt.platform_theme_id
        where rt.workspace_id = $1 order by pt.position, pt.title`,
+      [workspaceId],
+    ),
+    db.query(
+      `select distinct s.platform_theme_id, st.id as story_id, st.key, st.title, sp.project_id, m.checkins
+       from insights.platform_theme_sources s
+       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join delivery.stories st on st.theme_id = s.theme_id and st.kind = 'requirement'
+       join delivery.specs sp on sp.id = st.spec_id
+       left join delivery.success_measures m on m.story_id = st.id
+       where s.workspace_id = $1`,
       [workspaceId],
     ),
   ])
@@ -125,17 +173,32 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
   }
   const themes: PlatformThemeRow[] = themeRows.rows.map((t) => {
     const c = count([t.id])
-    return {
-      id: t.id, title: t.title, category: t.category, participantCount: c.participants, projectCount: c.projects,
-      sources: [...(byTheme.get(t.id) ?? [])].map(([projectId, set]) => ({ projectId, participantCount: set.size })).sort((a, b) => projects.findIndex((p) => p.id === a.projectId) - projects.findIndex((p) => p.id === b.projectId)),
-    }
+    const sources = [...(byTheme.get(t.id) ?? [])].map(([projectId, set]) => ({ projectId, participantCount: set.size })).sort((a, b) => projects.findIndex((p) => p.id === a.projectId) - projects.findIndex((p) => p.id === b.projectId))
+    const requirements = storyRows.rows
+      .filter((r) => r.platform_theme_id === t.id)
+      .map((r) => {
+        const checkins: { verdict: 'worked' | 'needs_attention' | 'too_early' }[] = Array.isArray(r.checkins) ? r.checkins : []
+        return { key: r.key as string, title: r.title as string, projectId: r.project_id as string, result: checkins.length ? checkins[checkins.length - 1].verdict : null }
+      })
+      .sort((a, b) => a.projectId.localeCompare(b.projectId) || (Number(a.key.replace(/\D/g, '')) || 0) - (Number(b.key.replace(/\D/g, '')) || 0))
+    const status = statusOf(requirements.map((r) => r.result))
+    const opportunity = status === 'not_addressed' && t.category !== 'delight' && (c.projects >= 2 || c.participants >= 3)
+    return { id: t.id, title: t.title, category: t.category, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements, sources }
   })
+  // Reach first: raised in the most projects, then by the most people.
+  themes.sort((a, b) => b.projectCount - a.projectCount || b.participantCount - a.participantCount || a.title.localeCompare(b.title))
   const recommendations: Recommendation[] = recRows.rows.map((r) => {
     const linked = recLinks.rows.filter((l) => l.recommendation_id === r.id)
     const c = count(linked.map((l) => l.theme_id))
     return { id: r.id, title: r.title, why: r.why ?? null, priority: r.priority, themes: linked.map((l) => ({ id: l.theme_id, title: l.title })), participantCount: c.participants, projectCount: c.projects }
   })
-  return { projects, totalParticipants: projects.reduce((n, p) => n + p.participants, 0), themes, recommendations }
+  const summary = {
+    recurring: themes.filter((t) => t.projectCount >= 2 && t.category !== 'delight').length,
+    opportunities: themes.filter((t) => t.opportunity).length,
+    needsAttention: themes.filter((t) => t.status === 'needs_attention').length,
+    worked: themes.filter((t) => t.status === 'worked').length,
+  }
+  return { projects, totalParticipants: projects.reduce((n, p) => n + p.participants, 0), summary, themes, recommendations }
 }
 
 const QUOTES_PER_PROJECT = 3

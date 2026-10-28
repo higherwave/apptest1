@@ -898,6 +898,16 @@ export interface components {
                 participants: number;
             }[];
             totalParticipants: number;
+            /** @description Counts for the cards above the list. */
+            summary: {
+                /** @description Pain points, needs and expectations raised in two or more projects. */
+                recurring: number;
+                /** @description Themes raised again and again that no requirement addresses. */
+                opportunities: number;
+                needsAttention: number;
+                worked: number;
+            };
+            /** @description Ranked by reach, widest first (most projects, then most participants). */
             themes: {
                 /** Format: uuid */
                 id: string;
@@ -906,6 +916,26 @@ export interface components {
                 category: "pain_point" | "need" | "expectation" | "delight";
                 participantCount: number;
                 projectCount: number;
+                /**
+                 * @description What became of it. not_addressed means no requirement was written; the rest follow the newest finding on its requirements (needs_attention beats worked beats too_early; in_progress means a requirement with no finding yet).
+                 * @enum {string}
+                 */
+                status: "not_addressed" | "in_progress" | "too_early" | "worked" | "needs_attention";
+                /**
+                 * @description How its reach changed between projects, null when there is only one project.
+                 * @enum {string|null}
+                 */
+                trend: "new" | "growing" | "steady" | "fading" | null;
+                /** @description Not addressed, not a delight, and raised in two or more projects or by three or more people. */
+                opportunity: boolean;
+                requirements: {
+                    key: string;
+                    title: string;
+                    /** Format: uuid */
+                    projectId: string;
+                    /** @enum {string|null} */
+                    result: "worked" | "needs_attention" | "too_early" | null;
+                }[];
                 sources: {
                     /** Format: uuid */
                     projectId: string;

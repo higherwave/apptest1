@@ -1552,15 +1552,17 @@ test('Insights themes: three analysed projects, 13 participants, themes in the c
   assert.deepEqual(body.projects.map((p: any) => [p.name, p.participants]), [['Clinic booking, usability round 1', 3], ['Clinic booking, round 2', 4], ['Check-in diary study', 6]])
   assert.equal(body.totalParticipants, 13)
   assert.equal(body.totalParticipants, (await pg.query<any>(`select participant_count::int n from insights.workspace_stats`)).rows[0].n, 'agrees with the database view')
+  // Ranked by reach: the most projects first, then the most participants.
   assert.deepEqual(body.themes.map((t: any) => [t.title, t.participantCount, t.projectCount]), [
     ['Provider availability is hard to see', 11, 3],
-    ['Insurance coverage is unclear up front', 6, 2],
-    ['People expect to reschedule without calling', 10, 3],
     ['A prep checklist before the visit is valued', 10, 3],
+    ['People expect to reschedule without calling', 10, 3],
+    ['Insurance coverage is unclear up front', 6, 2],
     ['Fees appear late at checkout', 4, 2],
   ])
   for (const t of body.themes) assert.equal(t.participantCount, t.sources.reduce((n: number, s: any) => n + s.participantCount, 0))
   assert.deepEqual(body.themes[0].sources.map((s: any) => s.participantCount), [3, 3, 5])
+  assert.deepEqual(body.summary, { recurring: 4, opportunities: 2, needsAttention: 0, worked: 0 })
   assert.deepEqual(body.recommendations.map((r: any) => [r.priority, r.themes.length, r.participantCount, r.projectCount]), [['high', 2, 12, 3], ['high', 2, 7, 2], ['high', 1, 10, 3], ['medium', 1, 10, 3]])
   assert.match(body.recommendations[0].title, /live provider availability/)
 })
@@ -1856,4 +1858,42 @@ test('a project counts the requirements that have a measurement (a metric or a f
   assert.equal((await save('R2', { checkins: [{ on: '2026-11-01', value: 'Seen', verdict: 'worked', note: null }] })).status, 200)
   assert.equal((await save('R3', { checkins: [] })).status, 200, 'saved with nothing in it')
   assert.equal(await count(), 2)
+})
+
+test('themes say what became of them: not addressed (an opportunity when it keeps coming up), in progress, then the newest finding', async () => {
+  const { app, titled, d, ws } = await insightsFixture()
+  const row = async (t: string) => titled(t)
+  const availability = await row('Provider availability is hard to see')
+  assert.deepEqual([availability.status, availability.opportunity, availability.requirements.length], ['not_addressed', true, 0])
+  const fees = await row('Fees appear late at checkout')
+  assert.equal(fees.status, 'in_progress')
+  assert.deepEqual(fees.requirements.map((r: any) => [r.key, r.result]), [['R3', null]])
+  assert.equal(fees.opportunity, false, 'it has a requirement')
+  const prep = await row('A prep checklist before the visit is valued')
+  assert.equal(prep.opportunity, false, 'a delight is never an opportunity')
+  // A finding on the fees requirement moves it on; the newest one counts.
+  const story = (await d.query(`select st.id from delivery.stories st join delivery.specs sp on sp.id = st.spec_id where sp.project_id = $1 and st.key = $2`, [fees.requirements[0].projectId, fees.requirements[0].key])).rows[0] as { id: string }
+  const save = async (verdicts: string[]) => {
+    await d.query(`delete from delivery.success_measures where story_id = $1`, [story.id])
+    const checkins = verdicts.map((v, i) => ({ on: `2026-11-0${i + 1}`, value: 'x', verdict: v, note: null }))
+    await d.query(`insert into delivery.success_measures (workspace_id, story_id, checkins) values ($1, $2, $3::jsonb)`, [ws, story.id, JSON.stringify(checkins)])
+  }
+  await save(['too_early'])
+  assert.equal((await row('Fees appear late at checkout')).status, 'too_early')
+  await save(['too_early', 'worked'])
+  assert.equal((await row('Fees appear late at checkout')).status, 'worked')
+  await save(['worked', 'needs_attention'])
+  const after = await app.request('/api/v1/insights/themes')
+  const body = await expectSpec(after, '/insights/themes')
+  assert.equal(body.themes.find((t: any) => t.title === 'Fees appear late at checkout').status, 'needs_attention')
+  assert.deepEqual([body.summary.needsAttention, body.summary.worked], [1, 0])
+})
+
+test('a theme’s trend compares its share of participants in the newest project with the earlier ones', async () => {
+  const { overview } = await insightsFixture()
+  const body = await overview()
+  const trend = Object.fromEntries(body.themes.map((t: any) => [t.title, t.trend]))
+  // Raised in every project, so none is "new"; the diary study has more people, which dilutes most shares.
+  assert.ok(Object.values(trend).every((v) => ['growing', 'steady', 'fading'].includes(v as string)), JSON.stringify(trend))
+  assert.equal(trend['Provider availability is hard to see'], 'steady')
 })

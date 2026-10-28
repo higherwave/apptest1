@@ -634,6 +634,17 @@ try {
   await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, second.title)
   ok('picking a theme shows where it comes from, with quotes', (await page.$$eval('aside[aria-label="Where this comes from"] blockquote', (q) => q.length)) >= 1 && (await text()).includes(`Raised by ${second.participantCount} of ${insights.totalParticipants} participants`))
   ok('the choice is in the address, so it can be shared', await page.evaluate((id) => location.search === `?theme=${id}`, second.id))
+  ok('a theme row shows what became of it and how its reach is moving', await page.evaluate((rows) => rows.every((t) => { const r = document.querySelector(`[data-testid="platform-theme-${t.id}"]`).innerText; const label = { not_addressed: 'Not addressed', in_progress: 'In progress', too_early: 'Too early to tell', worked: 'Worked', needs_attention: 'Needs attention' }[t.status]; return r.includes(label) && (!t.opportunity || r.includes('Opportunity')) }), insights.themes))
+  ok('the panel says what happened to the selected theme', await page.evaluate(() => !!document.querySelector('aside[aria-label="Where this comes from"] [data-testid="what-happened"]')))
+  const cardCount = await page.evaluate(() => document.querySelectorAll('section[aria-label="What the themes add up to"] button').length)
+  ok('four counts sit above the list: recurring pain points, opportunities, needs attention, worked', cardCount === 4)
+  if (insights.summary.opportunities > 0) {
+    await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('Opportunities')).click())
+    await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.summary.opportunities)
+    ok('picking Opportunities lists only the themes nobody has written a requirement for', true)
+    await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('Opportunities')).click())
+    await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.themes.length)
+  }
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a, [data-label]')].find((a) => a.dataset.label === 'Case studies').click())
   await page.waitForSelector('[data-testid="case-study"]')
   const cases = (await (await fetch(`${API}/api/v1/insights/case-studies`)).json()).data

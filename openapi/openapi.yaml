@@ -1214,7 +1214,7 @@ components:
           items: { $ref: '#/components/schemas/ChecklistItem' }
     InsightsThemes:
       type: object
-      required: [projects, totalParticipants, themes, recommendations]
+      required: [projects, totalParticipants, summary, themes, recommendations]
       properties:
         projects:
           type: array
@@ -1228,17 +1228,48 @@ components:
               color: { type: string }
               participants: { type: integer }
         totalParticipants: { type: integer }
+        summary:
+          type: object
+          description: Counts for the cards above the list.
+          required: [recurring, opportunities, needsAttention, worked]
+          properties:
+            recurring: { type: integer, description: 'Pain points, needs and expectations raised in two or more projects.' }
+            opportunities: { type: integer, description: Themes raised again and again that no requirement addresses. }
+            needsAttention: { type: integer }
+            worked: { type: integer }
         themes:
           type: array
+          description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, participantCount, projectCount, sources]
+            required: [id, title, category, participantCount, projectCount, status, trend, opportunity, requirements, sources]
             properties:
               id: { type: string, format: uuid }
               title: { type: string }
               category: { type: string, enum: [pain_point, need, expectation, delight] }
               participantCount: { type: integer }
               projectCount: { type: integer }
+              status:
+                type: string
+                enum: [not_addressed, in_progress, too_early, worked, needs_attention]
+                description: What became of it. not_addressed means no requirement was written; the rest follow the newest finding on its requirements (needs_attention beats worked beats too_early; in_progress means a requirement with no finding yet).
+              trend:
+                type: [string, 'null']
+                enum: [new, growing, steady, fading, null]
+                description: How its reach changed between projects, null when there is only one project.
+              opportunity: { type: boolean, description: 'Not addressed, not a delight, and raised in two or more projects or by three or more people.' }
+              requirements:
+                type: array
+                items:
+                  type: object
+                  required: [key, title, projectId, result]
+                  properties:
+                    key: { type: string }
+                    title: { type: string }
+                    projectId: { type: string, format: uuid }
+                    result:
+                      type: [string, 'null']
+                      enum: [worked, needs_attention, too_early, null]
               sources:
                 type: array
                 items:
