@@ -1360,7 +1360,7 @@ export interface components {
         Checkin: {
             /** @description The day of the check-in, YYYY-MM-DD. */
             on: string;
-            /** @description What was seen, in words or numbers. */
+            /** @description What was seen, in words or numbers; it can run to a few sentences. */
             value: string;
             /** @enum {string} */
             verdict: "worked" | "needs_attention" | "too_early";

@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp, Close } from '@carbon/icons-react'
-import { Button, Dropdown, InlineNotification, Loading, Tag, TextInput } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, Loading, Tag, TextArea, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import type { Checkin, Measure, MeasureItem, MeasureRequest } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
@@ -60,7 +60,6 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
   const [on, setOn] = useState(today())
   const [value, setValue] = useState('')
   const [verdict, setVerdict] = useState<Verdict>('too_early')
-  const [note, setNote] = useState('')
   const body = (extra: Partial<MeasureRequest> = {}): MeasureRequest => ({
     metric: clean(metric), source: item.source, baseline: clean(baseline), target: clean(target), checkins: item.checkins, ...extra,
   })
@@ -69,12 +68,11 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
   }
   const add = () => {
     if (!value.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(on)) return
-    const next: Checkin = { on, value: value.trim(), verdict, note: clean(note) }
+    const next: Checkin = { on, value: value.trim(), verdict, note: null }
     // Kept oldest first; a check-in on the same day as another goes after it.
     const checkins = [...item.checkins, next].map((c, i) => ({ c, i })).sort((a, b) => (a.c.on === b.c.on ? a.i - b.i : a.c.on < b.c.on ? -1 : 1)).map((x) => x.c)
     void onSave(item.storyId, body({ checkins }))
     setValue('')
-    setNote('')
   }
   const newestFirst = [...item.checkins].map((c, i) => ({ c, i })).reverse()
 
@@ -139,8 +137,9 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
                   onChange={({ selectedItem }) => selectedItem && setVerdict(selectedItem.key)}
                 />
               </div>
-              <TextInput id={`measure-value-${item.key}`} labelText="What did you see?" placeholder="For example: 55 a week" value={value} onChange={(e) => setValue(e.target.value)} />
-              <TextInput id={`measure-note-${item.key}`} labelText="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+              <div className={styles.valueCell}>
+                <TextArea id={`measure-value-${item.key}`} labelText="What did you see?" placeholder="For example: calls about fees fell to 55 a week, and the support team says the questions are easier" rows={5} maxCount={2000} enableCounter={false} value={value} onChange={(e) => setValue(e.target.value)} />
+              </div>
               <Button kind="secondary" size="sm" type="submit" disabled={!value.trim()}>
                 Add check-in
               </Button>
@@ -157,7 +156,7 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
                     <div className={styles.checkinLine}>
                       <span className={styles.day}>{dayLabel(c.on)}</span>
                       <Tag size="sm" type={v.tag}>{v.label}</Tag>
-                      <span className={styles.seen}>{c.value}</span>
+                      <span className={styles.seen} title={c.note ? `${c.value}\n\n${c.note}` : c.value}>{c.value}</span>
                       {canEdit && (
                         <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove the ${dayLabel(c.on)} check-in`} tooltipPosition="left" onClick={() => void onSave(item.storyId, body({ checkins: item.checkins.filter((_, j) => j !== i) }))} />
                       )}
@@ -216,8 +215,29 @@ function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory }: 
 export function MeasureView(props: MeasureViewProps) {
   const { state, measure, canEdit, saving, savedAt, errorText } = props
   const [opened, setOpened] = useState<Set<string>>(new Set())
+  // A result picked from the counts: only those requirements are listed, all opened. Picking it again shows everything, folded.
+  const [only, setOnly] = useState<Verdict | 'none' | null>(null)
   const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const s = measure?.summary
+  const shown = measure ? (only ? measure.items.filter((i) => (only === 'none' ? !i.result : i.result === only)) : measure.items) : []
+  const pick = (next: Verdict | 'none') => {
+    if (!measure) return
+    if (only === next) {
+      setOnly(null)
+      setOpened(new Set())
+    } else {
+      setOnly(next)
+      setOpened(new Set(measure.items.filter((i) => (next === 'none' ? !i.result : i.result === next)).map((i) => i.storyId)))
+    }
+  }
+  const STATS: { key: Verdict | 'none'; label: string; n: number }[] = s
+    ? [
+        { key: 'worked', label: 'Worked', n: s.worked },
+        { key: 'needs_attention', label: 'Needs attention', n: s.needsAttention },
+        { key: 'too_early', label: 'Too early to tell', n: s.tooEarly },
+        { key: 'none', label: 'Not measured yet', n: s.notMeasured },
+      ]
+    : []
 
   return (
     <div className={styles.page}>
@@ -247,22 +267,24 @@ export function MeasureView(props: MeasureViewProps) {
       {state === 'ready' && measure && s && (
         <>
           <section className={styles.summary} aria-label="Results so far">
-            <div className={styles.stat} data-kind="worked"><span className={styles.num}>{s.worked}</span><span>Worked</span></div>
-            <div className={styles.stat} data-kind="needs_attention"><span className={styles.num}>{s.needsAttention}</span><span>Needs attention</span></div>
-            <div className={styles.stat} data-kind="too_early"><span className={styles.num}>{s.tooEarly}</span><span>Too early to tell</span></div>
-            <div className={styles.stat} data-kind="none"><span className={styles.num}>{s.notMeasured}</span><span>Not measured yet</span></div>
+            {STATS.map((x) => (
+              <Button key={x.key} kind="ghost" size="md" className={styles.stat} data-kind={x.key} aria-pressed={only === x.key} disabled={x.n === 0 && only !== x.key} onClick={() => pick(x.key)}>
+                <span className={styles.num}>{x.n}</span>
+                <span>{x.label}</span>
+              </Button>
+            ))}
           </section>
           {measure.items.length === 0 ? (
             <p className={styles.muted}>This document has no requirements, only open questions, so there is nothing to measure yet.</p>
           ) : (
             <>
               <div className={styles.listTools}>
-                <Button kind="ghost" size="sm" onClick={() => setOpened(opened.size === measure.items.length ? new Set() : new Set(measure.items.map((i) => i.storyId)))}>
-                  {opened.size === measure.items.length ? 'Collapse all' : 'Expand all'}
+                <Button kind="ghost" size="sm" onClick={() => setOpened(shown.every((i) => opened.has(i.storyId)) ? new Set() : new Set(shown.map((i) => i.storyId)))}>
+                  {shown.every((i) => opened.has(i.storyId)) ? 'Collapse all' : 'Expand all'}
                 </Button>
               </div>
               <ul className={styles.list} aria-label="Requirements and their measures">
-                {measure.items.map((item) => (
+                {shown.map((item) => (
                   <Row key={item.storyId} item={item} projectId={measure.projectId} canEdit={canEdit} open={opened.has(item.storyId)} onToggle={() => toggle(item.storyId)} onSave={props.onSave} onViewStory={props.onViewStory} />
                 ))}
               </ul>

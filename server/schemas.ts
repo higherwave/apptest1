@@ -146,7 +146,7 @@ export const measureSchema = z.object({
     .array(
       z.object({
         on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the format YYYY-MM-DD.'),
-        value: text(200),
+        value: text(2000),
         verdict: z.enum(['worked', 'needs_attention', 'too_early']),
         note: optionalText(1000),
       }),

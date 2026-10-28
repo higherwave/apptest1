@@ -62,11 +62,23 @@
   @include tokens.role('body-md');
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
   gap: var(--at-space-xxs);
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
   padding: var(--at-space-md) var(--at-space-lg);
+  border: 0.125rem solid transparent;
   border-radius: var(--at-radius-lg);
   background: var(--at-surface-soft);
   color: var(--at-body);
+  text-align: start;
+
+  &:hover { background: var(--at-surface-strong); }
+  &[aria-pressed='true'] { border-color: var(--at-ink); }
+  &:disabled { opacity: 0.6; }
 
   &[data-kind='worked'] { background: var(--at-tint-mint); }
   &[data-kind='needs_attention'] { background: var(--at-tint-coral); }
@@ -219,9 +231,40 @@
 
 .seen {
   @include tokens.role('body-md');
-  flex: 1;
-  color: var(--at-ink);
+  flex: 1 1 8rem;
   min-inline-size: 0;
+  color: var(--at-ink);
+  // One line; the full text is in the tooltip.
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// The "what did you see" box takes the next two rows, so its edges line up with the fields beside it.
+.valueCell {
+  grid-row: span 2;
+  display: flex;
+  flex-direction: column;
+
+  > :global(.cds--form-item),
+  :global(.cds--text-area__wrapper) {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-block-size: 0;
+  }
+
+  textarea {
+    flex: 1;
+    block-size: 100%;
+    min-block-size: 6rem;
+    resize: none;
+  }
+
+  @media (max-width: 64rem) {
+    grid-row: auto;
+    inline-size: 100%;
+  }
 }
 
 .noteText {

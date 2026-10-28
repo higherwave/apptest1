@@ -1828,7 +1828,7 @@ components:
       required: [on, value, verdict, note]
       properties:
         on: { type: string, description: 'The day of the check-in, YYYY-MM-DD.' }
-        value: { type: string, description: 'What was seen, in words or numbers.' }
+        value: { type: string, maxLength: 2000, description: 'What was seen, in words or numbers; it can run to a few sentences.' }
         verdict: { type: string, enum: [worked, needs_attention, too_early] }
         note: { type: [string, 'null'] }
     MeasureItem:
