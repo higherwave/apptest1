@@ -51,8 +51,8 @@ function ResultTag({ result }: { result: MeasureItem['result'] }) {
   )
 }
 
-// Opened: how we will know it worked on the left, the check-ins made since on the right. The text fields save when they are left,
-// if they changed; the source, and adding or removing a check-in, save as soon as they are chosen.
+// Opened: how we will know it worked on the left, the findings recorded since on the right. The text fields save when they are left,
+// if they changed; the source, and adding or removing a finding, save as soon as they are chosen.
 function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: MeasureItem; projectId: string; canEdit: boolean; onSave: MeasureViewProps['onSave']; onViewStory: MeasureViewProps['onViewStory'] }) {
   const [metric, setMetric] = useState(item.metric ?? '')
   const [baseline, setBaseline] = useState(item.baseline ?? '')
@@ -69,7 +69,7 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
   const add = () => {
     if (!value.trim() || !/^\d{4}-\d{2}-\d{2}$/.test(on)) return
     const next: Checkin = { on, value: value.trim(), verdict, note: null }
-    // Kept oldest first; a check-in on the same day as another goes after it.
+    // Kept oldest first; a finding on the same day as another goes after it.
     const checkins = [...item.checkins, next].map((c, i) => ({ c, i })).sort((a, b) => (a.c.on === b.c.on ? a.i - b.i : a.c.on < b.c.on ? -1 : 1)).map((x) => x.c)
     void onSave(item.storyId, body({ checkins }))
     setValue('')
@@ -82,6 +82,33 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
         <ClampedBlock label={`why ${item.key} matters`}>
           <p className={styles.why}>{item.whyItMatters ?? item.summary}</p>
         </ClampedBlock>
+      )}
+
+      {item.checkins.length > 0 && (
+        <section className={styles.findings} data-result={item.result} aria-label={`Result for ${item.key}`}>
+          <div className={styles.findingsHead}>
+            <h4 className={styles.colHead}>Findings</h4>
+            <ResultTag result={item.result} />
+          </div>
+            <ul className={styles.checkins} aria-label={`Findings for ${item.key}`}>
+              {newestFirst.map(({ c, i }) => {
+                const v = VERDICTS.find((x) => x.key === c.verdict)!
+                return (
+                  <li key={`${c.on}-${i}`} className={styles.checkin}>
+                    <div className={styles.checkinLine}>
+                      <span className={styles.day}>{dayLabel(c.on)}</span>
+                      <Tag size="sm" type={v.tag}>{v.label}</Tag>
+                      <span className={styles.seen} title={c.note ? `${c.value}\n\n${c.note}` : c.value}>{c.value}</span>
+                      {canEdit && (
+                        <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove the ${dayLabel(c.on)} finding`} tooltipPosition="left" onClick={() => void onSave(item.storyId, body({ checkins: item.checkins.filter((_, j) => j !== i) }))} />
+                      )}
+                    </div>
+                    {c.note && <p className={styles.noteText}>{c.note}</p>}
+                  </li>
+                )
+              })}
+            </ul>
+        </section>
       )}
 
       <div className={styles.split}>
@@ -114,12 +141,12 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
         </div>
 
         <div className={styles.cell}>
-          <h4 className={styles.colHead}>Check-ins</h4>
+          <h4 className={styles.colHead}>Add a finding</h4>
           <p className={styles.muted}>Record what you see after launch, and whether it worked</p>
           {canEdit && (
             <form
               className={styles.add}
-              aria-label={`Add a check-in for ${item.key}`}
+              aria-label={`Add a finding for ${item.key}`}
               onSubmit={(e) => {
                 e.preventDefault()
                 add()
@@ -141,32 +168,11 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Meas
                 <TextArea id={`measure-value-${item.key}`} labelText="What did you see?" placeholder="For example: calls about fees fell to 55 a week, and the support team says the questions are easier" rows={5} maxCount={2000} enableCounter={false} value={value} onChange={(e) => setValue(e.target.value)} />
               </div>
               <Button kind="secondary" size="sm" type="submit" disabled={!value.trim()}>
-                Add check-in
+                Add finding
               </Button>
             </form>
           )}
-          {item.checkins.length === 0 ? (
-            <p className={styles.muted}>No check-ins yet.</p>
-          ) : (
-            <ul className={styles.checkins} aria-label={`Check-ins for ${item.key}`}>
-              {newestFirst.map(({ c, i }) => {
-                const v = VERDICTS.find((x) => x.key === c.verdict)!
-                return (
-                  <li key={`${c.on}-${i}`} className={styles.checkin}>
-                    <div className={styles.checkinLine}>
-                      <span className={styles.day}>{dayLabel(c.on)}</span>
-                      <Tag size="sm" type={v.tag}>{v.label}</Tag>
-                      <span className={styles.seen} title={c.note ? `${c.value}\n\n${c.note}` : c.value}>{c.value}</span>
-                      {canEdit && (
-                        <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove the ${dayLabel(c.on)} check-in`} tooltipPosition="left" onClick={() => void onSave(item.storyId, body({ checkins: item.checkins.filter((_, j) => j !== i) }))} />
-                      )}
-                    </div>
-                    {c.note && <p className={styles.noteText}>{c.note}</p>}
-                  </li>
-                )
-              })}
-            </ul>
-          )}
+          {!canEdit && item.checkins.length === 0 && <p className={styles.muted}>No findings yet.</p>}
         </div>
       </div>
 
@@ -198,7 +204,7 @@ function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory }: 
             <span className={styles.status}>
               {item.checkins.length > 0 && (
                 <span className={styles.count}>
-                  {item.checkins.length} {item.checkins.length === 1 ? 'check-in' : 'check-ins'}
+                  {item.checkins.length} {item.checkins.length === 1 ? 'finding' : 'findings'}
                 </span>
               )}
               <ResultTag result={item.result} />
@@ -211,7 +217,7 @@ function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory }: 
   )
 }
 
-// Presentational: the requirements of the published document with how each will be measured and what the check-ins have shown.
+// Presentational: the requirements of the published document with how each will be measured and what the findings have shown.
 export function MeasureView(props: MeasureViewProps) {
   const { state, measure, canEdit, saving, savedAt, errorText } = props
   const [opened, setOpened] = useState<Set<string>>(new Set())

@@ -199,6 +199,26 @@
   gap: var(--at-space-md);
 }
 
+.findings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+
+  &[data-result='worked'] { background: var(--at-tint-mint); border-color: transparent; }
+  &[data-result='needs_attention'] { background: var(--at-tint-coral); border-color: transparent; }
+  &[data-result='too_early'] { background: var(--at-tint-cream); border-color: transparent; }
+}
+
+.findingsHead {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
 .checkins {
   display: flex;
   flex-direction: column;
