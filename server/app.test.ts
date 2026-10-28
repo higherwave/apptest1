@@ -1916,3 +1916,22 @@ test('customer profiles group participants by the start of their role, with what
   // Nobody is counted in two groups.
   assert.equal(body.groups.reduce((n: number, g: any) => n + g.participantCount, 0), body.totalParticipants)
 })
+
+test('the platform journey folds every project’s stages into one, with each theme in the stage most studies placed it in', async () => {
+  const { app } = await insightsFixture()
+  const res = await app.request('/api/v1/insights/journey')
+  const body = await expectSpec(res, '/insights/journey')
+  assert.match(res.headers.get('cache-control') ?? '', /public/)
+  assert.equal(body.projectCount, 3)
+  assert.deepEqual(body.stages.map((s: any) => s.name), ['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'])
+  assert.ok(body.stages.every((s: any) => s.projectCount === 3))
+  const find = body.stages[0]
+  assert.deepEqual(find.themes.map((t: any) => t.title).sort(), ['Insurance coverage is unclear up front', 'Provider availability is hard to see'])
+  assert.equal(find.opportunities, 2)
+  assert.ok(find.sentiment < -0.5, 'finding a provider feels very negative')
+  assert.equal(body.stages[1].sentiment, null, 'no themes, so no feeling')
+  // Each platform theme appears once, in one stage.
+  const all = body.stages.flatMap((s: any) => s.themes.map((t: any) => t.id))
+  assert.equal(new Set(all).size, all.length)
+  assert.equal(all.length, 5)
+})

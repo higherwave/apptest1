@@ -167,6 +167,8 @@ export type PlatformThemeDetail = components['schemas']['PlatformThemeDetail']
 export type CaseStudy = components['schemas']['CaseStudy']
 export type Customers = components['schemas']['Customers']
 export const getCustomers = () => request<Customers>('/insights/customers')
+export type PlatformJourney = components['schemas']['PlatformJourney']
+export const getPlatformJourney = () => request<PlatformJourney>('/insights/journey')
 export const getInsightsThemes = () => request<InsightsThemes>('/insights/themes')
 export const getPlatformTheme = (id: string) => request<PlatformThemeDetail>(`/insights/themes/${id}`)
 export const listCaseStudies = () => request<{ data: CaseStudy[] }>('/insights/case-studies').then((r) => r.data)

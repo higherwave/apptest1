@@ -20,6 +20,7 @@ import {
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { getCustomers } from './customers.js'
+import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
@@ -577,6 +578,11 @@ export function createApp(options: AppOptions = {}) {
   })
   app.get('/insights/customers', withReadContext, async (c) => {
     const body = await getCustomers(getDb(), c.get('ctx').workspaceId)
+    cacheHeaders(c)
+    return c.json(body)
+  })
+  app.get('/insights/journey', withReadContext, async (c) => {
+    const body = await getPlatformJourney(getDb(), c.get('ctx').workspaceId)
     cacheHeaders(c)
     return c.json(body)
   })

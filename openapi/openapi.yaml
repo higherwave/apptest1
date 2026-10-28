@@ -801,6 +801,20 @@ paths:
               schema: { $ref: '#/components/schemas/Customers' }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/journey:
+    get:
+      operationId: getPlatformJourney
+      summary: >
+        The platform journey: every analysed project's journey map folded into one. Stages with the same name are one stage, in the order
+        they come along the path; each platform theme sits in the stage most of its project themes were placed in. Open to read as the viewer.
+      responses:
+        '200':
+          description: The stages.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformJourney' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/case-studies:
     get:
       operationId: listCaseStudies
@@ -1364,6 +1378,36 @@ components:
                     projectId: { type: string, format: uuid }
                     themeTitle: { type: string }
               opportunities: { type: integer, description: How many of the themes they raised are opportunities. }
+    PlatformJourney:
+      type: object
+      required: [projectCount, stages]
+      properties:
+        projectCount: { type: integer, description: Analysed projects folded in. }
+        stages:
+          type: array
+          items:
+            type: object
+            required: [name, projectCount, sentiment, themes, opportunities]
+            properties:
+              name: { type: string }
+              projectCount: { type: integer, description: Projects whose journey map has this stage. }
+              sentiment:
+                type: [number, 'null']
+                description: The mean severity of the themes placed here, -1 (very negative) to 1 (very positive); null when none has one.
+              themes:
+                type: array
+                items:
+                  type: object
+                  required: [id, title, category, participantCount, projectCount, status, opportunity]
+                  properties:
+                    id: { type: string, format: uuid }
+                    title: { type: string }
+                    category: { type: string, enum: [pain_point, need, expectation, delight] }
+                    participantCount: { type: integer }
+                    projectCount: { type: integer }
+                    status: { type: string, enum: [not_addressed, in_progress, too_early, worked, needs_attention] }
+                    opportunity: { type: boolean }
+              opportunities: { type: integer }
     PlatformThemeDetail:
       type: object
       required: [id, title, category, participantCount, totalParticipants, projectCount, totalProjects, sources]

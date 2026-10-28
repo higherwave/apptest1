@@ -6,7 +6,7 @@ import { MembersPage } from './pages/members/MembersPage'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
 import { InsightThemesPage } from './pages/insights/InsightThemesPage'
-import { OnboardingPage } from './pages/insights/OnboardingPage'
+import { PlatformJourneyPage } from './pages/insights/PlatformJourneyPage'
 import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
 import { StoriesPage } from './pages/stories/StoriesPage'
@@ -49,7 +49,8 @@ export function App() {
         <Route path="insights/themes" element={<InsightThemesPage />} />
         <Route path="insights/customers" element={<CustomersPage />} />
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
-        <Route path="insights/onboarding" element={<OnboardingPage />} />
+        <Route path="insights/journey" element={<PlatformJourneyPage />} />
+        <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />
         <Route path="insights/:section" element={<Placeholder />} />
         <Route path="*" element={<Placeholder title="Page not found" />} />
       </Route>

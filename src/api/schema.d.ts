@@ -605,6 +605,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/journey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The platform journey: every analysed project's journey map folded into one. Stages with the same name are one stage, in the order they come along the path; each platform theme sits in the stage most of its project themes were placed in. Open to read as the viewer. */
+        get: operations["getPlatformJourney"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/case-studies": {
         parameters: {
             query?: never;
@@ -1014,6 +1031,30 @@ export interface components {
                     themeTitle: string;
                 }[];
                 /** @description How many of the themes they raised are opportunities. */
+                opportunities: number;
+            }[];
+        };
+        PlatformJourney: {
+            /** @description Analysed projects folded in. */
+            projectCount: number;
+            stages: {
+                name: string;
+                /** @description Projects whose journey map has this stage. */
+                projectCount: number;
+                /** @description The mean severity of the themes placed here, -1 (very negative) to 1 (very positive); null when none has one. */
+                sentiment: number | null;
+                themes: {
+                    /** Format: uuid */
+                    id: string;
+                    title: string;
+                    /** @enum {string} */
+                    category: "pain_point" | "need" | "expectation" | "delight";
+                    participantCount: number;
+                    projectCount: number;
+                    /** @enum {string} */
+                    status: "not_addressed" | "in_progress" | "too_early" | "worked" | "needs_attention";
+                    opportunity: boolean;
+                }[];
                 opportunities: number;
             }[];
         };
@@ -2760,6 +2801,28 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Customers"];
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getPlatformJourney: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The stages. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformJourney"];
                 };
             };
             401: components["responses"]["Error"];
