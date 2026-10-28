@@ -2002,3 +2002,20 @@ test('the same requirement written in several projects is one, with how many wro
   ])
   assert.deepEqual(distinctRequirements([]), [])
 })
+
+test('every analysed project has a brief with a one-line outcome that follows what has been measured', async () => {
+  const { app, p1, send } = await boardFixture()
+  const list = async () => (await expectSpec(await app.request('/api/v1/insights/case-briefs'), '/insights/case-briefs')).data
+  const first = await list()
+  assert.ok(first.length >= 3)
+  const mine = () => list().then((l: any[]) => l.find((b) => b.projectId === p1))
+  assert.match((await mine()).outcome, /7 requirements decided\. Nothing measured yet\./)
+  const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
+  const r3 = items.find((i: any) => i.key === 'R3')
+  await send(app, 'PUT', `/stories/${r3.storyId}/measure`, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [] }, 0)
+  assert.match((await mine()).outcome, /Measuring Calls about fees, goal 60 a week/)
+  await send(app, 'PUT', `/stories/${r3.storyId}/measure`, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-12-01', value: '55 a week', verdict: 'worked', note: null }] }, 1)
+  assert.equal((await mine()).outcome, 'Calls about fees: 120 a week → 55 a week (worked)')
+  const noDoc = first.find((b: any) => b.decisions === null)
+  assert.match(noDoc.outcome, /themes? from \d+ sessions?\. No requirements published yet\./)
+})

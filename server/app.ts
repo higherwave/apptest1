@@ -19,7 +19,7 @@ import {
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
-import { getCaseBrief } from './case-briefs.js'
+import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
@@ -584,6 +584,11 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json(brief)
+  })
+  app.get('/insights/case-briefs', withReadContext, async (c) => {
+    const data = await listCaseBriefs(getDb(), c.get('ctx').workspaceId)
+    cacheHeaders(c)
+    return c.json({ data })
   })
   app.get('/insights/customers', withReadContext, async (c) => {
     const body = await getCustomers(getDb(), c.get('ctx').workspaceId)

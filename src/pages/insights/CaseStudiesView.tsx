@@ -1,20 +1,15 @@
-import { Button, Dropdown, InlineNotification, Loading, Tag, TextArea, Tile } from '@carbon/react'
+import { ChevronDown, ChevronUp } from '@carbon/icons-react'
+import { Button, InlineNotification, Loading, Tag, TextArea } from '@carbon/react'
 import { useState } from 'react'
-import type { CaseBrief, CaseStudy, InsightsThemes } from '../../api/client'
+import type { CaseBrief, CaseStudy } from '../../api/client'
 import { InsightsHeader } from './InsightsHeader'
 import styles from './CaseStudiesView.module.scss'
 
 export type CaseStudiesViewProps = {
   state: 'loading' | 'error' | 'empty' | 'ready'
   cases: CaseStudy[]
+  briefs: CaseBrief[]
   errorText?: string
-  /** The analysed projects a brief can be made from. */
-  projects: InsightsThemes['projects']
-  projectId: string | null
-  brief?: CaseBrief
-  briefLoading: boolean
-  briefFailed: boolean
-  onPickProject: (id: string | null) => void
   /** Puts text on the clipboard; false when the browser would not. */
   onCopy: (text: string) => Promise<boolean>
   onOpenTheme: (id: string) => void
@@ -24,46 +19,72 @@ export type CaseStudiesViewProps = {
 const monthYear = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '')
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 const RESULT = { worked: 'Worked', needs_attention: 'Needs attention', too_early: 'Too early to tell' } as const
+const PROMPT_HINT = 'Copy a prompt to paste into an AI tool such as Claude Design, which can use it to build a PPTX deck for this case study.'
 
-// A button that puts a prompt on the clipboard and says so; if the browser refuses, the prompt is shown to copy by hand.
-function CopyPrompt({ prompt, label, onCopy, id }: { prompt: string; label: string; onCopy: CaseStudiesViewProps['onCopy']; id: string }) {
+// The row's Copy prompt button, with a hover tooltip saying what the prompt is for. If the browser refuses the clipboard, the prompt is shown to copy by hand.
+function CopyPrompt({ prompt, onCopy, id }: { prompt: string; onCopy: CaseStudiesViewProps['onCopy']; id: string }) {
   const [done, setDone] = useState<'copied' | 'failed' | null>(null)
   return (
     <div className={styles.copy}>
       <Button
         kind="secondary"
         size="sm"
+        title={PROMPT_HINT}
         onClick={async () => {
           setDone((await onCopy(prompt)) ? 'copied' : 'failed')
         }}
       >
-        {label}
+        Copy prompt
       </Button>
       <span className={styles.copyNote} role="status">
-        {done === 'copied' && 'Copied. Paste it into Claude Design or another AI tool.'}
+        {done === 'copied' && 'Copied'}
       </span>
-      {done === 'failed' && <TextArea id={id} labelText="Select and copy this prompt" rows={8} readOnly value={prompt} />}
+      {done === 'failed' && <TextArea id={id} labelText="Select and copy this prompt" rows={6} readOnly value={prompt} />}
     </div>
   )
 }
 
-// The brief for one project, as a quick view: five short sections and the prompt that turns them into a presentation.
-function Brief({ brief, onCopy }: { brief: CaseBrief; onCopy: CaseStudiesViewProps['onCopy'] }) {
+// One accordion row: the name and a line on how it turned out, the chevron, and the copy button beside them (a button must not sit in a button).
+function Row({ id, name, outcome, prompt, open, onToggle, onCopy, children }: { id: string; name: string; outcome: string | null; prompt: string; open: boolean; onToggle: () => void; onCopy: CaseStudiesViewProps['onCopy']; children: React.ReactNode }) {
   return (
-    <div className={styles.brief} data-testid="case-brief">
+    <li className={styles.item} data-testid={`case-row-${id}`} data-open={open}>
+      <div className={styles.head}>
+        <h3 className={styles.itemHead}>
+          <Button kind="ghost" size="md" className={styles.headButton} renderIcon={open ? ChevronUp : ChevronDown} aria-expanded={open} aria-controls={`case-body-${id}`} onClick={onToggle}>
+            <span className={styles.headText}>
+              <span className={styles.name}>{name}</span>
+              {outcome && <span className={styles.outcome}>{outcome}</span>}
+            </span>
+          </Button>
+        </h3>
+        <CopyPrompt prompt={prompt} onCopy={onCopy} id={`case-prompt-${id}`} />
+      </div>
+      {open && (
+        <div id={`case-body-${id}`} className={styles.body}>
+          {children}
+        </div>
+      )}
+    </li>
+  )
+}
+
+// A project's brief opened: the problem, what people said, what was decided and designed across the top, then what happened across the full width.
+function BriefBody({ brief }: { brief: CaseBrief }) {
+  return (
+    <>
       <div className={styles.briefGrid}>
         <section aria-label="The problem" className={styles.briefSection}>
-          <h3 className={styles.label}>The problem</h3>
+          <h4 className={styles.label}>The problem</h4>
           <p className={styles.small}>{brief.template ?? 'Research study'} · {plural(brief.sessions, 'session')} · {plural(brief.participants, 'participant')}</p>
           {brief.problem.length === 0 && <p className={styles.small}>No themes yet. Analyze the project’s transcripts first.</p>}
           {brief.problem.map((t) => (
-            <p key={t.title} className={styles.item}>
+            <p key={t.title} className={styles.item2}>
               {t.title} <span className={styles.small}>· {t.participantCount} of {t.totalParticipants} participants</span>
             </p>
           ))}
         </section>
         <section aria-label="What people said" className={styles.briefSection}>
-          <h3 className={styles.label}>What people said</h3>
+          <h4 className={styles.label}>What people said</h4>
           {brief.evidence.map((q) => (
             <blockquote key={q.text} className={styles.quote}>
               <p className={styles.quoteText}>“{q.text}”</p>
@@ -72,10 +93,10 @@ function Brief({ brief, onCopy }: { brief: CaseBrief; onCopy: CaseStudiesViewPro
           ))}
         </section>
         <section aria-label="What we decided" className={styles.briefSection}>
-          <h3 className={styles.label}>What we decided</h3>
+          <h4 className={styles.label}>What we decided</h4>
           {!brief.decisions && <p className={styles.small}>Nothing yet: the requirements are not published.</p>}
           {brief.decisions?.requirements.map((r) => (
-            <p key={r.key} className={styles.item}>
+            <p key={r.key} className={styles.item2}>
               <strong>{r.key}</strong> {r.title} <span className={styles.small}>· {r.priority} priority</span>
             </p>
           ))}
@@ -84,10 +105,10 @@ function Brief({ brief, onCopy }: { brief: CaseBrief; onCopy: CaseStudiesViewPro
           ))}
         </section>
         <section aria-label="What we designed" className={styles.briefSection}>
-          <h3 className={styles.label}>What we designed</h3>
+          <h4 className={styles.label}>What we designed</h4>
           {brief.designs.length === 0 && <p className={styles.small}>No prototypes or design notes yet.</p>}
           {brief.designs.map((d) => (
-            <p key={d.key} className={styles.item}>
+            <p key={d.key} className={styles.item2}>
               <strong>{d.key}</strong> {d.title}
               {d.prototypeUrl && (
                 <>
@@ -98,12 +119,14 @@ function Brief({ brief, onCopy }: { brief: CaseBrief; onCopy: CaseStudiesViewPro
             </p>
           ))}
         </section>
-        <section aria-label="What happened" className={styles.briefSection}>
-          <h3 className={styles.label}>What happened</h3>
-          {(!brief.results || brief.results.items.length === 0) && <p className={styles.small}>Nothing has been measured yet.</p>}
+      </div>
+      <section aria-label="What happened" className={styles.happened}>
+        <h4 className={styles.label}>What happened</h4>
+        {(!brief.results || brief.results.items.length === 0) && <p className={styles.small}>Nothing has been measured yet.</p>}
+        <div className={styles.results}>
           {brief.results?.items.map((r) => (
-            <div key={r.key} className={styles.item}>
-              <p className={styles.item}>
+            <div key={r.key} className={styles.result}>
+              <p className={styles.item2}>
                 <strong>{r.key}</strong> {r.metric ?? r.title}
               </p>
               <p className={styles.small}>
@@ -117,82 +140,91 @@ function Brief({ brief, onCopy }: { brief: CaseBrief; onCopy: CaseStudiesViewPro
               </Tag>
             </div>
           ))}
-        </section>
-      </div>
-      <CopyPrompt prompt={brief.prompt} label="Copy prompt for an AI tool" onCopy={onCopy} id={`brief-prompt-${brief.projectId}`} />
-    </div>
+        </div>
+      </section>
+    </>
   )
 }
 
-// Presentational: start a case study from a project, and what the team shipped from research, each tied back to the themes it came from.
-export function CaseStudiesView({ state, cases, errorText, projects, projectId, brief, briefLoading, briefFailed, onPickProject, onCopy, onOpenTheme }: CaseStudiesViewProps) {
-  const picked = projects.find((p) => p.id === projectId)
+// A case study written by hand, opened: what the team did, what it was based on and some of the words, then the outcome across the full width.
+function StudyBody({ study, onOpenTheme }: { study: CaseStudy; onOpenTheme: CaseStudiesViewProps['onOpenTheme'] }) {
+  return (
+    <>
+      <div className={styles.briefGrid}>
+        <section aria-label="What the team did" className={styles.briefSection}>
+          <h4 className={styles.label}>What the team did</h4>
+          <p className={styles.small}>{[study.ownerTeam, monthYear(study.date)].filter(Boolean).join(' · ')}</p>
+          <p className={styles.item2}>{study.summary}</p>
+        </section>
+        <section aria-label="Based on" className={styles.briefSection}>
+          <h4 className={styles.label}>
+            Based on
+            {study.opportunities > 0 && <Tag size="sm" type="purple">{plural(study.opportunities, 'opportunity', 'opportunities')} still open</Tag>}
+          </h4>
+          <div className={styles.themes}>
+            {study.themes.map((t) => (
+              <Button key={t.id} kind="tertiary" size="sm" onClick={() => onOpenTheme(t.id)}>
+                {t.title}
+              </Button>
+            ))}
+          </div>
+        </section>
+        <section aria-label="What people said" className={styles.briefSection}>
+          <h4 className={styles.label}>What people said</h4>
+          {study.quotes.length === 0 && <p className={styles.small}>No quotes yet.</p>}
+          {study.quotes.map((q) => (
+            <blockquote key={q.id} className={styles.quote}>
+              <p className={styles.quoteText}>“{q.text}”</p>
+              <p className={styles.quoteMeta}>{q.speaker} · {q.session}</p>
+            </blockquote>
+          ))}
+        </section>
+      </div>
+      <section aria-label="What happened" className={styles.happened}>
+        <h4 className={styles.label}>What happened</h4>
+        <p className={styles.item2}>{study.outcome}</p>
+      </section>
+    </>
+  )
+}
+
+// Presentational: a row for each analysed project and for each case study written by hand. Each row opens to the same layout.
+export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpenTheme }: CaseStudiesViewProps) {
+  const [opened, setOpened] = useState<Set<string>>(new Set())
+  const [started, setStarted] = useState(false)
+  // The first row opens, so the page does not start as a closed list.
+  if (!started && state === 'ready' && (briefs[0] || cases[0])) {
+    setStarted(true)
+    setOpened(new Set([briefs[0] ? `p-${briefs[0].projectId}` : `c-${cases[0].id}`]))
+  }
+  const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
+  const all = [...briefs.map((b) => `p-${b.projectId}`), ...cases.map((c) => `c-${c.id}`)]
   return (
     <div className={styles.page}>
       <InsightsHeader title="Case Studies" description="What the team changed because of what it learned" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-
-      {projects.length > 0 && (
-        <section className={styles.start} aria-label="Start a case study">
-          <h2 className={styles.label}>Start a case study from a project</h2>
-          <p className={styles.small}>Pick a project to see its problem, evidence, decisions, designs and results on one page, then copy a prompt that asks an AI tool such as Claude Design to build the presentation.</p>
-          <Dropdown
-            id="case-brief-project"
-            titleText="Project"
-            label="Choose a project"
-            items={projects}
-            itemToString={(p) => p?.name ?? ''}
-            selectedItem={picked ?? null}
-            onChange={({ selectedItem }) => onPickProject(selectedItem?.id ?? null)}
-          />
-          {briefLoading && <Loading small withOverlay={false} description="Loading the brief" />}
-          {briefFailed && <p className={styles.small}>The brief could not be loaded.</p>}
-          {brief && brief.projectId === projectId && <Brief brief={brief} onCopy={onCopy} />}
-        </section>
-      )}
-
       {state === 'loading' && <Loading withOverlay={false} description="Loading case studies" />}
-      {state === 'empty' && <p className={styles.empty}>No case studies yet.</p>}
+      {state === 'empty' && <p className={styles.small}>No case studies yet. Analyze a project’s transcripts and it appears here.</p>}
       {state === 'ready' && (
         <>
-          <h2 className={styles.label}>Case studies</h2>
-          <div className={styles.grid}>
-            {cases.map((c) => (
-              <Tile key={c.id} className={styles.card} data-tint={c.color} data-testid="case-study">
-                <div className={styles.top}>
-                  <span>{c.ownerTeam}</span>
-                  <span>{monthYear(c.date)}</span>
-                </div>
-                <h2 className={styles.title}>{c.title}</h2>
-                <p className={styles.summary}>{c.summary}</p>
-                <p className={styles.outcome}>{c.outcome}</p>
-                {c.quotes.map((q) => (
-                  <blockquote key={q.id} className={styles.quote}>
-                    <p className={styles.quoteText}>“{q.text}”</p>
-                    <p className={styles.quoteMeta}>{q.speaker} · {q.session}</p>
-                  </blockquote>
-                ))}
-                <div className={styles.based}>
-                  <p className={styles.label}>
-                    Based on
-                    {c.opportunities > 0 && (
-                      <Tag size="sm" type="purple" className={styles.oppTag}>
-                        {plural(c.opportunities, 'opportunity', 'opportunities')} still open
-                      </Tag>
-                    )}
-                  </p>
-                  <div className={styles.themes}>
-                    {c.themes.map((t) => (
-                      <Button key={t.id} kind="tertiary" size="sm" onClick={() => onOpenTheme(t.id)}>
-                        {t.title}
-                      </Button>
-                    ))}
-                  </div>
-                </div>
-                <CopyPrompt prompt={c.prompt} label="Copy prompt for an AI tool" onCopy={onCopy} id={`case-prompt-${c.id}`} />
-              </Tile>
-            ))}
+          <div className={styles.listTools}>
+            <p className={styles.small}>Open a row to see the case on one page. Copy its prompt to have an AI tool build the presentation.</p>
+            <Button kind="ghost" size="sm" onClick={() => setOpened(all.every((id) => opened.has(id)) ? new Set() : new Set(all))}>
+              {all.every((id) => opened.has(id)) ? 'Collapse all' : 'Expand all'}
+            </Button>
           </div>
+          <ul className={styles.list} aria-label="Case studies">
+            {briefs.map((b) => (
+              <Row key={b.projectId} id={`p-${b.projectId}`} name={b.projectName} outcome={b.outcome} prompt={b.prompt} open={opened.has(`p-${b.projectId}`)} onToggle={() => toggle(`p-${b.projectId}`)} onCopy={onCopy}>
+                <BriefBody brief={b} />
+              </Row>
+            ))}
+            {cases.map((c) => (
+              <Row key={c.id} id={`c-${c.id}`} name={c.title} outcome={c.outcome} prompt={c.prompt} open={opened.has(`c-${c.id}`)} onToggle={() => toggle(`c-${c.id}`)} onCopy={onCopy}>
+                <StudyBody study={c} onOpenTheme={onOpenTheme} />
+              </Row>
+            ))}
+          </ul>
         </>
       )}
     </div>

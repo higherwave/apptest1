@@ -22,6 +22,8 @@ export type CaseBrief = {
     summary: { worked: number; needsAttention: number; tooEarly: number; notMeasured: number }
     items: { key: string; title: string; metric: string | null; source: string | null; baseline: string | null; target: string | null; result: string | null; latest: { on: string; value: string } | null }[]
   } | null
+  /** One line on how it turned out, for the row: the best finding, or what has been measured, or where the project stands. */
+  outcome: string
   /** The material above as a request to an AI tool. */
   prompt: string
 }
@@ -40,7 +42,7 @@ const INSTRUCTIONS = [
 
 const lines = (title: string, rows: string[]) => (rows.length ? [`## ${title}`, ...rows, ''] : [])
 
-export function buildBriefPrompt(b: Omit<CaseBrief, 'prompt'>): string {
+export function buildBriefPrompt(b: Omit<CaseBrief, 'prompt' | 'outcome'>): string {
   return [
     `You are helping me build a case study presentation about "${b.projectName}".`,
     ...INSTRUCTIONS,
@@ -66,6 +68,22 @@ export function buildBriefPrompt(b: Omit<CaseBrief, 'prompt'>): string {
         )
       : []),
   ].join('\n').trim()
+}
+
+// How it turned out, in a line: the strongest finding (before to latest), else what is being measured, else where the project stands.
+export function outcomeLine(b: Omit<CaseBrief, 'prompt' | 'outcome'>): string {
+  const items = b.results?.items ?? []
+  const found = items.filter((i) => i.latest)
+  if (found.length) {
+    const best = [...found].sort((a, c) => (c.result === 'worked' ? 1 : 0) - (a.result === 'worked' ? 1 : 0))[0]
+    const label = best.result ? ` (${RESULT_LABEL[best.result]})` : ''
+    const more = found.length > 1 ? `, and ${found.length - 1} more` : ''
+    return `${best.metric ?? best.title}: ${best.baseline ? `${best.baseline} → ` : ''}${best.latest!.value}${label}${more}`
+  }
+  const defined = items.filter((i) => i.metric)
+  if (defined.length) return `Measuring ${defined[0].metric}${defined[0].target ? `, goal ${defined[0].target}` : ''}${defined.length > 1 ? `, and ${defined.length - 1} more` : ''}. No findings yet.`
+  if (b.decisions) return `${b.decisions.requirements.length} requirements decided. Nothing measured yet.`
+  return `${b.problem.length} ${b.problem.length === 1 ? 'theme' : 'themes'} from ${b.sessions} ${b.sessions === 1 ? 'session' : 'sessions'}. No requirements published yet.`
 }
 
 export async function getCaseBrief(db: Queryable, workspaceId: string, projectId: string): Promise<CaseBrief | undefined> {
@@ -101,7 +119,7 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
   } catch (err) {
     if (!(err instanceof NoBoard)) throw err
   }
-  const brief: Omit<CaseBrief, 'prompt'> = {
+  const brief: Omit<CaseBrief, 'prompt' | 'outcome'> = {
     projectId, projectName: project.name, template: project.template ?? null, sessions: project.sessions, participants: project.participants,
     problem: themes.map((t) => ({ title: t.title, category: t.category, participantCount: t.participantCount, totalParticipants: t.totalParticipants, description: t.description })),
     evidence,
@@ -121,7 +139,25 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
         }
       : null,
   }
-  return { ...brief, prompt: buildBriefPrompt(brief) }
+  return { ...brief, outcome: outcomeLine(brief), prompt: buildBriefPrompt(brief) }
+}
+
+// A brief for every project with a current analysis, newest project first.
+export async function listCaseBriefs(db: Queryable, workspaceId: string): Promise<CaseBrief[]> {
+  const ids = (
+    await db.query(
+      `select p.id from core.projects p where p.workspace_id = $1 and p.kind = 'research'
+         and exists (select 1 from core.agent_runs r where r.project_id = p.id and r.kind = 'analysis' and r.status = 'complete' and r.superseded_at is null)
+       order by p.created_at desc, p.name`,
+      [workspaceId],
+    )
+  ).rows
+  const out: CaseBrief[] = []
+  for (const r of ids) {
+    const b = await getCaseBrief(db, workspaceId, r.id)
+    if (b) out.push(b)
+  }
+  return out
 }
 
 // The same request for a case study written by hand (the seeded ones): its summary and outcome, the themes it was based on and some words.

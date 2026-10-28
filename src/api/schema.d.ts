@@ -639,6 +639,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/case-briefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A case study brief for every project with a current analysis, newest project first. Open to read as the viewer. */
+        get: operations["listCaseBriefs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/case-studies": {
         parameters: {
             query?: never;
@@ -1203,6 +1220,8 @@ export interface components {
                     } | null;
                 }[];
             } | null;
+            /** @description One line on how it turned out: the strongest finding (before to latest), else what is being measured, else where the project stands. */
+            outcome: string;
             /** @description The material above as a request to paste into an AI tool such as Claude Design to make a presentation. */
             prompt: string;
         };
@@ -2951,6 +2970,30 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listCaseBriefs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The briefs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CaseBrief"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

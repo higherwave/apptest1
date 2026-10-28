@@ -832,6 +832,24 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/case-briefs:
+    get:
+      operationId: listCaseBriefs
+      summary: A case study brief for every project with a current analysis, newest project first. Open to read as the viewer.
+      responses:
+        '200':
+          description: The briefs.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/CaseBrief' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/case-studies:
     get:
       operationId: listCaseStudies
@@ -1498,7 +1516,7 @@ components:
         prompt: { type: string, description: A request to paste into an AI tool such as Claude Design to make the presentation. }
     CaseBrief:
       type: object
-      required: [projectId, projectName, template, sessions, participants, problem, evidence, decisions, designs, results, prompt]
+      required: [projectId, projectName, template, sessions, participants, problem, evidence, decisions, designs, results, outcome, prompt]
       properties:
         projectId: { type: string, format: uuid }
         projectName: { type: string }
@@ -1595,6 +1613,7 @@ components:
                     properties:
                       on: { type: string }
                       value: { type: string }
+        outcome: { type: string, description: 'One line on how it turned out: the strongest finding (before to latest), else what is being measured, else where the project stands.' }
         prompt: { type: string, description: The material above as a request to paste into an AI tool such as Claude Design to make a presentation. }
     Board:
       type: object
