@@ -36,10 +36,9 @@
 }
 
 .legal {
-  @include tokens.role('meta');
+  @include tokens.role('body-md'); // the same type as a case study card's description
   margin-block-start: var(--at-space-lg);
   color: var(--at-body);
-  line-height: 1.6;
 
   p {
     margin: 0 0 var(--at-space-xs);
