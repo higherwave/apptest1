@@ -638,6 +638,7 @@ try {
   ok('the panel says what happened to the selected theme', await page.evaluate(() => !!document.querySelector('aside[aria-label="Where this comes from"] [data-testid="what-happened"]')))
   const cardCount = await page.evaluate(() => document.querySelectorAll('section[aria-label="What the themes add up to"] button').length)
   ok('four counts sit above the list: recurring pain points, opportunities, needs attention, worked', cardCount === 4)
+  ok('Recommendations come first, then the four counts directly above the themes list', await page.evaluate(() => { const top = (e) => e.getBoundingClientRect().top; const recs = document.querySelector('#recs-heading'); const cards = document.querySelector('section[aria-label="What the themes add up to"]'); const first = document.querySelector('[data-testid^="platform-theme-"]'); const heading = document.querySelector('#themes-heading'); return top(recs) < top(heading) && top(heading) < top(cards) && top(cards) < top(first) && cards.closest('section[aria-labelledby="themes-heading"]') !== null }))
   if (insights.summary.opportunities > 0) {
     await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('Opportunities')).click())
     await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.summary.opportunities)

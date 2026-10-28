@@ -46,18 +46,6 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
       {state === 'ready' && overview && (
         <>
-          <section className={styles.cards} aria-label="What the themes add up to">
-            {FILTERS.map((f) => {
-              const n = f.count(overview)
-              return (
-                <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(filter === f.key ? null : f.key)}>
-                  <span className={styles.cardNum}>{n}</span>
-                  <span>{f.label}</span>
-                </Button>
-              )
-            })}
-          </section>
-
           <section className={styles.section} aria-labelledby="recs-heading">
             <h2 id="recs-heading" className={styles.label}>Recommendations</h2>
             <div className={styles.recs}>
@@ -75,6 +63,17 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
           <div className={styles.split}>
             <section className={styles.section} aria-labelledby="themes-heading">
               <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+              <section className={styles.cards} aria-label="What the themes add up to">
+                {FILTERS.map((f) => {
+                  const n = f.count(overview)
+                  return (
+                    <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(filter === f.key ? null : f.key)}>
+                      <span className={styles.cardNum}>{n}</span>
+                      <span>{f.label}</span>
+                    </Button>
+                  )
+                })}
+              </section>
               <div className={styles.list}>
                 {shown.map((t) => (
                   <ClickableTile key={t.id} className={styles.row} data-selected={t.id === selectedId} data-testid={`platform-theme-${t.id}`} onClick={() => onSelect(t.id)}>
