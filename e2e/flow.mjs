@@ -25,7 +25,7 @@ const clickText = async (t, tag = 'button') => {
 const clickInOpenDialog = async (t) => page.evaluate((t) => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === t).click(), t)
 const retype = async (sel, value) => { await page.$eval(sel, (el) => el.select()); await page.keyboard.type(value) }
 const header = () => page.evaluate(() => document.querySelector('header')?.innerText ?? '')
-const cardNames = async () => page.evaluate(() => [...document.querySelectorAll('[data-tint]')].map((c) => c.innerText.split('\n')[0]))
+const cardNames = async () => page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((c) => c.innerText.split('\n')[0]))
 
 try {
   // 1. A visitor without the token is a read-only viewer.
@@ -98,7 +98,7 @@ try {
   await waitText('E2E Study')
   const names = await cardNames()
   ok('the new project appears (5 cards)', names.length === 5 && names.includes('E2E Study'), names.join(' | '))
-  const cardText = await page.evaluate(() => [...document.querySelectorAll('[data-tint]')].find((c) => c.innerText.startsWith('E2E Study')).innerText.replace(/\n/g, ' '))
+  const cardText = await page.evaluate(() => [...document.querySelectorAll('[data-status]')].find((c) => c.innerText.startsWith('E2E Study')).innerText.replace(/\n/g, ' '))
   ok('it is a Draft with zeros', /Draft/.test(cardText) && /0\s*Sessions/.test(cardText), cardText)
 
   // 5. Remove asks for confirmation, then deletes.
@@ -113,12 +113,12 @@ try {
   await clickText('Remove project', 'button')
   await waitText('Remove this project?')
   await clickText('Remove permanently')
-  await page.waitForFunction(() => ![...document.querySelectorAll('[data-tint]')].some((c) => c.innerText.startsWith('E2E Study')), { timeout: 8000 })
+  await page.waitForFunction(() => ![...document.querySelectorAll('[data-status]')].some((c) => c.innerText.startsWith('E2E Study')), { timeout: 8000 })
   ok('confirming deletes it', (await cardNames()).length === 4)
 
 
   // 6. Open the draft project: locked steps, editing the Test Plan, a conflict with someone else, and the Task List.
-  await page.evaluate(() => [...document.querySelectorAll('[data-tint]')].find((c) => c.innerText.startsWith('New patient intake')).click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-status]')].find((c) => c.innerText.startsWith('New patient intake')).click())
   await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan$/.test(location.pathname), { timeout: 8000 })
   await waitText('Test Plan')
   const projectId = page.url().match(/projects\/([0-9a-f-]{36})/)[1]
@@ -575,6 +575,16 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('[data-testid="measure-R1"] a')].find((a) => a.innerText.trim().startsWith('Story')).click())
   await page.waitForFunction(() => location.pathname.endsWith('/stories') && location.search === '?open=R1', { timeout: 8000 })
   ok('a requirement’s Story link opens its card on the Stories board', true)
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Research Projects').click())
+  await page.waitForSelector('[data-status]')
+  ok('on Research Projects, a card counts the requirements with a measurement instead of High priority; analyzed is soft green, a draft is outline only', await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('[data-status]')]
+    const mine = cards.find((c) => c.innerText.startsWith('Intake v2'))
+    const draft = cards.find((c) => c.dataset.status === 'draft')
+    const bg = (c) => getComputedStyle(c).backgroundColor
+    return !!mine && /1\s*Measurements/.test(mine.innerText) && !cards.some((c) => /High priority/.test(c.innerText)) && mine.dataset.status === 'analyzed' && bg(mine) !== 'rgba(0, 0, 0, 0)' && (!draft || (bg(draft) === 'rgba(0, 0, 0, 0)' && getComputedStyle(draft).borderTopWidth === '1px')) && cards.filter((c) => c.dataset.status === 'analyzed').every((c) => bg(c) === bg(mine))
+  }))
+  await page.goBack({ waitUntil: 'networkidle0' })
 
   // Platform Insights: themes across projects, where one comes from, case studies, onboarding.
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Platform Insights').click())

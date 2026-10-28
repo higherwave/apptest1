@@ -6,7 +6,7 @@ import { NoBoard, StoryNotFound } from './stories.js'
 import type { Actor } from './versioning.js'
 
 export type Verdict = 'worked' | 'needs_attention' | 'too_early'
-export type MeasureSource = 'telemetry' | 'kpi' | 'research' | 'other'
+export type MeasureSource = 'telemetry' | 'kpi' | 'support_tickets' | 'research' | 'other'
 export type Checkin = { on: string; value: string; verdict: Verdict; note: string | null }
 export type MeasureItem = {
   storyId: string

@@ -48,7 +48,7 @@ try {
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Research Projects')
   const visitor = await page.evaluate(() => document.querySelector('header')?.innerText ?? '')
-  ok('a visitor can look around: projects load, the header says read-only and offers Sign in', visitor.includes('Read-only demo') && visitor.includes('Sign in') && (await page.$$('[data-tint]')).length >= 3)
+  ok('a visitor can look around: projects load, the header says read-only and offers Sign in', visitor.includes('Read-only demo') && visitor.includes('Sign in') && (await page.$$('[data-status]')).length >= 3)
   ok('a visitor cannot start a project or remove one', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true) && (await page.$$('.cds--overflow-menu')).length === 0)
   const first = (await (await fetch(`${API}/api/v1/projects`)).json()).data[0]
   await page.goto(`${BASE}/projects/${first.id}/plan`, { waitUntil: 'networkidle0' })

@@ -1845,3 +1845,15 @@ test('only editors can save measures; a visitor can read them', async () => {
   assert.ok([401, 403].includes(anon.status))
   assert.equal((await app.request(`/api/v1/projects/${p1}/measure`)).status, 200)
 })
+
+test('a project counts the requirements that have a measurement (a metric or a finding), and support tickets are a source', async () => {
+  const { app, p1, send } = await boardFixture()
+  const count = async () => (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === p1).measurements
+  assert.equal(await count(), 0)
+  const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
+  const save = (key: string, body: unknown) => send(app, 'PUT', `/stories/${items.find((i: any) => i.key === key).storyId}/measure`, body, 0)
+  assert.equal((await save('R1', { metric: 'Calls about fees', source: 'support_tickets', checkins: [] })).status, 200)
+  assert.equal((await save('R2', { checkins: [{ on: '2026-11-01', value: 'Seen', verdict: 'worked', note: null }] })).status, 200)
+  assert.equal((await save('R3', { checkins: [] })).status, 200, 'saved with nothing in it')
+  assert.equal(await count(), 2)
+})

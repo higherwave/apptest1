@@ -31,6 +31,7 @@ const SOURCES: { key: Source | null; label: string }[] = [
   { key: null, label: 'Not set' },
   { key: 'telemetry', label: 'Telemetry' },
   { key: 'kpi', label: 'Business KPI' },
+  { key: 'support_tickets', label: 'Support tickets' },
   { key: 'research', label: 'Research' },
   { key: 'other', label: 'Other' },
 ]

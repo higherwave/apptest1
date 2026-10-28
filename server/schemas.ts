@@ -139,7 +139,7 @@ export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'vie
 // A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.
 export const measureSchema = z.object({
   metric: optionalText(300),
-  source: z.enum(['telemetry', 'kpi', 'research', 'other']).nullish().transform((v) => v ?? null),
+  source: z.enum(['telemetry', 'kpi', 'support_tickets', 'research', 'other']).nullish().transform((v) => v ?? null),
   baseline: optionalText(200),
   target: optionalText(200),
   checkins: z

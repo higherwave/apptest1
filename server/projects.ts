@@ -16,6 +16,8 @@ export type ProjectSummary = {
   sessions: number
   themes: number
   highPriority: number
+  /** Requirements with a metric or a finding recorded in the Measure step. */
+  measurements: number
   createdAt: string
   version: number
 }
@@ -26,7 +28,11 @@ const LIST_SQL = `
   select p.id, p.name, p.color, tpl.name as template, p.created_at, p.version,
          (select count(*) from research.transcripts tr where tr.project_id = p.id)::int as sessions,
          coalesce(t.themes, 0)::int as themes,
-         coalesce(t.high, 0)::int as high_priority
+         coalesce(t.high, 0)::int as high_priority,
+         (select count(*) from delivery.success_measures m
+            join delivery.stories s on s.id = m.story_id and s.kind = 'requirement'
+            join delivery.specs sp on sp.id = s.spec_id
+           where sp.project_id = p.id and (m.metric is not null or jsonb_array_length(m.checkins) > 0))::int as measurements
   from core.projects p
   left join core.templates tpl on tpl.id = p.template_id
   left join lateral (
@@ -52,6 +58,7 @@ export async function listProjects(db: Queryable, workspaceId: string): Promise<
     sessions: r.sessions,
     themes: r.themes,
     highPriority: r.high_priority,
+    measurements: r.measurements,
     createdAt: new Date(r.created_at).toISOString(),
     version: r.version,
   }))

@@ -1042,7 +1042,7 @@ components:
         hint: { type: [string, 'null'] }
     ProjectDetail:
       type: object
-      required: [id, name, color, template, status, sessions, themes, highPriority, createdAt, version, study, testItems, stages, participants, tasks]
+      required: [id, name, color, template, status, sessions, themes, highPriority, measurements, createdAt, version, study, testItems, stages, participants, tasks]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1052,6 +1052,7 @@ components:
         sessions: { type: integer }
         themes: { type: integer }
         highPriority: { type: integer }
+        measurements: { type: integer }
         createdAt: { type: string }
         version: { type: integer }
         study:
@@ -1749,7 +1750,7 @@ components:
           type: [string, 'null']
     ProjectSummary:
       type: object
-      required: [id, name, color, template, status, sessions, themes, highPriority, createdAt, version]
+      required: [id, name, color, template, status, sessions, themes, highPriority, measurements, createdAt, version]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1765,6 +1766,7 @@ components:
         sessions: { type: integer, description: Transcripts in the project. }
         themes: { type: integer, description: Themes in the current analysis. }
         highPriority: { type: integer, description: Themes whose suggested priority is high. }
+        measurements: { type: integer, description: 'Requirements with a metric or a finding recorded in the Measure step.' }
         createdAt: { type: string }
         version: { type: integer }
     DesignItem:
@@ -1844,7 +1846,7 @@ components:
         metric: { type: [string, 'null'], description: How we will know it worked. }
         source:
           type: [string, 'null']
-          enum: [telemetry, kpi, research, other, null]
+          enum: [telemetry, kpi, support_tickets, research, other, null]
         baseline: { type: [string, 'null'] }
         target: { type: [string, 'null'] }
         checkins:
@@ -1882,7 +1884,7 @@ components:
         metric: { type: [string, 'null'] }
         source:
           type: [string, 'null']
-          enum: [telemetry, kpi, research, other, null]
+          enum: [telemetry, kpi, support_tickets, research, other, null]
         baseline: { type: [string, 'null'] }
         target: { type: [string, 'null'] }
         checkins:

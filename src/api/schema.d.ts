@@ -764,6 +764,7 @@ export interface components {
             sessions: number;
             themes: number;
             highPriority: number;
+            measurements: number;
             createdAt: string;
             version: number;
             study: {
@@ -1310,6 +1311,8 @@ export interface components {
             themes: number;
             /** @description Themes whose suggested priority is high. */
             highPriority: number;
+            /** @description Requirements with a metric or a finding recorded in the Measure step. */
+            measurements: number;
             createdAt: string;
             version: number;
         };
@@ -1378,7 +1381,7 @@ export interface components {
             /** @description How we will know it worked. */
             metric: string | null;
             /** @enum {string|null} */
-            source: "telemetry" | "kpi" | "research" | "other" | null;
+            source: "telemetry" | "kpi" | "support_tickets" | "research" | "other" | null;
             baseline: string | null;
             target: string | null;
             /** @description Oldest first. */
@@ -1407,7 +1410,7 @@ export interface components {
         MeasureRequest: {
             metric?: string | null;
             /** @enum {string|null} */
-            source?: "telemetry" | "kpi" | "research" | "other" | null;
+            source?: "telemetry" | "kpi" | "support_tickets" | "research" | "other" | null;
             baseline?: string | null;
             target?: string | null;
             checkins: components["schemas"]["Checkin"][];
