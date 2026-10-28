@@ -646,7 +646,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** A case study brief for every project with a current analysis, newest project first. Open to read as the viewer. */
+        /** A case study brief for every project that qualifies: at least one requirement whose newest finding is Worked and none that needs attention. Newest project first. Open to read as the viewer. */
         get: operations["listCaseBriefs"];
         put?: never;
         post?: never;
@@ -1207,7 +1207,7 @@ export interface components {
                     tooEarly: number;
                     notMeasured: number;
                 };
-                /** @description Requirements with a metric or a finding. */
+                /** @description The requirements whose newest finding is Worked (a case study is about what worked); the summary counts the whole project. */
                 items: {
                     key: string;
                     title: string;

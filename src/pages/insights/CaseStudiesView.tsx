@@ -18,7 +18,6 @@ export type CaseStudiesViewProps = {
 // "Sep 2026" from a YYYY-MM-DD date; the day is not meaningful.
 const monthYear = (iso: string | null) => (iso ? new Date(`${iso}T00:00:00Z`).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' }) : '')
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
-const RESULT = { worked: 'Worked', needs_attention: 'Needs attention', too_early: 'Too early to tell' } as const
 const PROMPT_HINT = 'Copy a prompt to paste into an AI tool such as Claude Design, which can use it to build a PPTX deck for this case study.'
 
 // The row's Copy prompt button, with a hover tooltip saying what the prompt is for. If the browser refuses the clipboard, the prompt is shown to copy by hand.
@@ -135,9 +134,6 @@ function BriefBody({ brief }: { brief: CaseBrief }) {
                 {r.target ? `Goal ${r.target}` : ''}
                 {r.latest ? ` · Latest (${r.latest.on}): ${r.latest.value}` : ''}
               </p>
-              <Tag size="sm" type={r.result === 'worked' ? 'green' : r.result === 'needs_attention' ? 'red' : r.result ? 'gray' : 'outline'}>
-                {r.result ? RESULT[r.result as keyof typeof RESULT] : 'Not measured yet'}
-              </Tag>
             </div>
           ))}
         </div>
@@ -204,7 +200,7 @@ export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpe
       <InsightsHeader title="Case Studies" description="What the team changed because of what it learned" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading withOverlay={false} description="Loading case studies" />}
-      {state === 'empty' && <p className={styles.small}>No case studies yet. Analyze a project’s transcripts and it appears here.</p>}
+      {state === 'empty' && <p className={styles.small}>No case studies yet. A project appears here once something it shipped has worked: the newest finding on a requirement in Measure says Worked, and none needs attention.</p>}
       {state === 'ready' && (
         <>
           <div className={styles.listTools}>

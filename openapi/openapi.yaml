@@ -835,7 +835,9 @@ paths:
   /insights/case-briefs:
     get:
       operationId: listCaseBriefs
-      summary: A case study brief for every project with a current analysis, newest project first. Open to read as the viewer.
+      summary: >
+        A case study brief for every project that qualifies: at least one requirement whose newest finding is Worked and none that needs attention.
+        Newest project first. Open to read as the viewer.
       responses:
         '200':
           description: The briefs.
@@ -1596,7 +1598,7 @@ components:
                 notMeasured: { type: integer }
             items:
               type: array
-              description: Requirements with a metric or a finding.
+              description: The requirements whose newest finding is Worked (a case study is about what worked); the summary counts the whole project.
               items:
                 type: object
                 required: [key, title, metric, source, baseline, target, result, latest]

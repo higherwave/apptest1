@@ -2004,19 +2004,31 @@ test('the same requirement written in several projects is one, with how many wro
   assert.deepEqual(distinctRequirements([]), [])
 })
 
-test('every analysed project has a brief with a one-line outcome that follows what has been measured', async () => {
+test('case studies are the projects where something worked and nothing needs attention; the outcome line follows the measurements', async () => {
   const { app, p1, send } = await boardFixture()
   const list = async () => (await expectSpec(await app.request('/api/v1/insights/case-briefs'), '/insights/case-briefs')).data
-  const first = await list()
-  assert.ok(first.length >= 3)
-  const mine = () => list().then((l: any[]) => l.find((b) => b.projectId === p1))
-  assert.match((await mine()).outcome, /7 requirements decided\. Nothing measured yet\./)
+  const brief = async () => (await expectSpec(await app.request(`/api/v1/projects/${p1}/case-study-brief`), '/projects/{id}/case-study-brief'))
   const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
-  const r3 = items.find((i: any) => i.key === 'R3')
-  await send(app, 'PUT', `/stories/${r3.storyId}/measure`, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [] }, 0)
-  assert.match((await mine()).outcome, /Measuring Calls about fees, goal 60 a week/)
-  await send(app, 'PUT', `/stories/${r3.storyId}/measure`, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-12-01', value: '55 a week', verdict: 'worked', note: null }] }, 1)
-  assert.equal((await mine()).outcome, 'Calls about fees: 120 a week → 55 a week (worked)')
-  const noDoc = first.find((b: any) => b.decisions === null)
-  assert.match(noDoc.outcome, /themes? from \d+ sessions?\. No requirements published yet\./)
+  const [r1, r3] = [items.find((i: any) => i.key === 'R1'), items.find((i: any) => i.key === 'R3')]
+  const put = (item: any, body: unknown, v: number) => send(app, 'PUT', `/stories/${item.storyId}/measure`, body, v)
+  // Nothing measured: no case study, and the brief says where the project stands.
+  assert.deepEqual(await list(), [])
+  assert.match((await brief()).outcome, /7 requirements decided\. Nothing measured yet\./)
+  await put(r3, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [] }, 0)
+  assert.deepEqual(await list(), [])
+  assert.match((await brief()).outcome, /Measuring Calls about fees, goal 60 a week/)
+  // Too early to tell is not a success yet.
+  await put(r3, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-11-01', value: '100 a week', verdict: 'too_early', note: null }] }, 1)
+  assert.deepEqual(await list(), [])
+  // The newest finding says Worked: it is a case study, and only what worked is in What happened.
+  await put(r3, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-11-01', value: '100 a week', verdict: 'too_early', note: null }, { on: '2026-12-01', value: '55 a week', verdict: 'worked', note: null }] }, 2)
+  const won = await list()
+  assert.deepEqual(won.map((b: any) => b.projectId), [p1])
+  assert.equal(won[0].outcome, 'Calls about fees: 120 a week → 55 a week')
+  assert.deepEqual(won[0].results.items.map((r: any) => [r.key, r.result]), [['R3', 'worked']])
+  // Another requirement that needs attention takes it out again.
+  await put(r1, { metric: 'Form completion', checkins: [{ on: '2026-12-02', value: 'down', verdict: 'needs_attention', note: null }] }, 0)
+  assert.deepEqual(await list(), [])
+  // A project that never published has no results at all.
+  assert.match((await expectSpec(await app.request(`/api/v1/projects/${((await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.name === 'Clinic booking, round 2')).id}/case-study-brief`), '/projects/{id}/case-study-brief')).outcome, /themes? from \d+ sessions?\. No requirements published yet\./)
 })

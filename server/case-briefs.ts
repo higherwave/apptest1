@@ -76,9 +76,8 @@ export function outcomeLine(b: Omit<CaseBrief, 'prompt' | 'outcome'>): string {
   const found = items.filter((i) => i.latest)
   if (found.length) {
     const best = [...found].sort((a, c) => (c.result === 'worked' ? 1 : 0) - (a.result === 'worked' ? 1 : 0))[0]
-    const label = best.result ? ` (${RESULT_LABEL[best.result]})` : ''
     const more = found.length > 1 ? `, and ${found.length - 1} more` : ''
-    return `${best.metric ?? best.title}: ${best.baseline ? `${best.baseline} → ` : ''}${best.latest!.value}${label}${more}`
+    return `${best.metric ?? best.title}: ${best.baseline ? `${best.baseline} → ` : ''}${best.latest!.value}${more}`
   }
   const defined = items.filter((i) => i.metric)
   if (defined.length) return `Measuring ${defined[0].metric}${defined[0].target ? `, goal ${defined[0].target}` : ''}${defined.length > 1 ? `, and ${defined.length - 1} more` : ''}. No findings yet.`
@@ -139,10 +138,17 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
         }
       : null,
   }
-  return { ...brief, outcome: outcomeLine(brief), prompt: buildBriefPrompt(brief) }
+  // The line for the row looks at everything measured; what the page and the prompt tell is what worked, since a case study is about success.
+  const outcome = outcomeLine(brief)
+  const told = { ...brief, results: brief.results && { ...brief.results, items: brief.results.items.filter((i) => i.result === 'worked') } }
+  return { ...told, outcome, prompt: buildBriefPrompt(told) }
 }
 
-// A brief for every project with a current analysis, newest project first.
+// A project is a case study once something it shipped worked (the newest finding on some requirement says so) and nothing it shipped needs
+// attention. The brief's counts are of the whole project.
+export const isSuccess = (b: Pick<CaseBrief, 'results'>) => !!b.results && b.results.summary.worked >= 1 && b.results.summary.needsAttention === 0
+
+// A brief for every project that qualifies, newest project first.
 export async function listCaseBriefs(db: Queryable, workspaceId: string): Promise<CaseBrief[]> {
   const ids = (
     await db.query(
@@ -155,7 +161,7 @@ export async function listCaseBriefs(db: Queryable, workspaceId: string): Promis
   const out: CaseBrief[] = []
   for (const r of ids) {
     const b = await getCaseBrief(db, workspaceId, r.id)
-    if (b) out.push(b)
+    if (b && isSuccess(b)) out.push(b)
   }
   return out
 }
