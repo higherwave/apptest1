@@ -1897,3 +1897,22 @@ test('a theme’s trend compares its share of participants in the newest project
   assert.ok(Object.values(trend).every((v) => ['growing', 'steady', 'fading'].includes(v as string)), JSON.stringify(trend))
   assert.equal(trend['Provider availability is hard to see'], 'steady')
 })
+
+test('customer profiles group participants by the start of their role, with what each group raised and said', async () => {
+  const { app } = await insightsFixture()
+  const res = await app.request('/api/v1/insights/customers')
+  const body = await expectSpec(res, '/insights/customers')
+  assert.match(res.headers.get('cache-control') ?? '', /public/)
+  assert.equal(body.totalParticipants, 13)
+  assert.deepEqual(body.groups.map((g: any) => [g.name, g.participantCount]), [['Shift worker', 3], ['Working parent', 3], ['Graduate student', 2], ['Retired', 2], ['Caregiver', 1], ['Remote worker', 1], ['Student', 1]])
+  const parents = body.groups.find((g: any) => g.key === 'working parent')
+  assert.deepEqual(parents.roles, ['Working parent', 'Working parent, new patient', 'Working parent, returning patient'])
+  assert.equal(parents.projectCount, 3)
+  assert.equal(parents.themes[0].title, 'A prep checklist before the visit is valued')
+  assert.ok(parents.themes.every((t: any, i: number, all: any[]) => i === 0 || all[i - 1].participantCount >= t.participantCount), 'widest first')
+  assert.ok(parents.themes.length <= 5 && parents.quotes.length === 3)
+  assert.equal(parents.opportunities, parents.themes.filter((t: any) => t.opportunity).length)
+  assert.ok(parents.quotes.every((q: any) => q.text && q.speaker && q.themeTitle))
+  // Nobody is counted in two groups.
+  assert.equal(body.groups.reduce((n: number, g: any) => n + g.participantCount, 0), body.totalParticipants)
+})

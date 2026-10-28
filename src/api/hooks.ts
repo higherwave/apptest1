@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getAiStatus, getInsightsThemes, getPlatformTheme, listCaseStudies,
+  getAiStatus, getCustomers, getInsightsThemes, getPlatformTheme, listCaseStudies,
   getBoard, getDesign, saveDesignItem, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -122,6 +122,7 @@ export const useSaveChecklist = (projectId: string) => useStoryEdit(projectId, (
 // Platform Insights: read-only, so plain queries.
 export const useInsightsThemes = () => useQuery({ queryKey: ['insights', 'themes'], queryFn: getInsightsThemes })
 export const usePlatformTheme = (id: string | null) => useQuery({ queryKey: ['insights', 'theme', id], queryFn: () => getPlatformTheme(id!), enabled: !!id })
+export const useCustomers = () => useQuery({ queryKey: ['insights', 'customers'], queryFn: getCustomers })
 export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })
 
 // The Design table of a project. A save returns the row as it is now and is merged into the cached table.

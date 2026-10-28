@@ -787,6 +787,20 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/customers:
+    get:
+      operationId: getCustomers
+      summary: >
+        Customer profiles: the participants of every analysed project grouped by who they are (their role up to the first comma), with
+        what each group raised, what happened to it and some of what they said. Open to read as the viewer.
+      responses:
+        '200':
+          description: The groups, the largest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Customers' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/case-studies:
     get:
       operationId: listCaseStudies
@@ -1298,6 +1312,58 @@ components:
                     title: { type: string }
               participantCount: { type: integer }
               projectCount: { type: integer }
+    Customers:
+      type: object
+      required: [totalParticipants, groups]
+      properties:
+        totalParticipants: { type: integer }
+        groups:
+          type: array
+          items:
+            type: object
+            required: [key, name, participantCount, projectCount, projects, roles, themes, quotes, opportunities]
+            properties:
+              key: { type: string }
+              name: { type: string }
+              participantCount: { type: integer }
+              projectCount: { type: integer }
+              projects:
+                type: array
+                items:
+                  type: object
+                  required: [id, name, color]
+                  properties:
+                    id: { type: string, format: uuid }
+                    name: { type: string }
+                    color: { type: string }
+              roles: { type: array, items: { type: string }, description: The full roles inside the group, as the test plans wrote them. }
+              themes:
+                type: array
+                description: What most of them raised, widest first (up to five).
+                items:
+                  type: object
+                  required: [id, title, category, participantCount, status, opportunity]
+                  properties:
+                    id: { type: string, format: uuid }
+                    title: { type: string }
+                    category: { type: string, enum: [pain_point, need, expectation, delight] }
+                    participantCount: { type: integer }
+                    status: { type: string, enum: [not_addressed, in_progress, too_early, worked, needs_attention] }
+                    opportunity: { type: boolean }
+              quotes:
+                type: array
+                description: Up to three, about problems first, from different people.
+                items:
+                  type: object
+                  required: [id, text, speaker, session, projectId, themeTitle]
+                  properties:
+                    id: { type: string, format: uuid }
+                    text: { type: string }
+                    speaker: { type: string }
+                    session: { type: string }
+                    projectId: { type: string, format: uuid }
+                    themeTitle: { type: string }
+              opportunities: { type: integer, description: How many of the themes they raised are opportunities. }
     PlatformThemeDetail:
       type: object
       required: [id, title, category, participantCount, totalParticipants, projectCount, totalProjects, sources]

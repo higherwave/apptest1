@@ -3,6 +3,7 @@ import { useState } from 'react'
 import type { InsightsThemes, PlatformThemeDetail } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
+import { STATUS } from './labels'
 import styles from './InsightThemesView.module.scss'
 
 export type InsightThemesViewProps = {
@@ -21,13 +22,6 @@ export type InsightThemesViewProps = {
 type Row = InsightsThemes['themes'][number]
 type Filter = 'recurring' | 'opportunities' | 'needs_attention' | 'worked'
 
-const STATUS: Record<Row['status'], { label: string; tag: 'green' | 'red' | 'gray' | 'blue' | 'outline' }> = {
-  not_addressed: { label: 'Not addressed', tag: 'outline' },
-  in_progress: { label: 'In progress', tag: 'blue' },
-  too_early: { label: 'Too early to tell', tag: 'gray' },
-  worked: { label: 'Worked', tag: 'green' },
-  needs_attention: { label: 'Needs attention', tag: 'red' },
-}
 const TREND = { new: 'New', growing: '↑ Growing', steady: '→ Steady', fading: '↓ Fading' } as const
 const RESULT_LABEL = { worked: 'Worked', needs_attention: 'Needs attention', too_early: 'Too early to tell' } as const
 const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => number; keep: (t: Row) => boolean }[] = [

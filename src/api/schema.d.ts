@@ -588,6 +588,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/customers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Customer profiles: the participants of every analysed project grouped by who they are (their role up to the first comma), with what each group raised, what happened to it and some of what they said. Open to read as the viewer. */
+        get: operations["getCustomers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/case-studies": {
         parameters: {
             query?: never;
@@ -956,6 +973,48 @@ export interface components {
                 }[];
                 participantCount: number;
                 projectCount: number;
+            }[];
+        };
+        Customers: {
+            totalParticipants: number;
+            groups: {
+                key: string;
+                name: string;
+                participantCount: number;
+                projectCount: number;
+                projects: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                    color: string;
+                }[];
+                /** @description The full roles inside the group */
+                roles: string[];
+                /** @description What most of them raised, widest first (up to five). */
+                themes: {
+                    /** Format: uuid */
+                    id: string;
+                    title: string;
+                    /** @enum {string} */
+                    category: "pain_point" | "need" | "expectation" | "delight";
+                    participantCount: number;
+                    /** @enum {string} */
+                    status: "not_addressed" | "in_progress" | "too_early" | "worked" | "needs_attention";
+                    opportunity: boolean;
+                }[];
+                /** @description Up to three, about problems first, from different people. */
+                quotes: {
+                    /** Format: uuid */
+                    id: string;
+                    text: string;
+                    speaker: string;
+                    session: string;
+                    /** Format: uuid */
+                    projectId: string;
+                    themeTitle: string;
+                }[];
+                /** @description How many of the themes they raised are opportunities. */
+                opportunities: number;
             }[];
         };
         PlatformThemeDetail: {
@@ -2682,6 +2741,28 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getCustomers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The groups, the largest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Customers"];
+                };
+            };
+            401: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

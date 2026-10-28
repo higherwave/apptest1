@@ -101,7 +101,7 @@ function statusOf(results: ('worked' | 'needs_attention' | 'too_early' | null)[]
 export class PlatformThemeNotFound extends Error {}
 
 // Only the latest analysis of each project counts: an earlier run's themes are history.
-const CURRENT_THEMES = `
+export const CURRENT_THEMES = `
   select t.id, t.project_id from research.themes t join core.agent_runs r on r.id = t.run_id
   where t.workspace_id = $1 and r.status = 'complete' and r.superseded_at is null`
 
@@ -116,7 +116,7 @@ const PEOPLE = `
   join research.transcript_speakers sp on sp.id = u.speaker_id
   where s.workspace_id = $1`
 
-async function projectsWithAnalysis(db: Queryable, workspaceId: string): Promise<InsightProject[]> {
+export async function projectsWithAnalysis(db: Queryable, workspaceId: string): Promise<InsightProject[]> {
   const rows = (
     await db.query(
       `select p.id, p.name, p.color, max(st.total_participants)::int as participants

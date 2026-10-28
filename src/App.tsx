@@ -3,6 +3,7 @@ import { AppShell } from './shell/AppShell'
 import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { MembersPage } from './pages/members/MembersPage'
+import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
 import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { OnboardingPage } from './pages/insights/OnboardingPage'
@@ -46,6 +47,7 @@ export function App() {
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<MembersPage />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
+        <Route path="insights/customers" element={<CustomersPage />} />
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
         <Route path="insights/onboarding" element={<OnboardingPage />} />
         <Route path="insights/:section" element={<Placeholder />} />

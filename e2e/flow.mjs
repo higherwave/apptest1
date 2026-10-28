@@ -645,7 +645,18 @@ try {
     await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('Opportunities')).click())
     await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.themes.length)
   }
-  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a, [data-label]')].find((a) => a.dataset.label === 'Case studies').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Customers').click())
+  await page.waitForSelector('[data-testid^="customer-"]', { timeout: 8000 })
+  const customers = await (await fetch(`${API}/api/v1/insights/customers`)).json()
+  ok('Customers lists each group once, the largest first, with the first one open', await page.evaluate((groups) => { const rows = [...document.querySelectorAll('[data-testid^="customer-"]')]; return rows.length === groups.length && rows.every((r, i) => r.innerText.includes(groups[i].name) && r.innerText.includes(`${groups[i].participantCount} participant`)) && rows[0].dataset.open === 'true' && rows.slice(1).every((r) => r.dataset.open === 'false') }, customers.groups))
+  ok('an open group shows what they struggle with and what they said', await page.evaluate(() => { const r = document.querySelector('[data-testid^="customer-"][data-open="true"]'); return /What they struggle with/i.test(r.innerText) && /In their words/i.test(r.innerText) && r.querySelectorAll('blockquote').length >= 1 }))
+  await page.evaluate(() => document.querySelector('[data-testid^="customer-"][data-open="true"] button[class*="themeLink"]').click())
+  await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 })
+  ok('a theme in a profile opens that theme', true)
+  await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Customers').click())
+  await page.waitForSelector('[data-testid^="customer-"]')
+  await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Case studies').click())
+
   await page.waitForSelector('[data-testid="case-study"]')
   const cases = (await (await fetch(`${API}/api/v1/insights/case-studies`)).json()).data
   ok('Case Studies shows each study with its outcome and owner', (await page.$$('[data-testid="case-study"]')).length === cases.length && (await text()).includes(cases[0].outcome) && (await text()).includes('Sep 2026'))

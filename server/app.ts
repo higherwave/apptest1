@@ -19,6 +19,7 @@ import {
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
+import { getCustomers } from './customers.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
@@ -573,6 +574,11 @@ export function createApp(options: AppOptions = {}) {
     if (!theme) throw new ApiError(404, 'not_found', 'No such platform theme.')
     cacheHeaders(c)
     return c.json(theme)
+  })
+  app.get('/insights/customers', withReadContext, async (c) => {
+    const body = await getCustomers(getDb(), c.get('ctx').workspaceId)
+    cacheHeaders(c)
+    return c.json(body)
   })
   app.get('/insights/case-studies', withReadContext, async (c) => {
     const data = await listCaseStudies(getDb(), c.get('ctx').workspaceId)
