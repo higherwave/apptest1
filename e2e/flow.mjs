@@ -473,6 +473,7 @@ try {
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 
+  ok('the footer text is 14px, the same as a case study card’s description', await page.evaluate(() => { const ps = [...document.querySelectorAll('footer p')].filter((p) => !p.querySelector('img')); return ps.length >= 3 && ps.every((p) => getComputedStyle(p).fontSize === '14px') }))
   // Design: a row per requirement with a prototype link, a picture and design notes.
   const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   await page.goto(`${BASE}/projects/${projectId}/design`, { waitUntil: 'networkidle0' })

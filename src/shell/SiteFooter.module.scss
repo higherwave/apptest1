@@ -41,6 +41,7 @@
   color: var(--at-body);
 
   p {
+    @include tokens.role('body-md'); // Carbon sets its own size on every <p>, so each paragraph takes the type itself
     margin: 0 0 var(--at-space-xs);
   }
 
