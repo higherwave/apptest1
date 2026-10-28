@@ -1935,3 +1935,50 @@ test('the platform journey folds every project’s stages into one, with each th
   assert.equal(new Set(all).size, all.length)
   assert.equal(all.length, 5)
 })
+
+test('a case study brief gathers a project’s problem, words, decisions, designs and results, with a prompt for an AI tool', async () => {
+  const { app, p1, send } = await boardFixture()
+  const none = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000000000/case-study-brief')
+  assert.equal(none.status, 404)
+  const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
+  const r3 = items.find((i: any) => i.key === 'R3')
+  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/design`, { prototypeUrl: 'https://example.com/fees', notes: 'Fees on the card.' }, 0)).status, 200)
+  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/measure`, { metric: 'Calls about fees', source: 'support_tickets', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-12-01', value: '55 a week', verdict: 'worked', note: null }] }, 0)).status, 200)
+  const res = await app.request(`/api/v1/projects/${p1}/case-study-brief`)
+  const body = await expectSpec(res, '/projects/{id}/case-study-brief')
+  assert.equal(body.projectName, 'Clinic booking, usability round 1')
+  assert.ok(body.problem.length >= 1 && body.problem.length <= 5)
+  assert.ok(body.evidence.length >= 1 && body.evidence.length <= 4 && body.evidence.every((q: any) => q.text && q.speaker))
+  assert.equal(body.decisions.requirements.length, 7)
+  assert.deepEqual(body.designs.map((d: any) => [d.key, d.prototypeUrl]), [['R3', 'https://example.com/fees']])
+  assert.deepEqual(body.results.summary, { worked: 1, needsAttention: 0, tooEarly: 0, notMeasured: 6 })
+  assert.deepEqual(body.results.items.map((r: any) => [r.key, r.result, r.latest.value]), [['R3', 'worked', '55 a week']])
+  // The prompt is the same material as a request, and tells the tool not to invent anything.
+  for (const part of ['Clinic booking, usability round 1', 'Do not invent', body.evidence[0].text, 'R3', 'Calls about fees', 'support tickets', '55 a week', 'https://example.com/fees']) {
+    assert.ok(body.prompt.includes(part), `the prompt includes ${part}`)
+  }
+})
+
+test('a project with no published document still has a brief, with the later parts empty', async () => {
+  const { app, pg } = await boardFixture()
+  const id = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, round 2'`)).rows[0] as { id: string }).id
+  const body = await expectSpec(await app.request(`/api/v1/projects/${id}/case-study-brief`), '/projects/{id}/case-study-brief')
+  assert.ok(body.problem.length >= 1)
+  assert.equal(body.decisions, null)
+  assert.equal(body.results, null)
+  assert.deepEqual(body.designs, [])
+  assert.ok(!body.prompt.includes('What happened'))
+})
+
+test('each case study carries a few quotes, how many of its themes are still opportunities, and a prompt', async () => {
+  const { app } = await insightsFixture()
+  const body = await expectSpec(await app.request('/api/v1/insights/case-studies'), '/insights/case-studies')
+  for (const c of body.data) {
+    assert.ok(c.quotes.length <= 2 && new Set(c.quotes.map((q: any) => q.speaker)).size === c.quotes.length, 'up to two, from different people')
+    assert.ok(c.prompt.includes(c.title) && c.prompt.includes('Do not invent'))
+    for (const q of c.quotes) assert.ok(c.prompt.includes(q.text))
+    for (const t of c.themes) assert.ok(c.prompt.includes(t.title))
+    assert.ok(c.opportunities >= 0 && c.opportunities <= c.themes.length)
+  }
+  assert.ok(body.data.some((c: any) => c.quotes.length > 0))
+})

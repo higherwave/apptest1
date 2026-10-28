@@ -660,6 +660,18 @@ try {
   await page.waitForSelector('[data-testid="case-study"]')
   const cases = (await (await fetch(`${API}/api/v1/insights/case-studies`)).json()).data
   ok('Case Studies shows each study with its outcome and owner', (await page.$$('[data-testid="case-study"]')).length === cases.length && (await text()).includes(cases[0].outcome) && (await text()).includes('Sep 2026'))
+  ok('each case study shows a few of the words behind it, and offers a prompt', await page.evaluate((cs) => { const cards = [...document.querySelectorAll('[data-testid="case-study"]')]; return cards.length === cs.length && cards.every((c, i) => c.querySelectorAll('blockquote').length === cs[i].quotes.length && [...c.querySelectorAll('button')].some((b) => b.innerText.includes('Copy prompt for an AI tool'))) && cs.some((c) => c.quotes.length > 0) }, cases))
+  await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: (t) => { window.__copied = t; return Promise.resolve() } }, configurable: true }) })
+  await page.evaluate(() => [...document.querySelector('[data-testid="case-study"]').querySelectorAll('button')].find((b) => b.innerText.includes('Copy prompt')).click())
+  await page.waitForFunction(() => window.__copied !== null, { timeout: 5000 })
+  ok('copying a case study’s prompt puts it on the clipboard and says so', await page.evaluate((c) => window.__copied === c.prompt && document.querySelector('[data-testid="case-study"] [role="status"]').innerText.includes('Copied'), cases[0]))
+  await choose('case-brief-project', insights.projects[0].name)
+  await page.waitForSelector('[data-testid="case-brief"]', { timeout: 8000 })
+  ok('picking a project shows its brief: the problem, what people said, what was decided, designed and what happened', await page.evaluate(() => { const b = document.querySelector('[data-testid="case-brief"]'); return ['The problem', 'What people said', 'What we decided', 'What we designed', 'What happened'].every((h) => [...b.querySelectorAll('section')].some((s) => s.getAttribute('aria-label') === h)) && b.querySelectorAll('blockquote').length >= 1 }))
+  await page.evaluate(() => [...document.querySelector('[data-testid="case-brief"]').querySelectorAll('button')].find((b) => b.innerText.includes('Copy prompt')).click())
+  await page.waitForFunction(() => window.__copied && window.__copied.includes('Do not invent'), { timeout: 5000 })
+  const brief = await (await fetch(`${API}/api/v1/projects/${insights.projects[0].id}/case-study-brief`)).json()
+  ok('the brief’s prompt is what was copied', await page.evaluate((p) => window.__copied === p, brief.prompt))
   const chip = cases[1].themes[0]
   await clickText(chip.title)
   await page.waitForFunction((id) => location.pathname === '/insights/themes' && location.search === `?theme=${id}`, { timeout: 8000 }, chip.id)

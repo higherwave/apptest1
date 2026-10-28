@@ -622,6 +622,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/case-study-brief": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's case study material in one quick view: the problem, what people said, what was decided, the designs and the results, plus a prompt to paste into an AI tool to make the presentation. Sections that do not exist yet are empty or null. Open to read as the viewer. */
+        get: operations["getCaseBrief"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/case-studies": {
         parameters: {
             query?: never;
@@ -1105,6 +1122,86 @@ export interface components {
                 id: string;
                 title: string;
             }[];
+            /** @description A few of the words behind the themes it was based on (up to two, from different people). */
+            quotes: {
+                /** Format: uuid */
+                id: string;
+                text: string;
+                speaker: string;
+                session: string;
+            }[];
+            /** @description Themes it was based on that are still opportunities. */
+            opportunities: number;
+            /** @description A request to paste into an AI tool such as Claude Design to make the presentation. */
+            prompt: string;
+        };
+        CaseBrief: {
+            /** Format: uuid */
+            projectId: string;
+            projectName: string;
+            template: string | null;
+            sessions: number;
+            participants: number;
+            /** @description The strongest themes of the current analysis (up to five). */
+            problem: {
+                title: string;
+                category: string;
+                participantCount: number;
+                totalParticipants: number;
+                description: string | null;
+            }[];
+            /** @description Up to four quotes, from different people where possible. */
+            evidence: {
+                text: string;
+                speaker: string;
+                session: string;
+                themeTitle: string | null;
+            }[];
+            /** @description What the published requirements decided; null until a document is published. */
+            decisions: {
+                reasoning: string | null;
+                requirements: {
+                    key: string;
+                    title: string;
+                    priority: string;
+                }[];
+                alternatives: {
+                    title: string;
+                    reason: string;
+                }[];
+            } | null;
+            /** @description Requirements that have a prototype link or design notes. */
+            designs: {
+                key: string;
+                title: string;
+                prototypeUrl: string | null;
+                notes: string | null;
+            }[];
+            /** @description What the Measure step shows; null until a document is published. */
+            results: {
+                summary: {
+                    worked: number;
+                    needsAttention: number;
+                    tooEarly: number;
+                    notMeasured: number;
+                };
+                /** @description Requirements with a metric or a finding. */
+                items: {
+                    key: string;
+                    title: string;
+                    metric: string | null;
+                    source: string | null;
+                    baseline: string | null;
+                    target: string | null;
+                    result: string | null;
+                    latest: {
+                        on: string;
+                        value: string;
+                    } | null;
+                }[];
+            } | null;
+            /** @description The material above as a request to paste into an AI tool such as Claude Design to make a presentation. */
+            prompt: string;
         };
         Board: {
             specId: string;
@@ -2826,6 +2923,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getCaseBrief: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The brief. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseBrief"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

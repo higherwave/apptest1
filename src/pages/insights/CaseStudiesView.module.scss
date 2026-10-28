@@ -67,6 +67,9 @@
 
 .label {
   @include tokens.role('label-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
   margin: 0 0 var(--at-space-xs);
   color: var(--at-muted);
   text-transform: uppercase;
@@ -77,3 +80,84 @@
   flex-wrap: wrap;
   gap: var(--at-space-xs);
 }
+
+.small {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+}
+
+.brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding-block-start: var(--at-space-sm);
+}
+
+.briefGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--at-space-lg);
+}
+
+.briefSection {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.item {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.quote {
+  margin: 0;
+  padding: var(--at-space-sm);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-sm);
+}
+
+.quoteText {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.quoteMeta {
+  @include tokens.role('meta');
+  margin: var(--at-space-xxs) 0 0;
+  color: var(--at-muted);
+}
+
+.copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  margin-block-start: auto;
+  padding-block-start: var(--at-space-sm);
+
+  > :global(.cds--form-item) { inline-size: 100%; }
+}
+
+.copyNote {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+.oppTag { margin: 0; }

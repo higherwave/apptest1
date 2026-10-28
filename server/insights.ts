@@ -1,6 +1,7 @@
 import { PLATFORM_KEYWORDS } from '../shared/platform-keywords.mjs'
 import { callAi, type Ai } from './ai.js'
 import type { Db, Queryable } from './db.js'
+import { buildCaseStudyPrompt } from './case-briefs.js'
 import { insertMany } from './sql.js'
 
 export type Category = 'pain_point' | 'need' | 'expectation' | 'delight'
@@ -69,6 +70,12 @@ export type CaseStudy = {
   date: string | null
   color: string
   themes: { id: string; title: string }[]
+  /** A few of the words behind the themes it was based on (up to two, from different people). */
+  quotes: { id: string; text: string; speaker: string; session: string }[]
+  /** Themes it was based on that are still opportunities. */
+  opportunities: number
+  /** A request to paste into an AI tool to make the presentation. */
+  prompt: string
 }
 
 // A theme's trend: where it was raised, share of each project's participants, oldest project first.
@@ -247,18 +254,49 @@ export async function getPlatformTheme(db: Queryable, workspaceId: string, id: s
 }
 
 export async function listCaseStudies(db: Queryable, workspaceId: string): Promise<CaseStudy[]> {
-  const [cases, links] = await Promise.all([
+  const [cases, links, said, overview] = await Promise.all([
     db.query(`select id, title, summary, outcome, owner_team, occurred_on::text as occurred_on, color from insights.case_studies where workspace_id = $1 order by occurred_on desc nulls last, title`, [workspaceId]),
     db.query(
       `select ct.case_study_id, pt.id, pt.title from insights.case_study_themes ct join insights.platform_themes pt on pt.id = ct.platform_theme_id
        where ct.workspace_id = $1 order by pt.position, pt.title`,
       [workspaceId],
     ),
+    db.query(
+      `select ct.case_study_id, pt.category, u.id as utterance_id, u.text, sp.name as speaker, tr.name as session
+       from insights.case_study_themes ct
+       join insights.platform_themes pt on pt.id = ct.platform_theme_id
+       join insights.platform_theme_sources s on s.platform_theme_id = pt.id
+       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join research.theme_quotes tq on tq.theme_id = s.theme_id
+       join research.utterances u on u.id = tq.utterance_id
+       join research.transcript_speakers sp on sp.id = u.speaker_id
+       join research.transcripts tr on tr.id = u.transcript_id
+       where ct.workspace_id = $1
+       order by tr.created_at, tr.name, u.position`,
+      [workspaceId],
+    ),
+    getThemesOverview(db, workspaceId),
   ])
-  return cases.rows.map((c) => ({
-    id: c.id, title: c.title, summary: c.summary ?? null, outcome: c.outcome ?? null, ownerTeam: c.owner_team ?? null, date: c.occurred_on ?? null, color: c.color,
-    themes: links.rows.filter((l) => l.case_study_id === c.id).map((l) => ({ id: l.id, title: l.title })),
-  }))
+  const opportunity = new Set(overview.themes.filter((t) => t.opportunity).map((t) => t.id))
+  return cases.rows.map((c) => {
+    const themes = links.rows.filter((l) => l.case_study_id === c.id).map((l) => ({ id: l.id as string, title: l.title as string }))
+    // Words about a problem first, then anything, from different people.
+    const mine = said.rows.filter((r) => r.case_study_id === c.id)
+    const quotes: CaseStudy['quotes'] = []
+    for (const pass of [(r: Record<string, any>) => r.category !== 'delight', () => true]) {
+      for (const r of mine) {
+        if (quotes.length >= 2) break
+        if (!pass(r) || quotes.some((q) => q.id === r.utterance_id || q.speaker === r.speaker)) continue
+        quotes.push({ id: r.utterance_id, text: r.text, speaker: r.speaker, session: String(r.session).replace(/\.\w+$/, '') })
+      }
+    }
+    const study = { title: c.title as string, ownerTeam: (c.owner_team ?? null) as string | null, summary: (c.summary ?? null) as string | null, outcome: (c.outcome ?? null) as string | null }
+    return {
+      id: c.id, ...study, date: c.occurred_on ?? null, color: c.color, themes, quotes,
+      opportunities: themes.filter((t) => opportunity.has(t.id)).length,
+      prompt: buildCaseStudyPrompt({ ...study, themes, quotes }),
+    }
+  })
 }
 
 // The simulated matcher: re-reads every project's current themes and tags each with the platform theme whose keywords it

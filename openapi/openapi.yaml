@@ -815,6 +815,23 @@ paths:
               schema: { $ref: '#/components/schemas/PlatformJourney' }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/case-study-brief:
+    get:
+      operationId: getCaseBrief
+      summary: >
+        A project's case study material in one quick view: the problem, what people said, what was decided, the designs and the results,
+        plus a prompt to paste into an AI tool to make the presentation. Sections that do not exist yet are empty or null. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The brief.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CaseBrief' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/case-studies:
     get:
       operationId: listCaseStudies
@@ -1444,7 +1461,7 @@ components:
                     timestamp: { type: [string, 'null'] }
     CaseStudy:
       type: object
-      required: [id, title, summary, outcome, ownerTeam, date, color, themes]
+      required: [id, title, summary, outcome, ownerTeam, date, color, themes, quotes, opportunities, prompt]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -1461,6 +1478,119 @@ components:
             properties:
               id: { type: string, format: uuid }
               title: { type: string }
+        quotes:
+          type: array
+          description: A few of the words behind the themes it was based on (up to two, from different people).
+          items:
+            type: object
+            required: [id, text, speaker, session]
+            properties:
+              id: { type: string, format: uuid }
+              text: { type: string }
+              speaker: { type: string }
+              session: { type: string }
+        opportunities: { type: integer, description: Themes it was based on that are still opportunities. }
+        prompt: { type: string, description: A request to paste into an AI tool such as Claude Design to make the presentation. }
+    CaseBrief:
+      type: object
+      required: [projectId, projectName, template, sessions, participants, problem, evidence, decisions, designs, results, prompt]
+      properties:
+        projectId: { type: string, format: uuid }
+        projectName: { type: string }
+        template: { type: [string, 'null'] }
+        sessions: { type: integer }
+        participants: { type: integer }
+        problem:
+          type: array
+          description: The strongest themes of the current analysis (up to five).
+          items:
+            type: object
+            required: [title, category, participantCount, totalParticipants, description]
+            properties:
+              title: { type: string }
+              category: { type: string }
+              participantCount: { type: integer }
+              totalParticipants: { type: integer }
+              description: { type: [string, 'null'] }
+        evidence:
+          type: array
+          description: Up to four quotes, from different people where possible.
+          items:
+            type: object
+            required: [text, speaker, session, themeTitle]
+            properties:
+              text: { type: string }
+              speaker: { type: string }
+              session: { type: string }
+              themeTitle: { type: [string, 'null'] }
+        decisions:
+          type: [object, 'null']
+          description: What the published requirements decided; null until a document is published.
+          required: [reasoning, requirements, alternatives]
+          properties:
+            reasoning: { type: [string, 'null'] }
+            requirements:
+              type: array
+              items:
+                type: object
+                required: [key, title, priority]
+                properties:
+                  key: { type: string }
+                  title: { type: string }
+                  priority: { type: string }
+            alternatives:
+              type: array
+              items:
+                type: object
+                required: [title, reason]
+                properties:
+                  title: { type: string }
+                  reason: { type: string }
+        designs:
+          type: array
+          description: Requirements that have a prototype link or design notes.
+          items:
+            type: object
+            required: [key, title, prototypeUrl, notes]
+            properties:
+              key: { type: string }
+              title: { type: string }
+              prototypeUrl: { type: [string, 'null'] }
+              notes: { type: [string, 'null'] }
+        results:
+          type: [object, 'null']
+          description: What the Measure step shows; null until a document is published.
+          required: [summary, items]
+          properties:
+            summary:
+              type: object
+              required: [worked, needsAttention, tooEarly, notMeasured]
+              properties:
+                worked: { type: integer }
+                needsAttention: { type: integer }
+                tooEarly: { type: integer }
+                notMeasured: { type: integer }
+            items:
+              type: array
+              description: Requirements with a metric or a finding.
+              items:
+                type: object
+                required: [key, title, metric, source, baseline, target, result, latest]
+                properties:
+                  key: { type: string }
+                  title: { type: string }
+                  metric: { type: [string, 'null'] }
+                  source: { type: [string, 'null'] }
+                  baseline: { type: [string, 'null'] }
+                  target: { type: [string, 'null'] }
+                  result: { type: [string, 'null'] }
+                  latest:
+                    type: [object, 'null']
+                    required: [on, value]
+                    properties:
+                      on: { type: string }
+                      value: { type: string }
+        prompt: { type: string, description: The material above as a request to paste into an AI tool such as Claude Design to make a presentation. }
     Board:
       type: object
       required: [specId, specName, projectId, projectName, stories, themes, lastMove]

@@ -19,6 +19,7 @@ import {
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
+import { getCaseBrief } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
@@ -575,6 +576,14 @@ export function createApp(options: AppOptions = {}) {
     if (!theme) throw new ApiError(404, 'not_found', 'No such platform theme.')
     cacheHeaders(c)
     return c.json(theme)
+  })
+  app.get('/projects/:id/case-study-brief', withReadContext, async (c) => {
+    const id = projectId(c)
+    const brief = await getCaseBrief(getDb(), c.get('ctx').workspaceId, id)
+    if (!brief) throw new ApiError(404, 'not_found', 'No such project.')
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(brief)
   })
   app.get('/insights/customers', withReadContext, async (c) => {
     const body = await getCustomers(getDb(), c.get('ctx').workspaceId)
