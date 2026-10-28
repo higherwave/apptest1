@@ -41,7 +41,7 @@ try {
   ok('the home page is plain HTML and links to the privacy policy', /<h1>.*Signal Flow<\/h1>/.test(about) && about.includes('href="/privacy"'))
 
   const landing = await (await fetch(`${BASE}/landing.html`)).text()
-  ok('the landing page is plain HTML with a Sign in link and a link to the read-only demo', landing.includes('href="/sign-in"') && landing.includes('href="/projects"') && landing.includes('Explore the read-only demo') && landing.includes('href="/privacy"'))
+  ok('the landing page is plain HTML with a Sign in link and a link to the read-only demo', landing.includes('href="/sign-in"') && landing.includes('href="/insights/themes"') && landing.includes('Explore the read-only demo') && landing.includes('href="/privacy"'))
 
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })
@@ -58,8 +58,8 @@ try {
   // /sign-in sends someone who is already signed in straight to the projects.
   await signInAs('david@demo.signalflow.example')
   await page.goto(`${BASE}/sign-in`, { waitUntil: 'networkidle0' })
-  await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
-  ok('/sign-in takes a signed-in person to the projects', true)
+  await page.waitForFunction(() => location.pathname === '/insights/themes', { timeout: 8000 })
+  ok('/sign-in takes a signed-in person to Platform Insights, the home page', true)
   await signInAs(null)
 
   // A signed-in owner: the app, with their name and role and an account menu.

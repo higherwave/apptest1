@@ -27,7 +27,7 @@ export function App() {
     <Routes>
       <Route path="sign-in" element={<SignInRoute />} />
       <Route element={<AppShell />}>
-        <Route index element={<Navigate to="/projects" replace />} />
+        <Route index element={<Navigate to="/insights/themes" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<NewTestPlanPage />} />
         <Route path="projects/:projectId/plan" element={<TestPlanPage />} />

@@ -19,7 +19,7 @@
   setTimeout(show, 1500);
   fetch('/api/v1/auth/get-session', { credentials: 'same-origin' })
     .then(function (r) { return r.ok ? r.json() : null; })
-    .then(function (d) { if (d && d.user) location.replace('/projects'); else show(); })
+    .then(function (d) { if (d && d.user) location.replace('/insights/themes'); else show(); })
     .catch(show);
 })();
 </script>
@@ -75,7 +75,7 @@ footer{background:#e4e5e8;margin-top:64px;padding:48px}.foot{max-width:960px;mar
 <p>Signal Flow helps teams plan a research study, upload interview transcripts, and leverage AI to turn those customer themes into requirements, stories, and insights.</p>
 <div class="actions">
 <a class="btn primary" href="/sign-in">Sign in</a>
-<a class="btn secondary" href="/projects">Explore the read-only demo</a>
+<a class="btn secondary" href="/insights/themes">Explore the read-only demo</a>
 </div>
 </div>
 </main>

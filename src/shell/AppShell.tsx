@@ -85,8 +85,8 @@ export function AppShell() {
       </header>
 
       <nav className={styles.rail} aria-label="Navigation" data-nav>
-        {railLink('/projects', 'Research Projects', <Folders size={24} aria-hidden />, !insights)}
         {railLink('/insights/themes', 'Platform Insights', <ChartColumn size={24} aria-hidden />, insights)}
+        {railLink('/projects', 'Research Projects', <Folders size={24} aria-hidden />, !insights)}
       </nav>
 
       <div className={styles.stage}>

@@ -8,7 +8,7 @@ import styles from './AuthGate.module.scss'
 // Opens Google, which brings the person back to the projects. Resolves with a message if Google could not be opened.
 async function beginSignIn(): Promise<string | null> {
   try {
-    const result = await signInWithGoogle('/projects')
+    const result = await signInWithGoogle('/insights/themes')
     if (result?.error) throw new Error(result.error.message || 'Google sign-in could not start.')
     return null
   } catch (err) {
@@ -26,7 +26,7 @@ export function SignInRoute() {
     if (me.isPending || signedIn) return
     beginSignIn().then(setError)
   }, [me.isPending, signedIn])
-  if (signedIn) return <Navigate to="/projects" replace />
+  if (signedIn) return <Navigate to="/insights/themes" replace />
   return (
     <main className={styles.screen}>
       <div className={styles.card}>
