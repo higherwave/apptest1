@@ -629,6 +629,7 @@ try {
   ok('the demo projects and the one analysed in this test all count', insights.projects.length >= 3 && insights.projects.some((p) => p.name === 'Intake v2'), insights.projects.map((p) => p.name).join(', '))
   const bodyText = await text()
   ok('every recommendation is shown, with its theme and project counts', insights.recommendations.length === 4 && insights.recommendations.every((r) => bodyText.includes(r.title) && bodyText.includes(`${r.projectCount} project`)))
+  ok('recommendation cards are outlined in their tint with a white fill', await page.evaluate(() => { const tiles = [...document.querySelectorAll('#recs-heading + div > *')]; return tiles.length >= 4 && tiles.every((t) => { const c = getComputedStyle(t); return c.backgroundColor === getComputedStyle(document.body).backgroundColor || c.backgroundColor === 'rgb(255, 255, 255)' || c.backgroundColor === 'rgba(0, 0, 0, 0)' }) && new Set(tiles.map((t) => getComputedStyle(t).borderTopColor)).size > 1 && tiles.every((t) => parseFloat(getComputedStyle(t).borderTopWidth) >= 2) }))
   const second = insights.themes[1]
   await page.click(`[data-testid="platform-theme-${second.id}"]`)
   await page.waitForFunction((t) => document.querySelector('aside[aria-label="Where this comes from"]')?.innerText.includes(t), { timeout: 8000 }, second.title)
