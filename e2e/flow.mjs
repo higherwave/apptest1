@@ -118,7 +118,7 @@ try {
 
 
   // 6. Open the draft project: locked steps, editing the Test Plan, a conflict with someone else, and the Task List.
-  await page.evaluate(() => [...document.querySelectorAll('[data-status]')].find((c) => c.innerText.startsWith('New patient intake')).click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-status]')].find((c) => c.innerText.startsWith('New patient intake')).querySelector('a').click())
   await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan$/.test(location.pathname), { timeout: 8000 })
   await waitText('Test Plan')
   const projectId = page.url().match(/projects\/([0-9a-f-]{36})/)[1]
@@ -577,13 +577,45 @@ try {
   ok('a requirement’s Story link opens its card on the Stories board', true)
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Research Projects').click())
   await page.waitForSelector('[data-status]')
-  ok('on Research Projects, a card counts the requirements with a measurement instead of High priority; analyzed is soft green, a draft is outline only', await page.evaluate(() => {
+  ok('on Research Projects, a card counts the requirements with a measurement instead of High priority; analyzed cards have their own light tint, a draft is outline only', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('[data-status]')]
     const mine = cards.find((c) => c.innerText.startsWith('Intake v2'))
     const draft = cards.find((c) => c.dataset.status === 'draft')
     const bg = (c) => getComputedStyle(c).backgroundColor
-    return !!mine && /1\s*Measurements/.test(mine.innerText) && !cards.some((c) => /High priority/.test(c.innerText)) && mine.dataset.status === 'analyzed' && bg(mine) !== 'rgba(0, 0, 0, 0)' && (!draft || (bg(draft) === 'rgba(0, 0, 0, 0)' && getComputedStyle(draft).borderTopWidth === '1px')) && cards.filter((c) => c.dataset.status === 'analyzed').every((c) => bg(c) === bg(mine))
+    const tints = new Set(cards.filter((c) => c.dataset.status === 'analyzed').map(bg))
+    return !!mine && /1\s*Measurements/.test(mine.innerText) && !cards.some((c) => /High priority/.test(c.innerText)) && mine.dataset.status === 'analyzed' && bg(mine) !== 'rgba(0, 0, 0, 0)' && tints.size > 1 && (!draft || (bg(draft) === 'rgba(0, 0, 0, 0)' && getComputedStyle(draft).borderTopWidth === '1px'))
   }))
+  const stat = (label) => page.evaluate((l) => { const c = [...document.querySelectorAll('[data-status]')].find((x) => x.innerText.startsWith('Intake v2')); const d = [...c.querySelectorAll('dl > div')].find((x) => x.innerText.includes(l)); const a = d.querySelector('a'); const href = a.getAttribute('href'); a.click(); return href }, label)
+  ok('the Sessions count links to the Test Plan', (await stat('Sessions')).endsWith('/plan'))
+  await page.waitForFunction(() => location.pathname.endsWith('/plan'), { timeout: 8000 })
+  await page.goBack({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-status]')
+  ok('the Themes count links to Themes', (await stat('Themes')).endsWith('/themes'))
+  await page.waitForFunction(() => location.pathname.endsWith('/themes'), { timeout: 8000 })
+  await page.goBack({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-status]')
+  ok('the Measurements count links to Measure', (await stat('Measurements')).endsWith('/measure'))
+  await page.waitForFunction(() => location.pathname.endsWith('/measure'), { timeout: 8000 })
+  await page.goBack({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-status]')
+  await page.evaluate(() => [...document.querySelectorAll('[data-status]')].find((x) => x.innerText.startsWith('Intake v2')).querySelector('a').click())
+  await page.waitForFunction(() => location.pathname.endsWith('/themes'), { timeout: 8000 })
+  ok('the card’s name opens the project, and the card is one link-covered target', true)
+  await page.goBack({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-status]')
+  // List view: the same projects as rows with the same links, remembered for next time.
+  await page.evaluate(() => [...document.querySelectorAll('[aria-label="Show projects as"] button')].find((b) => b.innerText.trim() === 'List').click())
+  await page.waitForSelector('[role="table"][aria-label="Research projects"]')
+  ok('the List toggle shows a row per project with the counts as links', await page.evaluate(() => { const rows = [...document.querySelectorAll('[role="table"] [role="row"]')].slice(1); const mine = rows.find((r) => r.innerText.startsWith('Intake v2')); return rows.length >= 3 && !!mine && mine.querySelectorAll('a').length === 4 && !document.querySelector('[data-status="analyzed"].cds--tile') && document.querySelector('[aria-label="Show projects as"] button[aria-pressed="true"]').innerText.trim() === 'List' }))
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[role="table"][aria-label="Research projects"]')
+  ok('the choice is remembered', true)
+  await page.evaluate(() => [...document.querySelectorAll('[role="table"] [role="row"]')].find((r) => r.innerText.startsWith('Intake v2')).querySelector('a[aria-label$="Measurements of Intake v2"], a[aria-label*="Measurements"]').click())
+  await page.waitForFunction(() => location.pathname.endsWith('/measure'), { timeout: 8000 })
+  ok('a count in the list opens that step too', true)
+  await page.goBack({ waitUntil: 'networkidle0' })
+  await page.evaluate(() => [...document.querySelectorAll('[aria-label="Show projects as"] button')].find((b) => b.innerText.trim() === 'Cards').click())
+  await page.waitForSelector('[data-status]')
   await page.goBack({ waitUntil: 'networkidle0' })
 
   // Platform Insights: themes across projects, where one comes from, case studies, onboarding.

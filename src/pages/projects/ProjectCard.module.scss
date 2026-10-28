@@ -9,13 +9,15 @@
 }
 
 .menu {
+  z-index: 2;
   position: absolute;
   inset-block-start: var(--at-space-xs);
   inset-inline-end: var(--at-space-xs);
 }
 
-// An analyzed project is a soft green card; a draft is only an outline.
+// An analyzed project takes its own soft tint (one of the --at-tint-* tokens, chosen by the project's tint name); a draft is only an outline.
 .card {
+  position: relative;
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -26,10 +28,40 @@
   background: transparent;
   border: 1px solid var(--at-border-strong);
 
-  &[data-status='analyzed'] {
-    background: var(--at-tint-mint);
-    border-color: transparent;
+  &[data-status='analyzed'] { border-color: transparent; }
+
+  @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
+    &[data-status='analyzed'][data-tint='#{$name}'] { background: var(--at-tint-#{$name}); }
   }
+
+  &:hover { border-color: var(--at-ink); }
+  &:has(.open:focus-visible) { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
+}
+
+// The name's link covers the whole card.
+.open {
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+  }
+
+  &:focus-visible { outline: none; }
+}
+
+// Above the cover: each count is its own link.
+.statLink {
+  position: relative;
+  z-index: 1;
+  color: inherit;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
 }
 
 .top {

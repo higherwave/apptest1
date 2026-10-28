@@ -29,6 +29,65 @@
   font-weight: 400;
 }
 
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--at-space-xs);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  overflow: hidden;
+}
+
+// One grid for the heading and every row, so the columns line up.
+.listRow {
+  @include tokens.role('body-md');
+  display: grid;
+  grid-template-columns: minmax(12rem, 3fr) minmax(8rem, 2fr) 6rem repeat(3, minmax(5rem, 1fr)) 3rem;
+  align-items: center;
+  gap: var(--at-space-md);
+  padding: var(--at-space-sm) var(--at-space-lg);
+  color: var(--at-ink);
+
+  & + & { border-block-start: 1px solid var(--at-hairline); }
+  &[data-status='draft'] { background: transparent; }
+
+  @media (max-width: 48rem) {
+    grid-template-columns: minmax(0, 2fr) 5rem repeat(3, 3.5rem) 2rem;
+
+    > :nth-child(2) { display: none; }
+  }
+}
+
+.listHead {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+  background: var(--at-surface-soft);
+  text-transform: uppercase;
+}
+
+.rowMuted { color: var(--at-muted); }
+
+.rowName {
+  @include tokens.role('label-md');
+  color: var(--at-ink);
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
+.rowLink {
+  color: var(--at-ink);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));

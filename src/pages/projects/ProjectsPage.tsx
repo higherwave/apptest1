@@ -23,6 +23,7 @@ export function ProjectsPage() {
       readOnly={!canEdit}
       // Same rule as the prototype: an analyzed project opens on its themes, a draft on its plan.
       onOpen={(p) => navigate(`/projects/${p.id}/${p.status === 'analyzed' ? 'themes' : 'plan'}`)}
+      onGo={(p, step) => navigate(`/projects/${p.id}/${step}`)}
       onNew={() => navigate('/projects/new')}
       onRemove={canEdit ? setRemoving : undefined}
       removing={removing}
