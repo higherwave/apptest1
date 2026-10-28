@@ -154,12 +154,6 @@ $frame-max: 44rem;
   background: var(--at-surface-soft);
 }
 
-.context {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-}
-
 // Opened: the prototype on the left, the design notes on the right.
 .split {
   display: grid;
@@ -205,17 +199,27 @@ $frame-max: 44rem;
   gap: var(--at-space-xs) var(--at-space-md);
 }
 
+.priority {
+  @include tokens.role('label-md');
+  margin-inline-start: auto;
+  color: var(--at-muted);
+  white-space: nowrap;
+}
+
+// Under the prototype box: the live link on the left, the way back to the story on the right.
+.frameFoot {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
 .storyLink {
   @include tokens.role('label-md');
   margin-inline-start: auto;
   color: var(--at-link);
-}
-
-.meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--at-space-xs);
+  white-space: nowrap;
 }
 
 // The prototype box: a picture, a link tile, or an empty box with the two ways to fill it. Once filled, the actions appear over the

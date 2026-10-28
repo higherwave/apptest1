@@ -113,35 +113,13 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
 
   return (
     <div id={`design-body-${item.key}`} className={styles.itemBody}>
-      <div className={styles.context}>
-        <div className={styles.contextTop}>
-          <div className={styles.meta}>
-            {item.theme && (
-              <Tag size="sm" type="gray" title={item.theme.title}>
-                {item.theme.title}
-              </Tag>
-            )}
-            <span className={styles.muted}>
-              {item.theme ? `${item.theme.participantCount} of ${item.theme.totalParticipants} participants · ` : ''}
-              {PRIORITY_LABEL[item.priority]} priority
-            </span>
-          </div>
-          <a
-            className={styles.storyLink}
-            href={`/projects/${projectId}/stories?open=${encodeURIComponent(item.key)}`}
-            onClick={(e) => {
-              e.preventDefault()
-              onViewStory(item.key)
-            }}
-          >
-            Story →
-          </a>
-        </div>
-        {(item.whyItMatters ?? item.summary) && (
+      <div className={styles.contextTop}>
+        {(item.whyItMatters ?? item.summary) ? (
           <ClampedBlock label={`why ${item.key} matters`}>
             <p className={styles.why}>{item.whyItMatters ?? item.summary}</p>
           </ClampedBlock>
-        )}
+        ) : <span />}
+        <span className={styles.priority}>{PRIORITY_LABEL[item.priority]} priority</span>
       </div>
 
       <div className={styles.split}>
@@ -185,11 +163,23 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
               </div>
             )}
           </div>
-          {hasLink && (
-            <a className={styles.open} href={item.prototypeUrl!} target="_blank" rel="noopener noreferrer">
-              Open prototype ↗ <span className={styles.muted}>{hostOf(item.prototypeUrl!)}</span>
+          <div className={styles.frameFoot}>
+            {hasLink ? (
+              <a className={styles.open} href={item.prototypeUrl!} target="_blank" rel="noopener noreferrer">
+                Open prototype ↗ <span className={styles.muted}>{hostOf(item.prototypeUrl!)}</span>
+              </a>
+            ) : <span />}
+            <a
+              className={styles.storyLink}
+              href={`/projects/${projectId}/stories?open=${encodeURIComponent(item.key)}`}
+              onClick={(e) => {
+                e.preventDefault()
+                onViewStory(item.key)
+              }}
+            >
+              Story →
             </a>
-          )}
+          </div>
           {pictureError && <p className={styles.error}>{pictureError}</p>}
           {canEdit && (
             <div className={styles.hiddenPicker}>
