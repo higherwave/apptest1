@@ -7,6 +7,7 @@ import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
 import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { OnboardingPage } from './pages/insights/OnboardingPage'
 import { DesignPage } from './pages/design/DesignPage'
+import { MeasurePage } from './pages/measure/MeasurePage'
 import { StoriesPage } from './pages/stories/StoriesPage'
 import { Placeholder } from './pages/Placeholder'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
@@ -41,6 +42,7 @@ export function App() {
         <Route path="requirements/:specId" element={<WriterPage />} />
         <Route path="projects/:projectId/design" element={<DesignPage />} />
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />
+        <Route path="projects/:projectId/measure" element={<MeasurePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<MembersPage />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />

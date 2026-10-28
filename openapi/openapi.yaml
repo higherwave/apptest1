@@ -645,6 +645,49 @@ paths:
             image/png: { schema: { type: string, format: binary } }
             image/webp: { schema: { type: string, format: binary } }
         '404': { $ref: '#/components/responses/Error' }
+  /projects/{id}/measure:
+    get:
+      operationId: getMeasure
+      summary: >
+        The Measure step: one row per requirement of the project's published document, with how we will know it worked (metric, source,
+        baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document
+        is published.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The measures.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Measure' }
+        '404': { $ref: '#/components/responses/Error' }
+  /stories/{id}/measure:
+    put:
+      operationId: saveMeasureItem
+      summary: >
+        Saves how one requirement will be measured and all of its check-ins (oldest first). If-Match is the row's version, 0 when nothing
+        has been saved yet. Needs the token.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MeasureRequest' }
+      responses:
+        '200':
+          description: The row as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeasureItem' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
   /specs/{id}/publish:
     post:
       operationId: publishSpec
@@ -979,7 +1022,7 @@ components:
       properties:
         tabs:
           type: object
-          required: [plan, tasks, transcripts, themes, journey, prio, requirements, design, stories]
+          required: [plan, tasks, transcripts, themes, journey, prio, requirements, design, stories, measure]
           properties:
             plan: { $ref: '#/components/schemas/StageTab' }
             tasks: { $ref: '#/components/schemas/StageTab' }
@@ -990,6 +1033,7 @@ components:
             requirements: { $ref: '#/components/schemas/StageTab' }
             design: { $ref: '#/components/schemas/StageTab' }
             stories: { $ref: '#/components/schemas/StageTab' }
+            measure: { $ref: '#/components/schemas/StageTab' }
     StageTab:
       type: object
       required: [enabled, hint]
@@ -1779,6 +1823,72 @@ components:
           properties:
             type: { type: string, enum: [image/jpeg, image/png, image/webp] }
             data: { type: string }
+    Checkin:
+      type: object
+      required: [on, value, verdict, note]
+      properties:
+        on: { type: string, description: 'The day of the check-in, YYYY-MM-DD.' }
+        value: { type: string, description: 'What was seen, in words or numbers.' }
+        verdict: { type: string, enum: [worked, needs_attention, too_early] }
+        note: { type: [string, 'null'] }
+    MeasureItem:
+      type: object
+      required: [storyId, key, title, priority, summary, whyItMatters, metric, source, baseline, target, checkins, result, version]
+      properties:
+        storyId: { type: string }
+        key: { type: string, description: 'R1, R2 ...' }
+        title: { type: string }
+        priority: { type: string, enum: [low, medium, high] }
+        summary: { type: [string, 'null'] }
+        whyItMatters: { type: [string, 'null'] }
+        metric: { type: [string, 'null'], description: How we will know it worked. }
+        source:
+          type: [string, 'null']
+          enum: [telemetry, kpi, research, other, null]
+        baseline: { type: [string, 'null'] }
+        target: { type: [string, 'null'] }
+        checkins:
+          type: array
+          description: Oldest first.
+          items: { $ref: '#/components/schemas/Checkin' }
+        result:
+          type: [string, 'null']
+          enum: [worked, needs_attention, too_early, null]
+          description: The newest check-in's verdict, null before the first one.
+        version: { type: integer, description: '0 when nothing has been saved for this requirement yet.' }
+    Measure:
+      type: object
+      required: [specId, specName, projectId, summary, items]
+      properties:
+        specId: { type: string }
+        specName: { type: string }
+        projectId: { type: string }
+        summary:
+          type: object
+          required: [total, worked, needsAttention, tooEarly, notMeasured]
+          properties:
+            total: { type: integer }
+            worked: { type: integer }
+            needsAttention: { type: integer }
+            tooEarly: { type: integer }
+            notMeasured: { type: integer }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/MeasureItem' }
+    MeasureRequest:
+      type: object
+      required: [checkins]
+      properties:
+        metric: { type: [string, 'null'] }
+        source:
+          type: [string, 'null']
+          enum: [telemetry, kpi, research, other, null]
+        baseline: { type: [string, 'null'] }
+        target: { type: [string, 'null'] }
+        checkins:
+          type: array
+          maxItems: 60
+          items: { $ref: '#/components/schemas/Checkin' }
     AiStatus:
       type: object
       required: [mode, enabled]

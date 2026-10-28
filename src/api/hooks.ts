@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getInsightsThemes, getPlatformTheme, listCaseStudies,
-  getBoard, getDesign, saveDesignItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getBoard, getDesign, saveDesignItem, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -133,5 +133,15 @@ export const useSaveDesign = (projectId: string) => {
     onSuccess: (item) => {
       queryClient.setQueryData(['design', projectId], (d: Awaited<ReturnType<typeof getDesign>> | undefined) => (d ? { ...d, items: d.items.map((i) => (i.storyId === item.storyId ? item : i)) } : d))
     },
+  })
+}
+
+// The Measure table of a project. A save returns the row as it is now; the cached table takes it and counts the results again.
+export const useMeasure = (projectId: string | undefined) => useQuery({ queryKey: ['measure', projectId], queryFn: () => getMeasure(projectId!), enabled: !!projectId })
+export const useSaveMeasure = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { storyId: string; version: number; body: MeasureRequest }) => saveMeasureItem(v.storyId, v.version, v.body),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measure', projectId] }),
   })
 }

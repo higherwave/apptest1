@@ -482,7 +482,7 @@ test('GET /projects/:id/stage: the server decides which steps are open', async (
     assert.deepEqual([r2.themes.enabled, r2.requirements.enabled, r2.stories.enabled, r2.stories.hint], [true, true, false, 'Publish the requirements first'])
     // Draft: only the plan steps.
     const draft = await tabs('New patient intake (draft)')
-    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, journey: false, prio: false, requirements: false, design: false, stories: false })
+    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, journey: false, prio: false, requirements: false, design: false, stories: false, measure: false })
     assert.equal(draft.themes.hint, 'Save and analyze a transcript first')
   })
 })
@@ -1787,4 +1787,61 @@ test('only editors can save design rows; a visitor can read the table', async ()
   const anon = await app.request(`/api/v1/stories/${r1.id}/design`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '0' }, body: JSON.stringify({ prototypeUrl: null, notes: 'x' }) })
   assert.ok([401, 403].includes(anon.status))
   assert.equal((await app.request(`/api/v1/projects/${p1}/design`)).status, 200)
+})
+
+// The Measure step --------------------------------------------------------------------------------------------
+
+test('the measure table lists the requirements in order, none measured yet, with the count of each result', async () => {
+  const { app, p1 } = await boardFixture()
+  const res = await app.request(`/api/v1/projects/${p1}/measure`)
+  const body = await expectSpec(res, '/projects/{id}/measure')
+  assert.deepEqual(body.items.map((i: any) => i.key), ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'])
+  assert.ok(body.items.every((i: any) => i.version === 0 && i.metric === null && i.checkins.length === 0 && i.result === null))
+  assert.deepEqual(body.summary, { total: 7, worked: 0, needsAttention: 0, tooEarly: 0, notMeasured: 7 })
+})
+
+test('a project with no published document has no measures (404 no_board)', async () => {
+  const { app, pg } = await boardFixture()
+  const id = ((await pg.query<any>(`select id from core.projects where name = 'New patient intake (draft)'`)).rows[0] as { id: string }).id
+  const res = await app.request(`/api/v1/projects/${id}/measure`)
+  assert.equal(res.status, 404)
+  assert.equal((await expectSpec(res, '/projects/{id}/measure')).error.code, 'no_board')
+})
+
+test('saving a measure keeps its check-ins; the newest verdict is the result and the summary counts it', async () => {
+  const { app, p1, send } = await boardFixture()
+  const table = async () => (await (await app.request(`/api/v1/projects/${p1}/measure`)).json())
+  const r3 = (await table()).items.find((i: any) => i.key === 'R3')
+  const first = { metric: ' Support calls about fees ', source: 'telemetry', baseline: '120 a week', target: '60 a week', checkins: [] }
+  const res = await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, 0)
+  assert.equal(res.status, 200)
+  const saved = await expectSpec(res, '/stories/{id}/measure', 'put')
+  assert.deepEqual([saved.metric, saved.source, saved.version, saved.result], ['Support calls about fees', 'telemetry', 1, null])
+  const withCheckins = { ...first, checkins: [{ on: '2026-11-01', value: '100 a week', verdict: 'too_early', note: null }, { on: '2026-12-01', value: '55 a week', verdict: 'worked', note: 'Held for a month.' }] }
+  const second = await expectSpec(await send(app, 'PUT', `/stories/${r3.storyId}/measure`, withCheckins, 1), '/stories/{id}/measure', 'put')
+  assert.deepEqual([second.result, second.version, second.checkins.length], ['worked', 2, 2])
+  assert.deepEqual((await table()).summary, { total: 7, worked: 1, needsAttention: 0, tooEarly: 0, notMeasured: 6 })
+  const stale = await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, 1)
+  assert.equal(stale.status, 409)
+  assert.equal((await expectSpec(stale, '/stories/{id}/measure', 'put')).error.code, 'version_conflict')
+  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, undefined)).status, 428)
+})
+
+test('a measure rejects a bad date, an unknown verdict or source; open questions have no measure', async () => {
+  const { app, story, send } = await boardFixture()
+  const r1 = await story('R1')
+  const q1 = await story('Q1')
+  const put = (id: string, body: unknown) => send(app, 'PUT', `/stories/${id}/measure`, body, 0)
+  assert.equal((await put(r1.id, { checkins: [{ on: '1 Nov', value: 'x', verdict: 'worked', note: null }] })).status, 422)
+  assert.equal((await put(r1.id, { checkins: [{ on: '2026-11-01', value: 'x', verdict: 'great', note: null }] })).status, 422)
+  assert.equal((await put(r1.id, { source: 'rumour', checkins: [] })).status, 422)
+  assert.equal((await put(q1.id, { checkins: [] })).status, 404)
+})
+
+test('only editors can save measures; a visitor can read them', async () => {
+  const { app, p1, story } = await boardFixture()
+  const r1 = await story('R1')
+  const anon = await app.request(`/api/v1/stories/${r1.id}/measure`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '0' }, body: JSON.stringify({ checkins: [] }) })
+  assert.ok([401, 403].includes(anon.status))
+  assert.equal((await app.request(`/api/v1/projects/${p1}/measure`)).status, 200)
 })

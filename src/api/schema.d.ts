@@ -469,6 +469,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Measure step: one row per requirement of the project's published document, with how we will know it worked (metric, source, baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document is published. */
+        get: operations["getMeasure"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stories/{id}/measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Saves how one requirement will be measured and all of its check-ins (oldest first). If-Match is the row's version, 0 when nothing has been saved yet. Needs the token. */
+        put: operations["saveMeasureItem"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/specs/{id}/publish": {
         parameters: {
             query?: never;
@@ -712,6 +746,7 @@ export interface components {
                 requirements: components["schemas"]["StageTab"];
                 design: components["schemas"]["StageTab"];
                 stories: components["schemas"]["StageTab"];
+                measure: components["schemas"]["StageTab"];
             };
         };
         StageTab: {
@@ -1321,6 +1356,61 @@ export interface components {
                 type: "image/jpeg" | "image/png" | "image/webp";
                 data: string;
             } | null;
+        };
+        Checkin: {
+            /** @description The day of the check-in, YYYY-MM-DD. */
+            on: string;
+            /** @description What was seen, in words or numbers. */
+            value: string;
+            /** @enum {string} */
+            verdict: "worked" | "needs_attention" | "too_early";
+            note: string | null;
+        };
+        MeasureItem: {
+            storyId: string;
+            /** @description R1, R2 ... */
+            key: string;
+            title: string;
+            /** @enum {string} */
+            priority: "low" | "medium" | "high";
+            summary: string | null;
+            whyItMatters: string | null;
+            /** @description How we will know it worked. */
+            metric: string | null;
+            /** @enum {string|null} */
+            source: "telemetry" | "kpi" | "research" | "other" | null;
+            baseline: string | null;
+            target: string | null;
+            /** @description Oldest first. */
+            checkins: components["schemas"]["Checkin"][];
+            /**
+             * @description The newest check-in's verdict, null before the first one.
+             * @enum {string|null}
+             */
+            result: "worked" | "needs_attention" | "too_early" | null;
+            /** @description 0 when nothing has been saved for this requirement yet. */
+            version: number;
+        };
+        Measure: {
+            specId: string;
+            specName: string;
+            projectId: string;
+            summary: {
+                total: number;
+                worked: number;
+                needsAttention: number;
+                tooEarly: number;
+                notMeasured: number;
+            };
+            items: components["schemas"]["MeasureItem"][];
+        };
+        MeasureRequest: {
+            metric?: string | null;
+            /** @enum {string|null} */
+            source?: "telemetry" | "kpi" | "research" | "other" | null;
+            baseline?: string | null;
+            target?: string | null;
+            checkins: components["schemas"]["Checkin"][];
         };
         AiStatus: {
             /** @enum {string} */
@@ -2362,6 +2452,65 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+        };
+    };
+    getMeasure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The measures. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Measure"];
+                };
+            };
+            404: components["responses"]["Error"];
+        };
+    };
+    saveMeasureItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeasureRequest"];
+            };
+        };
+        responses: {
+            /** @description The row as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasureItem"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
         };
     };
     publishSpec: {

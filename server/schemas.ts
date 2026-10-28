@@ -136,6 +136,24 @@ export const inviteMemberSchema = z.object({
 })
 export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
 
+// A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.
+export const measureSchema = z.object({
+  metric: optionalText(300),
+  source: z.enum(['telemetry', 'kpi', 'research', 'other']).nullish().transform((v) => v ?? null),
+  baseline: optionalText(200),
+  target: optionalText(200),
+  checkins: z
+    .array(
+      z.object({
+        on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the format YYYY-MM-DD.'),
+        value: text(200),
+        verdict: z.enum(['worked', 'needs_attention', 'too_early']),
+        note: optionalText(1000),
+      }),
+    )
+    .max(60, 'There are too many check-ins for one requirement.'),
+})
+
 // A design row: where the prototype is, what it looks like, and the notes. The picture is a small downscaled image sent as base64
 // (at most about 600 KB of it); leaving `image` out keeps the current one, null removes it.
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const

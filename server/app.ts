@@ -10,7 +10,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, designSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -19,6 +19,7 @@ import {
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
+import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
@@ -524,6 +525,39 @@ export function createApp(options: AppOptions = {}) {
     const img = await getDesignImage(getDb(), c.get('ctx').workspaceId, storyId(c))
     if (!img) throw new ApiError(404, 'not_found', 'There is no picture.')
     return new Response(new Uint8Array(img.data), { headers: { 'content-type': img.type, 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
+  })
+
+  // The Measure step -----------------------------------------------------------------------------------------
+
+  app.get('/projects/:id/measure', withReadContext, async (c) => {
+    const id = projectId(c)
+    const ctx = c.get('ctx')
+    if (!(await getProjectDetail(getDb(), ctx.workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    let measure
+    try {
+      measure = await getMeasure(getDb(), ctx.workspaceId, id)
+    } catch (err) {
+      if (err instanceof NoBoard) throw new ApiError(404, 'no_board', 'Publish a requirements document first: the measures are made from it.')
+      throw err
+    }
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(measure)
+  })
+
+  app.put('/stories/:id/measure', withContext, async (c) => {
+    requireEditor(c)
+    const id = storyId(c)
+    const expected = expectedVersion(c)
+    const input = parseBody(measureSchema, await readJson(c))
+    try {
+      await saveMeasureItem(getDb(), c.get('ctx'), id, expected, input)
+    } catch (err) {
+      if (err instanceof MeasureConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this row since you opened it.', undefined, { current: { version: err.current } })
+      return storyError(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json((await getMeasureItem(getDb(), c.get('ctx').workspaceId, id))!)
   })
 
   // Platform Insights ------------------------------------------------------------------------------------

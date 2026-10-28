@@ -53,6 +53,14 @@ export const getDesign = (projectId: string) => request<Design>(`/projects/${pro
 export const saveDesignItem = (storyId: string, version: number, body: DesignRequest) => request<DesignItem>(`/stories/${storyId}/design`, { method: 'PUT', body, version })
 export const designImageUrl = (storyId: string, version: number) => `/api/v1/stories/${storyId}/design/image?v=${version}`
 
+export type Measure = components['schemas']['Measure']
+export type MeasureItem = components['schemas']['MeasureItem']
+export type MeasureRequest = components['schemas']['MeasureRequest']
+export type Checkin = components['schemas']['Checkin']
+export const getMeasure = (projectId: string) => request<Measure>(`/projects/${projectId}/measure`)
+// The row's version is 0 when nothing has been saved for the requirement yet.
+export const saveMeasureItem = (storyId: string, version: number, body: MeasureRequest) => request<MeasureItem>(`/stories/${storyId}/measure`, { method: 'PUT', body, version })
+
 export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
 export type Member = components['schemas']['Member']
