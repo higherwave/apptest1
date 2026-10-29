@@ -61,15 +61,19 @@
   &:focus-visible { outline: none; }
 }
 
-// Above the cover: each count is its own link.
+// Above the cover: each chip is its own link, and the whole chip is the target (the link's ::after stretches over it).
 .statLink {
-  position: relative;
-  z-index: 1;
   color: inherit;
   text-decoration: none;
 
-  &:hover { text-decoration: underline; }
-  &:focus-visible { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+  }
+
+  &:focus-visible { outline: none; }
 }
 
 .top {
@@ -134,18 +138,38 @@
   margin: 0;
 
   > div {
+    position: relative;
+    z-index: 1;
     display: inline-flex;
     align-items: baseline;
     gap: var(--at-space-xxs);
     padding: var(--at-space-xxs) var(--at-space-sm);
     border-radius: var(--at-radius-sm);
     background: var(--at-surface-hover);
+
+    &:hover { background: var(--at-surface-hover-strong); }
+    &:has(.statLink:focus-visible) { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
   }
 
   dd,
   dt {
     margin: 0;
   }
+}
+
+// A draft has one chip: it goes back to where the work left off.
+.resume {
+  @include tokens.role('label-md');
+  position: relative;
+  z-index: 1;
+  align-self: flex-start;
+  padding: var(--at-space-xxs) var(--at-space-sm);
+  border-radius: var(--at-radius-sm);
+  background: var(--at-surface-hover);
+  color: var(--at-ink);
+
+  &:hover { background: var(--at-surface-hover-strong); }
+  &:has(.statLink:focus-visible) { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
 }
 
 .value {

@@ -1,6 +1,6 @@
 import { OverflowMenu, OverflowMenuItem, Tile } from '@carbon/react'
 import type { Project } from '../../api/client'
-import { goTo, STAT_STEPS, stepHref, type ProjectStep } from './ProjectStats'
+import { goTo, resumeStep, STAT_STEPS, stepHref, type ProjectStep } from './ProjectStats'
 import styles from './ProjectCard.module.scss'
 
 type ProjectCardProps = {
@@ -32,22 +32,26 @@ export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProp
           {project.methods.length ? project.methods.join(', ') : 'No methods'}
         </p>
         <div className={styles.bottom}>
-          <dl className={styles.stats}>
-            {STAT_STEPS.map((s) => (
-              <div key={s.key}>
-                <dd className={styles.value}>
-                  {analyzed ? (
+          {analyzed ? (
+            <dl className={styles.stats}>
+              {STAT_STEPS.map((s) => (
+                <div key={s.key}>
+                  <dd className={styles.value}>
                     <a className={styles.statLink} href={stepHref(project, s.step)} aria-label={`${project[s.key]} ${s.label}`} onClick={goTo((step) => onGo(project, step), s.step)}>
-                    {project[s.key]}
-                  </a>
-                  ) : (
-                    project[s.key]
-                  )}
-                </dd>
-                <dt className={styles.label}>{s.label}</dt>
-              </div>
-            ))}
-          </dl>
+                      {project[s.key]}
+                    </a>
+                  </dd>
+                  <dt className={styles.label}>{s.label}</dt>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <div className={styles.resume}>
+              <a className={styles.statLink} href={stepHref(project, resumeStep(project))} onClick={goTo((step) => onGo(project, step), resumeStep(project))}>
+                Pick up where you left off →
+              </a>
+            </div>
+          )}
           <p className={styles.status}>{analyzed ? 'Analyzed' : 'Draft'}</p>
         </div>
       </Tile>
