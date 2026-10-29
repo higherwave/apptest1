@@ -1,6 +1,6 @@
-import { ChartColumn, Folders } from '@carbon/icons-react'
+import { ChevronDown } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
-import type { MouseEvent, ReactNode } from 'react'
+import { useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
@@ -13,14 +13,16 @@ import styles from './AppShell.module.scss'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
 
-// Two navigation levels: a dark icon rail for the app's areas, and (inside a project or Platform Insights) a light
-// panel for that area's steps. Links carry data-label so tests and scripts find them by name, not by their markup.
+// Two navigation levels: a dark header with the app's areas (a dropdown on narrow screens), and inside a project a light
+// strip of that project's steps. Links carry data-label so tests and scripts find them by name, not by their markup.
 export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const go = (to: string) => (event: MouseEvent) => {
     event.preventDefault()
+    setMenuOpen(false)
     navigate(to)
   }
 
@@ -50,46 +52,60 @@ export function AppShell() {
     }
   })
 
-  const railLink = (to: string, label: string, icon: ReactNode, active: boolean) => (
-    <a href={to} data-label={label} aria-current={active ? 'page' : undefined} className={cx(styles.railLink, active && styles.railActive)} onClick={go(to)}>
-      {icon}
-      <span>{label}</span>
-    </a>
-  )
+  const areas = [
+    { to: '/insights/themes', label: 'Platform Insights', active: insights },
+    { to: '/projects', label: 'Research Projects', active: !insights },
+  ]
+  const current = areas.find((a) => a.active) ?? areas[0]
 
   return (
     <div className={styles.shell}>
       <header className={styles.appbar}>
-        {projectId || creating ? (
-          <>
-            <Button kind="ghost" size="sm" className={styles.back} onClick={() => navigate('/projects')}>
-              ← Research Projects
-            </Button>
-            <span className={styles.divider} aria-hidden />
-            <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
-            {projectDetail.data && !creating && (
-              <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>
-                {projectDetail.data.status === 'analyzed' ? 'Analyzed' : 'Draft'}
-              </Tag>
-            )}
-          </>
-        ) : (
-          <>
-            <Logo />
-            <span className={styles.appName}>Signal Flow</span>
-          </>
-        )}
+        <div className={styles.brand}>
+          <Logo />
+          <span className={styles.appName}>Signal Flow</span>
+        </div>
+
+        <nav className={styles.areas} aria-label="Navigation" data-nav>
+          {areas.map((a) => (
+            <a key={a.to} href={a.to} data-label={a.label} aria-current={a.active ? 'page' : undefined} className={cx(styles.area, a.active && styles.areaActive)} onClick={go(a.to)}>
+              {a.label}
+            </a>
+          ))}
+        </nav>
+
+        <div className={styles.menu} data-menu>
+          <Button kind="ghost" size="md" className={styles.menuButton} renderIcon={ChevronDown} aria-haspopup="true" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+            {current.label}
+          </Button>
+          {menuOpen && (
+            <div className={styles.menuList} role="menu">
+              {areas.map((a) => (
+                <a key={a.to} href={a.to} role="menuitem" aria-current={a.active ? 'page' : undefined} className={cx(styles.menuItem, a.active && styles.menuItemActive)} onClick={go(a.to)}>
+                  {a.label}
+                </a>
+              ))}
+            </div>
+          )}
+        </div>
+
         <div className={styles.access}>
           <AccessBar />
         </div>
       </header>
 
-      <nav className={styles.rail} aria-label="Navigation" data-nav>
-        {railLink('/insights/themes', 'Platform Insights', <ChartColumn size={24} aria-hidden />, insights)}
-        {railLink('/projects', 'Research Projects', <Folders size={24} aria-hidden />, !insights)}
-      </nav>
+      {hasPanel && (
+        <div className={styles.context} data-context>
+          <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
+          {projectDetail.data && !creating && (
+            <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>
+              {projectDetail.data.status === 'analyzed' ? 'Analyzed' : 'Draft'}
+            </Tag>
+          )}
+        </div>
+      )}
 
-      <div className={styles.stage}>
+      <div className={styles.stage} data-project={hasPanel}>
         {hasPanel && <StepNav items={stepItems} onGo={navigate} />}
         <main className={styles.content}>
           <Outlet />

@@ -1,62 +1,20 @@
 @use '../tokens' as tokens;
 
-// Dark icon rail (areas), and inside a project a horizontal strip of steps under the app bar (StepNav).
-$rail-width: 5rem;
+// Dark app bar (areas, account), and inside a project a slim project-name bar and a horizontal strip of steps (StepNav).
 $header-height: 3.5rem;
-
-.rail {
-  position: fixed;
-  inset-block: 0;
-  inset-inline-start: 0;
-  inline-size: $rail-width;
-  z-index: 2;
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-  padding: var(--at-space-sm) var(--at-space-xs);
-  background: var(--at-rail);
-}
-
-.railLink {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--at-space-xxs);
-  padding: var(--at-space-sm) var(--at-space-xxs);
-  border-radius: var(--at-radius-md);
-  color: var(--at-rail-text);
-  text-align: center;
-  text-decoration: none;
-  @include tokens.role('meta');
-  font-weight: 500;
-  line-height: 1.2;
-
-  svg {
-    fill: currentColor;
-  }
-
-  &:hover {
-    background: var(--at-rail-hover);
-    color: var(--at-on-dark);
-  }
-
-  &:focus-visible {
-    outline: 0.125rem solid var(--at-on-dark);
-    outline-offset: -2px;
-  }
-}
-
-.railActive {
-  background: var(--at-rail-active);
-  color: var(--at-on-dark);
-}
+$context-height: 2.75rem;
+$narrow: 48rem;
 
 .stage {
   display: flex;
   flex-direction: column;
-  margin-inline-start: $rail-width;
   margin-block-start: $header-height;
   min-height: calc(100vh - #{$header-height});
+
+  &[data-project='true'] {
+    margin-block-start: calc(#{$header-height} + #{$context-height});
+    min-height: calc(100vh - #{$header-height} - #{$context-height});
+  }
   background: var(--at-canvas);
 }
 
@@ -67,35 +25,137 @@ $header-height: 3.5rem;
   padding: var(--at-space-xl);
 }
 
-// The app bar: the app's name by default; inside a project, the way back and the project's name, so pages need not repeat them.
+// The app bar: dark, with the app's name on the left, the areas in the middle and the account on the right. Narrow screens
+// swap the areas for a dropdown. Inside a project, a slim bar under it names the project.
 .appbar {
   position: fixed;
   inset-block-start: 0;
-  inset-inline: $rail-width 0;
+  inset-inline: 0;
   z-index: 3;
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   gap: var(--at-space-sm);
   block-size: $header-height;
   padding-inline: var(--at-space-lg);
-  background: var(--at-canvas);
-  border-block-end: 1px solid var(--at-hairline);
-  color: var(--at-ink);
+  background: var(--at-rail);
+  color: var(--at-on-dark);
+
+  @media (max-width: $narrow) {
+    grid-template-columns: auto 1fr auto;
+    padding-inline: var(--at-space-md);
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+
+  img { border-radius: var(--at-radius-md); background: var(--at-canvas); } // the mark has a light background of its own; it keeps it on the dark bar
 }
 
 .appName {
   @include tokens.role('title-md');
   margin: 0;
   font-weight: 300;
+  white-space: nowrap;
 }
 
-.back {
-  color: var(--at-link);
+.areas {
+  grid-column: 2;
+  display: flex;
+  gap: var(--at-space-xs);
+
+  @media (max-width: $narrow) { display: none; }
 }
 
-.divider {
-  block-size: 1.5rem;
-  border-inline-start: 1px solid var(--at-hairline);
+.area {
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  color: var(--at-rail-text);
+  text-decoration: none;
+  white-space: nowrap;
+  @include tokens.role('body-md');
+
+  &:hover {
+    background: var(--at-rail-hover);
+    color: var(--at-on-dark);
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--at-on-dark);
+    outline-offset: -0.125rem;
+  }
+}
+
+.areaActive {
+  background: var(--at-rail-active);
+  color: var(--at-on-dark);
+}
+
+.menu {
+  display: none;
+  position: relative;
+
+  @media (max-width: $narrow) {
+    display: block;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+}
+
+.menuButton {
+  border: 1px solid var(--at-rail-active);
+  color: var(--at-on-dark);
+
+  svg { fill: currentColor; }
+
+  &:hover { background: var(--at-rail-hover); color: var(--at-on-dark); }
+}
+
+.menuList {
+  position: absolute;
+  inset-block-start: calc(100% + var(--at-space-xxs));
+  inset-inline-end: 0;
+  min-inline-size: 12rem;
+  display: flex;
+  flex-direction: column;
+  padding: var(--at-space-xxs);
+  border-radius: var(--at-radius-md);
+  background: var(--at-rail);
+  box-shadow: 0 0 0 1px var(--at-rail-active);
+}
+
+.menuItem {
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  color: var(--at-rail-text);
+  text-decoration: none;
+  @include tokens.role('body-md');
+
+  &:hover { background: var(--at-rail-hover); color: var(--at-on-dark); }
+}
+
+.menuItemActive {
+  background: var(--at-rail-active);
+  color: var(--at-on-dark);
+}
+
+.context {
+  position: fixed;
+  inset-block-start: $header-height;
+  inset-inline: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  block-size: $context-height;
+  padding-inline: var(--at-space-lg);
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
 }
 
 .projectName {
@@ -109,5 +169,12 @@ $header-height: 3.5rem;
 }
 
 .access {
-  margin-inline-start: auto;
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+
 }
+
+// The account controls sit on the dark bar, so the ghost buttons and the name take its light text.
+.access button { color: var(--at-on-dark); }
+.access [class*='who'] { color: var(--at-on-dark); }

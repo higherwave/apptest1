@@ -24,7 +24,7 @@ const clickText = async (t, tag = 'button') => {
 // Hidden dialogs keep their buttons in the page, so a dialog's own button is looked up inside the open one.
 const clickInOpenDialog = async (t) => page.evaluate((t) => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === t).click(), t)
 const retype = async (sel, value) => { await page.$eval(sel, (el) => el.select()); await page.keyboard.type(value) }
-const header = () => page.evaluate(() => document.querySelector('header')?.innerText ?? '')
+const header = () => page.evaluate(() => [...document.querySelectorAll('header, [data-context]')].map((e) => e.innerText).join(' '))
 const cardNames = async () => page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((c) => c.innerText.split('\n')[0]))
 
 try {
@@ -32,7 +32,7 @@ try {
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Research Projects')
   await waitText('Read-only demo')
-  ok('the app bar shows the app’s name on the home screen, with no back link', (await header()).includes('Signal Flow') && !(await header()).includes('← Research Projects'))
+  ok('the app bar shows the app’s name and the two areas, and no project bar on the home screen', (await header()).includes('Signal Flow') && (await header()).includes('Platform Insights') && !(await page.$('[data-context]')))
   ok('visitor sees the read-only badge', (await text()).includes('Read-only demo'))
   ok('four project cards load', (await cardNames()).length === 4, (await cardNames()).join(' | '))
   ok('New project is disabled for a visitor', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true))
@@ -57,7 +57,7 @@ try {
   await clickText('New project')
   await waitText('New test plan')
   await page.waitForSelector('#item-0-description') // the form shows once the test methods have loaded
-  ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('← Research Projects'))
+  ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Research Projects'))
   ok('one page holds the name, methods, test items and participants', await page.evaluate(() => ['#project-name', '#item-0-description', '#p-name-0', '#p-phone-0'].every((sel) => document.querySelector(sel)) && document.body.innerText.includes('Test methods') && !document.body.innerText.includes('Starting template')))
   ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 9 }))
   await clickText('Save test plan')
@@ -138,7 +138,7 @@ try {
   await waitText('All changes saved at')
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('#project-name')
-  ok('the app bar shows the project’s name and status, and the new name after a save', (await header()).includes('Intake v2') && /Draft/.test(await header()) && (await header()).includes('← Research Projects'))
+  ok('the app bar shows the project’s name and status, and the new name after a save', (await header()).includes('Intake v2') && /Draft/.test(await header()) && (await header()).includes('Research Projects'))
   ok('a saved name survives a reload', await page.evaluate(() => document.querySelector('#project-name').value === 'Intake v2'))
 
   // Someone else saves while this page is open: the save is refused, then overwritten on purpose.
