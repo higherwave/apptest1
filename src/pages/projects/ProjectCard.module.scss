@@ -106,7 +106,7 @@
   }
 
   .card[data-status='analyzed'] & { color: var(--at-signature-forest); }
-  .card[data-status='analyzed'] &::before { background: var(--at-signature-forest); }
+  .card[data-status='analyzed'] &::before { background: var(--at-analyzed); } // the same green as the bar across the card
 }
 
 .template {
