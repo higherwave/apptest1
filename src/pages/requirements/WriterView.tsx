@@ -1,6 +1,6 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, Tag, TextArea } from '@carbon/react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import type { BoardSyncPlan, SpecDetail, SpecStep } from '../../api/client'
 import { CATEGORY_LABEL } from '../themes/themeEdits'
 import { ClampedBlock } from './ClampedBlock'
@@ -53,11 +53,29 @@ export type WriterViewProps = {
   onConfirmStartOver: () => void
 }
 
+const OUTPUTS = [
+  { key: 'brief', label: 'Product Brief' },
+  { key: 'document', label: 'Requirements Doc' },
+] as const
+
+// Arrow keys, Home and End move between the two tabs, as in any tab strip.
+function onTabKeys(e: KeyboardEvent<HTMLDivElement>) {
+  const tabs = [...e.currentTarget.querySelectorAll<HTMLElement>('[role="tab"]')]
+  const at = tabs.indexOf(document.activeElement as HTMLElement)
+  if (at < 0) return
+  const next = e.key === 'ArrowRight' ? (at + 1) % tabs.length : e.key === 'ArrowLeft' ? (at - 1 + tabs.length) % tabs.length : e.key === 'Home' ? 0 : e.key === 'End' ? tabs.length - 1 : -1
+  if (next < 0) return
+  e.preventDefault()
+  tabs[next].focus()
+  tabs[next].click()
+}
+
 // Presentational: the writer. Steps on the left are reviewed one at a time; the product brief and the requirements
 // document on the right build up as steps are approved.
 export function WriterView(p: WriterViewProps) {
   const { state, spec } = p
   const [themesOpen, setThemesOpen] = useState(false)
+  const [output, setOutput] = useState<'brief' | 'document'>('brief')
   const banner = useRef<HTMLElement>(null)
   useEffect(() => {
     if (p.readyCue === 0 || !banner.current) return
@@ -223,8 +241,17 @@ export function WriterView(p: WriterViewProps) {
         </section>
 
         <aside className={styles.output} aria-label="Output">
-          <h2 className={styles.label}>Output</h2>
-          <div className={styles.brief}>
+          <div className={styles.outputHead}>
+            <h2 className={styles.label}>Output</h2>
+            <div className={styles.tabs} role="tablist" aria-label="Output" onKeyDown={onTabKeys}>
+              {OUTPUTS.map((o) => (
+                <Button key={o.key} id={`output-tab-${o.key}`} role="tab" kind={output === o.key ? 'primary' : 'ghost'} size="sm" aria-selected={output === o.key} aria-controls={`output-panel-${o.key}`} tabIndex={output === o.key ? 0 : -1} onClick={() => setOutput(o.key)}>
+                  {o.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div id="output-panel-brief" role="tabpanel" aria-labelledby="output-tab-brief" hidden={output !== 'brief'} className={styles.brief}>
             <h3 className={styles.blockTitle}>Product brief</h3>
             {!spec.brief.problem && <p className={styles.muted}>The brief builds as steps 1 to 3 are approved.</p>}
             {spec.brief.problem && (
@@ -262,23 +289,22 @@ export function WriterView(p: WriterViewProps) {
             )}
           </div>
 
-          {spec.document.length > 0 && (
-            <div className={styles.document}>
-              <h3 className={styles.blockTitle}>Requirements document</h3>
-              {spec.document.map((b) => (
-                <div key={b.heading}>
-                  <h4 className={styles.small}>{b.heading}</h4>
-                  <ClampedBlock label={b.heading.toLowerCase()}>
-                    {b.lines.map((l) => (
-                      <p key={l} className={styles.para}>
-                        {l}
-                      </p>
-                    ))}
-                  </ClampedBlock>
-                </div>
-              ))}
-            </div>
-          )}
+          <div id="output-panel-document" role="tabpanel" aria-labelledby="output-tab-document" hidden={output !== 'document'} className={styles.document}>
+            <h3 className={styles.blockTitle}>Requirements document</h3>
+            {spec.document.length === 0 && <p className={styles.muted}>The requirements document builds as the steps after the brief are approved.</p>}
+            {spec.document.map((b) => (
+              <div key={b.heading}>
+                <h4 className={styles.small}>{b.heading}</h4>
+                <ClampedBlock label={b.heading.toLowerCase()}>
+                  {b.lines.map((l) => (
+                    <p key={l} className={styles.para}>
+                      {l}
+                    </p>
+                  ))}
+                </ClampedBlock>
+              </div>
+            ))}
+          </div>
 
           {!p.canEdit && !published && <p className={styles.muted}>Editing is locked. Use &quot;Sign in&quot; or &quot;Unlock editing&quot; at the top of the page to review steps.</p>}
         </aside>

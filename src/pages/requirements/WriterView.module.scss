@@ -106,6 +106,26 @@
   gap: var(--at-space-md);
 }
 
+// The Output label with the two documents as tabs beside it.
+.outputHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-sm);
+}
+
+.tabs {
+  display: flex;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-xxs);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+
+  :global(.cds--btn) { border-radius: var(--at-radius-sm); }
+}
+
 .brief,
 .document,
 .ready {
@@ -117,6 +137,8 @@
 }
 
 .brief { background: var(--at-tint-cream); }
+.brief[hidden],
+.document[hidden] { display: none; } // the tab that is not open
 .document { border: 1px solid var(--at-hairline); }
 .ready {
   background: var(--at-tint-mint);

@@ -396,7 +396,7 @@ try {
   await waitText('Ready to publish')
   await page.waitForFunction(() => { const r = document.querySelector('section[aria-label="Ready to publish"]')?.getBoundingClientRect(); return r && r.top >= 0 && r.bottom <= innerHeight && scrollY === 0 }, { timeout: 5000 }).catch(() => {}) // the scroll is smooth
   ok('when the last step is approved, the Publish banner sits under the title and is in view', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Ready to publish"]'); const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && b.previousElementSibling?.tagName === 'HEADER' }))
-  ok('with all eight approved, the document is ready to publish', (await text()).toLowerCase().includes('requirements document'))
+  ok('with all eight approved, the document is ready to publish', (await text()).toLowerCase().includes('ready to publish') && await page.evaluate(() => /requirements document/i.test(document.querySelector('#output-panel-document').textContent) && document.querySelectorAll('#output-panel-document h4').length > 0))
   const preview = (await apiSpec(specId)).preview
   ok('and says what the board will get', (await text()).includes(`creates ${preview.requirements} requirements and ${preview.openQuestions} open questions`), JSON.stringify(preview))
   await clickText('Publish')
@@ -731,10 +731,20 @@ try {
   ok('a published document can be edited again: Edit is offered on its steps', await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].some((b) => b.innerText.trim() === 'Edit')))
   ok('once published, the banner stays under the title and shows View design, then View stories', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Published"]'); return !!b && b.previousElementSibling?.tagName === 'HEADER' && [...b.querySelectorAll('button')].map((x) => x.innerText.trim()).filter((t) => t.startsWith('View')).join() === 'View design,View stories' && ![...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'View stories') }))
   ok('a project document has no back-to-list button', !(await text()).includes('← Requirements'))
-  // Long sections are cut to a few lines; when a section is cut, Show more reveals it and Show less folds it again.
-  const more = await page.evaluate(() => { const b = [...document.querySelectorAll('aside[aria-label="Output"] button')].find((x) => x.innerText.trim() === 'Show more'); if (!b) return false; b.click(); return true })
-  if (more) await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'Show less'), { timeout: 5000 })
-  ok(more ? 'a cut section opens with Show more and offers Show less' : 'no section is long enough to be cut (nothing to check)', true)
+  // The Output is two documents as tabs: the Product Brief first, then the Requirements Doc. Sections start open in full.
+  ok('the Output has Product Brief and Requirements Doc tabs, the brief selected and showing', await page.evaluate(() => { const tabs = [...document.querySelectorAll('aside[aria-label="Output"] [role="tab"]')]; const brief = document.querySelector('#output-panel-brief'); const doc = document.querySelector('#output-panel-document'); return tabs.map((t) => t.innerText.trim()).join('|') === 'Product Brief|Requirements Doc' && tabs[0].getAttribute('aria-selected') === 'true' && tabs[1].getAttribute('aria-selected') === 'false' && !brief.hidden && doc.hidden }))
+  ok('the tabs sit beside the Output label', await page.evaluate(() => { const l = document.querySelector('aside[aria-label="Output"] h2').getBoundingClientRect(); const t = document.querySelector('aside[aria-label="Output"] [role="tab"]').getBoundingClientRect(); return Math.abs((l.top + l.bottom) / 2 - (t.top + t.bottom) / 2) < 24 && t.left > l.right }))
+  ok('every section starts open in full: no Show more in either document', await page.evaluate(() => ![...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'Show more')))
+  await page.evaluate(() => document.querySelectorAll('aside[aria-label="Output"] [role="tab"]')[1].click())
+  await page.waitForFunction(() => !document.querySelector('#output-panel-document').hidden && document.querySelector('#output-panel-brief').hidden, { timeout: 5000 })
+  ok('Requirements Doc shows the document and hides the brief', await page.evaluate(() => /requirements document/i.test(document.querySelector('#output-panel-document').innerText)))
+  ok('the tabs move with the arrow keys', await (async () => { await page.focus('aside[aria-label="Output"] [role="tab"][aria-selected="true"]'); await page.keyboard.press('ArrowLeft'); await page.waitForFunction(() => !document.querySelector('#output-panel-brief').hidden, { timeout: 5000 }); return page.evaluate(() => document.querySelector('#output-panel-document').hidden) })())
+  await page.evaluate(() => document.querySelectorAll('aside[aria-label="Output"] [role="tab"]')[1].click())
+  await page.waitForFunction(() => !document.querySelector('#output-panel-document').hidden, { timeout: 5000 })
+  // A long section can be folded with Show less and opened again with Show more.
+  const less = await page.evaluate(() => { const b = [...document.querySelectorAll('aside[aria-label="Output"] button')].find((x) => x.offsetParent && x.innerText.trim() === 'Show less'); if (!b) return false; b.click(); return true })
+  if (less) await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'Show more'), { timeout: 5000 })
+  ok(less ? 'a long section folds with Show less and offers Show more' : 'no section is long enough to fold (nothing to check)', true)
   // Reopen step 2: edit it, see it go back to review and the later steps marked, approve it again.
   await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].find((b) => b.innerText.trim() === 'Edit').click())
   await page.waitForSelector('#step-text-2', { visible: true })
