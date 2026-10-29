@@ -28,7 +28,7 @@ export function PlatformJourneyView({ state, journey, errorText, onOpenTheme }: 
   const points = stages.flatMap((s, i) => (s.sentiment === null ? [] : [{ index: i, sentiment: s.sentiment, left: ((i + 0.5) / stages.length) * 100, top: sentimentTop(s.sentiment) }]))
   const sentimentLabel = points.length ? 'Sentiment by stage: ' + points.map((p) => `${stages[p.index].name} ${p.sentiment < 0 ? 'negative' : 'positive'}`).join(', ') : 'No sentiment to show'
   return (
-    <div className={map.page}>
+    <div className={cx(map.page, styles.page)}>
       <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, from every study. A good place to start if you are new to the team" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading withOverlay={false} description="Loading the journey" />}

@@ -1,17 +1,11 @@
 @use '../../tokens' as tokens;
+@use './body';
 
 .page {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xl);
-  max-width: 90rem;
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-md);
-  min-width: 0;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
 }
 
 .label {
@@ -22,275 +16,214 @@
   text-transform: uppercase;
 }
 
+.hidden {
+  position: absolute;
+  inline-size: 0.0625rem;
+  block-size: 0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 .empty {
   @include tokens.role('body-md');
   margin: 0;
   color: var(--at-muted);
 }
 
+.muted { color: var(--at-muted); }
+
+// What to do: one card per recommendation. The dot is its priority.
 .recs {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: var(--at-space-sm);
-}
-
-@mixin tinted {
-  @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
-    &[data-tint='#{$name}'] { background: var(--at-tint-#{$name}); }
-  }
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--at-space-md);
 }
 
 .rec {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xs);
-  border: 0.125rem solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
+  gap: var(--at-space-sm);
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
   background: var(--at-canvas);
+}
 
-  // The tint is the outline, not the fill.
-  @each $name in (sky, lavender, mint, sand) {
-    &[data-tint='#{$name}'] { border-color: var(--at-tint-#{$name}); }
-  }
+.recHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+}
+
+.dot {
+  flex: none;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: var(--at-radius-full);
+  background: var(--at-border-strong);
+
+  &[data-priority='high'] { background: var(--at-signature-coral); }
+  &[data-priority='medium'] { background: var(--at-signature-mustard); }
+  &[data-priority='low'] { background: var(--at-signature-mint); }
 }
 
 .recTitle {
-  @include tokens.role('label-md');
+  @include tokens.role('title-sm');
   margin: 0;
   color: var(--at-ink);
 }
 
 .recMeta {
   @include tokens.role('body-md');
-  margin: 0;
+  margin: auto 0 0;
   color: var(--at-muted);
 }
 
-.split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--at-space-lg);
-  align-items: start;
+// The counts above the list; picking one filters the list to it, and All themes shows everything again.
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-sm);
+}
 
-  @media (max-width: 64rem) {
-    grid-template-columns: minmax(0, 1fr);
-  }
+.card {
+  @include tokens.role('body-md');
+  flex: 1 1 11rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--at-space-sm);
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: transparent;
+  color: var(--at-body);
+  text-align: start;
+
+  &:hover { background: var(--at-canvas); }
+  &[aria-pressed='true'] { border: 0.125rem solid var(--at-link); padding: calc(var(--at-space-md) - 1px) calc(var(--at-space-lg) - 1px); }
+  &:disabled { opacity: 0.6; }
+}
+
+.cardNum {
+  @include tokens.role('title-lg');
+  color: var(--at-ink);
+  font-weight: 300;
+}
+
+// The themes: one white table; each row is a button that opens its details beneath it.
+.table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  overflow: hidden;
+}
+
+// One grid for the column heads and every row, so the columns line up.
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) 7.5rem 9rem 7rem minmax(0, 2fr);
+  align-items: center;
+  gap: var(--at-space-md);
+  inline-size: 100%;
+  text-align: start;
+}
+
+.table > .columns {
+  padding: var(--at-space-md) var(--at-space-xxl) var(--at-space-md) var(--at-space-lg);
+  border-block-end: 1px solid var(--at-hairline);
 }
 
 .list {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xs);
-}
-
-.row {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-  align-items: stretch;
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
-  background: var(--at-canvas);
-
-  &[data-selected='true'] {
-    border-color: var(--at-ink);
-    box-shadow: inset 0 0 0 1px var(--at-ink); // 1px border + 1px ring: the prototype's 2px selection outline
-  }
-}
-
-.rowMain {
-  flex: 1;
-  min-width: 0;
-}
-
-.rowTitle {
-  @include tokens.role('label-md');
-  margin: 0 0 var(--at-space-xs);
-  color: var(--at-ink);
-}
-
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--at-space-xs);
-}
-
-.chip {
-  @include tokens.role('meta');
-  padding: var(--at-space-xxs) var(--at-space-xs);
-  border-radius: var(--at-radius-sm);
-  background: var(--at-surface-hover-strong);
-  color: var(--at-body);
-  font-weight: 400;
-  white-space: nowrap;
-  @include tinted;
-}
-
-.rowCount {
-  inline-size: 100%;
-
-  :global(.cds--progress-bar__bar) {
-    background: var(--at-ink);
-  }
-}
-
-.count {
-  @include tokens.role('body-md');
-  margin: 0 0 var(--at-space-xs);
-  color: var(--at-ink);
-  font-weight: 500;
-}
-
-.panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-md);
-  padding: var(--at-space-lg);
-  background: var(--at-surface-soft);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
-}
-
-.panelTitle {
-  @include tokens.role('title-md');
-  font-weight: 500;
-  margin: 0;
-  color: var(--at-ink);
-}
-
-.panelText {
-  @include tokens.role('body-md');
-  margin: 0;
-  color: var(--at-muted);
-}
-
-.source {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-  padding-block-start: var(--at-space-md);
-  border-block-start: 1px solid var(--at-hairline);
-}
-
-.sourceHead {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--at-space-xs);
-}
-
-.quote {
-  margin: 0;
-  padding: var(--at-space-sm);
-  background: var(--at-canvas);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-sm);
-}
-
-.quoteText {
-  @include tokens.role('body-md');
-  margin: 0;
-  color: var(--at-body);
-}
-
-.quoteMeta {
-  @include tokens.role('meta');
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  margin: var(--at-space-xxs) 0 0;
-  color: var(--at-muted);
-}
-
-.open {
-  min-block-size: 0;
-  padding: 0 var(--at-space-xs);
-}
-
-// The counts above the list; picking one filters the list to it.
-.cards {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--at-space-md);
-
-  @media (max-width: 48rem) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-.card {
-  @include tokens.role('body-md');
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-  gap: var(--at-space-xxs);
-  inline-size: 100%;
-  max-inline-size: none;
-  block-size: auto;
-  min-block-size: 0;
-  padding: var(--at-space-md) var(--at-space-lg);
-  border: 0.125rem solid transparent;
-  border-radius: var(--at-radius-lg);
-  background: var(--at-surface-soft);
-  color: var(--at-body);
-  text-align: start;
-
-  &:hover { background: var(--at-surface-strong); }
-  &[data-kind='worked'] { background: var(--at-tint-mint); }
-  &[data-kind='needs_attention'] { background: var(--at-tint-coral); }
-  &[data-kind='opportunities'] { background: var(--at-tint-lavender); }
-  &[aria-pressed='true'] { border-color: var(--at-ink); }
-  &:disabled { opacity: 0.6; }
-}
-
-.cardNum {
-  @include tokens.role('title-md');
-  color: var(--at-ink);
-}
-
-.countSub {
-  @include tokens.role('meta');
-  margin: 0;
-  color: var(--at-muted);
-}
-
-.happened {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
-}
-
-.req {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xxs);
-}
-
-.reqTags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--at-space-xs);
-}
-
-.muted { color: var(--at-muted); }
-
-.projectList {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xs);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.projectItem {
-  @include tokens.role('body-md');
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  gap: var(--at-space-xs) var(--at-space-md);
+.item + .item { border-block-start: 1px solid var(--at-hairline); }
+.item[data-open='true'] { background: var(--at-surface-soft); }
+
+.item .headButton.headButton {
+  position: relative;
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 4rem;
+  padding-block: var(--at-space-sm);
+  padding-inline: var(--at-space-lg) var(--at-space-xxl);
+  white-space: normal;
   color: var(--at-ink);
+  text-align: start;
+
+  &:hover { background: var(--at-surface-soft); }
+
+  // The chevron sits in the right padding, so it takes no room from the columns (which must line up with the heads above).
+  :global(.cds--btn__icon) {
+    position: absolute;
+    inset-block-start: 50%;
+    inset-inline-end: var(--at-space-lg);
+    transform: translateY(-50%);
+  }
+}
+
+.rowTitle {
+  @include tokens.role('label-md');
+  color: var(--at-ink);
+}
+
+.chips {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xxs);
+}
+
+.rowCount {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+
+  :global(.cds--progress-bar__bar) { background: var(--at-ink); }
+}
+
+.count {
+  @include tokens.role('meta');
+  color: var(--at-ink);
+}
+
+// Opened: where it comes from, what it means, what to do.
+.detail {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--at-space-xl);
+  padding: var(--at-space-xs) var(--at-space-lg) var(--at-space-lg);
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: var(--at-space-xs) 0 0;
+  color: var(--at-body);
+}
+
+@media (max-width: 48rem) {
+  .table > .columns { display: none; }
+
+  .columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--at-space-xs) var(--at-space-md);
+  }
+
+  .rowTitle,
+  .rowCount { flex: 1 1 100%; }
 }

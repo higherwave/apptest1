@@ -1,0 +1,8 @@
+// Everything under the hero on a Platform Insights screen: the width of the hero's contents, centered.
+@mixin below-hero {
+  > :not(header) {
+    inline-size: 100%;
+    max-inline-size: 75rem;
+    margin-inline: auto;
+  }
+}

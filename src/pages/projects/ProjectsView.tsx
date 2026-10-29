@@ -1,6 +1,7 @@
 import { Button, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag, Tile } from '@carbon/react'
 import { useState } from 'react'
 import type { Project } from '../../api/client'
+import { PageHero } from '../../shell/PageHero'
 import { ProjectCard } from './ProjectCard'
 import { goTo, STAT_STEPS, stepHref, type ProjectStep } from './ProjectStats'
 import styles from './ProjectsView.module.scss'
@@ -49,17 +50,11 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
   return (
     <div className={styles.page}>
-      <header className={styles.hero}>
-        <div className={styles.heroInner}>
-          <div>
-            <h1 className={styles.title}>Research Projects</h1>
-            <p className={styles.lede}>Plan a study, analyze transcripts, and turn themes into requirements.</p>
-          </div>
-          <Button kind="primary" disabled={readOnly} onClick={onNew}>
-            New project
-          </Button>
-        </div>
-      </header>
+      <PageHero title="Research Projects" description="Plan a study, analyze transcripts, and turn themes into requirements.">
+        <Button kind="primary" disabled={readOnly} onClick={onNew}>
+          New project
+        </Button>
+      </PageHero>
 
       <div className={styles.body}>
       {state === 'loading' && <Loading small withOverlay={false} description="Loading projects" />}

@@ -998,6 +998,8 @@ export interface components {
                 trend: "new" | "growing" | "steady" | "fading" | null;
                 /** @description Not addressed, not a delight, and raised in two or more projects or by three or more people. */
                 opportunity: boolean;
+                /** @description What the theme means, as the project where the most people raised it described it. null when no project wrote one. */
+                summary: string | null;
                 /** @description The requirements written for it. The same requirement in several projects is one entry, with how many projects wrote it and the strongest newest finding among them. */
                 requirements: {
                     title: string;

@@ -1,6 +1,7 @@
-import { Button, ClickableTile, InlineNotification, Loading, ProgressBar, Tag, Tile } from '@carbon/react'
+import { ChevronDown, ChevronUp } from '@carbon/icons-react'
+import { Button, InlineNotification, Loading, ProgressBar, Tag } from '@carbon/react'
 import { useState } from 'react'
-import type { InsightsThemes, PlatformThemeDetail } from '../../api/client'
+import type { InsightsThemes } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
 import { STATUS } from './labels'
@@ -9,20 +10,19 @@ import styles from './InsightThemesView.module.scss'
 export type InsightThemesViewProps = {
   state: 'loading' | 'error' | 'empty' | 'ready'
   overview?: InsightsThemes
-  selectedId: string | null
-  detail?: PlatformThemeDetail
-  detailFailed: boolean
+  /** The theme whose row is open, if any. */
+  openId: string | null
   errorText?: string
-  onSelect: (id: string) => void
-  onOpenTranscripts: (projectId: string) => void
+  onToggle: (id: string) => void
 }
 
 type Row = InsightsThemes['themes'][number]
-type Filter = 'recurring' | 'opportunities' | 'needs_attention' | 'worked'
+type Filter = 'all' | 'recurring' | 'opportunities' | 'needs_attention' | 'worked'
 
 const TREND = { new: 'New', growing: '↑ Growing', steady: '→ Steady', fading: '↓ Fading' } as const
-const RESULT_LABEL = { worked: 'Worked', needs_attention: 'Needs attention', too_early: 'Too early to tell' } as const
+const PRIORITY = { high: 'High priority', medium: 'Medium priority', low: 'Low priority' } as const
 const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => number; keep: (t: Row) => boolean }[] = [
+  { key: 'all', label: 'All themes', count: (o) => o.themes.length, keep: () => true },
   { key: 'recurring', label: 'Recurring pain points', count: (o) => o.summary.recurring, keep: (t) => t.projectCount >= 2 && t.category !== 'delight' },
   { key: 'opportunities', label: 'Opportunities', count: (o) => o.summary.opportunities, keep: (t) => t.opportunity },
   { key: 'needs_attention', label: 'Needs attention', count: (o) => o.summary.needsAttention, keep: (t) => t.status === 'needs_attention' },
@@ -31,10 +31,11 @@ const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => numbe
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
-// Presentational: recommendations, then the themes seen across projects, and where the selected theme comes from.
-export function InsightThemesView({ state, overview, selectedId, detail, detailFailed, errorText, onSelect, onOpenTranscripts }: InsightThemesViewProps) {
-  const [filter, setFilter] = useState<Filter | null>(null)
-  const shown = overview ? (filter ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : overview.themes) : []
+// Presentational: what the team should do (recommendations), then every theme seen across projects as a row that opens to say where it
+// comes from, what it means and what to do about it. Scanning the rows is the point; the evidence lives in each project.
+export function InsightThemesView({ state, overview, openId, errorText, onToggle }: InsightThemesViewProps) {
+  const [filter, setFilter] = useState<Filter>('all')
+  const shown = overview ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : []
   return (
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
@@ -43,125 +44,102 @@ export function InsightThemesView({ state, overview, selectedId, detail, detailF
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
       {state === 'ready' && overview && (
         <>
-          <section className={styles.section} aria-labelledby="recs-heading">
-            <h2 id="recs-heading" className={styles.label}>Recommendations</h2>
-            <div className={styles.recs}>
-              {overview.recommendations.map((r, i) => (
-                <Tile key={r.id} className={styles.rec} data-tint={['sky', 'lavender', 'mint', 'sand'][i % 4]}>
-                  <p className={styles.recTitle}>{r.title}</p>
-                  <p className={styles.recMeta}>
-                    {plural(r.themes.length, 'theme')} · {plural(r.projectCount, 'project')}
-                  </p>
-                </Tile>
-              ))}
-            </div>
+          <section className={styles.recs} aria-labelledby="recs-heading">
+            <h2 id="recs-heading" className={styles.hidden}>Recommendations</h2>
+            {overview.recommendations.map((r, i) => (
+              <article key={r.id} className={styles.rec}>
+                <p className={styles.recHead}>
+                  <span className={styles.label}>Recommendation {String(i + 1).padStart(2, '0')}</span>
+                  <span className={styles.dot} data-priority={r.priority} role="img" aria-label={PRIORITY[r.priority]} title={PRIORITY[r.priority]} />
+                </p>
+                <p className={styles.recTitle}>{r.title}</p>
+                <p className={styles.recMeta}>
+                  {plural(r.themes.length, 'theme')} · {plural(r.projectCount, 'project')}
+                </p>
+              </article>
+            ))}
           </section>
 
-          <section className={styles.section} aria-labelledby="themes-heading">
-            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
-            <section className={styles.cards} aria-label="What the themes add up to">
-              {FILTERS.map((f) => {
-                const n = f.count(overview)
+          <section className={styles.cards} aria-label="What the themes add up to">
+            {FILTERS.map((f) => {
+              const n = f.count(overview)
+              return (
+                <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(f.key)}>
+                  <span className={styles.cardNum}>{n}</span>
+                  <span>{f.label}</span>
+                </Button>
+              )
+            })}
+          </section>
+
+          <section className={styles.table} aria-labelledby="themes-heading">
+            <div className={styles.columns} aria-hidden>
+              <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+              <span className={styles.label}>Type</span>
+              <span className={styles.label}>Status</span>
+              <span className={styles.label}>Trend</span>
+              <span className={styles.label}>Participants</span>
+            </div>
+            <ul className={styles.list} aria-label="Themes across projects">
+              {shown.map((t) => {
+                const open = t.id === openId
+                const recs = overview.recommendations.filter((r) => r.themes.some((x) => x.id === t.id))
                 return (
-                  <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(filter === f.key ? null : f.key)}>
-                    <span className={styles.cardNum}>{n}</span>
-                    <span>{f.label}</span>
-                  </Button>
-                )
-              })}
-            </section>
-
-            <div className={styles.split}>
-              <div className={styles.list}>
-                {shown.map((t) => (
-                  <ClickableTile key={t.id} className={styles.row} data-selected={t.id === selectedId} data-testid={`platform-theme-${t.id}`} onClick={() => onSelect(t.id)}>
-                    <p className={styles.rowTitle}>{t.title}</p>
-                    <div className={styles.chips}>
-                      <CategoryBadge category={t.category} />
-                      {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
-                      <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
-                      {t.trend && <Tag size="sm" type="gray">{TREND[t.trend]}</Tag>}
-                    </div>
-                    <div className={styles.rowCount}>
-                      <p className={styles.count}>
-                        {t.participantCount} of {overview.totalParticipants} participants <span className={styles.countSub}>· {plural(t.projectCount, 'project')}</span>
-                      </p>
-                      <ProgressBar label={`${t.title}: participants`} hideLabel size="small" value={t.participantCount} max={Math.max(overview.totalParticipants, 1)} />
-                    </div>
-                  </ClickableTile>
-                ))}
-              </div>
-
-              <aside className={styles.panel} aria-label="Where this comes from">
-                <h2 className={styles.label}>Where this comes from</h2>
-                {detailFailed && <p className={styles.empty}>This theme could not be loaded.</p>}
-                {!detail && !detailFailed && <Loading withOverlay={false} small description="Loading" />}
-                {detail && detail.id === selectedId && (
-                  <>
-                    <p className={styles.panelTitle}>{detail.title}</p>
-                    <p className={styles.panelText}>
-                      Raised by {detail.participantCount} of {detail.totalParticipants} participants across {detail.projectCount} of {plural(detail.totalProjects, 'project')}.
-                    </p>
-                    <WhatHappened row={overview.themes.find((t) => t.id === detail.id)} />
-                    <div className={styles.happened}>
-                      <h3 className={styles.label}>Mentioned in</h3>
-                      <ul className={styles.projectList} aria-label="Projects that mentioned this theme">
-                        {detail.sources.map((s) => (
-                          <li key={s.projectId} className={styles.projectItem}>
-                            <span>{s.projectName}</span>
-                            <span className={styles.muted}>{s.participantCount} of {s.projectParticipants} participants</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                    {detail.quotes.length > 0 && (
-                      <div className={styles.happened}>
-                        <h3 className={styles.label}>In their words</h3>
-                        {detail.quotes.map((q) => (
-                          <blockquote key={q.id} className={styles.quote}>
-                            <p className={styles.quoteText}>“{q.text}”</p>
-                            <p className={styles.quoteMeta}>
-                              {q.speaker} · {q.projectName}
-                              <Button kind="ghost" size="sm" className={styles.open} onClick={() => onOpenTranscripts(q.projectId)}>
-                                Open transcript
-                              </Button>
+                  <li key={t.id} className={styles.item} data-testid={`platform-theme-${t.id}`} data-open={open}>
+                    <Button kind="ghost" size="md" className={styles.headButton} renderIcon={open ? ChevronUp : ChevronDown} aria-expanded={open} aria-controls={`theme-body-${t.id}`} onClick={() => onToggle(t.id)}>
+                      <span className={styles.columns}>
+                        <span className={styles.rowTitle}>{t.title}</span>
+                        <span className={styles.chips}>
+                          <CategoryBadge category={t.category} />
+                          {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
+                        </span>
+                        <span>
+                          <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
+                        </span>
+                        <span>{t.trend && <Tag size="sm" type="gray">{TREND[t.trend]}</Tag>}</span>
+                        <span className={styles.rowCount}>
+                          <span className={styles.count}>
+                            {t.participantCount} of {overview.totalParticipants} participants <span className={styles.muted}>· {plural(t.projectCount, 'project')}</span>
+                          </span>
+                          <ProgressBar label={`${t.title}: participants`} hideLabel size="small" value={t.participantCount} max={Math.max(overview.totalParticipants, 1)} />
+                        </span>
+                      </span>
+                    </Button>
+                    {open && (
+                      <div id={`theme-body-${t.id}`} className={styles.detail}>
+                        <section aria-label="Where this comes from">
+                          <h3 className={styles.label}>Where this comes from</h3>
+                          <p className={styles.text}>
+                            Raised by {t.participantCount} of {overview.totalParticipants} participants across {t.projectCount} of {plural(overview.projects.length, 'project')}.
+                          </p>
+                        </section>
+                        <section aria-label="Theme summary">
+                          <h3 className={styles.label}>Theme summary</h3>
+                          <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>
+                        </section>
+                        <section aria-label="Recommendation">
+                          <h3 className={styles.label}>Recommendation</h3>
+                          {recs.length === 0 ? (
+                            <p className={styles.text}>
+                              {t.opportunity ? `An opportunity: raised in ${plural(t.projectCount, 'project')} and no requirement addresses it yet.` : 'No recommendation yet.'}
                             </p>
-                          </blockquote>
-                        ))}
+                          ) : (
+                            recs.map((r) => (
+                              <p key={r.id} className={styles.text}>
+                                <strong>{r.title}</strong>
+                                {r.why ? ` ${r.why}` : ''}
+                              </p>
+                            ))
+                          )}
+                        </section>
                       </div>
                     )}
-                  </>
-                )}
-              </aside>
-            </div>
+                  </li>
+                )
+              })}
+            </ul>
           </section>
         </>
-      )}
-    </div>
-  )
-}
-
-// Under a theme: what became of it, in terms that hold across projects. Each distinct requirement once (no keys), with how many projects
-// wrote it and how it did, or a note that it is an opportunity.
-function WhatHappened({ row }: { row?: Row }) {
-  if (!row) return null
-  return (
-    <div className={styles.happened} data-testid="what-happened">
-      <h3 className={styles.label}>What happened</h3>
-      {row.requirements.length === 0 ? (
-        <p className={styles.panelText}>
-          {row.opportunity ? `An opportunity: raised in ${plural(row.projectCount, 'project')} and no requirement addresses it yet.` : 'No requirement has been written for this yet.'}
-        </p>
-      ) : (
-        row.requirements.map((r) => (
-          <div key={r.title} className={styles.req}>
-            <p className={styles.panelText}>{r.title}</p>
-            <div className={styles.reqTags}>
-              <Tag size="sm" type={r.result ? STATUS[r.result].tag : 'blue'}>{r.result ? RESULT_LABEL[r.result] : 'Not measured yet'}</Tag>
-              <span className={styles.muted}>written in {plural(r.projectCount, 'project')}</span>
-            </div>
-          </div>
-        ))
       )}
     </div>
   )

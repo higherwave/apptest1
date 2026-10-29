@@ -1566,6 +1566,9 @@ test('Insights themes: three analysed projects, 13 participants, themes in the c
   assert.deepEqual(body.summary, { recurring: 4, opportunities: 2, needsAttention: 0, worked: 0 })
   assert.deepEqual(body.recommendations.map((r: any) => [r.priority, r.themes.length, r.participantCount, r.projectCount]), [['high', 2, 12, 3], ['high', 2, 7, 2], ['high', 1, 10, 3], ['medium', 1, 10, 3]])
   assert.match(body.recommendations[0].title, /live provider availability/)
+  // The summary is a source project's own description, so every theme that has one says something and none is blank.
+  for (const t of body.themes) assert.ok(t.summary === null || (typeof t.summary === 'string' && t.summary.trim().length > 0), `${t.title} has a summary or none`)
+  assert.ok(body.themes.some((t: any) => t.summary), 'at least one theme carries a summary')
 })
 
 test('one platform theme shows which projects raised it and the few quotes that make its point', async () => {

@@ -24,6 +24,8 @@ export type PlatformThemeRow = {
   requirements: { title: string; projectCount: number; result: 'worked' | 'needs_attention' | 'too_early' | null }[]
   /** Per project that raised it: how many of that project's participants did. */
   sources: { projectId: string; participantCount: number }[]
+  /** What the theme means, in the words of the project that raised it most (its widest reach); null when no project wrote a description. */
+  summary: string | null
 }
 export type Recommendation = {
   id: string
@@ -155,7 +157,7 @@ export async function projectsWithAnalysis(db: Queryable, workspaceId: string): 
 
 // Themes across every analysed project, the recommendations drawn from them, and the numbers behind both.
 export async function getThemesOverview(db: Queryable, workspaceId: string): Promise<ThemesOverview> {
-  const [projects, themeRows, people, recRows, recLinks, storyRows] = await Promise.all([
+  const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows] = await Promise.all([
     projectsWithAnalysis(db, workspaceId),
     db.query(`select id, title, category from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
     db.query(PEOPLE, [workspaceId]),
@@ -173,6 +175,14 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
        join delivery.specs sp on sp.id = st.spec_id
        left join delivery.success_measures m on m.story_id = st.id
        where s.workspace_id = $1`,
+      [workspaceId],
+    ),
+    db.query(
+      `select s.platform_theme_id, c.project_id, t.description
+       from insights.platform_theme_sources s
+       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join research.themes t on t.id = c.id
+       where s.workspace_id = $1 and coalesce(trim(t.description), '') <> ''`,
       [workspaceId],
     ),
   ])
@@ -207,7 +217,11 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     const status = statusOf(requirements.map((r) => r.result))
     const distinct = distinctRequirements(requirements)
     const opportunity = status === 'not_addressed' && t.category !== 'delight' && (c.projects >= 2 || c.participants >= 3)
-    return { id: t.id, title: t.title, category: t.category, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources }
+    // The summary is the description written by the project where the most people raised it (the earliest project on a tie).
+    const reach = (projectId: string) => sources.find((x) => x.projectId === projectId)?.participantCount ?? 0
+    const described = describedRows.rows.filter((r) => r.platform_theme_id === t.id).sort((a, b) => reach(b.project_id) - reach(a.project_id))
+    const summary = described.length ? String(described[0].description).trim() : null
+    return { id: t.id, title: t.title, category: t.category, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary }
   })
   // Reach first: raised in the most projects, then by the most people.
   themes.sort((a, b) => b.projectCount - a.projectCount || b.participantCount - a.participantCount || a.title.localeCompare(b.title))

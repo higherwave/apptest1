@@ -1,10 +1,11 @@
 @use '../../tokens' as tokens;
+@use './body';
 
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  max-width: 90rem;
+  @include body.below-hero;
 }
 
 .muted {

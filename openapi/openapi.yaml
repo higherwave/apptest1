@@ -1308,7 +1308,7 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, participantCount, projectCount, status, trend, opportunity, requirements, sources]
+            required: [id, title, category, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary]
             properties:
               id: { type: string, format: uuid }
               title: { type: string }
@@ -1324,6 +1324,7 @@ components:
                 enum: [new, growing, steady, fading, null]
                 description: How its reach changed between projects, null when there is only one project.
               opportunity: { type: boolean, description: 'Not addressed, not a delight, and raised in two or more projects or by three or more people.' }
+              summary: { type: [string, 'null'], description: 'What the theme means, as the project where the most people raised it described it. null when no project wrote one.' }
               requirements:
                 type: array
                 description: The requirements written for it. The same requirement in several projects is one entry, with how many projects wrote it and the strongest newest finding among them.
