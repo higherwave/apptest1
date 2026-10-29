@@ -83,6 +83,7 @@ try {
   await page.click('#p-length-0')
   await page.waitForSelector('[role="option"]')
   ok('the choices are 30 min, 45 min and 1 hour', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].map((o) => o.innerText.trim()).join('|') === '30 min|45 min|1 hour'))
+  ok('the open list is on top of the table, not clipped inside its row', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].every((o) => { const r = o.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return top === o || o.contains(top) })))
   await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.trim() === '45 min').click())
   await clickText('Save test plan')
   await waitText('Enter a valid email address.')

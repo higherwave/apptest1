@@ -120,6 +120,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
                     hideLabel
                     label="Choose"
                     size="md"
+                    autoAlign
                     items={[...SESSION_LENGTHS]}
                     itemToString={(item) => item?.label ?? ''}
                     selectedItem={SESSION_LENGTHS.find((l) => l.value === p.sessionMinutes) ?? null}
