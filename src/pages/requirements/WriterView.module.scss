@@ -56,6 +56,12 @@
   color: var(--at-muted);
 }
 
+// Carbon caps a button's width, which made this long label wrap inside it.
+.toggle {
+  max-inline-size: none;
+  white-space: nowrap;
+}
+
 .themeList {
   display: flex;
   flex-direction: column;

@@ -2,7 +2,7 @@
 
 // The project's steps as a horizontal strip under the app bar.
 .strip {
-  background: var(--at-surface-soft);
+  background: var(--at-surface-hover-strong); // a step darker than the page, so the strip reads as its own band
   border-block-end: 1px solid var(--at-hairline);
 }
 

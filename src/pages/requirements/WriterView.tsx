@@ -160,6 +160,7 @@ export function WriterView(p: WriterViewProps) {
             <Button
               kind="ghost"
               size="sm"
+              className={styles.toggle}
               renderIcon={themesOpen ? ChevronUp : ChevronDown}
               aria-expanded={themesOpen}
               aria-controls="themes-used-list"

@@ -349,6 +349,7 @@ try {
 
   // Exclude a theme; then redo step 1 with instructions.
   ok('the themes start folded, with their count', await page.evaluate(() => !document.querySelector('section[aria-label="Themes used"] [aria-pressed]') && /\d+ of \d+ themes? included/.test(document.querySelector('section[aria-label="Themes used"]').innerText)))
+  ok('the Themes used toggle is one line, not wrapped inside its button', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Themes used"] button[aria-expanded]'); return b.getBoundingClientRect().height < 40 && b.scrollWidth <= b.clientWidth + 1 }))
   await page.evaluate(() => { const b = document.querySelector('section[aria-label="Themes used"] button[aria-expanded="false"]'); if (b) b.click() })
   await page.waitForSelector('section[aria-label="Themes used"] [aria-pressed]')
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.innerText.trim() === 'Insurance coverage is unclear up front').click())
