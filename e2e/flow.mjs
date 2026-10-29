@@ -396,6 +396,7 @@ try {
   await waitText('Ready to publish')
   await page.waitForFunction(() => { const r = document.querySelector('section[aria-label="Ready to publish"]')?.getBoundingClientRect(); return r && r.top >= 0 && r.bottom <= innerHeight && scrollY === 0 }, { timeout: 5000 }).catch(() => {}) // the scroll is smooth
   ok('when the last step is approved, the Publish banner sits under the title and is in view', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Ready to publish"]'); const r = b.getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight && b.previousElementSibling?.tagName === 'HEADER' }))
+  ok('when the document becomes ready to publish, the Requirements Doc tab opens by itself', await page.evaluate(() => document.querySelectorAll('aside[aria-label="Output"] [role="tab"]')[1].getAttribute('aria-selected') === 'true' && !document.querySelector('#output-panel-document').hidden && document.querySelector('#output-panel-brief').hidden))
   ok('with all eight approved, the document is ready to publish', (await text()).toLowerCase().includes('ready to publish') && await page.evaluate(() => /requirements document/i.test(document.querySelector('#output-panel-document').textContent) && document.querySelectorAll('#output-panel-document h4').length > 0))
   const preview = (await apiSpec(specId)).preview
   ok('and says what the board will get', (await text()).includes(`creates ${preview.requirements} requirements and ${preview.openQuestions} open questions`), JSON.stringify(preview))

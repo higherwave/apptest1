@@ -79,6 +79,7 @@ export function WriterView(p: WriterViewProps) {
   const banner = useRef<HTMLElement>(null)
   useEffect(() => {
     if (p.readyCue === 0 || !banner.current) return
+    setOutput('document') // the document is what happens next, so it is the one to see
     const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
     window.scrollTo({ top: 0, behavior: calm ? 'auto' : 'smooth' })
     banner.current.focus({ preventScroll: true })
