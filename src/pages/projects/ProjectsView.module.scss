@@ -70,7 +70,13 @@
   text-transform: uppercase;
 }
 
-.rowMuted { color: var(--at-muted); }
+.rowMuted {
+  color: var(--at-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; // wrap to two lines, then cut off with an ellipsis; the full list is in the title
+  overflow: hidden;
+}
 
 .rowName {
   @include tokens.role('label-md');

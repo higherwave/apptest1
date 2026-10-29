@@ -28,7 +28,9 @@ export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProp
             </a>
           </p>
         </div>
-        <p className={styles.template}>{project.methods.length ? project.methods.join(', ') : 'No methods'}</p>
+        <p className={styles.template} title={project.methods.length > 1 ? project.methods.join(', ') : undefined}>
+          {project.methods.length ? project.methods.join(', ') : 'No methods'}
+        </p>
         <div className={styles.bottom}>
           <dl className={styles.stats}>
             {STAT_STEPS.map((s) => (

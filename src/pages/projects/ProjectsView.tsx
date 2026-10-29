@@ -109,7 +109,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                         {project.name}
                       </a>
                     </span>
-                    <span role="cell" className={styles.rowMuted}>
+                    <span role="cell" className={styles.rowMuted} title={project.methods.length > 1 ? project.methods.join(', ') : undefined}>
                       {project.methods.length ? project.methods.join(', ') : 'No methods'}
                     </span>
                     <span role="cell">
