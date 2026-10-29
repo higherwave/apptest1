@@ -15,8 +15,7 @@
   inset-inline-end: var(--at-space-xs);
 }
 
-// A white card with a bar of the project's own color across the top (one of the --at-tint-* tokens, chosen by the project's tint
-// name); a draft's bar is gray. The counts below sit in chips of the soft tint.
+// A white card with a bar across the top: green once analyzed, gray while a draft. The counts below sit in light gray chips.
 .card {
   position: relative;
   flex: 1;
@@ -31,7 +30,6 @@
   background: var(--at-canvas);
   border: 1px solid var(--at-hairline);
   --bar: var(--at-hairline);
-  --chip: var(--at-surface-hover);
 
   &::before {
     content: '';
@@ -42,12 +40,7 @@
     background: var(--bar);
   }
 
-  @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
-    &[data-status='analyzed'][data-tint='#{$name}'] {
-      --bar: var(--at-tint-strong-#{$name});
-      --chip: var(--at-tint-#{$name});
-    }
-  }
+  &[data-status='analyzed'] { --bar: var(--at-analyzed); }
 
   &:hover { border-color: var(--at-ink); }
   &:has(.open:focus-visible) { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
@@ -146,7 +139,7 @@
     gap: var(--at-space-xxs);
     padding: var(--at-space-xxs) var(--at-space-sm);
     border-radius: var(--at-radius-sm);
-    background: var(--chip);
+    background: var(--at-surface-hover);
   }
 
   dd,

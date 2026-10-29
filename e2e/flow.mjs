@@ -589,13 +589,15 @@ try {
   ok('a requirement’s Story link opens its card on the Stories board', true)
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Research Projects').click())
   await page.waitForSelector('[data-status]')
-  ok('on Research Projects, a card counts the requirements with a measurement instead of High priority; analyzed cards have their own tint, a draft is gray', await page.evaluate(() => {
+  ok('on Research Projects, a card counts the requirements with a measurement instead of High priority; analyzed cards have a green bar, a draft a gray one, and every chip is light gray', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('[data-status]')]
     const mine = cards.find((c) => c.innerText.startsWith('Intake v2'))
     const draft = cards.find((c) => c.dataset.status === 'draft')
     const chip = (c) => getComputedStyle(c.querySelector('dl > div')).backgroundColor
-    const tints = new Set(cards.filter((c) => c.dataset.status === 'analyzed').map(chip))
-    return !!mine && /1\s*Measurements/.test(mine.innerText) && !cards.some((c) => /High priority/.test(c.innerText)) && mine.dataset.status === 'analyzed' && tints.size > 1 && (!draft || !tints.has(chip(draft)))
+    const bar = (c) => getComputedStyle(c, '::before').backgroundColor
+    const chips = new Set(cards.map(chip))
+    const bars = new Set(cards.filter((c) => c.dataset.status === 'analyzed').map(bar))
+    return !!mine && /1\s*Measurements/.test(mine.innerText) && !cards.some((c) => /High priority/.test(c.innerText)) && mine.dataset.status === 'analyzed' && chips.size === 1 && bars.size === 1 && (!draft || bar(draft) !== bar(mine))
   }))
   ok('a draft’s counts are plain numbers, not links', await page.evaluate(() => [...document.querySelectorAll('[data-status="draft"]')].every((c) => c.querySelectorAll('dl a').length === 0)))
   const stat = (label) => page.evaluate((l) => { const c = [...document.querySelectorAll('[data-status]')].find((x) => x.innerText.startsWith('Intake v2')); const d = [...c.querySelectorAll('dl > div')].find((x) => x.innerText.includes(l)); const a = d.querySelector('a'); const href = a.getAttribute('href'); a.click(); return href }, label)
