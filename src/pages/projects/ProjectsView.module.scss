@@ -129,7 +129,7 @@
   color: var(--at-muted);
   display: -webkit-box;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2; // wrap to two lines, then cut off with an ellipsis; the full list is in the title
+  -webkit-line-clamp: 1; // one line, then cut off with an ellipsis (the name gets the room); the full list is in the title
   overflow: hidden;
 }
 
