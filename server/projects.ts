@@ -12,6 +12,8 @@ export type ProjectSummary = {
   name: string
   color: string
   template: string | null
+  /** The research methods chosen in the test plan, in the order saved. */
+  methods: string[]
   status: 'draft' | 'analyzed'
   sessions: number
   themes: number
@@ -26,6 +28,7 @@ export type ProjectSummary = {
 // newer run has replaced. Status is derived from that count, never stored.
 const LIST_SQL = `
   select p.id, p.name, p.color, tpl.name as template, p.created_at, p.version,
+         coalesce((select st.methods from research.studies st where st.project_id = p.id), '{}') as methods,
          (select count(*) from research.transcripts tr where tr.project_id = p.id)::int as sessions,
          coalesce(t.themes, 0)::int as themes,
          coalesce(t.high, 0)::int as high_priority,
@@ -54,6 +57,7 @@ export async function listProjects(db: Queryable, workspaceId: string): Promise<
     name: r.name,
     color: r.color,
     template: r.template ?? null,
+    methods: r.methods ?? [],
     status: r.themes > 0 ? 'analyzed' : 'draft',
     sessions: r.sessions,
     themes: r.themes,

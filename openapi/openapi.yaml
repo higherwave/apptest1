@@ -1107,12 +1107,13 @@ components:
         hint: { type: [string, 'null'] }
     ProjectDetail:
       type: object
-      required: [id, name, color, template, status, sessions, themes, highPriority, measurements, createdAt, version, study, testItems, stages, participants, tasks]
+      required: [id, name, color, template, methods, status, sessions, themes, highPriority, measurements, createdAt, version, study, testItems, stages, participants, tasks]
       properties:
         id: { type: string }
         name: { type: string }
         color: { type: string, enum: [cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand] }
         template: { type: [string, 'null'] }
+        methods: { type: array, items: { type: string }, description: The research methods chosen in the test plan. }
         status: { type: string, enum: [draft, analyzed] }
         sessions: { type: integer }
         themes: { type: integer }
@@ -2048,7 +2049,7 @@ components:
           type: [string, 'null']
     ProjectSummary:
       type: object
-      required: [id, name, color, template, status, sessions, themes, highPriority, measurements, createdAt, version]
+      required: [id, name, color, template, methods, status, sessions, themes, highPriority, measurements, createdAt, version]
       properties:
         id: { type: string }
         name: { type: string }
@@ -2057,6 +2058,7 @@ components:
           description: A tint token name; the page maps it to var(--at-tint-<color>).
           enum: [cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand]
         template: { type: [string, 'null'] }
+        methods: { type: array, items: { type: string }, description: The research methods chosen in the test plan. }
         status:
           type: string
           description: Derived, not stored. draft means the current analysis has no themes.

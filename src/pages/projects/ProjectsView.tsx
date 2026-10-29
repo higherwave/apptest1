@@ -91,7 +91,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
             <div className={styles.list} role="table" aria-label="Research projects">
               <div className={`${styles.listRow} ${styles.listHead}`} role="row">
                 <span role="columnheader">Project</span>
-                <span role="columnheader">Template</span>
+                <span role="columnheader">Methods</span>
                 <span role="columnheader">Status</span>
                 {STAT_STEPS.map((s) => (
                   <span key={s.key} role="columnheader">
@@ -110,7 +110,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                       </a>
                     </span>
                     <span role="cell" className={styles.rowMuted}>
-                      {project.template ?? 'No template'}
+                      {project.methods.length ? project.methods.join(', ') : 'No methods'}
                     </span>
                     <span role="cell">
                       <Tag size="sm" type={project.status === 'analyzed' ? 'green' : 'gray'}>

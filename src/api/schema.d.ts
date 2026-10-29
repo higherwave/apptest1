@@ -827,6 +827,8 @@ export interface components {
             /** @enum {string} */
             color: "cream" | "mint" | "yellow" | "coral" | "lavender" | "sky" | "blue" | "rose" | "peach" | "sand";
             template: string | null;
+            /** @description The research methods chosen in the test plan. */
+            methods: string[];
             /** @enum {string} */
             status: "draft" | "analyzed";
             sessions: number;
@@ -1551,6 +1553,8 @@ export interface components {
              */
             color: "cream" | "mint" | "yellow" | "coral" | "lavender" | "sky" | "blue" | "rose" | "peach" | "sand";
             template: string | null;
+            /** @description The research methods chosen in the test plan. */
+            methods: string[];
             /**
              * @description Derived, not stored. draft means the current analysis has no themes.
              * @enum {string}
