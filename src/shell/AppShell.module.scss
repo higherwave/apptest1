@@ -1,7 +1,7 @@
 @use '../tokens' as tokens;
 
-// Dark app bar (areas, account), and inside a project a slim project-name bar and a horizontal strip of steps (StepNav).
-$header-height: 3.5rem;
+// White app bar (areas, account), and inside a project a slim project-name bar and a horizontal strip of steps (StepNav).
+$header-height: 4rem;
 $context-height: 2.75rem;
 $narrow: 48rem;
 
@@ -15,7 +15,7 @@ $narrow: 48rem;
     margin-block-start: calc(#{$header-height} + #{$context-height});
     min-height: calc(100vh - #{$header-height} - #{$context-height});
   }
-  background: var(--at-canvas);
+  background: var(--at-page);
 }
 
 .content {
@@ -25,7 +25,7 @@ $narrow: 48rem;
   padding: var(--at-space-xl);
 }
 
-// The app bar: dark, with the app's name on the left, the areas in the middle and the account on the right. Narrow screens
+// The app bar: white, with the app's name on the left, the areas in the middle and the account on the right. Narrow screens
 // swap the areas for a dropdown. Inside a project, a slim bar under it names the project.
 .appbar {
   position: fixed;
@@ -38,8 +38,9 @@ $narrow: 48rem;
   gap: var(--at-space-sm);
   block-size: $header-height;
   padding-inline: var(--at-space-lg);
-  background: var(--at-rail);
-  color: var(--at-on-dark);
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
+  color: var(--at-ink);
 
   @media (max-width: $narrow) {
     grid-template-columns: auto 1fr auto;
@@ -53,18 +54,26 @@ $narrow: 48rem;
   gap: var(--at-space-sm);
   min-inline-size: 0;
 
-  img { border-radius: var(--at-radius-md); background: var(--at-canvas); } // the mark has a light background of its own; it keeps it on the dark bar
+  img {
+    box-sizing: content-box;
+    padding: var(--at-space-xxs);
+    border: 1px solid var(--at-hairline);
+    border-radius: var(--at-radius-md);
+  } // the mark sits in a bordered square
 }
 
 .appName {
   @include tokens.role('title-md');
   margin: 0;
-  font-weight: 300;
+  font-weight: 500;
   white-space: nowrap;
+
+  @media (max-width: 40rem) { display: none; } // on a phone the mark alone is enough; the room goes to the menu and account
 }
 
 .areas {
   grid-column: 2;
+  align-self: stretch;
   display: flex;
   gap: var(--at-space-xs);
 
@@ -72,27 +81,28 @@ $narrow: 48rem;
 }
 
 .area {
-  padding: var(--at-space-xs) var(--at-space-md);
-  border-radius: var(--at-radius-md);
-  color: var(--at-rail-text);
+  display: flex;
+  align-items: center;
+  padding-inline: var(--at-space-md);
+  border-block-end: 0.125rem solid transparent;
+  color: var(--at-muted);
   text-decoration: none;
   white-space: nowrap;
   @include tokens.role('body-md');
 
-  &:hover {
-    background: var(--at-rail-hover);
-    color: var(--at-on-dark);
-  }
+  &:hover { color: var(--at-ink); }
 
   &:focus-visible {
-    outline: 0.125rem solid var(--at-on-dark);
+    outline: 0.125rem solid var(--at-ink);
     outline-offset: -0.125rem;
   }
 }
 
+// The open area: an underline, not a pill.
 .areaActive {
-  background: var(--at-rail-active);
-  color: var(--at-on-dark);
+  border-block-end-color: var(--at-ink);
+  color: var(--at-ink);
+  font-weight: 500;
 }
 
 .menu {
@@ -108,12 +118,8 @@ $narrow: 48rem;
 }
 
 .menuButton {
-  border: 1px solid var(--at-rail-active);
-  color: var(--at-on-dark);
-
-  svg { fill: currentColor; }
-
-  &:hover { background: var(--at-rail-hover); color: var(--at-on-dark); }
+  border: 1px solid var(--at-hairline);
+  color: var(--at-ink);
 }
 
 .menuList {
@@ -125,23 +131,23 @@ $narrow: 48rem;
   flex-direction: column;
   padding: var(--at-space-xxs);
   border-radius: var(--at-radius-md);
-  background: var(--at-rail);
-  box-shadow: 0 0 0 1px var(--at-rail-active);
+  background: var(--at-canvas);
+  box-shadow: 0 0 0 1px var(--at-hairline);
 }
 
 .menuItem {
   padding: var(--at-space-sm) var(--at-space-md);
   border-radius: var(--at-radius-md);
-  color: var(--at-rail-text);
+  color: var(--at-muted);
   text-decoration: none;
   @include tokens.role('body-md');
 
-  &:hover { background: var(--at-rail-hover); color: var(--at-on-dark); }
+  &:hover { background: var(--at-surface-hover); color: var(--at-ink); }
 }
 
 .menuItemActive {
-  background: var(--at-rail-active);
-  color: var(--at-on-dark);
+  background: var(--at-surface-hover);
+  color: var(--at-ink);
 }
 
 .context {
@@ -175,6 +181,3 @@ $narrow: 48rem;
 
 }
 
-// The account controls sit on the dark bar, so the ghost buttons and the name take its light text.
-.access button { color: var(--at-on-dark); }
-.access [class*='who'] { color: var(--at-on-dark); }

@@ -15,7 +15,8 @@
   inset-inline-end: var(--at-space-xs);
 }
 
-// An analyzed project takes its own soft tint (one of the --at-tint-* tokens, chosen by the project's tint name); a draft is only an outline.
+// A white card with a bar of the project's own color across the top (one of the --at-tint-* tokens, chosen by the project's tint
+// name); a draft's bar is gray. The counts below sit in chips of the soft tint.
 .card {
   position: relative;
   flex: 1;
@@ -24,14 +25,28 @@
   gap: var(--at-space-xs);
   min-height: 12rem;
   padding: var(--at-space-lg);
+  padding-block-start: calc(var(--at-space-lg) + var(--at-space-xs));
+  overflow: hidden;
   border-radius: var(--at-radius-lg);
-  background: transparent;
-  border: 1px solid var(--at-border-strong);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  --bar: var(--at-hairline);
+  --chip: var(--at-surface-hover);
 
-  &[data-status='analyzed'] { border-color: transparent; }
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline: 0;
+    block-size: var(--at-space-xs);
+    background: var(--bar);
+  }
 
   @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
-    &[data-status='analyzed'][data-tint='#{$name}'] { background: var(--at-tint-#{$name}); }
+    &[data-status='analyzed'][data-tint='#{$name}'] {
+      --bar: var(--at-tint-strong-#{$name});
+      --chip: var(--at-tint-#{$name});
+    }
   }
 
   &:hover { border-color: var(--at-ink); }
@@ -81,9 +96,24 @@
 }
 
 .status {
+  @include tokens.role('meta');
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
   flex: none;
-  max-inline-size: none;
   margin: 0;
+  color: var(--at-muted);
+
+  &::before {
+    content: '';
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-radius: var(--at-radius-full);
+    background: var(--at-border-strong);
+  }
+
+  .card[data-status='analyzed'] & { color: var(--at-signature-forest); }
+  .card[data-status='analyzed'] &::before { background: var(--at-signature-forest); }
 }
 
 .template {
@@ -98,17 +128,26 @@
 
 .bottom {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--at-space-sm);
+  flex-direction: column;
+  gap: var(--at-space-xs);
   margin-block-start: auto;
   padding-top: var(--at-space-lg);
 }
 
 .stats {
   display: flex;
-  gap: var(--at-space-lg);
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
   margin: 0;
+
+  > div {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--at-space-xxs);
+    padding: var(--at-space-xxs) var(--at-space-sm);
+    border-radius: var(--at-radius-sm);
+    background: var(--chip);
+  }
 
   dd,
   dt {
@@ -117,11 +156,13 @@
 }
 
 .value {
-  @include tokens.role('title-lg');
+  @include tokens.role('label-md');
   color: var(--at-ink);
+  font-weight: 700;
 }
 
 .label {
   @include tokens.role('meta');
-  color: var(--at-muted);
+  color: var(--at-body);
+  font-weight: 400;
 }

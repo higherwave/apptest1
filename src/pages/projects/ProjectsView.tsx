@@ -1,4 +1,3 @@
-import { Grid, List as ListIcon } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag, Tile } from '@carbon/react'
 import { useState } from 'react'
 import type { Project } from '../../api/client'
@@ -50,16 +49,19 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
-        <div>
-          <h1 className={styles.title}>Research Projects</h1>
-          <p className={styles.lede}>Plan a study, analyze transcripts, and turn themes into requirements.</p>
+      <header className={styles.hero}>
+        <div className={styles.heroInner}>
+          <div>
+            <h1 className={styles.title}>Research Projects</h1>
+            <p className={styles.lede}>Plan a study, analyze transcripts, and turn themes into requirements.</p>
+          </div>
+          <Button kind="primary" disabled={readOnly} onClick={onNew}>
+            New project
+          </Button>
         </div>
-        <Button kind="primary" disabled={readOnly} onClick={onNew}>
-          New project
-        </Button>
       </header>
 
+      <div className={styles.body}>
       {state === 'loading' && <Loading small withOverlay={false} description="Loading projects" />}
 
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Projects" subtitle={errorText} />}
@@ -73,13 +75,16 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
       {state === 'ready' && (
         <>
-          <div className={styles.toolbar} role="group" aria-label="Show projects as">
-            <Button kind={layout === 'cards' ? 'primary' : 'tertiary'} size="sm" renderIcon={Grid} aria-pressed={layout === 'cards'} onClick={() => choose('cards')}>
-              Cards
-            </Button>
-            <Button kind={layout === 'list' ? 'primary' : 'tertiary'} size="sm" renderIcon={ListIcon} aria-pressed={layout === 'list'} onClick={() => choose('list')}>
-              List
-            </Button>
+          <div className={styles.toolbar}>
+            <p className={styles.count}>{projects.length === 1 ? '1 project' : `${projects.length} projects`}</p>
+            <div className={styles.switch} role="group" aria-label="Show projects as">
+              <Button kind={layout === 'cards' ? 'primary' : 'ghost'} size="sm" aria-pressed={layout === 'cards'} onClick={() => choose('cards')}>
+                Cards
+              </Button>
+              <Button kind={layout === 'list' ? 'primary' : 'ghost'} size="sm" aria-pressed={layout === 'list'} onClick={() => choose('list')}>
+                List
+              </Button>
+            </div>
           </div>
           {layout === 'cards' ? (
             <div className={styles.grid}>
@@ -104,7 +109,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                 const openStep: ProjectStep = project.status === 'analyzed' ? 'themes' : 'plan'
                 return (
                   <div key={project.id} className={styles.listRow} role="row" data-testid={`project-row-${project.id}`} data-status={project.status}>
-                    <span role="cell">
+                    <span role="cell" className={styles.rowProject} data-status={project.status} data-tint={project.color}>
                       <a className={styles.rowName} href={stepHref(project, openStep)} onClick={goTo(() => onOpen(project), openStep)}>
                         {project.name}
                       </a>
@@ -142,6 +147,8 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
           )}
         </>
       )}
+
+      </div>
 
       <Modal
         open={removing !== null}

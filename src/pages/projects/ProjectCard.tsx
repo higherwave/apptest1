@@ -1,4 +1,4 @@
-import { OverflowMenu, OverflowMenuItem, Tag, Tile } from '@carbon/react'
+import { OverflowMenu, OverflowMenuItem, Tile } from '@carbon/react'
 import type { Project } from '../../api/client'
 import { goTo, STAT_STEPS, stepHref, type ProjectStep } from './ProjectStats'
 import styles from './ProjectCard.module.scss'
@@ -48,9 +48,7 @@ export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProp
               </div>
             ))}
           </dl>
-          <Tag className={styles.status} size="sm" type={analyzed ? 'green' : 'gray'}>
-            {analyzed ? 'Analyzed' : 'Draft'}
-          </Tag>
+          <p className={styles.status}>{analyzed ? 'Analyzed' : 'Draft'}</p>
         </div>
       </Tile>
       {onRemove && (

@@ -75,7 +75,7 @@ export function AppShell() {
         </nav>
 
         <div className={styles.menu} data-menu>
-          <Button kind="ghost" size="md" className={styles.menuButton} renderIcon={ChevronDown} aria-haspopup="true" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
+          <Button kind="ghost" size="sm" className={styles.menuButton} renderIcon={ChevronDown} aria-haspopup="true" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
             {current.label}
           </Button>
           {menuOpen && (

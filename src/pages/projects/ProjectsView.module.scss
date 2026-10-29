@@ -4,15 +4,49 @@
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  max-width: 75rem;
 }
 
-.header {
+// The title area: white, reaching out to the edges of the content area (the padding around it is the page's), with a soft glow behind it.
+.hero {
+  position: relative;
+  overflow: hidden;
+  margin: calc(-1 * var(--at-space-xl)) calc(-1 * var(--at-space-xl)) 0;
+  padding: var(--at-space-xl);
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: -4rem;
+    inset-inline-end: -4rem;
+    inline-size: 38rem;
+    block-size: 21rem;
+    max-inline-size: 100%;
+    background: radial-gradient(closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) 60%, transparent), color-mix(in srgb, var(--at-glow-blue) 40%, transparent) 55%, transparent);
+    filter: blur(2.75rem);
+    pointer-events: none;
+  }
+}
+
+.heroInner {
+  position: relative;
   display: flex;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: flex-end;
   justify-content: space-between;
   gap: var(--at-space-lg);
-  margin-block-end: var(--at-space-md); // a little air before the page content
+  max-inline-size: 75rem;
+  margin-inline: auto;
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  inline-size: 100%;
+  max-inline-size: 75rem;
+  margin-inline: auto;
 }
 
 .title {
@@ -24,15 +58,35 @@
 
 .lede {
   @include tokens.role('label-md');
+  max-inline-size: 32rem;
   margin: 0;
-  color: var(--at-muted);
+  color: var(--at-body);
   font-weight: 400;
 }
 
 .toolbar {
   display: flex;
-  justify-content: flex-end;
-  gap: var(--at-space-xs);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.count {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// Cards | List as one rounded control; the chosen side is dark.
+.switch {
+  display: flex;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-xxs);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+
+  :global(.cds--btn) { border-radius: var(--at-radius-sm); }
 }
 
 .list {
@@ -40,6 +94,7 @@
   flex-direction: column;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
   overflow: hidden;
 }
 
@@ -76,6 +131,27 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2; // wrap to two lines, then cut off with an ellipsis; the full list is in the title
   overflow: hidden;
+}
+
+.rowProject {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+
+  // The project's color, as a bar beside its name.
+  &::before {
+    content: '';
+    flex: none;
+    inline-size: 0.5rem;
+    block-size: 2rem;
+    border-radius: var(--at-radius-xs);
+    background: var(--at-border-subtle, var(--at-hairline));
+  }
+
+  @each $name in (cream, mint, yellow, coral, lavender, sky, blue, rose, peach, sand) {
+    &[data-status='analyzed'][data-tint='#{$name}']::before { background: var(--at-tint-strong-#{$name}); }
+  }
 }
 
 .rowName {
