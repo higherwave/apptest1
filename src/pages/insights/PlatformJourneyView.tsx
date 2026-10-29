@@ -21,7 +21,7 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 const weight = (opportunity: boolean, status: string) => (opportunity ? 'high' : status === 'not_addressed' ? 'medium' : 'low')
 
 // Presentational: the same map as a project's Journey Map (a dark row of stages, then themes, pain points, sentiment and opportunity), folded
-// from every analysed project. It is read-only; a theme opens on the Themes screen. A good place to start for anyone new to the team.
+// from every analysed project. It is read-only; a theme opens on the Themes screen.
 export function PlatformJourneyView({ state, journey, errorText, onOpenTheme }: PlatformJourneyViewProps) {
   const stages = journey?.stages ?? []
   // One sentiment point per stage that has a feeling, placed at the middle of its column.
@@ -29,7 +29,7 @@ export function PlatformJourneyView({ state, journey, errorText, onOpenTheme }: 
   const sentimentLabel = points.length ? 'Sentiment by stage: ' + points.map((p) => `${stages[p.index].name} ${p.sentiment < 0 ? 'negative' : 'positive'}`).join(', ') : 'No sentiment to show'
   return (
     <div className={cx(map.page, styles.page)}>
-      <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, from every study. A good place to start if you are new to the team" />
+      <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, from every study" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the journey" />}
       {state === 'empty' && <p className={styles.muted}>No journey yet. Analyze a project’s transcripts and its journey map is folded in here.</p>}
