@@ -75,11 +75,10 @@
 
 .tabActive {
   border-block-end-color: var(--at-ink);
-  background: var(--at-canvas);
   color: var(--at-ink);
   font-weight: 700;
 
-  &:hover { background: var(--at-canvas); }
+  &:hover { background: transparent; } // the open step needs no fill: the bold label, number and underline mark it
 }
 
 .number {
