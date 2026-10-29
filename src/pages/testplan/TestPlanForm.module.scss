@@ -57,6 +57,7 @@
   overflow-x: auto;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
+  background: var(--at-canvas); // a white table on the gray page, with a white header row
 }
 
 // A grid with table roles (the page's design rules do not allow a raw table): one row per participant.
@@ -72,10 +73,7 @@
   padding: var(--at-space-xs);
   border-block-start: 1px solid var(--at-hairline);
 
-  &:first-child {
-    border-block-start: none;
-    background: var(--at-surface-soft);
-  }
+  &:first-child { border-block-start: none; }
 }
 
 // Cells look like plain table text until they are used: no border at rest, a hairline on hover, and the field's

@@ -70,9 +70,8 @@
 }
 
 .listHead {
-  @include tokens.role('meta');
+  @include tokens.role('caption');
   color: var(--at-muted);
-  background: var(--at-surface-soft);
   text-transform: uppercase;
 }
 

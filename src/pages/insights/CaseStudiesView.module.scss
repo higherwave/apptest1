@@ -29,10 +29,14 @@
   list-style: none;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
   overflow: hidden;
 }
 
 .item + .item { border-block-start: 1px solid var(--at-hairline); }
+
+// The open row is off-white, head and details together, against the white table (as on Platform Insights > Themes across projects).
+.item[data-open='true'] { background: var(--at-surface-soft); }
 
 // The row: the toggle takes the width, the copy button sits beside it.
 .head {
@@ -98,7 +102,6 @@
   flex-direction: column;
   gap: var(--at-space-lg);
   padding: var(--at-space-md) var(--at-space-lg) var(--at-space-lg);
-  background: var(--at-surface-soft);
 }
 
 .briefGrid {

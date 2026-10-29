@@ -102,10 +102,14 @@
   list-style: none;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
   overflow: hidden;
 }
 
 .item + .item { border-block-start: 1px solid var(--at-hairline); }
+
+// The open row is off-white, head and details together, against the white table (as on Platform Insights > Themes across projects).
+.item[data-open='true'] { background: var(--at-surface-soft); }
 
 .itemHead { margin: 0; }
 
@@ -117,7 +121,7 @@
   color: var(--at-ink);
   text-align: start;
 
-  &:hover { background: var(--at-surface-hover); }
+  &:hover { background: var(--at-surface-soft); }
 }
 
 .headText {
@@ -146,7 +150,6 @@
   flex-direction: column;
   gap: var(--at-space-md);
   padding: var(--at-space-xs) var(--at-space-lg) var(--at-space-lg);
-  background: var(--at-canvas); // lighter than the rows (which sit on the page gray), so the form reads as its own panel
 }
 
 .why {
