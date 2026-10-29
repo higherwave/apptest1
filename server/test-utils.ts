@@ -5,7 +5,9 @@ import type { AuthService } from './auth.js'
 // @ts-expect-error plain ESM helpers shared with the db/ tooling
 import { migrationFiles } from '../db/migrate.mjs'
 // @ts-expect-error plain ESM seed
-import { seed } from '../db/seed/seed.mjs'
+import { seed, uid } from '../db/seed/seed.mjs'
+// @ts-expect-error plain ESM seed
+import { loadAnchorCx } from '../db/seed/anchor-cx/load.mjs'
 
 type Rows = { rows: Record<string, any>[] }
 
@@ -21,12 +23,14 @@ export function pgliteDb(pg: PGlite): Db {
 }
 
 // A migrated and seeded in-memory database, with the bookkeeping table the health check reads.
-export async function createDemoDatabase(): Promise<{ pglite: PGlite; db: Db }> {
+// With { anchor: true } the Anchor CX demo story is loaded beside it (the original demo's tests count on it being absent).
+export async function createDemoDatabase(options: { anchor?: boolean } = {}): Promise<{ pglite: PGlite; db: Db }> {
   const pglite = new PGlite()
   for (const f of migrationFiles()) await pglite.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
   await pglite.exec(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`)
   for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
   await seed(pglite)
+  if (options.anchor) await loadAnchorCx(pglite, { workspaceId: uid('workspace'), userId: uid('user:david') })
   return { pglite, db: pgliteDb(pglite) }
 }
 

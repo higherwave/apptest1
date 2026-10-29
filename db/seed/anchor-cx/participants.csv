@@ -1,0 +1,13 @@
+study,name,role,email,phone,session_date
+1 Health score trust,Priya Raman,"Customer Success Manager, enterprise portfolio",priya.raman@meridianworks.example,(555) 010-0101,2026-10-05
+1 Health score trust,Marcus Bell,"Support Lead, tier 2 escalations",marcus.bell@meridianworks.example,(555) 010-0102,2026-10-06
+1 Health score trust,Elena Voss,"CS Operations Manager, tooling and reporting",elena.voss@northfieldsoft.example,(555) 010-0103,2026-10-07
+1 Health score trust,Tom Okafor,"Executive, VP of Customer Success",tom.okafor@brightlineco.example,(555) 010-0104,2026-10-08
+2 Renewal workspace,Jordan Alvarez,"Customer Success Manager, mid-market portfolio",jordan.alvarez@copperleaf.example,(555) 010-0201,2026-10-19
+2 Renewal workspace,Hannah Cho,"Support Lead, enterprise queue",hannah.cho@harborpoint.example,(555) 010-0202,2026-10-20
+2 Renewal workspace,Ben Nakamura,"CS Operations Manager, playbooks",ben.nakamura@stonebridge.example,(555) 010-0203,2026-10-21
+2 Renewal workspace,Grace Lindqvist,"Executive, Chief Customer Officer",grace.lindqvist@vantagegrid.example,(555) 010-0204,2026-10-22
+3 Portfolio reporting,Samir Qureshi,"Customer Success Manager, strategic accounts",samir.qureshi@lumenpath.example,(555) 010-0301,2026-11-02
+3 Portfolio reporting,Lucia Ferreira,"Support Lead, global support",lucia.ferreira@oakridgedata.example,(555) 010-0302,2026-11-03
+3 Portfolio reporting,Derek Hollis,"CS Operations Manager, revenue operations",derek.hollis@pinecrestai.example,(555) 010-0303,2026-11-04
+3 Portfolio reporting,Naomi Adeyemi,"Executive, SVP of Customer Experience",naomi.adeyemi@tidalstack.example,(555) 010-0304,2026-11-05

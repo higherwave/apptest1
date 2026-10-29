@@ -5,6 +5,7 @@
 //
 //   node seed/seed.mjs            show what exists and what would change (read-only)
 //   node seed/seed.mjs --yes      reset the demo workspace and reload it, in one transaction
+//   node seed/seed.mjs --yes --anchor   the same, then add the Anchor CX demo story (see seed/anchor-cx.mjs to add it without a reset)
 //
 // Only the workspace with slug "higherwave-demo" and users at @demo.signalflow.example are touched.
 import { createHash } from 'node:crypto';
@@ -397,6 +398,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     await client.query('begin');
     try {
       const summary = await seed(client);
+      if (process.argv.includes('--anchor')) {
+        const { loadAnchorCx } = await import('./anchor-cx/load.mjs');
+        await loadAnchorCx(client, { workspaceId: uid('workspace'), userId: uid('user:david') });
+        console.log('Also loaded the Anchor CX demo story.');
+      }
       await client.query('commit');
       console.log('\nLoaded:');
       for (const [k, v] of Object.entries(summary)) console.log(`  ${k.padEnd(34)} ${v}`);

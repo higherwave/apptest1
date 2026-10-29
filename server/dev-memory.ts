@@ -5,7 +5,8 @@ import { Hono } from 'hono'
 import { createApp } from './app.js'
 import { createDemoDatabase, fakeAuth } from './test-utils.js'
 
-const { db } = await createDemoDatabase()
+// ANCHOR_CX=true also loads the Anchor CX demo story (db/seed/anchor-cx/README.md).
+const { db } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
 const port = Number(process.env.API_PORT || 8787)
 const env = { ...process.env }
 // AUTH_TEST=true switches on sign-in with the stand-in service (see fakeAuth), for the browser tests of sign-in. It also

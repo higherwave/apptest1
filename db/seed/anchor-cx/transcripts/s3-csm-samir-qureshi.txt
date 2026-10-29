@@ -1,0 +1,10 @@
+00:00:04 Moderator: Here's a concept for a portfolio dashboard. What's your first reaction?
+00:00:15 Samir Qureshi: I like that the accounts are sorted by renewal date. I'd start with the ones due in sixty days.
+00:00:36 Samir Qureshi: The health score column again. I'd want to click the score and see why. If it just gives me a number I'll keep ignoring it, honestly.
+00:01:01 Moderator: What would you do next from here?
+00:01:12 Samir Qureshi: Open the account and prepare. Ideally the concept shows me everything for the renewal: usage, tickets, contract, notes. I hate hopping between tools.
+00:01:38 Samir Qureshi: I'd also want my open escalations right in this view. The support handoff is where things get dropped.
+00:02:00 Moderator: Does the weekly summary help?
+00:02:11 Samir Qureshi: A lot. A summary of what changed in my accounts each Monday is far better than a flood of alerts. Alerts were noise, this tells me what matters.
+00:02:37 Samir Qureshi: But it has to be timely. If the data is two days old I'll not trust it.
+00:02:56 Samir Qureshi: And please keep the timeline. Seeing the story of the account in order is the best thing in the product.

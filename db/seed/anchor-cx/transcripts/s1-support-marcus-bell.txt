@@ -1,0 +1,11 @@
+00:00:04 Moderator: Walk me through how a hard ticket reaches the customer success team.
+00:00:15 Marcus Bell: I lead a tier two team. When a ticket looks like it could hurt the account, I ping the CSM in chat. That's the whole process, there's no structured handoff.
+00:00:42 Marcus Bell: The CSM never sees the full context, they get my two-line summary. Half the time they ask me the same questions the customer already answered, and the customer notices.
+00:01:10 Moderator: What do you see of the health score?
+00:01:21 Marcus Bell: Very little. I know it exists. I don't know what goes into it, and I've seen accounts marked green while my team is drowning in their tickets.
+00:01:46 Marcus Bell: So I don't trust it either. If tickets feed it, why is a customer with fifteen open escalations green?
+00:02:08 Moderator: What would help your team?
+00:02:19 Marcus Bell: A shared timeline we both work in. The customer timeline is great when I use it, I can see their last quarter in thirty seconds, but my agents don't open it because it's a separate tab.
+00:02:48 Marcus Bell: I'd also want my team to flag risk once and have it show up for the CSM. Right now I flag it in three places.
+00:03:11 Marcus Bell: We learn about churn risk late. By the time a ticket is escalated enough for me to notice, the customer has been unhappy for weeks. I'd love an early warning, but the alerts we do get are noise.
+00:03:41 Marcus Bell: And reporting for my own team is manual. Every Monday I export tickets into a spreadsheet to show leadership what's happening.

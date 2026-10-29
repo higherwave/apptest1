@@ -1,0 +1,35 @@
+WEBVTT
+
+00:00:04.000 --> 00:00:09.000
+<v Moderator>Describe your role in the customer success tooling.</v>
+
+00:00:15.000 --> 00:00:28.000
+<v Elena Voss>I run CS operations. I own the health score model, the playbooks and the reporting. Everyone asks me why a score changed and I have to dig through SQL to answer.</v>
+
+00:00:42.000 --> 00:00:55.000
+<v Elena Voss>That's the problem. I built the model, and even I can't explain a specific score to a CSM without an hour of work. No wonder nobody trusts the health score.</v>
+
+00:01:09.000 --> 00:01:14.000
+<v Moderator>Why is it hard to explain?</v>
+
+00:01:20.000 --> 00:01:32.000
+<v Elena Voss>It blends usage, tickets, billing and survey data with weights I set once. The screen only shows the final number. There's no breakdown a person can read.</v>
+
+00:01:46.000 --> 00:02:00.000
+<v Elena Voss>Different leaders also define healthy differently. The VP cares about renewals, support cares about ticket volume, finance cares about invoices. So my one score satisfies nobody.</v>
+
+00:02:14.000 --> 00:02:28.000
+<v Elena Voss>Playbooks are another issue. They're rigid. An enterprise renewal and a small business renewal need different steps, but I have to clone and maintain a dozen versions by hand.</v>
+
+00:02:42.000 --> 00:02:47.000
+<v Moderator>How do you report to leadership?</v>
+
+00:02:53.000 --> 00:03:06.000
+<v Elena Voss>Manually. I pull data from three systems into a spreadsheet and build slides. A quarterly business review takes me two days. By the time I finish, the numbers are old.</v>
+
+00:03:20.000 --> 00:03:30.000
+<v Elena Voss>I'd love a view where leaders can drill from the portfolio down to the account and see why. That would save me days every month.</v>
+
+00:03:44.000 --> 00:03:54.000
+<v Elena Voss>Alerts are tuned by me too. I know they're noisy, but when I tighten them, a CSM complains they missed something. It's a no-win.</v>
+
