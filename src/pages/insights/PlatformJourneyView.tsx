@@ -31,7 +31,7 @@ export function PlatformJourneyView({ state, journey, errorText, onOpenTheme }: 
     <div className={cx(map.page, styles.page)}>
       <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, from every study. A good place to start if you are new to the team" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading withOverlay={false} description="Loading the journey" />}
+      {state === 'loading' && <Loading small withOverlay={false} description="Loading the journey" />}
       {state === 'empty' && <p className={styles.muted}>No journey yet. Analyze a project’s transcripts and its journey map is folded in here.</p>}
       {state === 'ready' && journey && (
         <>

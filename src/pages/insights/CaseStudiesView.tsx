@@ -199,7 +199,7 @@ export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpe
     <div className={styles.page}>
       <InsightsHeader title="Case Studies" description="What the team changed because of what it learned" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading withOverlay={false} description="Loading case studies" />}
+      {state === 'loading' && <Loading small withOverlay={false} description="Loading case studies" />}
       {state === 'empty' && <p className={styles.small}>No case studies yet. A project appears here once something it shipped has worked: the newest finding on a requirement in Measure says Worked, and none needs attention.</p>}
       {state === 'ready' && (
         <>

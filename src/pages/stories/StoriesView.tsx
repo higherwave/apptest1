@@ -374,7 +374,7 @@ export function StoriesView(props: StoriesViewProps) {
         )}
       </div>
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading withOverlay={false} description="Loading the board" />}
+      {state === 'loading' && <Loading small withOverlay={false} description="Loading the board" />}
       {state === 'error' && !errorText && <p className={styles.empty}>The board could not be loaded.</p>}
       {state === 'empty' && (
         <div className={styles.emptyState}>

@@ -78,7 +78,7 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="Who our customers are, in the words of the people we have talked to" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading withOverlay={false} description="Loading personas" />}
+      {state === 'loading' && <Loading small withOverlay={false} description="Loading personas" />}
       {state === 'empty' && <p className={styles.muted}>No personas yet. Analyze a project’s transcripts and the people in it appear here, grouped by their role.</p>}
       {state === 'ready' && customers && (
         <>

@@ -40,7 +40,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading withOverlay={false} description="Loading insights" />}
+      {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
       {state === 'ready' && overview && (
         <>
