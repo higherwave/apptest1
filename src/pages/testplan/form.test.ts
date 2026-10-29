@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { blankItem, blankParticipant, emptyForm, formFromProject, planChanged, taskFormFromProject, tasksChanged, toPlanRequest, toRequest, toTasksRequest, validate, type PlanForm } from './form.js'
 
-const ada = { name: 'Ada', role: 'Engineer', email: 'ada@example.com', phone: '(555) 010-0000', sessionDate: '2026-11-02' }
+const ada = { name: 'Ada', role: 'Engineer', email: 'ada@example.com', phone: '(555) 010-0000', sessionMinutes: '45' }
 const filled = (over: Partial<PlanForm> = {}): PlanForm => ({ ...emptyForm(), name: 'Study', participants: [ada], ...over })
 
 test('a test plan needs a project name', () => {
@@ -34,14 +34,14 @@ test('toRequest trims, drops empty items, blank outcomes and rows, and nulls emp
       name: '  Study  ',
       methods: ['Card sort'],
       testItems: [{ description: ' Booking flow ', outcomes: ['A ', '', ' '] }, blankItem(), { description: '  ', outcomes: ['Only an outcome'] }],
-      participants: [{ name: ' Ada ', role: '', email: ' ada@example.com ', phone: ' ', sessionDate: '' }, blankParticipant()],
+      participants: [{ name: ' Ada ', role: '', email: ' ada@example.com ', phone: ' ', sessionMinutes: '' }, blankParticipant()],
     }),
   )
   assert.deepEqual(req, {
     name: 'Study',
     methods: ['Card sort'],
     testItems: [{ description: 'Booking flow', outcomes: ['A'] }, { description: null, outcomes: ['Only an outcome'] }],
-    participants: [{ name: 'Ada', role: null, email: 'ada@example.com', phone: null, sessionDate: null }],
+    participants: [{ name: 'Ada', role: null, email: 'ada@example.com', phone: null, sessionMinutes: null }],
   })
 })
 
@@ -53,8 +53,8 @@ const detail = {
   testItems: [{ id: 'i1', description: 'Whether it works', outcomes: ['One', 'Two'] }, { id: 'i2', description: null, outcomes: [] }],
   stages: [],
   participants: [
-    { id: 'a1', name: 'Ada', role: null, email: 'ada@example.com', phone: '555', sessionDate: '2026-10-06' },
-    { id: 'b2', name: 'Bo', role: 'PM', email: 'bo@example.com', phone: null, sessionDate: null },
+    { id: 'a1', name: 'Ada', role: null, email: 'ada@example.com', phone: '555', sessionMinutes: 60 },
+    { id: 'b2', name: 'Bo', role: 'PM', email: 'bo@example.com', phone: null, sessionMinutes: null },
   ],
   tasks: [{ id: 't1', prompt: 'Book', followUps: [{ id: 'f1', prompt: 'Why?' }] }, { id: 't2', prompt: 'Cancel', followUps: [] }],
 } as const
@@ -62,7 +62,7 @@ const detail = {
 test('a project becomes form state: nulls become empty text, and there is always an outcome row', () => {
   const f = formFromProject(detail as never)
   assert.deepEqual(f.testItems, [{ description: 'Whether it works', outcomes: ['One', 'Two'] }, { description: '', outcomes: [''] }])
-  assert.deepEqual(f.participants[0], { id: 'a1', name: 'Ada', role: '', email: 'ada@example.com', phone: '555', sessionDate: '2026-10-06' })
+  assert.deepEqual(f.participants[0], { id: 'a1', name: 'Ada', role: '', email: 'ada@example.com', phone: '555', sessionMinutes: '60' })
   assert.deepEqual(formFromProject({ ...detail, testItems: [] } as never).testItems, [blankItem()], 'one item to type into')
 })
 

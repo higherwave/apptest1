@@ -1,6 +1,6 @@
 import { Close } from '@carbon/icons-react'
-import { Button, TextArea, TextInput } from '@carbon/react'
-import { blankItem, blankParticipant, type FieldErrors, type PlanForm, type PlanItem, type PlanParticipant } from './form'
+import { Button, Dropdown, TextArea, TextInput } from '@carbon/react'
+import { blankItem, blankParticipant, SESSION_LENGTHS, type FieldErrors, type PlanForm, type PlanItem, type PlanParticipant } from './form'
 import styles from './TestPlanForm.module.scss'
 
 type TestPlanFormProps = { form: PlanForm; errors: FieldErrors; methodOptions: string[]; readOnly?: boolean; onChange: (next: PlanForm) => void }
@@ -94,7 +94,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Participants">
             <div className={styles.row} role="row">
-              {['Name', 'Role or segment', 'Email', 'Phone', 'Session date'].map((h) => (
+              {['Name', 'Role or segment', 'Email', 'Phone', 'Session length'].map((h) => (
                 <div key={h} className={styles.head} role="columnheader">{h}</div>
               ))}
               <div className={styles.head} role="columnheader"><span className={styles.srOnly}>Remove</span></div>
@@ -114,7 +114,18 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
                   <TextInput id={`p-phone-${i}`} labelText={`Phone of participant ${i + 1}`} hideLabel type="tel" placeholder="(555) 000-0000" readOnly={readOnly} value={p.phone} onChange={(e) => setParticipant(i, { phone: e.target.value })} />
                 </div>
                 <div role="cell">
-                  <TextInput id={`p-date-${i}`} labelText={`Session date of participant ${i + 1}`} hideLabel type="date" readOnly={readOnly} value={p.sessionDate} onChange={(e) => setParticipant(i, { sessionDate: e.target.value })} />
+                  <Dropdown
+                    id={`p-length-${i}`}
+                    titleText={`Session length of participant ${i + 1}`}
+                    hideLabel
+                    label="Choose"
+                    size="md"
+                    items={[...SESSION_LENGTHS]}
+                    itemToString={(item) => item?.label ?? ''}
+                    selectedItem={SESSION_LENGTHS.find((l) => l.value === p.sessionMinutes) ?? null}
+                    readOnly={readOnly}
+                    onChange={({ selectedItem }) => setParticipant(i, { sessionMinutes: selectedItem?.value ?? '' })}
+                  />
                 </div>
                 <div role="cell" className={styles.remove}>
                   {!readOnly && (

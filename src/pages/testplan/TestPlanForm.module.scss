@@ -94,6 +94,20 @@
   :global(.cds--text-input--invalid) {
     border-color: var(--cds-support-error);
   }
+
+  // The session length dropdown looks like the cells beside it until it is used.
+  :global(.cds--list-box) {
+    border-color: transparent;
+  }
+
+  :global(.cds--list-box):hover:not(:focus-within) {
+    border-color: var(--at-hairline);
+  }
+
+  :global(.cds--list-box):focus-within,
+  :global(.cds--list-box--expanded) {
+    border-color: var(--cds-border-strong);
+  }
 }
 
 .head {

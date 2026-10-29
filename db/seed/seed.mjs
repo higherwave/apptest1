@@ -193,7 +193,7 @@ export async function seed(db) {
     await insert(db, 'research.study_stages', R.STAGES.map((name, i) => ({ id: uid(`stage:${proj.key}:${i}`), workspace_id: WS, study_id: P, position: i, name })));
     await insert(db, 'research.participants', proj.participants.map((p, i) => ({
       id: uid(`part:${proj.key}:${i}`), workspace_id: WS, project_id: P, name: p.name, role: p.role,
-      email: p.name.toLowerCase().replace(/[^a-z ]/g, '').replace(/ /g, '.') + '@example.com', session_date: p.date, position: i,
+      email: p.name.toLowerCase().replace(/[^a-z ]/g, '').replace(/ /g, '.') + '@example.com', session_date: p.date, session_minutes: [60, 45, 30][i % 3], position: i,
     })));
     const taskRows = [], followRows = [];
     tpl.tasks.forEach((t, i) => {

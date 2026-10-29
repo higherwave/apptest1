@@ -851,7 +851,11 @@ export interface components {
                 role: string | null;
                 email: string;
                 phone: string | null;
-                sessionDate: string | null;
+                /**
+                 * @description The planned length of the session in minutes.
+                 * @enum {integer|null}
+                 */
+                sessionMinutes: 30 | 45 | 60 | null;
             }[];
             tasks: {
                 id: string;
@@ -879,8 +883,11 @@ export interface components {
             role?: string | null;
             email: string;
             phone?: string | null;
-            /** @description YYYY-MM-DD */
-            sessionDate?: string | null;
+            /**
+             * @description The planned length of the session in minutes.
+             * @enum {integer|null}
+             */
+            sessionMinutes?: 30 | 45 | 60 | null;
         };
         SavePlanRequest: {
             name: string;

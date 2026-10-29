@@ -262,7 +262,7 @@ const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json
 const newProject = (over: Record<string, unknown> = {}) => ({
   name: 'Onboarding study', methods: ['Moderated usability test'],
   testItems: [{ description: 'Whether new users finish setup', outcomes: ['Completion above 80%', ''] }, { description: '', outcomes: [] }],
-  participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', phone: ' (555) 010-0000 ', sessionDate: '2026-11-02' }], ...over,
+  participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', phone: ' (555) 010-0000 ', sessionMinutes: 45 }], ...over,
 })
 const post = (app: ReturnType<typeof createApp>, body: unknown, headers: Record<string, string> = auth) =>
   app.request('/api/v1/projects', { method: 'POST', headers, body: JSON.stringify(body) })
@@ -289,7 +289,7 @@ test('POST /projects creates the project, test items, stages, participants and t
   assert.deepEqual((await q(`select methods m from research.studies where project_id = $1`))[0], { m: ['Moderated usability test'] })
   assert.deepEqual((await q(`select description d, outcomes o, position p from research.test_items where project_id = $1 order by position`)), [{ d: 'Whether new users finish setup', o: ['Completion above 80%'], p: 0 }], 'the empty second item is dropped')
   assert.equal((await q(`select count(*)::int n from research.study_stages where study_id = $1`))[0].n, 5)
-  assert.deepEqual((await q(`select name, email, phone, session_date::text d from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', phone: '(555) 010-0000', d: '2026-11-02' })
+  assert.deepEqual((await q(`select name, email, phone, session_minutes m from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', phone: '(555) 010-0000', m: 45 })
   assert.deepEqual((await q(`select count(*) filter (where parent_task_id is null)::int q, count(*) filter (where parent_task_id is not null)::int f from research.tasks where project_id = $1`))[0], { q: 2, f: 3 })
   assert.equal((await q(`select verb from core.audit_log where entity_id = $1`))[0].verb, 'created')
   // It shows up in the list as a draft, in a tint no other project in the workspace uses yet.
@@ -318,7 +318,7 @@ test('POST /projects validates, naming the field: 422 validation_failed', async 
     [newProject({ methods: ['Mind reading'] }), 'methods.0'],
     [newProject({ templateKey: 'nope' }), 'templateKey'],
     [newProject({ testItems: Array.from({ length: 21 }, () => ({ description: 'x', outcomes: [] })) }), 'testItems'],
-    [newProject({ participants: [{ name: 'Ada', email: 'a@b.co', sessionDate: 'Oct 6' }] }), 'participants.0.sessionDate'],
+    [newProject({ participants: [{ name: 'Ada', email: 'a@b.co', sessionMinutes: 20 }] }), 'participants.0.sessionMinutes'],
   ]
   for (const [body, field] of cases) {
     const res = await post(app, body)
@@ -436,7 +436,7 @@ const planOf = async (app: ReturnType<typeof createApp>, id: string, over: Recor
   const d = await (await app.request(`/api/v1/projects/${id}`)).json()
   return {
     name: d.name, methods: d.study.methods, testItems: d.testItems.map((i: any) => ({ description: i.description, outcomes: i.outcomes })),
-    participants: d.participants.map((p: any) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionDate: p.sessionDate })), ...over,
+    participants: d.participants.map((p: any) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionMinutes: p.sessionMinutes })), ...over,
   }
 }
 
@@ -452,7 +452,7 @@ test('GET /projects/:id returns the test plan, stages, participants in order, an
     assert.deepEqual(body.study.methods, ['Moderated usability test', 'Survey follow-up'])
     assert.equal(body.stages.length, 5)
     assert.deepEqual(body.participants.map((p: any) => p.name), ['Maya Chen', 'Daniel Ortiz', 'Priya Nair'])
-    assert.equal(body.participants[0].sessionDate, '2026-10-06')
+    assert.equal(body.participants[0].sessionMinutes, 60)
     assert.equal(body.participants[0].phone, null)
     assert.deepEqual(body.tasks.map((t: any) => t.followUps.length), [2, 1])
     assert.equal(body.status, 'analyzed')
@@ -557,8 +557,8 @@ test('PUT study keeps participant identity: speakers stay matched, removed ones 
     const res = await put(app, `/projects/${p1}/study`, {
       ...(await planOf(app, p1)),
       participants: [
-        { id: daniel.id, name: 'Daniel Ortiz', role: 'Night-shift nurse', email: 'D.Ortiz@Example.com', phone: '555 0100', sessionDate: '2026-10-07' },
-        { id: maya.id, name: 'Maya Chen', role: maya.role, email: maya.email, sessionDate: maya.sessionDate },
+        { id: daniel.id, name: 'Daniel Ortiz', role: 'Night-shift nurse', email: 'D.Ortiz@Example.com', phone: '555 0100', sessionMinutes: 30 },
+        { id: maya.id, name: 'Maya Chen', role: maya.role, email: maya.email, sessionMinutes: maya.sessionMinutes },
         { name: 'New Person', email: 'new@example.com' },
       ],
     }, await version())

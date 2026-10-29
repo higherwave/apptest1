@@ -1143,14 +1143,14 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, role, email, phone, sessionDate]
+            required: [id, name, role, email, phone, sessionMinutes]
             properties:
               id: { type: string }
               name: { type: string }
               role: { type: [string, 'null'] }
               email: { type: string }
               phone: { type: [string, 'null'] }
-              sessionDate: { type: [string, 'null'] }
+              sessionMinutes: { type: [integer, 'null'], enum: [30, 45, 60, null], description: The planned length of the session in minutes. }
         tasks:
           type: array
           items:
@@ -1192,7 +1192,7 @@ components:
         role: { type: [string, 'null'] }
         email: { type: string }
         phone: { type: [string, 'null'] }
-        sessionDate: { type: [string, 'null'], description: 'YYYY-MM-DD' }
+        sessionMinutes: { type: [integer, 'null'], enum: [30, 45, 60, null], description: The planned length of the session in minutes. }
     SavePlanRequest:
       type: object
       required: [name, participants]

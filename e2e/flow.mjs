@@ -79,6 +79,11 @@ try {
   await page.type('#p-name-0', 'Ada Lovelace')
   await page.type('#p-email-0', 'not-an-email')
   await page.type('#p-phone-0', '(555) 010-0000')
+  ok('the participants table asks for Session length, with a dropdown and no date field', await page.evaluate(() => /session length/i.test(document.querySelector('[role="table"][aria-label="Participants"]').innerText) && !/session date/i.test(document.body.innerText) && !document.querySelector('#p-date-0') && !!document.querySelector('#p-length-0')))
+  await page.click('#p-length-0')
+  await page.waitForSelector('[role="option"]')
+  ok('the choices are 30 min, 45 min and 1 hour', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].map((o) => o.innerText.trim()).join('|') === '30 min|45 min|1 hour'))
+  await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.trim() === '45 min').click())
   await clickText('Save test plan')
   await waitText('Enter a valid email address.')
   ok('a bad email is caught', true)
@@ -90,6 +95,7 @@ try {
   ok('creating opens the new project’s Task List', true, page.url().replace(BASE, ''))
   const createdId = page.url().match(/projects\/([0-9a-f-]{36})\//)[1]
   const created = await (await fetch(`${API}/api/v1/projects/${createdId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  ok('the chosen session length is saved with the participant', created.participants[0].sessionMinutes === 45)
   ok('the plan was saved: one test item with its one outcome, the method and the phone number',
     created.testItems.length === 1 && created.testItems[0].description === 'Whether first-time users can book' && created.testItems[0].outcomes.length === 1 && created.study.methods.join() === 'Card sort' && created.participants[0].phone === '(555) 010-0000',
     JSON.stringify(created.testItems))
@@ -143,7 +149,7 @@ try {
 
   // Someone else saves while this page is open: the save is refused, then overwritten on purpose.
   const apiGet = async () => (await fetch(`${API}/api/v1/projects/${projectId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  const apiPutStudy = async (body) => { const cur = await apiGet(); return fetch(`${API}/api/v1/projects/${projectId}/study`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', 'if-match': String(cur.version) }, body: JSON.stringify({ name: cur.name, methods: cur.study.methods, testItems: cur.testItems.map((i) => ({ description: i.description, outcomes: i.outcomes })), participants: cur.participants.map((p) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionDate: p.sessionDate })), ...body }) }) }
+  const apiPutStudy = async (body) => { const cur = await apiGet(); return fetch(`${API}/api/v1/projects/${projectId}/study`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', 'if-match': String(cur.version) }, body: JSON.stringify({ name: cur.name, methods: cur.study.methods, testItems: cur.testItems.map((i) => ({ description: i.description, outcomes: i.outcomes })), participants: cur.participants.map((p) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionMinutes: p.sessionMinutes })), ...body }) }) }
   ok('someone else saves through the API', (await apiPutStudy({ testItems: [{ description: 'Their wording', outcomes: [] }] })).status === 200)
   await retype('#item-0-description', 'My wording')
   await clickText('Save test plan')

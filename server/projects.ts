@@ -137,7 +137,7 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
     await insertTestItems(tx, ctx, projectId, input.testItems)
     await insertMany(tx, 'research.study_stages', DEFAULT_STAGES.map((name, position) => ({ workspace_id: w, study_id: projectId, position, name })))
     await insertMany(tx, 'research.participants', input.participants.map((p, position) => ({
-      workspace_id: w, project_id: projectId, position, name: p.name, role: p.role, email: p.email.toLowerCase(), phone: p.phone, session_date: p.sessionDate, created_by: ctx.userId, updated_by: ctx.userId,
+      workspace_id: w, project_id: projectId, position, name: p.name, role: p.role, email: p.email.toLowerCase(), phone: p.phone, session_minutes: p.sessionMinutes, created_by: ctx.userId, updated_by: ctx.userId,
     })))
 
     // Starter tasks from the template: each question, then its follow-ups as children.
@@ -174,7 +174,7 @@ export type ProjectDetail = ProjectSummary & {
   study: { methods: string[] }
   testItems: { id: string; description: string | null; outcomes: string[] }[]
   stages: { position: number; name: string }[]
-  participants: { id: string; name: string; role: string | null; email: string; phone: string | null; sessionDate: string | null }[]
+  participants: { id: string; name: string; role: string | null; email: string; phone: string | null; sessionMinutes: number | null }[]
   tasks: { id: string; prompt: string; followUps: { id: string; prompt: string }[] }[]
 }
 
@@ -184,14 +184,14 @@ export async function getProjectDetail(db: Queryable, workspaceId: string, proje
   const study = (await db.query(`select methods from research.studies where project_id = $1`, [projectId])).rows[0]
   const items = (await db.query(`select id, description, outcomes from research.test_items where project_id = $1 order by position`, [projectId])).rows
   const stages = (await db.query(`select position, name from research.study_stages where study_id = $1 order by position`, [projectId])).rows
-  const participants = (await db.query(`select id, name, role, email, phone, session_date::text as session_date from research.participants where project_id = $1 order by position, name`, [projectId])).rows
+  const participants = (await db.query(`select id, name, role, email, phone, session_minutes from research.participants where project_id = $1 order by position, name`, [projectId])).rows
   const tasks = (await db.query(`select id, parent_task_id, prompt from research.tasks where project_id = $1 order by position`, [projectId])).rows
   return {
     ...summary,
     study: { methods: study?.methods ?? [] },
     testItems: items.map((i) => ({ id: i.id, description: i.description ?? null, outcomes: i.outcomes ?? [] })),
     stages: stages.map((s) => ({ position: s.position, name: s.name })),
-    participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null, email: p.email, phone: p.phone ?? null, sessionDate: p.session_date ?? null })),
+    participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null, email: p.email, phone: p.phone ?? null, sessionMinutes: p.session_minutes ?? null })),
     tasks: tasks
       .filter((t) => !t.parent_task_id)
       .map((t) => ({ id: t.id, prompt: t.prompt, followUps: tasks.filter((f) => f.parent_task_id === t.id).map((f) => ({ id: f.id, prompt: f.prompt })) })),
@@ -247,13 +247,13 @@ export async function savePlan(db: Db, ctx: { workspaceId: string; userId: strin
         if (!existing.has(p.id)) throw new UnknownParticipant(p.id)
         keep.add(p.id)
         await tx.query(
-          `update research.participants set name = $2, role = $3, email = $4, phone = $5, session_date = $6, position = $7, updated_by = $8 where id = $1`,
-          [p.id, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionDate, position, ctx.userId],
+          `update research.participants set name = $2, role = $3, email = $4, phone = $5, session_minutes = $6, position = $7, updated_by = $8 where id = $1`,
+          [p.id, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionMinutes, position, ctx.userId],
         )
       } else {
         await tx.query(
-          `insert into research.participants (workspace_id, project_id, position, name, role, email, phone, session_date, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
-          [ctx.workspaceId, projectId, position, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionDate, ctx.userId],
+          `insert into research.participants (workspace_id, project_id, position, name, role, email, phone, session_minutes, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
+          [ctx.workspaceId, projectId, position, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionMinutes, ctx.userId],
         )
       }
     }

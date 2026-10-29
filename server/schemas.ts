@@ -19,7 +19,7 @@ export const participantSchema = z.object({
   role: optionalText(160),
   email: z.string().trim().min(1, 'Enter an email address.').pipe(z.email('Enter a valid email address.')),
   phone: optionalText(40),
-  sessionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the format YYYY-MM-DD.').nullish().transform((v) => v ?? null),
+  sessionMinutes: z.union([z.literal(30), z.literal(45), z.literal(60)], 'Choose 30 minutes, 45 minutes or 1 hour.').nullish().transform((v) => v ?? null),
 })
 
 // A test item: what is being tested and what the team expects to learn. An item with neither is dropped.
