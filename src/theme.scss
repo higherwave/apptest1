@@ -281,8 +281,9 @@
 }
 
 // -- Form fields: white, outlined on all sides, 4px corners ----------------
-// Carbon's fields are gray-filled with only a bottom border. Here the fill is gone and the same strong border
-// (--cds-border-strong, the colour Carbon draws under its fields) runs round the whole field, with 4px (0.25rem) corners.
+// Carbon's fields are gray-filled with only a bottom border. Here the fill is solid white (so a field stays crisp on the
+// grey page behind it) and the same strong border (--cds-border-strong, the colour Carbon draws under its fields) runs
+// round the whole field, with 4px (0.25rem) corners.
 .cds--text-input,
 .cds--text-area,
 .cds--select-input,
@@ -291,7 +292,7 @@
 .cds--date-picker__input,
 .cds--list-box,
 .cds--list-box__field {
-  background: transparent;
+  background: var(--at-canvas);
   border-radius: 0.25rem;
 }
 
