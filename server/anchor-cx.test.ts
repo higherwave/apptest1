@@ -135,3 +135,25 @@ test('the matcher knows the Anchor CX platform themes, and none of them match th
     }
   }
 })
+
+test('retiring the clinic demo leaves only Anchor CX, with its own journey, themes and recommendations', async () => {
+  const { db, get } = await fixture()
+  // @ts-expect-error plain ESM
+  const { retireClinic, findClinic } = await import('../db/seed/retire-clinic.mjs')
+  const ws = (await db.query(`select id from core.workspaces where slug = 'higherwave-demo'`)).rows[0].id
+  const before = await findClinic(db, ws)
+  assert.equal(before.projects.length, 4)
+  assert.equal(before.platformThemes.length, 5)
+  assert.equal(before.recommendations.length, 4)
+  assert.equal(before.caseStudies.length, 4)
+  assert.deepEqual(await retireClinic(db, ws), { projects: 4, platformThemes: 5, recommendations: 4, caseStudies: 4 })
+  assert.deepEqual((await get('/projects')).data.map((p: any) => p.name).sort(), [...ANCHOR].sort())
+  const themes = await get('/insights/themes')
+  assert.equal(themes.themes.length, 7)
+  assert.equal(themes.recommendations.length, 5)
+  assert.equal(themes.totalParticipants, 12)
+  assert.equal((await get('/insights/journey')).stages.length, 5, 'only the Anchor CX stages')
+  assert.equal((await get('/insights/case-studies')).data.length, 0, 'no written case studies, but the project brief remains')
+  assert.ok((await get('/insights/case-briefs')).data.some((c: any) => c.projectName === 'Health score trust'))
+  assert.deepEqual(await retireClinic(db, ws), { projects: 0, platformThemes: 0, recommendations: 0, caseStudies: 0 }, 'a second run finds nothing')
+})
