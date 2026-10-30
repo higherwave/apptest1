@@ -45,6 +45,13 @@
   color: var(--at-body);
 }
 
+// The heading and the counts that filter the list beneath it, kept close together.
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
 // The counts above the list; picking one filters the list to it, and All themes shows everything again.
 .cards {
   display: flex;

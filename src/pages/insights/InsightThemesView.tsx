@@ -50,17 +50,21 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
         <>
           <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
 
-          <section className={styles.cards} aria-label="What the themes add up to">
-            {FILTERS.map((f) => {
-              const n = f.count(overview)
-              return (
-                <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(f.key)}>
-                  <span className={styles.cardNum}>{n}</span>
-                  <span>{f.label}</span>
-                </Button>
-              )
-            })}
-          </section>
+          <div className={styles.group}>
+            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+
+            <section className={styles.cards} aria-label="What the themes add up to">
+              {FILTERS.map((f) => {
+                const n = f.count(overview)
+                return (
+                  <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(f.key)}>
+                    <span className={styles.cardNum}>{n}</span>
+                    <span>{f.label}</span>
+                  </Button>
+                )
+              })}
+            </section>
+          </div>
 
           {rec && (
             <p className={styles.picked} role="status">
@@ -75,7 +79,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
 
           <section className={styles.table} aria-labelledby="themes-heading">
             <div className={styles.columns} aria-hidden>
-              <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+              <span className={styles.label}>Themes</span>
               <span className={styles.label}>Type</span>
               <span className={styles.label}>Status</span>
               <span className={styles.label}>Trend</span>
