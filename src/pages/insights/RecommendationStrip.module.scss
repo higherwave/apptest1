@@ -1,0 +1,115 @@
+@use '../../tokens' as tokens;
+
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.label {
+  @include tokens.role('caption');
+  margin: 0;
+  color: var(--at-muted);
+  font-weight: 400;
+  text-transform: uppercase;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+}
+
+.count {
+  @include tokens.role('meta');
+  margin-inline-end: var(--at-space-xs);
+  color: var(--at-muted);
+}
+
+// One row that scrolls sideways, a card at a time; the scrollbar is replaced by the Previous and Next buttons.
+.track {
+  display: flex;
+  gap: var(--at-space-md);
+  margin: 0;
+  padding: var(--at-space-xxs); // room for a selected card's outline
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--at-space-xxs);
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.item {
+  flex: 0 0 16rem;
+  min-inline-size: 0;
+  scroll-snap-align: start;
+  display: flex;
+}
+
+// A compact card: the label and priority dot, a title of up to two lines, and the reach. Picking it filters the table.
+.rec {
+  flex: 1;
+  inline-size: 100%; // Carbon sizes a button to its text; the card is the width of its slot
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--at-space-xs);
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  color: var(--at-ink);
+  text-align: start;
+  white-space: normal;
+
+  &:hover { background: var(--at-surface-soft); border-color: var(--at-border-strong); }
+  &[aria-pressed='true'] { border: 0.125rem solid var(--at-link); padding: calc(var(--at-space-md) - 1px); }
+}
+
+.recHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.dot {
+  flex: none;
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  border-radius: var(--at-radius-full);
+  background: var(--at-border-strong);
+
+  &[data-priority='high'] { background: var(--at-signature-coral); }
+  &[data-priority='medium'] { background: var(--at-signature-mustard); }
+  &[data-priority='low'] { background: var(--at-signature-mint); }
+}
+
+.recTitle {
+  @include tokens.role('label-md');
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; // two lines, then an ellipsis; the whole title is in the card's accessible name
+  overflow: hidden;
+  min-block-size: calc(1.4em * 2);
+}
+
+.recMeta {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+  font-weight: 400;
+}

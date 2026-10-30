@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
+import { RecommendationStrip } from './RecommendationStrip'
 import { STATUS } from './labels'
 import styles from './InsightThemesView.module.scss'
 
@@ -20,7 +21,6 @@ type Row = InsightsThemes['themes'][number]
 type Filter = 'all' | 'recurring' | 'opportunities' | 'needs_attention' | 'worked'
 
 const TREND = { new: 'New', growing: '↑ Growing', steady: '→ Steady', fading: '↓ Fading' } as const
-const PRIORITY = { high: 'High priority', medium: 'Medium priority', low: 'Low priority' } as const
 const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => number; keep: (t: Row) => boolean }[] = [
   { key: 'all', label: 'All themes', count: (o) => o.themes.length, keep: () => true },
   { key: 'recurring', label: 'Recurring pain points', count: (o) => o.summary.recurring, keep: (t) => t.projectCount >= 2 && t.category !== 'delight' },
@@ -35,7 +35,11 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 // comes from, what it means and what to do about it. Scanning the rows is the point; the evidence lives in each project.
 export function InsightThemesView({ state, overview, openId, errorText, onToggle }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter>('all')
-  const shown = overview ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : []
+  // A recommendation picked on the strip narrows the table to the themes it covers.
+  const [recId, setRecId] = useState<string | null>(null)
+  const rec = overview?.recommendations.find((r) => r.id === recId) ?? null
+  const byCount = overview ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : []
+  const shown = rec ? byCount.filter((t) => rec.themes.some((x) => x.id === t.id)) : byCount
   return (
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
@@ -44,21 +48,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
       {state === 'ready' && overview && (
         <>
-          <section className={styles.recs} aria-labelledby="recs-heading">
-            <h2 id="recs-heading" className={styles.hidden}>Recommendations</h2>
-            {overview.recommendations.map((r, i) => (
-              <article key={r.id} className={styles.rec}>
-                <p className={styles.recHead}>
-                  <span className={styles.label}>Recommendation {String(i + 1).padStart(2, '0')}</span>
-                  <span className={styles.dot} data-priority={r.priority} role="img" aria-label={PRIORITY[r.priority]} title={PRIORITY[r.priority]} />
-                </p>
-                <p className={styles.recTitle}>{r.title}</p>
-                <p className={styles.recMeta}>
-                  {plural(r.themes.length, 'theme')} · {plural(r.projectCount, 'project')}
-                </p>
-              </article>
-            ))}
-          </section>
+          <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
 
           <section className={styles.cards} aria-label="What the themes add up to">
             {FILTERS.map((f) => {
@@ -71,6 +61,17 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
               )
             })}
           </section>
+
+          {rec && (
+            <p className={styles.picked} role="status">
+              <span>
+                Showing {plural(shown.length, 'theme')} for: <strong>{rec.title}</strong>
+              </span>
+              <Button kind="ghost" size="sm" onClick={() => setRecId(null)}>
+                Clear
+              </Button>
+            </p>
+          )}
 
           <section className={styles.table} aria-labelledby="themes-heading">
             <div className={styles.columns} aria-hidden>

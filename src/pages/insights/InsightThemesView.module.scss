@@ -33,52 +33,16 @@
 
 .muted { color: var(--at-muted); }
 
-// What to do: one card per recommendation. The dot is its priority.
-.recs {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
-  gap: var(--at-space-md);
-}
-
-.rec {
+// Shown while a recommendation is picked: what the table is narrowed to, and a way back.
+.picked {
+  @include tokens.role('body-md');
   display: flex;
-  flex-direction: column;
-  gap: var(--at-space-sm);
-  padding: var(--at-space-lg);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-lg);
-  background: var(--at-canvas);
-}
-
-.recHead {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: var(--at-space-xs) var(--at-space-md);
   margin: 0;
-}
-
-.dot {
-  flex: none;
-  inline-size: 0.75rem;
-  block-size: 0.75rem;
-  border-radius: var(--at-radius-full);
-  background: var(--at-border-strong);
-
-  &[data-priority='high'] { background: var(--at-signature-coral); }
-  &[data-priority='medium'] { background: var(--at-signature-mustard); }
-  &[data-priority='low'] { background: var(--at-signature-mint); }
-}
-
-.recTitle {
-  @include tokens.role('title-sm');
-  margin: 0;
-  color: var(--at-ink);
-}
-
-.recMeta {
-  @include tokens.role('body-md');
-  margin: auto 0 0;
-  color: var(--at-muted);
+  color: var(--at-body);
 }
 
 // The counts above the list; picking one filters the list to it, and All themes shows everything again.

@@ -663,7 +663,24 @@ try {
   ok('the demo projects and the one analysed in this test all count', insights.projects.length >= 3 && insights.projects.some((p) => p.name === 'Intake v2'), insights.projects.map((p) => p.name).join(', '))
   const bodyText = await text()
   ok('every recommendation is shown, with its theme and project counts', insights.recommendations.length === 4 && insights.recommendations.every((r) => bodyText.includes(r.title) && bodyText.includes(`${r.projectCount} project`)))
-  ok('recommendation cards are white, each with a priority dot', await page.evaluate((n) => { const tiles = [...document.querySelectorAll('section[aria-labelledby="recs-heading"] article')]; return tiles.length === n && tiles.every((t) => getComputedStyle(t).backgroundColor === 'rgb(255, 255, 255)' && !!t.querySelector('[role="img"][aria-label$="priority"]')) }, insights.recommendations.length))
+  const rank = { high: 0, medium: 1, low: 2 }
+  const sortedRecs = [...insights.recommendations].sort((a, b) => rank[a.priority] - rank[b.priority] || a.title.localeCompare(b.title))
+  ok('recommendation cards are white, each with a priority dot', await page.evaluate((n) => { const tiles = [...document.querySelectorAll('[data-testid^="rec-"]')]; return tiles.length === n && tiles.every((t) => getComputedStyle(t).backgroundColor === 'rgb(255, 255, 255)' && !!t.querySelector('[role="img"][aria-label$="priority"]')) }, insights.recommendations.length))
+  ok('the recommendations are most important first, alphabetical within a priority', await page.evaluate((titles) => [...document.querySelectorAll('[data-testid^="rec-"]')].map((t) => t.querySelector('[class*="recTitle"]').textContent.trim()).join('|') === titles.join('|'), sortedRecs.map((r) => r.title)))
+  ok('the recommendations are one row, and the themes table starts on the first screen', await page.evaluate(() => { const tops = [...document.querySelectorAll('[data-testid^="rec-"]')].map((t) => Math.round(t.getBoundingClientRect().top)); return new Set(tops).size === 1 && document.querySelector('[data-testid^="platform-theme-"]').getBoundingClientRect().top < innerHeight }))
+  const picked = sortedRecs[0]
+  await page.click(`[data-testid="rec-${picked.id}"]`)
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, picked.themes.length)
+  ok('picking a recommendation narrows the table to its themes, and says so', await page.evaluate((r) => { const ids = [...document.querySelectorAll('[data-testid^="platform-theme-"]')].map((e) => e.dataset.testid.replace('platform-theme-', '')); return r.themes.every((t) => ids.includes(t.id)) && ids.length === r.themes.length && document.body.innerText.includes(`for: ${r.title}`) && document.querySelector(`[data-testid="rec-${r.id}"]`).getAttribute('aria-pressed') === 'true' }, picked))
+  await page.click(`[data-testid="rec-${picked.id}"]`)
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.themes.length)
+  ok('picking it again shows every theme', true)
+  const scrolls = await page.evaluate(() => { const t = document.querySelector('ul[aria-label^="Recommendations"]'); return t.scrollWidth > t.clientWidth + 1 })
+  if (scrolls) {
+    await page.evaluate(() => document.querySelectorAll('section[aria-labelledby="recs-heading"] [class*="controls"] button')[1].click())
+    await page.waitForFunction(() => document.querySelector('ul[aria-label^="Recommendations"]').scrollLeft > 0, { timeout: 5000 })
+    ok('Next moves the strip along', true)
+  } else ok('all recommendations fit in the row, so there are no Previous and Next buttons', await page.evaluate(() => document.querySelectorAll('section[aria-labelledby="recs-heading"] [class*="controls"] button').length === 0))
   ok('the first theme is open until another is picked', await page.evaluate((id) => document.querySelector(`[data-testid="platform-theme-${id}"]`).dataset.open === 'true', insights.themes[0].id))
   const second = insights.themes[1]
   await page.click(`[data-testid="platform-theme-${second.id}"] button`)
