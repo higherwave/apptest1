@@ -17,8 +17,9 @@ $stage-min: 13rem;
   border-radius: var(--at-radius-lg);
 }
 
-// The number of stages sets the columns (a study has three to six).
-@each $n in 2, 3, 4, 5, 6, 7, 8 {
+// The number of stages sets the columns: a study has three to six, and the platform journey folds every study's stages together, so it can have
+// many more. (Past the last count here a map would lose its columns and stack, so the range is generous.)
+@for $n from 2 through 24 {
   .map[data-columns='#{$n}'] {
     min-inline-size: calc(#{$label-width} + #{$n} * #{$stage-min});
 
