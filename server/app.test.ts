@@ -289,6 +289,7 @@ test('POST /projects creates the project, test items, stages, participants and t
   assert.deepEqual((await q(`select methods m from research.studies where project_id = $1`))[0], { m: ['Moderated usability test'] })
   assert.deepEqual((await q(`select description d, outcomes o, position p from research.test_items where project_id = $1 order by position`)), [{ d: 'Whether new users finish setup', o: ['Completion above 80%'], p: 0 }], 'the empty second item is dropped')
   assert.equal((await q(`select count(*)::int n from research.study_stages where study_id = $1`))[0].n, 5)
+  assert.deepEqual((await q(`select name from research.study_stages where study_id = $1 order by position`)).map((r: any) => r.name), ['Discover', 'Explore', 'Decide', 'Deliver', 'Follow up'], 'a new project starts with general stages, not a clinic’s')
   assert.deepEqual((await q(`select name, email, phone, session_minutes m from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', phone: '(555) 010-0000', m: 45 })
   assert.deepEqual((await q(`select count(*) filter (where parent_task_id is null)::int q, count(*) filter (where parent_task_id is not null)::int f from research.tasks where project_id = $1`))[0], { q: 2, f: 3 })
   assert.equal((await q(`select verb from core.audit_log where entity_id = $1`))[0].verb, 'created')

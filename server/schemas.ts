@@ -9,7 +9,9 @@ export const METHOD_OPTIONS = [
 ] as const
 
 // Journey stages every new study starts with; they are editable per study later.
-export const DEFAULT_STAGES = ['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'] as const
+// The journey stages every new project starts with. Neutral on purpose: the Platform Insights journey folds stages with the same name together
+// across projects, so shared, general names roll up well, and a project can rename them to fit its own story.
+export const DEFAULT_STAGES = ['Discover', 'Explore', 'Decide', 'Deliver', 'Follow up'] as const
 
 const text = (max: number) => z.string().trim().max(max)
 const optionalText = (max: number) => text(max).transform((v) => (v === '' ? null : v)).nullish().transform((v) => v ?? null)
