@@ -173,5 +173,6 @@ export type CaseBrief = components['schemas']['CaseBrief']
 export const listCaseBriefs = () => request<{ data: CaseBrief[] }>('/insights/case-briefs').then((r) => r.data)
 export const getCaseBrief = (projectId: string) => request<CaseBrief>(`/projects/${projectId}/case-study-brief`)
 export const getInsightsThemes = () => request<InsightsThemes>('/insights/themes')
+export const markThemeReviewed = (id: string) => request<null>(`/insights/themes/${id}/reviewed`, { method: 'POST' })
 export const getPlatformTheme = (id: string) => request<PlatformThemeDetail>(`/insights/themes/${id}`)
 export const listCaseStudies = () => request<{ data: CaseStudy[] }>('/insights/case-studies').then((r) => r.data)

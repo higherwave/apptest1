@@ -99,7 +99,22 @@ Requirements drafting (`server/ai-drafting.ts`, prompt `spec-draft-v1`) drafts o
 step. The reply must match a schema, cite only themes in the document, and use only participant and session counts the app supplied
 (one retry, then a plain 503). The call is made before any transaction opens: approving or redoing drafts first, then locks, checks
 and saves together, so a failed draft changes nothing. Creating a document that cannot be drafted removes it again. `AI_DRAFT_MODEL`
-optionally picks another model for drafting. Matching remains simulated.
+optionally picks another model for drafting.
+
+Theme matching (`server/ai-matching.ts`, prompt `theme-match-v1`, model `claude-haiku-5-5`, `AI_MATCH_MODEL` to change it) runs after each
+analysis. Only current themes that have no platform theme yet are sent (tags already given stay put, so the numbers do not shuffle and
+each call stays small). The model puts each one under an existing platform theme or names a new one; matches below 0.6 confidence are
+left unmatched, and a "new" title that is an existing platform theme attaches to it, so near-duplicates are not created. A new platform
+theme is created with `needs_review` (migration 0020) and shows a "New, review" tag until an owner or editor clicks Mark as reviewed;
+if the research behind an unreviewed one goes away, it goes too. Hand-made tags are never replaced. The call is made before the write
+transaction opens. At the budget or credit ceiling the keyword matcher places what it knows and starts nothing new.
+
+## Spend alerts
+
+`GET /ai/status` returns `spendLevel` (`ok`, `half` from 50%, `high` from 80%, `reached` at 100% of `AI_MONTHLY_BUDGET_USD`) and `month`
+beside `budgetUsd` and `spentUsd`. Owners and editors get an "AI status" button in the header (spend this month and recent problems);
+owners also get a banner above the app bar at each level. Dismissing it hides that level for the month in that browser
+(`localStorage`); the next level brings it back.
 
 ## Cost limits
 

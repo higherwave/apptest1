@@ -8,11 +8,11 @@ $narrow: 48rem;
 .stage {
   display: flex;
   flex-direction: column;
-  margin-block-start: $header-height;
+  margin-block-start: calc(#{$header-height} + var(--at-banner, 0rem));
   min-height: calc(100vh - #{$header-height});
 
   &[data-project='true'] {
-    margin-block-start: calc(#{$header-height} + #{$context-height});
+    margin-block-start: calc(#{$header-height} + #{$context-height} + var(--at-banner, 0rem));
     min-height: calc(100vh - #{$header-height} - #{$context-height});
   }
   background: var(--at-page);
@@ -29,7 +29,7 @@ $narrow: 48rem;
 // swap the areas for a dropdown. Inside a project, a slim bar under it names the project.
 .appbar {
   position: fixed;
-  inset-block-start: 0;
+  inset-block-start: var(--at-banner, 0rem); // below the spend alert when there is one
   inset-inline: 0;
   z-index: 3;
   display: grid;
@@ -152,7 +152,7 @@ $narrow: 48rem;
 
 .context {
   position: fixed;
-  inset-block-start: $header-height;
+  inset-block-start: calc(#{$header-height} + var(--at-banner, 0rem));
   inset-inline: 0;
   z-index: 2;
   display: flex;

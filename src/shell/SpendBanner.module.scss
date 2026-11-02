@@ -1,0 +1,35 @@
+@use '../tokens' as tokens;
+
+// A bar fixed above the app bar. AppShell moves the app bar down by this bar's height.
+.banner {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+  padding: var(--at-space-xs) var(--at-space-lg);
+  border-block-end: 1px solid var(--at-hairline);
+
+  &[data-level='half'] {
+    background: var(--at-tint-yellow);
+    color: var(--at-ink);
+  }
+
+  &[data-level='high'],
+  &[data-level='reached'] {
+    background: var(--at-tint-coral);
+    color: var(--at-on-tint-coral);
+  }
+
+  @media (max-width: 48rem) {
+    padding-inline: var(--at-space-md);
+  }
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+}

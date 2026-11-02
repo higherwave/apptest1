@@ -57,3 +57,10 @@
   margin: 0;
   color: var(--at-muted);
 }
+
+.spend {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin-block-end: var(--at-space-lg);
+}

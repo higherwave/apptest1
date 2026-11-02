@@ -1701,10 +1701,46 @@ test('a costly provider is recorded, and at the monthly budget the run falls bac
   assert.deepEqual(runs, [{ provider: 'fake', s: 'complete' }, { provider: 'stub', s: 'complete' }].map((r) => ({ provider: r.provider, s: r.s })), 'the second run is recorded as simulated')
   const status = await (await app.request('/api/v1/ai/status', { headers: auth })).json()
   const { problems, ...rest } = status
-  assert.deepEqual(rest, { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 12 })
+  assert.deepEqual(rest, { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 12, spendLevel: 'reached', month: new Date().toISOString().slice(0, 7) })
   assert.deepEqual(problems.map((p: any) => [p.purpose, p.code]), [['analysis', 'ai_budget_reached']], 'the owner sees that the run fell back to the simulation')
   assert.ok(problems[0].message && problems[0].detail && problems[0].at)
   assert.deepEqual(await (await app.request('/api/v1/ai/status')).json(), { mode: 'live', enabled: true })
+})
+
+test('the status reports the spend level at 50%, 80% and 100% of the budget', async () => {
+  const { app, pg } = await newStudy(costly(0), { AI_MONTHLY_BUDGET_USD: '10' })
+  const ws = ((await pg.query<any>(`select id from core.workspaces limit 1`)).rows[0] as { id: string }).id
+  const level = async () => {
+    const body = await expectSpec(await app.request('/api/v1/ai/status', { headers: auth }), '/ai/status')
+    return [body.spendLevel, body.spentUsd]
+  }
+  const spend = (usd: number) => pg.query(`insert into core.ai_usage (workspace_id, purpose, provider, cost_usd) values ($1, 'analysis', 'fake', $2)`, [ws, usd])
+  assert.deepEqual(await level(), ['ok', 0])
+  await spend(4.9)
+  assert.deepEqual(await level(), ['ok', 4.9])
+  await spend(0.1)
+  assert.deepEqual(await level(), ['half', 5])
+  await spend(2.9)
+  assert.deepEqual(await level(), ['half', 7.9])
+  await spend(0.1)
+  assert.deepEqual(await level(), ['high', 8])
+  await spend(2)
+  assert.deepEqual(await level(), ['reached', 10])
+  const visitor = await (await app.request('/api/v1/ai/status')).json()
+  assert.equal(visitor.spendLevel, undefined, 'a visitor sees no spend')
+})
+
+test('a platform theme the model started can be marked reviewed by an editor, and only an editor', async () => {
+  const { app, pg } = await newStudy()
+  const id = ((await pg.query<any>(`update insights.platform_themes set needs_review = true where id = (select id from insights.platform_themes order by position limit 1) returning id`)).rows[0] as { id: string }).id
+  const overview = await expectSpec(await app.request('/api/v1/insights/themes'), '/insights/themes')
+  assert.equal(overview.themes.find((t: any) => t.id === id).needsReview, true)
+  assert.equal(overview.themes.filter((t: any) => t.needsReview).length, 1)
+  assert.equal((await app.request(`/api/v1/insights/themes/${id}`)).status, 200)
+  assert.equal((await app.request(`/api/v1/insights/themes/${id}/reviewed`, { method: 'POST' })).status, 401, 'a visitor cannot')
+  assert.equal((await app.request(`/api/v1/insights/themes/${id}/reviewed`, { method: 'POST', headers: auth })).status, 204)
+  assert.equal(((await pg.query<any>(`select needs_review from insights.platform_themes where id = $1`, [id])).rows[0] as { needs_review: boolean }).needs_review, false)
+  assert.equal((await app.request('/api/v1/insights/themes/not-a-uuid/reviewed', { method: 'POST', headers: auth })).status, 404)
 })
 
 test('only one analysis may run per project; a run that never finished stops blocking after ten minutes', async () => {

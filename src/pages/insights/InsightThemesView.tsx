@@ -15,6 +15,10 @@ export type InsightThemesViewProps = {
   openId: string | null
   errorText?: string
   onToggle: (id: string) => void
+  /** Owners and editors can clear the "New, review" flag on a theme the model started. */
+  canReview?: boolean
+  reviewing?: boolean
+  onReviewed?: (id: string) => void
 }
 
 type Row = InsightsThemes['themes'][number]
@@ -33,7 +37,7 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 
 // Presentational: what the team should do (recommendations), then every theme seen across projects as a row that opens to say where it
 // comes from, what it means and what to do about it. Scanning the rows is the point; the evidence lives in each project.
-export function InsightThemesView({ state, overview, openId, errorText, onToggle }: InsightThemesViewProps) {
+export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter>('all')
   // A recommendation picked on the strip narrows the table to the themes it covers.
   const [recId, setRecId] = useState<string | null>(null)
@@ -96,6 +100,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                         <span className={styles.rowTitle}>{t.title}</span>
                         <span className={styles.chips}>
                           <CategoryBadge category={t.category} />
+                          {t.needsReview && <Tag size="sm" type="warm-gray">New · review</Tag>}
                           {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
                         </span>
                         <span>
@@ -118,6 +123,17 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                             Raised by {t.participantCount} of {overview.totalParticipants} participants across {t.projectCount} of {plural(overview.projects.length, 'project')}.
                           </p>
                         </section>
+                        {t.needsReview && (
+                          <section aria-label="Needs review" data-testid={`review-${t.id}`}>
+                            <h3 className={styles.label}>Needs review</h3>
+                            <p className={styles.text}>The AI started this theme because no existing one fit. Check that it is not a duplicate and that the title says the problem plainly.</p>
+                            {canReview && onReviewed && (
+                              <Button kind="tertiary" size="sm" disabled={reviewing} onClick={() => onReviewed(t.id)}>
+                                Mark as reviewed
+                              </Button>
+                            )}
+                          </section>
+                        )}
                         <section aria-label="Theme summary">
                           <h3 className={styles.label}>Theme summary</h3>
                           <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>

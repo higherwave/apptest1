@@ -1,12 +1,14 @@
 // The live provider: Anthropic's Messages API, called with plain fetch so there is no SDK retry loop that could hit a spend limit
-// again and again. Only analysis is live so far (slice E2); drafting and matching stay simulated until E3 and E4.
+// again and again. Analysis, requirements drafting and theme matching are live (slices E2 to E4).
 import type { Env } from './db.js'
 import { ApiError } from './errors.js'
 import { analyzeWithModel, type AnalysisInput, type ModelCall } from './ai-analysis.js'
 import { draftWithModel } from './ai-drafting.js'
+import { matchWithModel } from './ai-matching.js'
 import { simulatedProvider, type AiProvider, type Usage } from './ai.js'
 
 export const DEFAULT_ANALYSIS_MODEL = 'claude-sonnet-5-5'
+export const DEFAULT_MATCH_MODEL = 'claude-haiku-5-5'
 // Dollars per million tokens, input and output (prompts up to 100K tokens).
 export const PRICES: Record<string, { in: number; out: number }> = {
   'claude-sonnet-5-5': { in: 2, out: 10 },
@@ -62,6 +64,8 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
   const call = anthropicCall(env, model, fetchImpl)
   const draftModel = env.AI_DRAFT_MODEL && PRICES[env.AI_DRAFT_MODEL] ? env.AI_DRAFT_MODEL : DEFAULT_ANALYSIS_MODEL
   const draftCall = draftModel === model ? call : anthropicCall(env, draftModel, fetchImpl)
+  const matchModel = env.AI_MATCH_MODEL && PRICES[env.AI_MATCH_MODEL] ? env.AI_MATCH_MODEL : DEFAULT_MATCH_MODEL
+  const matchCall = anthropicCall(env, matchModel, fetchImpl)
   return {
     ...simulatedProvider,
     name: 'anthropic',
@@ -69,6 +73,10 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
     analyzeProject: async (input: AnalysisInput) => {
       const r = await analyzeWithModel(call, input)
       return { value: { themes: r.themes, promptVersion: r.promptVersion }, usage: r.usage }
+    },
+    matchPlatform: async (input) => {
+      const r = await matchWithModel(matchCall, input)
+      return { value: { placements: r.placements, promptVersion: r.promptVersion }, usage: r.usage }
     },
     draftStep: async (input) => {
       const r = await draftWithModel(draftCall, input)

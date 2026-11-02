@@ -24,9 +24,9 @@ import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignItem } from './design.js'
-import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, type AiProvider } from './ai.js'
+import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
-import { getPlatformTheme, getThemesOverview, listCaseStudies, refreshPlatformMatches } from './insights.js'
+import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService }
@@ -72,7 +72,10 @@ export function createApp(options: AppOptions = {}) {
     const found = !ctx.anonymous && (ctx.role === 'owner' || ctx.role === 'editor') ? await recentAiProblems(getDb(), ctx.workspaceId).catch(() => []) : []
     const lastProblem = found.length ? { problems: found } : {}
     if (ctx.anonymous || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false', ...lastProblem })
-    return c.json({ mode, enabled: true, budgetUsd: monthlyBudgetUsd(env), spentUsd: await spentThisMonthUsd(getDb(), ctx.workspaceId), ...lastProblem })
+    const budgetUsd = monthlyBudgetUsd(env)
+    const spentUsd = await spentThisMonthUsd(getDb(), ctx.workspaceId)
+    // spendLevel is what the alerts follow: half (50%), high (80%) or reached (100%) of the month's budget. month says which month it counts.
+    return c.json({ mode, enabled: true, budgetUsd, spentUsd, spendLevel: spendLevel(spentUsd, budgetUsd), month: new Date().toISOString().slice(0, 7), ...lastProblem })
   })
 
   // Reaches the database, so it needs the same access as the data routes.
@@ -576,6 +579,13 @@ export function createApp(options: AppOptions = {}) {
     if (!theme) throw new ApiError(404, 'not_found', 'No such platform theme.')
     cacheHeaders(c)
     return c.json(theme)
+  })
+  app.post('/insights/themes/:id/reviewed', withContext, async (c) => {
+    requireEditor(c)
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id) || !(await markThemeReviewed(getDb(), c.get('ctx').workspaceId, id))) throw new ApiError(404, 'not_found', 'No such platform theme.')
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
   })
   app.get('/projects/:id/case-study-brief', withReadContext, async (c) => {
     const id = projectId(c)

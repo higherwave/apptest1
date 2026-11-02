@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { getProvider, makeAi } from './ai.js'
 import { runAnalysis } from './analysis.js'
-import { anthropicCall, anthropicProvider, costUsd, DEFAULT_ANALYSIS_MODEL, mapFailure } from './anthropic.js'
+import { anthropicCall, anthropicProvider, costUsd, DEFAULT_ANALYSIS_MODEL, DEFAULT_MATCH_MODEL, mapFailure } from './anthropic.js'
 import { createProjectSpec, getSpec } from './specs.js'
 import { createDemoDatabase } from './test-utils.js'
 
@@ -136,4 +136,20 @@ test('drafting a requirements step goes through the live provider: one call, pri
   const spec = (await getSpec(db, actor.workspaceId, specId))!
   assert.equal(spec.steps[0].status, 'review')
   assert.equal(spec.steps[0].evidence.length, 1)
+})
+
+test('matching goes to the small model, is priced from the reply, and returns placements', async () => {
+  const reply = JSON.stringify({ placements: [{ theme: 'N1', decision: 'match', platform: 'P1', confidence: 0.9 }, { theme: 'N2', decision: 'new', title: 'People want a text when a slot opens', confidence: 0.8 }] })
+  const f = fetching(ok(reply, 3_000, 200))
+  const { provider } = envFor(f)
+  const input = {
+    platform: [{ id: 'p1', title: 'Fees appear late at checkout', category: 'pain_point' }],
+    themes: [{ id: 't1', title: 'Surprise costs', description: '', opportunity: '', category: 'pain_point' }, { id: 't2', title: 'Wants a text when a slot opens', description: '', opportunity: '', category: 'need' }],
+  }
+  const r = await provider.matchPlatform!(input)
+  const body = JSON.parse(f.calls[0].init.body as string)
+  assert.equal(DEFAULT_MATCH_MODEL, 'claude-haiku-5-5')
+  assert.equal(body.model, DEFAULT_MATCH_MODEL)
+  assert.deepEqual(r.value.placements.map((p) => p.platformThemeId ?? p.newTitle), ['p1', 'People want a text when a slot opens'])
+  assert.equal(r.usage.costUsd, costUsd('claude-haiku-5-5', 3_000, 200))
 })

@@ -1,6 +1,6 @@
 import { ChevronDown } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
-import { useState, type MouseEvent } from 'react'
+import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
@@ -9,6 +9,7 @@ import { STEPS } from './nav'
 import { StepNav, type StepItem } from './StepNav'
 import { Logo } from './Logo'
 import { SiteFooter } from './SiteFooter'
+import { SpendBanner } from './SpendBanner'
 import styles from './AppShell.module.scss'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -19,6 +20,9 @@ export function AppShell() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  // The spend alert sits above the fixed app bar; it reports its height so everything below moves down by that much.
+  const shell = useRef<HTMLDivElement>(null)
+  const onBanner = useCallback((rem: number) => shell.current?.style.setProperty('--at-banner', `${rem}rem`), [])
 
   const go = (to: string) => (event: MouseEvent) => {
     event.preventDefault()
@@ -59,7 +63,8 @@ export function AppShell() {
   const current = areas.find((a) => a.active) ?? areas[0]
 
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} ref={shell}>
+      <SpendBanner onHeight={onBanner} />
       <header className={styles.appbar}>
         <div className={styles.brand}>
           <Logo />

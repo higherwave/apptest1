@@ -588,6 +588,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/themes/{id}/reviewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Clears the "New, review" flag on a platform theme the model started. Owners and editors. */
+        post: operations["markPlatformThemeReviewed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/customers": {
         parameters: {
             query?: never;
@@ -991,6 +1008,8 @@ export interface components {
                 title: string;
                 /** @enum {string} */
                 category: "pain_point" | "need" | "expectation" | "delight";
+                /** @description True for a platform theme the model started that nobody has marked reviewed yet. */
+                needsReview: boolean;
                 participantCount: number;
                 projectCount: number;
                 /**
@@ -1110,6 +1129,7 @@ export interface components {
             title: string;
             /** @enum {string} */
             category: "pain_point" | "need" | "expectation" | "delight";
+            needsReview: boolean;
             participantCount: number;
             totalParticipants: number;
             projectCount: number;
@@ -1686,6 +1706,13 @@ export interface components {
             enabled: boolean;
             budgetUsd?: number;
             spentUsd?: number;
+            /**
+             * @description How far through the month's budget the spend is: half from 50%, high from 80%, reached at 100%. Sent with budgetUsd and spentUsd.
+             * @enum {string}
+             */
+            spendLevel?: "ok" | "half" | "high" | "reached";
+            /** @description The month the spend counts, as YYYY-MM (UTC). */
+            month?: string;
             /** @description The most recent problems with model calls in the past 30 days (up to 10, newest first). Only owners and editors receive it, and only when there are some. */
             problems?: {
                 /** Format: date-time */
@@ -2915,6 +2942,30 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    markPlatformThemeReviewed: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The flag is cleared. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };

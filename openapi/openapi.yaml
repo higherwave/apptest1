@@ -787,6 +787,18 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/themes/{id}/reviewed:
+    post:
+      operationId: markPlatformThemeReviewed
+      summary: Clears the "New, review" flag on a platform theme the model started. Owners and editors.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: The flag is cleared. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/customers:
     get:
       operationId: getCustomers
@@ -1308,11 +1320,12 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary]
+            required: [id, title, category, needsReview, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary]
             properties:
               id: { type: string, format: uuid }
               title: { type: string }
               category: { type: string, enum: [pain_point, need, expectation, delight] }
+              needsReview: { type: boolean, description: 'True for a platform theme the model started that nobody has marked reviewed yet.' }
               participantCount: { type: integer }
               projectCount: { type: integer }
               status:
@@ -1450,11 +1463,12 @@ components:
               opportunities: { type: integer }
     PlatformThemeDetail:
       type: object
-      required: [id, title, category, participantCount, totalParticipants, projectCount, totalProjects, sources, quotes]
+      required: [id, title, category, needsReview, participantCount, totalParticipants, projectCount, totalProjects, sources, quotes]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
         category: { type: string, enum: [pain_point, need, expectation, delight] }
+        needsReview: { type: boolean }
         participantCount: { type: integer }
         totalParticipants: { type: integer }
         projectCount: { type: integer }
@@ -2200,6 +2214,8 @@ components:
         enabled: { type: boolean, description: 'False when the AI_ENABLED=false kill switch is set.' }
         budgetUsd: { type: number }
         spentUsd: { type: number }
+        spendLevel: { type: string, enum: [ok, half, high, reached], description: 'How far through the month''s budget the spend is: half from 50%, high from 80%, reached at 100%. Sent with budgetUsd and spentUsd.' }
+        month: { type: string, description: 'The month the spend counts, as YYYY-MM (UTC).' }
         problems:
           type: array
           description: The most recent problems with model calls in the past 30 days (up to 10, newest first). Only owners and editors receive it, and only when there are some.

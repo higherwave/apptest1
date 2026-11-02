@@ -5,6 +5,7 @@ import { insertMany } from './sql.js'
 import { anthropicProvider } from './anthropic.js'
 import { ModelOutputError, type AnalysisInput } from './ai-analysis.js'
 import type { DraftInput, StepDraft } from './ai-drafting.js'
+import type { MatchInput, Placement } from './ai-matching.js'
 
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
@@ -21,6 +22,8 @@ export type AiProvider = {
   /** Whole-project analysis by a model, given the stages and study context. Providers without it use `analyze`. */
   /** One requirements step drafted by a model, in the shape of one simulated step. Providers without it use `buildSteps`. */
   draftStep?(input: DraftInput): Promise<Priced<StepDraft & { promptVersion: string }>>
+  /** Places project themes under existing or new platform themes. Providers without it use `matchThemes`, which only knows the keyword list. */
+  matchPlatform?(input: MatchInput): Promise<Priced<{ placements: Placement[]; promptVersion: string }>>
   analyzeProject?(input: AnalysisInput): Promise<Priced<{ themes: ReturnType<Fn<'analyze'>>; promptVersion: string }>>
 }
 export type Ai = { provider: AiProvider; env: Env }
@@ -58,6 +61,14 @@ export const monthlyBudgetUsd = (env: Env): number => {
 export async function spentThisMonthUsd(db: Queryable, workspaceId: string): Promise<number> {
   const r = await db.query(`select coalesce(sum(cost_usd), 0)::float8 as spent from core.ai_usage where workspace_id = $1 and created_at >= date_trunc('month', now())`, [workspaceId])
   return r.rows[0].spent as number
+}
+
+// How far through the month's budget the spend is, for the alerts. 'half' from 50%, 'high' from 80%, 'reached' at 100%.
+export type SpendLevel = 'ok' | 'half' | 'high' | 'reached'
+export const spendLevel = (spentUsd: number, budgetUsd: number): SpendLevel => {
+  if (budgetUsd <= 0) return 'reached'
+  const f = spentUsd / budgetUsd
+  return f >= 1 ? 'reached' : f >= 0.8 ? 'high' : f >= 0.5 ? 'half' : 'ok'
 }
 
 export async function assertBudget(db: Queryable, ai: Ai, workspaceId: string): Promise<void> {

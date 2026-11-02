@@ -1,4 +1,4 @@
-import { Button, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Tag, TextInput } from '@carbon/react'
+import { Button, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, ProgressBar, Tag, TextInput } from '@carbon/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -11,6 +11,7 @@ import styles from './AccessBar.module.scss'
 // The "Editing unlocked" badge and the Lock button are hidden unless VITE_SHOW_ACCESS_CONTROLS=true, so a shared demo looks
 // clean; editing itself works the same either way. A read-only visitor still sees how to unlock.
 const PURPOSE_LABEL: Record<string, string> = { analysis: 'Transcript analysis', spec_step: 'Requirements drafting', theme_match: 'Theme matching' }
+const SPEND_LABEL = { half: '50% reached', high: '80% reached', reached: 'Budget reached' } as const
 const showAccess = import.meta.env.VITE_SHOW_ACCESS_CONTROLS === 'true'
 
 // Shows whether this tab can edit, and asks for the access token to unlock editing.
@@ -73,9 +74,9 @@ export function AccessBar() {
           {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
         </Tag>
       )}
-      {ai.data?.problems && (
+      {editing && (ai.data?.problems || ai.data?.budgetUsd !== undefined) && (
         <Button kind="ghost" size="sm" onClick={() => setProblemOpen(true)}>
-          AI problems ({ai.data.problems.length})
+          AI status{ai.data?.problems ? ` (${ai.data.problems.length})` : ''}
         </Button>
       )}
       {tokenControls &&
@@ -108,20 +109,46 @@ export function AccessBar() {
         </>
       )}
 
-      <Modal open={problemOpen} passiveModal size="md" modalHeading="Recent AI problems" onRequestClose={() => setProblemOpen(false)}>
-        <ul className={styles.problems}>
-          {ai.data?.problems?.map((p) => (
-            <li key={`${p.at}-${p.code}`} className={styles.problem}>
-              <p className={styles.problemHead}>
-                {new Date(p.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · {PURPOSE_LABEL[p.purpose] ?? p.purpose}
-              </p>
-              <p className={styles.problemText}>{p.message}</p>
-              {p.detail && <p className={styles.problemDetail}>{p.detail}</p>}
-              <p className={styles.problemDetail}>{p.code}</p>
-            </li>
-          ))}
-        </ul>
-        <p className={styles.help}>The last 10 problems from the past 30 days. Nothing from the research is stored with them.</p>
+      <Modal open={problemOpen} passiveModal size="md" modalHeading="AI status" onRequestClose={() => setProblemOpen(false)}>
+        {ai.data?.budgetUsd !== undefined && (
+          <section className={styles.spend} aria-label="AI spend this month">
+            <p className={styles.problemHead}>
+              Spend this month{ai.data.month ? ` (${ai.data.month})` : ''}{' '}
+              {ai.data.spendLevel && ai.data.spendLevel !== 'ok' && (
+                <Tag size="sm" type={ai.data.spendLevel === 'half' ? 'warm-gray' : 'red'}>
+                  {SPEND_LABEL[ai.data.spendLevel]}
+                </Tag>
+              )}
+            </p>
+            <ProgressBar
+              label="AI spend against the monthly budget"
+              hideLabel
+              size="small"
+              value={Math.min(ai.data.spentUsd ?? 0, ai.data.budgetUsd)}
+              max={Math.max(ai.data.budgetUsd, 0.01)}
+              helperText={`$${(ai.data.spentUsd ?? 0).toFixed(2)} of $${ai.data.budgetUsd.toFixed(2)} (${Math.round(((ai.data.spentUsd ?? 0) / Math.max(ai.data.budgetUsd, 0.01)) * 100)}%)`}
+            />
+            <p className={styles.help}>Alerts appear at 50%, 80% and 100% of the budget. At 100% AI steps use the simulation until next month or a higher AI_MONTHLY_BUDGET_USD.</p>
+          </section>
+        )}
+        <p className={styles.problemHead}>Recent problems</p>
+        {ai.data?.problems?.length ? (
+          <ul className={styles.problems}>
+            {ai.data.problems.map((p) => (
+              <li key={`${p.at}-${p.code}`} className={styles.problem}>
+                <p className={styles.problemHead}>
+                  {new Date(p.at).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} · {PURPOSE_LABEL[p.purpose] ?? p.purpose}
+                </p>
+                <p className={styles.problemText}>{p.message}</p>
+                {p.detail && <p className={styles.problemDetail}>{p.detail}</p>}
+                <p className={styles.problemDetail}>{p.code}</p>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.help}>No problems in the past 30 days.</p>
+        )}
+        <p className={styles.help}>Problems: the last 10 from the past 30 days. Nothing from the research is stored with them.</p>
       </Modal>
 
       <Modal

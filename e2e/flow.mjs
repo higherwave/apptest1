@@ -849,6 +849,59 @@ try {
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Intake v2')
 
+  // Spend alerts: a canned live status (the in-memory API is always simulated) drives the owner banner above the app bar.
+  {
+    const p2 = await browser.newPage()
+    await p2.setViewport({ width: 1400, height: 900 })
+    p2.on('pageerror', (e) => ok('no page errors (spend alerts)', false, e.message))
+    let status = { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 5.2, spendLevel: 'half', month: '2026-11' }
+    let role = null
+    await p2.setRequestInterception(true)
+    p2.on('request', async (req) => {
+      const path = new URL(req.url()).pathname
+      if (path === '/api/v1/ai/status') return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(status) })
+      if (path === '/api/v1/me' && role) {
+        const real = await (await fetch(`${API}/api/v1/me`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+        return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ ...real, role }) })
+      }
+      return req.continue()
+    })
+    await p2.evaluateOnNewDocument((t) => sessionStorage.setItem('signalflow.editToken', t), TOKEN)
+    const banner = () => p2.evaluate(() => { const b = document.querySelector('[data-testid="spend-banner"]'); return b ? b.innerText : null })
+    const load = async () => { await p2.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' }); await p2.waitForFunction(() => document.body.innerText.includes('Research Projects')) }
+    await p2.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+    await p2.evaluate(() => localStorage.clear())
+    await load()
+    await p2.waitForSelector('[data-testid="spend-banner"]', { timeout: 5000 })
+    const half = await banner()
+    ok('at 50% the owner sees a banner with the spend and the budget', /Half of the monthly AI budget/.test(half) && half.includes('$5.20 of $10.00') && half.includes('52%'), half)
+    ok('the banner sits above the app bar and the app bar moved down', await p2.evaluate(() => { const b = document.querySelector('[data-testid="spend-banner"]').getBoundingClientRect(); const h = document.querySelector('header').getBoundingClientRect(); return b.top === 0 && h.top >= b.bottom - 1 }))
+    ok('the page below is not hidden by the banner', await p2.evaluate(() => { const h = document.querySelector('header').getBoundingClientRect(); const m = document.querySelector('main').getBoundingClientRect(); return m.top >= h.bottom - 1 }))
+    await p2.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'AI status').click())
+    await p2.waitForFunction(() => document.querySelector('.cds--modal.is-visible')?.innerText.includes('Spend this month'), { timeout: 5000 })
+    ok('the AI status dialog shows the spend this month and the alert level', await p2.evaluate(() => { const t = document.querySelector('.cds--modal.is-visible').innerText; return t.includes('$5.20 of $10.00 (52%)') && t.includes('50% reached') && t.includes('No problems in the past 30 days') }))
+    await p2.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.getAttribute('aria-label') === 'close' || b.className.includes('close'))?.click())
+    await new Promise((r) => setTimeout(r, 500))
+    await p2.click('[data-testid="spend-banner-dismiss"]')
+    ok('dismissing hides the banner and the app bar returns to the top', (await banner()) === null && (await p2.evaluate(() => document.querySelector('header').getBoundingClientRect().top)) === 0)
+    await load()
+    ok('a dismissed level stays hidden after a reload', (await banner()) === null)
+    status = { ...status, spentUsd: 8.4, spendLevel: 'high' }
+    await load()
+    await p2.waitForSelector('[data-testid="spend-banner"]', { timeout: 5000 })
+    ok('reaching the next level (80%) brings it back', /Most of the monthly AI budget/.test(await banner()))
+    status = { ...status, spentUsd: 10.3, spendLevel: 'reached' }
+    await p2.click('[data-testid="spend-banner-dismiss"]')
+    await load()
+    await p2.waitForSelector('[data-testid="spend-banner"]', { timeout: 5000 })
+    const full = await banner()
+    ok('at 100% it is back again and says the simulation takes over', /used up/.test(full) && /simulation/.test(full), full)
+    role = 'editor'
+    await load()
+    ok('an editor never sees the banner, but still has the AI status dialog', (await banner()) === null && (await p2.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'AI status'))))
+    await p2.close()
+  }
+
   // 7. Locking returns to read-only.
   await new Promise((r) => setTimeout(r, 800)) // let the closing dialog finish
   await clickText('Lock')
