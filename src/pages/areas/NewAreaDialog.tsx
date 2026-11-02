@@ -30,7 +30,7 @@ export function NewAreaDialog({ id = 'new-area', open, onClose, onDone }: { id?:
     reset()
     onClose()
   }
-  const useIt = (id: string) => {
+  const chooseExisting = (id: string) => {
     const area = areas.data?.data.find((a) => a.id === id)
     reset()
     if (area) onDone(area)
@@ -69,7 +69,7 @@ export function NewAreaDialog({ id = 'new-area', open, onClose, onDone }: { id?:
         {existing && (
           <div className={styles.found} role="alert" data-testid="area-duplicate">
             <InlineNotification kind="warning" lowContrast hideCloseButton title="Already on the list" subtitle={`“${existing.name}” is the same area. Use it instead of adding another.`} />
-            <Button kind="primary" size="sm" onClick={() => useIt(existing.id)}>
+            <Button kind="primary" size="sm" onClick={() => chooseExisting(existing.id)}>
               Use “{existing.name}”
             </Button>
           </div>
@@ -79,7 +79,7 @@ export function NewAreaDialog({ id = 'new-area', open, onClose, onDone }: { id?:
             <InlineNotification kind="info" lowContrast hideCloseButton title="This looks like an area you have" subtitle={`${similar.map((s) => `“${s.name}”`).join(' and ')} may already cover it.`} />
             <div className={styles.actions}>
               {similar.map((s) => (
-                <Button key={s.id} kind="primary" size="sm" onClick={() => useIt(s.id)}>
+                <Button key={s.id} kind="primary" size="sm" onClick={() => chooseExisting(s.id)}>
                   Use “{s.name}”
                 </Button>
               ))}
