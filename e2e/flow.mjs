@@ -877,11 +877,7 @@ try {
     ok('at 50% the owner sees a banner with the spend and the budget', /Half of the monthly AI budget/.test(half) && half.includes('$5.20 of $10.00') && half.includes('52%'), half)
     ok('the banner sits above the app bar and the app bar moved down', await p2.evaluate(() => { const b = document.querySelector('[data-testid="spend-banner"]').getBoundingClientRect(); const h = document.querySelector('header').getBoundingClientRect(); return b.top === 0 && h.top >= b.bottom - 1 }))
     ok('the page below is not hidden by the banner', await p2.evaluate(() => { const h = document.querySelector('header').getBoundingClientRect(); const m = document.querySelector('main').getBoundingClientRect(); return m.top >= h.bottom - 1 }))
-    await p2.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'AI status').click()) // a token holder has no account menu, so it is a button
-    await p2.waitForFunction(() => document.querySelector('.cds--modal.is-visible')?.innerText.includes('Spend this month'), { timeout: 5000 })
-    ok('the AI status dialog shows the spend this month and the alert level', await p2.evaluate(() => { const t = document.querySelector('.cds--modal.is-visible').innerText; return t.includes('$5.20 of $10.00 (52%)') && t.includes('50% reached') && t.includes('No problems in the past 30 days') }))
-    await p2.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.getAttribute('aria-label') === 'close' || b.className.includes('close'))?.click())
-    await new Promise((r) => setTimeout(r, 500))
+    ok('a token holder has no AI status button in the header', !(await p2.evaluate(() => [...document.querySelectorAll('header button')].some((b) => b.innerText.trim().startsWith('AI status')))))
     await p2.click('[data-testid="spend-banner-dismiss"]')
     ok('dismissing hides the banner and the app bar returns to the top', (await banner()) === null && (await p2.evaluate(() => document.querySelector('header').getBoundingClientRect().top)) === 0)
     await load()
@@ -898,7 +894,7 @@ try {
     ok('at 100% it is back again and says the simulation takes over', /used up/.test(full) && /simulation/.test(full), full)
     role = 'editor'
     await load()
-    ok('an editor never sees the banner, but still has the AI status dialog', (await banner()) === null && (await p2.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'AI status'))))
+    ok('an editor never sees the banner', (await banner()) === null)
     await p2.close()
   }
 

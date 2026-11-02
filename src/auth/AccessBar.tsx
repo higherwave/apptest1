@@ -32,8 +32,8 @@ export function AccessBar() {
   // deployment without sign-in still needs them.
   const tokenControls = !signedIn && (showAccess || !me.data?.signInAvailable)
 
-  // AI status (spend and recent problems) is a link in the account menu; a token holder with no account menu gets a button instead.
-  const showStatus = editing && !!(ai.data?.problems || ai.data?.budgetUsd !== undefined)
+  // AI status (spend and recent problems) is a link in the account menu, for signed-in owners only.
+  const showStatus = signedIn && me.data?.role === 'owner' && !!(ai.data?.problems || ai.data?.budgetUsd !== undefined)
   const statusLabel = `AI status${ai.data?.problems ? ` (${ai.data.problems.length})` : ''}`
 
   const close = () => {
@@ -77,11 +77,6 @@ export function AccessBar() {
         <Tag size="sm" type={ai.data.mode === 'live' ? 'blue' : 'gray'}>
           {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
         </Tag>
-      )}
-      {showStatus && !signedIn && (
-        <Button kind="ghost" size="sm" onClick={() => setProblemOpen(true)}>
-          {statusLabel}
-        </Button>
       )}
       {tokenControls &&
         (editing ? (
