@@ -54,7 +54,11 @@ try {
   ok('each menu has its own accessible name', (await page.evaluate(() => [...document.querySelectorAll('.cds--overflow-menu svg')].map((s) => s.getAttribute('aria-label')))).every((l) => /^Actions for .+/.test(l ?? '')))
 
   // 3. New test plan is one page; Save validates it.
-  await clickText('New project')
+  // The button can be clicked a moment before the page is ready (a slow runner): click again until the new plan is there.
+  for (let tries = 0; tries < 4; tries++) {
+    await clickText('New project')
+    if (await page.waitForFunction(() => document.body.innerText.includes('New test plan'), { timeout: 3000 }).then(() => true, () => false)) break
+  }
   await waitText('New test plan')
   await page.waitForSelector('#project-description') // the form shows once the test methods have loaded
   await waitText('Test methods')
