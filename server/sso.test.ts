@@ -36,6 +36,18 @@ test('the policy: groups per role, a default that can never be owner, and when g
   assert.equal(ssoPolicy({ SSO_DEFAULT_ROLE: 'admin' }).defaultRole, null)
 })
 
+test('the default role is given to any company sign-in, but while Google is on only to allowed domains', () => {
+  const oidc = { OIDC_ISSUER: 'https://idp.test', OIDC_CLIENT_ID: 'a', OIDC_CLIENT_SECRET: 'b', SSO_DEFAULT_ROLE: 'viewer' }
+  assert.equal(ssoPolicy(oidc).defaultRoleFor('anyone@acme.test'), 'viewer', 'only the company provider: everyone it signs in is an employee')
+  const both = { ...oidc, GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's' }
+  assert.equal(ssoPolicy(both).defaultRoleFor('stranger@gmail.com'), null, 'a Google account is not an employee')
+  assert.equal(ssoPolicy({ ...both, SSO_ALLOWED_DOMAINS: 'Acme.test, @corp.test' }).defaultRoleFor('pat@ACME.test'), 'viewer')
+  assert.equal(ssoPolicy({ ...both, SSO_ALLOWED_DOMAINS: 'acme.test' }).defaultRoleFor('pat@evilacme.test'), null, 'the domain must match exactly')
+  assert.equal(ssoPolicy({ GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's', SSO_DEFAULT_ROLE: 'editor', SSO_ALLOWED_DOMAINS: 'acme.test' }).defaultRoleFor('x@acme.test'), 'editor', 'Google alone, for a company domain')
+  assert.equal(ssoPolicy({ GOOGLE_CLIENT_ID: 'g', GOOGLE_CLIENT_SECRET: 's', SSO_DEFAULT_ROLE: 'editor' }).defaultRoleFor('x@acme.test'), null, 'with Google and no allowed domain nobody is added')
+  assert.equal(ssoPolicy({ SSO_ALLOWED_DOMAINS: 'acme.test' }).defaultRoleFor('x@acme.test'), null, 'no default role set')
+})
+
 test('the highest granted role wins, and names match without regard to case', () => {
   const p = ssoPolicy({ SSO_OWNER_GROUPS: 'Owners', SSO_EDITOR_GROUPS: 'editors', SSO_VIEWER_GROUPS: 'viewers' })
   assert.equal(roleFromGroups(p, ['viewers', 'EDITORS']), 'editor')

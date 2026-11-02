@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
-import { readFileSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { validatePage } from '../vendor/design-rules/validateRules.ts'
 
@@ -32,6 +32,29 @@ test('the validator passes a clean page and flags raw colors, inline styles, raw
   assert.equal(r.pass, false)
   const rules = new Set(r.violations.map((v) => v.rule))
   assert.ok(rules.size >= 3, `several rules fire: ${[...rules].join(', ')}`)
+})
+
+test('the type roles in the registry are exactly the roles the role() mixin knows, and the validator rejects any other', () => {
+  const registry = JSON.parse(readFileSync(join(dir, 'tokens.json'), 'utf8')).airtable.type.roles.map((r) => r.token)
+  const mixin = [...readFileSync(join(import.meta.dirname, '..', 'src', 'tokens.scss'), 'utf8').matchAll(/\$name == '([a-z0-9-]+)'/g)].map((m) => m[1])
+  assert.deepEqual([...registry].sort(), [...mixin].sort(), 'src/tokens.scss and the registry list different roles: change both together')
+  const r = validatePage(`.a { @include tokens.role('body-xl'); }`, { typeRoles: registry })
+  assert.deepEqual(r.violations.map((v) => v.rule), ['type-role-unknown'])
+  assert.deepEqual(validatePage(`.a { @include tokens.role('body-md'); }`, { typeRoles: registry }).violations, [])
+})
+
+// A mistyped token inside var() with a fallback never fails: the fallback quietly wins. Every --at-* a page uses must be defined,
+// except those the page sets itself while it runs.
+const SET_BY_SCRIPT = new Set(['--at-banner']) // AppShell sets it to the height of the spend alert, 0 when there is none
+test('every --at-* token used in src is defined in theme.scss or tokens.scss (or set by a script on purpose)', () => {
+  const src = join(import.meta.dirname, '..', 'src')
+  const walk = (d) => readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]))
+  const files = walk(src).filter((f) => /\.(scss|tsx)$/.test(f))
+  const defined = new Set()
+  for (const f of ['theme.scss', 'tokens.scss']) for (const m of readFileSync(join(src, f), 'utf8').matchAll(/(--at-[a-z0-9-]+)\s*:/g)) defined.add(m[1])
+  const undefinedUses = []
+  for (const f of files) for (const m of readFileSync(f, 'utf8').matchAll(/var\((--at-[a-z0-9-]+)/g)) if (!defined.has(m[1]) && !SET_BY_SCRIPT.has(m[1])) undefinedUses.push(`${f.slice(src.length + 1)}: ${m[1]}`)
+  assert.deepEqual(undefinedUses, [], 'these tokens do not exist: fix the name or add the token (theme.scss and the registry together)')
 })
 
 test('validate:pages runs from the pinned copy alone', () => {

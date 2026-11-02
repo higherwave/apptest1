@@ -22,6 +22,13 @@ export type SsoPolicy = {
   groups: Record<Role, string[]>
   /** The role for a signed-in person with no matching group (or, without group rules, no invitation). Never owner. */
   defaultRole: Exclude<Role, 'owner'> | null
+  /** Email domains (SSO_ALLOWED_DOMAINS) whose people may be added automatically with the default role. */
+  allowedDomains: string[]
+  /**
+   * The default role for this email address, or null. Anyone can have a Google account, so while Google sign-in is on, the default
+   * role is given only to addresses at an allowed domain. With only the company's own provider, everyone it signs in is an employee.
+   */
+  defaultRoleFor: (email: string) => Exclude<Role, 'owner'> | null
   /** True when any SSO_*_GROUPS is set: the identity provider decides roles, and the Members page is read-only. */
   managedByGroups: boolean
 }
@@ -31,10 +38,18 @@ const list = (v: string | undefined) => (v ?? '').split(',').map((s) => s.trim()
 export function ssoPolicy(env: Env): SsoPolicy {
   const groups = { owner: list(env.SSO_OWNER_GROUPS), editor: list(env.SSO_EDITOR_GROUPS), viewer: list(env.SSO_VIEWER_GROUPS) }
   const dr = env.SSO_DEFAULT_ROLE?.trim().toLowerCase()
+  const defaultRole = dr === 'viewer' || dr === 'editor' ? dr : null
+  const allowedDomains = list(env.SSO_ALLOWED_DOMAINS).map((d) => d.replace(/^@/, '').toLowerCase())
   return {
+    allowedDomains,
+    defaultRoleFor: (email) => {
+      if (!defaultRole) return null
+      const domain = email.split('@').pop()?.toLowerCase() ?? ''
+      return allowedDomains.includes(domain) || !googleConfigured(env) ? defaultRole : null
+    },
     groupsClaim: env.OIDC_GROUPS_CLAIM?.trim() || 'groups',
     groups,
-    defaultRole: dr === 'viewer' || dr === 'editor' ? dr : null,
+    defaultRole,
     managedByGroups: groups.owner.length + groups.editor.length + groups.viewer.length > 0,
   }
 }

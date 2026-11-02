@@ -345,7 +345,7 @@ $frame-max: 44rem;
 .error {
   @include tokens.role('meta');
   margin: 0;
-  color: var(--at-error, var(--at-signature-coral));
+  color: var(--at-signature-coral);
 }
 
 .capturing {

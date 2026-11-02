@@ -58,7 +58,7 @@ const MEMBER_SQL = `
 async function memberFor(db: Db, slug: string, who: AuthUser, policy: SsoPolicy): Promise<RequestContext> {
   if (!who.emailVerified) throw new ApiError(403, 'email_unverified', 'Your email address is not verified.')
   let row = (await db.query(MEMBER_SQL, [slug, who.id, who.email])).rows[0]
-  const wanted: Role | null = policy.managedByGroups ? roleFromGroups(policy, who.groups) ?? policy.defaultRole : row ? (row.role as Role) : policy.defaultRole
+  const wanted: Role | null = policy.managedByGroups ? roleFromGroups(policy, who.groups) ?? policy.defaultRoleFor(who.email) : row ? (row.role as Role) : policy.defaultRoleFor(who.email)
   if (policy.managedByGroups && !wanted) throw new ApiError(403, 'not_in_group', `${who.email} is not in a group that can use this workspace.`)
   if (wanted && (!row || row.role !== wanted)) {
     const ws = (await db.query(`select id from core.workspaces where slug = $1`, [slug])).rows[0]

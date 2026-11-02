@@ -15,6 +15,8 @@ const rulesFile = override ? join(override, 'lib', 'validateRules.ts') : join(ro
 const componentsFile = override ? join(override, 'registry', 'components.json') : join(root, 'vendor', 'design-rules', 'components.json')
 const { validatePage } = await import(pathToFileURL(rulesFile).href)
 const components = JSON.parse(readFileSync(componentsFile, 'utf8')).allowed.map((c) => c.name)
+const tokensFile = override ? join(override, 'registry', 'tokens.json') : join(root, 'vendor', 'design-rules', 'tokens.json')
+const typeRoles = JSON.parse(readFileSync(tokensFile, 'utf8')).airtable.type.roles.map((r) => r.token)
 if (override) console.log(`Rules from ${override} (MCP_REPO)\n`)
 else {
   const source = JSON.parse(readFileSync(join(root, 'vendor', 'design-rules', 'SOURCE.json'), 'utf8'))
@@ -35,7 +37,7 @@ const files = walk(join(root, 'src'))
 
 let failed = 0
 for (const file of files) {
-  const r = validatePage(readFileSync(join(root, file), 'utf8'), { allowedComponents: components })
+  const r = validatePage(readFileSync(join(root, file), 'utf8'), { allowedComponents: components, typeRoles })
   if (r.pass) console.log(`  pass  ${file}`)
   else {
     failed++

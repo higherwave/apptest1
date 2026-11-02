@@ -56,6 +56,7 @@ export function diagnoseSettings(env, appRoot = root) {
     const groupsOn = !!(env.SSO_OWNER_GROUPS || env.SSO_EDITOR_GROUPS || env.SSO_VIEWER_GROUPS)
     if (groupsOn && !env.SSO_OWNER_GROUPS) out.push(warn('Sign-in', 'sign-in groups decide roles but no owner group is set', 'Set SSO_OWNER_GROUPS so someone can manage the workspace (and keep DEV_TOKEN or bootstrap for emergencies).'))
     if (env.SSO_DEFAULT_ROLE && !['viewer', 'editor'].includes(env.SSO_DEFAULT_ROLE.toLowerCase())) out.push(fail('Sign-in', `SSO_DEFAULT_ROLE=${env.SSO_DEFAULT_ROLE} is not viewer or editor`, 'Owners are never added automatically. Use viewer or editor, or unset it.'))
+    if (env.SSO_DEFAULT_ROLE && env.GOOGLE_CLIENT_ID && !env.SSO_ALLOWED_DOMAINS) out.push(warn('Sign-in', 'SSO_DEFAULT_ROLE is set while Google sign-in is on, but SSO_ALLOWED_DOMAINS is not: nobody will be added automatically', 'Set SSO_ALLOWED_DOMAINS to your company domain, or turn Google sign-in off.'))
     if (!groupsOn && !env.SSO_DEFAULT_ROLE) out.push(ok('Sign-in', 'invitation only: each person is invited on the Members page'))
   }
   if (env.BETTER_AUTH_SECRET && env.BETTER_AUTH_SECRET.length < 32) out.push(fail('Sign-in', 'BETTER_AUTH_SECRET is shorter than 32 characters', 'Use: openssl rand -base64 32'))

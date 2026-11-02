@@ -1,23 +1,23 @@
 {
   "repo": "higherwave/design-system-mcp",
   "ref": "main",
-  "commit": "ed5b3b6c1ce6d973230e05db1b9cf6c0372596c4",
+  "commit": "5051a93abb1f793f261907bc8def4fa3576bcc2d",
   "files": {
     "validateRules.ts": {
       "from": "lib/validateRules.ts",
-      "sha256": "d72891800faf93ab137b017392fd0ad0cf8fb1a7d9f6734cd61c4e545f0c6bb5"
+      "sha256": "e625acb6a8b4ca26069c6dde93bf4f9625722598633fe99ca73a309ec48dac52"
     },
     "components.json": {
       "from": "registry/components.json",
-      "sha256": "a39f75689bf50684c88f686bebb0b10a0e5f5aadad8579c6b91bc1cd9470cb0e"
+      "sha256": "91ec81dc6d8fcf23e39be9f94a72b99033561dac36568649a0e12d657413415d"
     },
     "tokens.json": {
       "from": "registry/tokens.json",
-      "sha256": "eb3801813089199db5ed44b9fde6922353f6635761fa673f4332e62894f4c64e"
+      "sha256": "1aea958dc5ed11eb0923ebad7571e4f1cf8cab8316847f56d68fe86106214922"
     },
     "check-tokens.mjs": {
       "from": "scripts/check-tokens.mjs",
-      "sha256": "3cb14e4ae4e09301611db28209be5e3775e0d503d97cc785d9cbc5b912dfd291"
+      "sha256": "6c416ab37d00eca3584ffc57a5525d0e396a15f7900cb5570deff43eaacb2104"
     }
   }
 }

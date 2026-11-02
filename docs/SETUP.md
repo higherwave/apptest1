@@ -102,7 +102,7 @@ optional `email` claim to the ID token, and send groups as group ids or names in
 Who gets in, in order of how much the identity provider decides:
 
 1. **Invitation only (default).** Owners invite people on the Members page; the provider only proves who they are.
-2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the Members page.
+2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the Members page. If Google sign-in is also on, add `SSO_ALLOWED_DOMAINS=acme.com` so only company addresses are added; without it nobody is (any Gmail account would otherwise qualify).
 3. **Groups decide.** Set `SSO_OWNER_GROUPS`, `SSO_EDITOR_GROUPS`, `SSO_VIEWER_GROUPS`. Roles follow the groups at every sign-in; remove someone from a group
    and their role goes at their next sign-in (end a session now by removing them from the company directory, which stops new sign-ins). Put the people who
    run the workspace in the owner group **before** switching this on.
