@@ -1,0 +1,4 @@
+{
+  "note": "This app's own restrictions, on top of the company design-system profile (vendor/design-rules/profile.json). Each entry names a component the library offers that this app chooses not to use, why, and what to use instead. It can restrict more; it cannot allow what the profile restricts. Empty today: Tabs, tables and the rest are allowed.",
+  "restricted": []
+}

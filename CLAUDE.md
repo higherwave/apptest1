@@ -15,10 +15,9 @@ After a push, confirm `GET /api/v1/health` reports `version` equal to the short 
 ## The design system is enforced, not advisory
 
 - `npm run validate:pages` runs the design-system rules over `src/`. No raw hex, `rgb()`, inline `style`, raw `px` (only `0` and
-  `1px`), `<button>`, `<input>`, `<select>`, `<table>`; only components in `vendor/design-rules/components.json` (no Tabs, Switch,
-  or Table: build tab-like controls from ghost Buttons).
+  `1px`), `<button>`, `<input>`, `<select>`, `<table>`; only components in `vendor/design-rules/components.json` (Tabs, tables and Switch are allowed: use the library's, never a raw `<table>`).
 - Colors and type live only in `src/theme.scss` and `src/tokens.scss`. Everything else uses `var(--at-*)` and the `role()` mixin.
-  `npm run check:tokens` keeps the registry (`vendor/design-rules/tokens.json`) in step with `theme.scss`: change both together. It also fails on a token defined twice, `npm run check:contrast` checks the readable pairs in the registry, and the linter refuses hand-set `font-size`, `line-height`, `letter-spacing`, `font-family`, numeric `z-index`, an icon-only `Button` with no `iconDescription`, and namespace or default imports of `@carbon/react`. If nothing fits, add a type role or a layer token upstream; never override in a page.
+  `npm run check:tokens` keeps the registry (`vendor/design-rules/tokens.json`) in step with `theme.scss`: change both together. It also fails on a token defined twice, `npm run check:contrast` checks the readable pairs in the registry, and the linter refuses hand-set `font-size`, `line-height`, `letter-spacing`, `font-family`, numeric `z-index`, an icon-only `Button` with no `iconDescription`, and namespace or default imports of `@carbon/react`. If nothing fits, add a type role or a layer token upstream; never override in a page. Which design system governs the app is `vendor/design-rules/profile.json` (company-owned, synced); `design-rules.config.json` is this app's own list of components it chooses not to use, with reasons.
 - `vendor/design-rules/` is a pinned copy from the design-system-mcp repo. Never edit it; change the rule upstream and run
   `npm run rules:sync`.
 

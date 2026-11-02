@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto'
 import { execFileSync } from 'node:child_process'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { validatePage } from '../vendor/design-rules/validateRules.ts'
+import { optionsFromProfile, validatePage } from '../vendor/design-rules/validateRules.ts'
 
 const dir = join(import.meta.dirname, '..', 'vendor', 'design-rules')
 const source = JSON.parse(readFileSync(join(dir, 'SOURCE.json'), 'utf8'))
@@ -55,6 +55,20 @@ test('every --at-* token used in src is defined in theme.scss or tokens.scss (or
   const undefinedUses = []
   for (const f of files) for (const m of readFileSync(f, 'utf8').matchAll(/var\((--at-[a-z0-9-]+)/g)) if (!defined.has(m[1]) && !SET_BY_SCRIPT.has(m[1])) undefinedUses.push(`${f.slice(src.length + 1)}: ${m[1]}`)
   assert.deepEqual(undefinedUses, [], 'these tokens do not exist: fix the name or add the token (theme.scss and the registry together)')
+})
+
+test('the app’s own restrictions only restrict: real components, each with a reason, none that the profile already restricts', () => {
+  const config = JSON.parse(readFileSync(join(import.meta.dirname, '..', 'design-rules.config.json'), 'utf8'))
+  const profile = JSON.parse(readFileSync(join(dir, 'profile.json'), 'utf8'))
+  assert.ok(Array.isArray(config.restricted))
+  for (const r of config.restricted) {
+    assert.ok(allowed.includes(r.name), `${r.name} is restricted here but is not a component in the list`)
+    assert.ok(r.reason, `${r.name} needs a reason`)
+    assert.ok(!(profile.components?.restricted ?? []).some((p) => p.name === r.name), `${r.name} is already restricted by the profile`)
+  }
+  const options = optionsFromProfile(profile, JSON.parse(readFileSync(join(dir, 'components.json'), 'utf8')), JSON.parse(readFileSync(join(dir, 'tokens.json'), 'utf8')), config)
+  assert.equal(options.importFrom, '@carbon/react')
+  assert.deepEqual(validatePage(`import { Tabs, TabList, Tab, DataTable, Table, TableCell } from '@carbon/react'`, options).violations, [], 'tabs and tables are allowed')
 })
 
 test('validate:pages runs from the pinned copy alone', () => {
