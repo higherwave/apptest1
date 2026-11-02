@@ -20,7 +20,7 @@ code. Your **company layer** is a brand pack, a few accounts, an identity provid
 | GitHub organisation | Two repos: the design-system kit and the app |
 | Host | Vercel needs a paid plan for commercial use (Hobby is non-commercial). Other hosts work: the API is a standard fetch handler, see step 6 |
 | Postgres | Neon through the Vercel integration is the tested path; any Postgres 15+ with a direct (unpooled) connection works |
-| Identity provider | Google sign-in is built in (step 7). A Google Workspace "Internal" app needs no public verification |
+| Identity provider | Your company sign-in over OpenID Connect, or Google (step 7) |
 | AI provider (optional) | Anthropic API key with a spend limit |
 
 ## 2. The design-system kit (the MCP server)
@@ -80,7 +80,7 @@ Import the app repo. Environment variables (Production), names only; values come
 | `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | From the database (the Neon integration adds them) |
 | `BETTER_AUTH_URL` | The address the app is served from, `https://flow.acme.com` |
 | `BETTER_AUTH_SECRET` | `openssl rand -base64 32` (32+ characters; changing it signs everyone out) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | From step 7 |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` (or `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`) | From step 7 |
 
 A **production build applies pending migrations** as its last step (`db/deploy-migrate.mjs`), so later migrations deploy with the code.
 On a host other than Vercel, set `MIGRATE_ON_DEPLOY=true` where the production build runs, and run `npm run build` there.
@@ -88,10 +88,30 @@ Add your domain and its DNS record in the host.
 
 ## 7. Sign-in
 
-Create an OAuth client (Web application) in Google Cloud for your organisation. Authorised redirect URI:
-`<BETTER_AUTH_URL>/api/v1/auth/callback/google`. Scopes are only `openid`, `email` and `profile`. For a Google Workspace
-organisation set the consent screen to **Internal**. Only invited people can enter: owners invite on the Members page. Another
-identity provider (Okta, Entra) is a change to `server/auth.ts` (the library, Better Auth, supports them); it is not wired up yet.
+Use your company's identity provider, over OpenID Connect (Okta, Entra ID, Keycloak, Auth0, Google Workspace). Ask the identity team
+to register an application of type **web, authorization code with PKCE**, with:
+
+- Redirect (callback) address: `<BETTER_AUTH_URL>/api/v1/auth/callback/oidc`
+- Scopes: `openid`, `profile`, `email` (and `groups`, on Okta, if roles come from groups)
+- The issuer address (for example `https://acme.okta.com`, or Entra's `https://login.microsoftonline.com/<tenant>/v2.0`), a client id and a client secret
+
+Set `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` and, for the button text, `OIDC_NAME` (step 6 lists the rest). Entra ID: add the
+optional `email` claim to the ID token, and send groups as group ids or names in the `groups` claim. A deployment with `OIDC_ISSUER` set starts
+**closed**: nobody reaches data without signing in.
+
+Who gets in, in order of how much the identity provider decides:
+
+1. **Invitation only (default).** Owners invite people on the Members page; the provider only proves who they are.
+2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the Members page.
+3. **Groups decide.** Set `SSO_OWNER_GROUPS`, `SSO_EDITOR_GROUPS`, `SSO_VIEWER_GROUPS`. Roles follow the groups at every sign-in; remove someone from a group
+   and their role goes at their next sign-in (end a session now by removing them from the company directory, which stops new sign-ins). Put the people who
+   run the workspace in the owner group **before** switching this on.
+
+Offboarding is the provider's job: a person it no longer signs in cannot start a session. An existing session lasts up to seven days; removing a member
+on the Members page (modes 1 and 2) ends theirs at once.
+
+Google still works beside it (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect `<BETTER_AUTH_URL>/api/v1/auth/callback/google`); use one provider
+per company unless you know why you want both, because the same person signing in two ways is two accounts.
 
 ## 8. AI (optional)
 

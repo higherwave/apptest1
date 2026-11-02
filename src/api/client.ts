@@ -63,6 +63,8 @@ export const saveMeasureItem = (storyId: string, version: number, body: MeasureR
 
 export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
+export type SignInOption = components['schemas']['SignInOptionList']['data'][number]
+export const getSignInOptions = () => request<components['schemas']['SignInOptionList']>('/sign-in-options')
 export type Member = components['schemas']['Member']
 export type MemberRole = Member['role']
 export const listMembers = () => request<components['schemas']['MemberList']>('/members')

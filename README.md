@@ -62,17 +62,24 @@ The Neon integration adds the database variables (with a custom prefix; the code
 | `OPEN_EDITING` | On by default in the Vercel entry (`api/index.ts`) until you turn it off: a request with no token acts as the demo owner and can edit and delete anything (a wrong token is still refused). Set it to `false` in Vercel to require an invitation to edit; with `PUBLIC_VIEW` on (the default), a visitor who is not signed in can still look around, read-only. Local runs and tests are closed unless they set it to `true`. Turn it off before real data or a live AI provider is added, because anyone with the link could then start runs and change data |
 | `PUBLIC_VIEW` | On by default in the Vercel entry. With sign-in configured and editing closed, a visitor with no session can read (GET and HEAD) as the read-only demo viewer, so a demo link works without a login. Set it to `false` to require sign-in even to look. With sign-in on, the API tells the CDN not to cache anything, because the CDN's cache is not keyed by cookie |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | The Google OAuth client (Web application) for sign-in. Its authorized redirect URIs are `<BETTER_AUTH_URL>/api/v1/auth/callback/google` for each address the app is served from, for example `https://apptest1-eta.vercel.app/api/v1/auth/callback/google` and `http://localhost:5198/api/v1/auth/callback/google`. Mark the secret Sensitive in Vercel and keep a copy in a password manager |
+| `OIDC_ISSUER`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET` | Your company's identity provider over OpenID Connect (Okta, Entra ID, Keycloak, Auth0, Google Workspace and so on). `OIDC_ISSUER` is its issuer address, for example `https://acme.okta.com` (the app reads `<issuer>/.well-known/openid-configuration`). The redirect address to register there is `<BETTER_AUTH_URL>/api/v1/auth/callback/oidc`. The ID token's signature, issuer, audience and nonce are always checked; a wrong issuer fails closed. Setting these also makes the Vercel entry start closed (no `OPEN_EDITING`/`PUBLIC_VIEW` demo defaults) |
+| `OIDC_NAME` | The name on the sign-in button (`Continue with Okta`). Default "single sign-on" |
+| `OIDC_SCOPES` | Optional, space or comma separated. Default `openid profile email`. Okta needs `groups` added to send groups |
+| `OIDC_REQUIRE_VERIFIED_EMAIL` | Optional. By default only an explicit `email_verified: false` is refused, because some providers (Entra ID) never send the claim. Set `true` to require `email_verified: true` |
+| `OIDC_GROUPS_CLAIM` | Where the groups are in the ID token. Default `groups`; dotted for nested claims, for example `realm_access.roles` |
+| `SSO_OWNER_GROUPS`, `SSO_EDITOR_GROUPS`, `SSO_VIEWER_GROUPS` | Comma-separated group names that grant each role (the highest wins; names match without regard to case). When any is set, **the groups decide roles at every sign-in**: a person in none of them is refused (`not_in_group`) unless `SSO_DEFAULT_ROLE` is set, and the Members page becomes read-only. The only owner is never demoted this way. Put yourself in the owner group before turning this on |
+| `SSO_DEFAULT_ROLE` | `viewer` or `editor` (never owner). With no group rules: a signed-in person nobody invited is added with this role instead of being refused. With group rules: the role for a person in no group |
 | `BETTER_AUTH_URL` | The address the app is served from, for example `https://apptest1-eta.vercel.app`. Locally, `http://localhost:5198` in `db/.env.local` |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | Optional. Other addresses the app is served from, comma-separated, for example the old `vercel.app` address while moving to your own domain. `BETTER_AUTH_URL` is always trusted |
-| `BETTER_AUTH_SECRET` | A random string of 32 or more characters that signs sign-in cookies (for example `openssl rand -base64 32`). Changing it signs everyone out. Sign-in is on only when all four of the variables above are set |
+| `BETTER_AUTH_SECRET` | A random string of 32 or more characters that signs sign-in cookies (for example `openssl rand -base64 32`). Changing it signs everyone out. Sign-in is on only when these two and one provider's settings (`GOOGLE_*` or `OIDC_*`) are set |
 | `WORKSPACE_SLUG` (older name `DEMO_WORKSPACE_SLUG`) | The workspace this deployment serves. Default `higherwave-demo`. Create your own with `npm run bootstrap` |
 | `DEV_USER_EMAIL` | The identity used for the demo token and the read-only viewer. Default `david@demo.signalflow.example`; not needed when everyone signs in |
 
 ## Sign-in and roles
 
-Sign-in is Google only, run by Better Auth inside the API (`server/auth.ts`, routes under `/api/v1/auth`), with its
+Sign-in is Google, your company's OpenID Connect provider, or both (the sign-in screen offers each), run by Better Auth inside the API (`server/auth.ts`, routes under `/api/v1/auth`), with its
 tables in migration `0012_auth.sql`. Access is by invitation: a person is a `core.users` row (their email) with a
-`core.memberships` row (owner, editor or viewer). Their first Google sign-in links the invitation to their account, and
+`core.memberships` row (owner, editor or viewer). Their first sign-in links the invitation to their account, and
 someone with no invitation sees a "not invited" page. Owners invite, change roles and remove people on the Members page
 (`/members`, API `/api/v1/members`); the last owner cannot be removed or demoted.
 

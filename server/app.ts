@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
 import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
+import { signInOptions, ssoPolicy } from './sso.js'
 import { AlreadyMember, changeRole, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember } from './members.js'
 import { requestContext } from './context.js'
 import {
@@ -91,7 +92,15 @@ export function createApp(options: AppOptions = {}) {
     return c.json({
       userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
       signInAvailable: !!auth,
+      rolesManagedBySso: ssoPolicy(env).managedByGroups,
     })
+  })
+
+  // How to sign in on this deployment, for the sign-in screen. Public (a person with no session has to reach it) and reads no
+  // data: only which providers are switched on and the name to show for the company one.
+  app.get('/sign-in-options', (c) => {
+    c.header('Cache-Control', 'public, max-age=60')
+    return c.json({ data: auth ? signInOptions(env) : [] })
   })
 
   // Sign-in itself (the Google redirect and its callback, sign-out, the session): handled by the sign-in library.
@@ -100,6 +109,8 @@ export function createApp(options: AppOptions = {}) {
   // Members: anyone in the workspace can see who is in it; only owners invite, change roles and remove.
   const requireOwner = (c: Context) => {
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can manage members.')
+    // With SSO_*_GROUPS the identity provider decides roles at every sign-in, so a change made here would be undone.
+    if (ssoPolicy(env).managedByGroups) throw new ApiError(409, 'managed_by_sso', 'Roles come from your sign-in groups. Change them in your identity provider.')
   }
   const memberId = (c: Context) => {
     const id = c.req.param('id') ?? ''

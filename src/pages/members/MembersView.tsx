@@ -15,7 +15,9 @@ export type MembersViewProps = {
   state: 'loading' | 'error' | 'ready'
   members: Member[]
   myEmail?: string
+  /** Owners only; false too when roles come from sign-in groups. */
   isOwner: boolean
+  managedBySso?: boolean
   errorText?: string
   notice?: string
   email: string
@@ -36,8 +38,11 @@ export type MembersViewProps = {
 export function MembersView(p: MembersViewProps) {
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Members" description="Who can use Signal Flow. Invite someone by their Google email address; they sign in with that account." />
+      <ProjectHeader title="Members" description="Who can use Signal Flow. Invite someone by their email address; they sign in with that account." />
 
+      {p.managedBySso && (
+        <InlineNotification kind="info" lowContrast hideCloseButton title="Roles come from your sign-in groups" subtitle="Your identity provider decides who can use Signal Flow and as what. Change a person's access there; it applies at their next sign-in." />
+      )}
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.notice && <InlineNotification kind="success" lowContrast hideCloseButton title="Invited" subtitle={p.notice} />}
 
@@ -46,7 +51,7 @@ export function MembersView(p: MembersViewProps) {
           <TextInput
             id="invite-email"
             type="email"
-            labelText="Google email address"
+            labelText="Email address"
             placeholder="name@example.com"
             value={p.email}
             onChange={(e) => p.onEmail(e.target.value)}

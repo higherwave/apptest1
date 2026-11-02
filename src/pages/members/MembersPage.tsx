@@ -23,7 +23,8 @@ export function MembersPage() {
       state={state}
       members={members.data?.data ?? []}
       myEmail={me.data?.email}
-      isOwner={me.data?.role === 'owner'}
+      isOwner={me.data?.role === 'owner' && !me.data.rolesManagedBySso}
+      managedBySso={!!me.data?.rolesManagedBySso}
       errorText={members.isError ? friendlyMessage(members.error) : failure ? friendlyMessage(failure) : undefined}
       notice={notice}
       email={email}
@@ -35,7 +36,7 @@ export function MembersPage() {
       onRole={setRole}
       onInvite={() => {
         setNotice(undefined)
-        invite.mutate({ email, role }, { onSuccess: (m) => { setEmail(''); setNotice(`${m.email} is invited as ${m.role}. They sign in with that Google account.`) } })
+        invite.mutate({ email, role }, { onSuccess: (m) => { setEmail(''); setNotice(`${m.email} is invited as ${m.role}. They sign in with that account.`) } })
       }}
       onChangeRole={(m, next) => {
         setNotice(undefined)

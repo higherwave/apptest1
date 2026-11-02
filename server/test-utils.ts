@@ -45,7 +45,7 @@ export function fakeAuth(): AuthService {
       const raw = headers.get('x-test-user') ?? (cookie ? decodeURIComponent(cookie) : null)
       if (!raw) return null
       const u = JSON.parse(raw)
-      return { id: u.id, email: u.email, name: u.name ?? '', image: u.image ?? null, emailVerified: u.verified !== false }
+      return { id: u.id, email: u.email, name: u.name ?? '', image: u.image ?? null, emailVerified: u.verified !== false, groups: u.groups ?? [] }
     },
   }
 }

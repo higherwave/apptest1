@@ -72,6 +72,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/sign-in-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The ways to sign in on this deployment (Google, the company's own single sign-on), for the sign-in screen. Public: it needs no session and reveals no data. Empty when sign-in is not configured. */
+        get: operations["getSignInOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/members": {
         parameters: {
             query?: never;
@@ -82,7 +99,7 @@ export interface paths {
         /** Everyone invited to the workspace, owners first. `invited` means they have not signed in yet. */
         get: operations["listMembers"];
         put?: never;
-        /** Owners only. Invites an email address with a role. They sign in with Google using that address; their first sign-in links the invitation to their account. 409 `already_member` if they are already in. */
+        /** Owners only. Invites an email address with a role. They sign in with that address; their first sign-in links the invitation to their account. 409 `already_member` if they are already in. */
         post: operations["inviteMember"];
         delete?: never;
         options?: never;
@@ -1866,8 +1883,18 @@ export interface components {
              * @enum {string}
              */
             via: "session" | "token" | "open" | "anonymous";
-            /** @description True when Google sign-in is configured on this deployment. */
+            /** @description True when sign-in (Google or the company single sign-on) is configured on this deployment. */
             signInAvailable: boolean;
+            /** @description True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`. */
+            rolesManagedBySso: boolean;
+        };
+        SignInOptionList: {
+            data: {
+                /** @enum {string} */
+                id: "google" | "oidc";
+                /** @description Completes "Continue with ...". */
+                label: string;
+            }[];
         };
         Member: {
             /** @description The membership id. */
@@ -2043,6 +2070,26 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getSignInOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sign-in options. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignInOptionList"];
+                };
+            };
         };
     };
     listMembers: {

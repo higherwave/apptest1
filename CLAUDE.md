@@ -37,6 +37,12 @@ After a push, confirm `GET /api/v1/health` reports `version` equal to the short 
 - Applying to production by hand (`node db/migrate.mjs up --yes`) needs the person's explicit yes in the chat first.
 - Update the table counts in `db/test.mjs` when a migration adds or removes a table.
 
+## Sign-in
+
+Better Auth in `server/auth.ts`; the company provider (`OIDC_*`) is the social provider `oidc`, Google is `google`. Roles come from an
+invitation, or from sign-in groups (`SSO_*_GROUPS`, `server/sso.ts`, applied in `server/context.ts`). `server/auth.oidc.test.ts` runs the
+real library against a stand-in provider: extend it when sign-in changes. Never trust an ID token without the library's verification.
+
 ## AI
 
 Every model call goes through the provider seam in `server/ai.ts`. Call the model **before** opening a database transaction, never

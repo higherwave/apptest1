@@ -51,7 +51,7 @@ Provider keys and the MCP token can be rotated without a code change: update the
 | --- | --- |
 | `DATABASE_URL`, `DATABASE_URL_UNPOOLED` | API and migrations (the host's database integration manages them) |
 | `BETTER_AUTH_SECRET` | Signs sign-in cookies |
-| `GOOGLE_CLIENT_SECRET` (or the SSO client secret) | Sign-in |
+| `OIDC_CLIENT_SECRET` (or `GOOGLE_CLIENT_SECRET`) | Sign-in with your identity provider |
 | `ANTHROPIC_API_KEY` | AI calls |
 | `DEV_TOKEN` | Optional bearer token for scripts; unset it in a company deployment |
 

@@ -58,6 +58,18 @@ paths:
               schema: { $ref: '#/components/schemas/Me' }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /sign-in-options:
+    get:
+      operationId: getSignInOptions
+      summary: >
+        The ways to sign in on this deployment (Google, the company's own single sign-on), for the sign-in screen. Public: it
+        needs no session and reveals no data. Empty when sign-in is not configured.
+      responses:
+        '200':
+          description: The sign-in options.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SignInOptionList' }
   /members:
     get:
       operationId: listMembers
@@ -74,7 +86,7 @@ paths:
     post:
       operationId: inviteMember
       summary: >
-        Owners only. Invites an email address with a role. They sign in with Google using that address; their first
+        Owners only. Invites an email address with a role. They sign in with that address; their first
         sign-in links the invitation to their account. 409 `already_member` if they are already in.
       requestBody:
         required: true
@@ -2393,7 +2405,7 @@ components:
               detail: { type: [string, 'null'], description: 'What was wrong with the reply, or what the app did instead. Never research text.' }
     Me:
       type: object
-      required: [userId, email, displayName, workspaceId, workspaceName, role, via, signInAvailable]
+      required: [userId, email, displayName, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso]
       properties:
         userId: { type: string }
         email: { type: string }
@@ -2402,7 +2414,20 @@ components:
         workspaceName: { type: string }
         role: { type: string, enum: [owner, editor, viewer] }
         via: { type: string, enum: [session, token, open, anonymous], description: 'How this request was let in.' }
-        signInAvailable: { type: boolean, description: 'True when Google sign-in is configured on this deployment.' }
+        signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
+        rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
+    SignInOptionList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, label]
+            properties:
+              id: { type: string, enum: [google, oidc] }
+              label: { type: string, description: 'Completes "Continue with ...".' }
     Member:
       type: object
       required: [id, email, displayName, role, status, avatarUrl]

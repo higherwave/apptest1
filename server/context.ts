@@ -2,6 +2,8 @@ import type { MiddlewareHandler } from 'hono'
 import { ApiError } from './errors.js'
 import type { AuthService, AuthUser } from './auth.js'
 import type { Db, Env } from './db.js'
+import { ssoSetRole } from './members.js'
+import { roleFromGroups, ssoPolicy, type Role, type SsoPolicy } from './sso.js'
 
 export type RequestContext = {
   /** True when the request carried no token and is acting as the read-only demo viewer. */
@@ -33,10 +35,10 @@ const IDENTITY_SQL = `
 //   1. A request with a Bearer header is checked against DEV_TOKEN: the right token acts as the demo owner, a wrong
 //      one is always refused. (A break-glass path that goes away once sign-in is the only way in.)
 //   2. A request with a sign-in session cookie is that person: their invitation (a core.users row with a membership)
-//      gives the role. A first sign-in links the invitation to the account by verified email. No invitation: 403
-//      not_invited.
+//      gives the role, or their groups do (SSO_*_GROUPS), or SSO_DEFAULT_ROLE adds them. A first sign-in links the
+//      invitation to the account by verified email. No invitation: 403 not_invited; no group: 403 not_in_group.
 //   3. OPEN_EDITING=true: no token needed, acting as the demo owner.
-//   4. Sign-in is configured (BETTER_AUTH_*, GOOGLE_*): everyone else is refused with 401 unauthenticated, except that with
+//   4. Sign-in is configured (BETTER_AUTH_* with GOOGLE_* or OIDC_*): everyone else is refused with 401 unauthenticated, except that with
 //      PUBLIC_VIEW=true a visitor with no session can read (GET and HEAD on 'read' routes) as the read-only demo viewer.
 //   5. Otherwise (before sign-in exists): with DEV_TOKEN set, 'read' routes answer GET and HEAD as the read-only demo
 //      viewer and 'strict' routes refuse; with it unset, production refuses everything and anywhere else is open as the
@@ -51,11 +53,19 @@ const MEMBER_SQL = `
   where w.slug = $1 and (u.auth_subject = $2 or (u.auth_subject is null and lower(u.email) = lower($3)))`
 
 // The invitation behind a signed-in person. The first time, it is linked to their account (by verified email), and their
-// name and picture are filled in from Google.
-async function memberFor(db: Db, slug: string, who: AuthUser): Promise<RequestContext> {
+// name and picture are filled in from the provider. With the company sign-in the role can come from groups instead
+// (SSO_*_GROUPS, see sso.ts): the groups decide, and a person in none of them (and with no SSO_DEFAULT_ROLE) is refused.
+async function memberFor(db: Db, slug: string, who: AuthUser, policy: SsoPolicy): Promise<RequestContext> {
   if (!who.emailVerified) throw new ApiError(403, 'email_unverified', 'Your email address is not verified.')
-  const { rows } = await db.query(MEMBER_SQL, [slug, who.id, who.email])
-  const row = rows[0]
+  let row = (await db.query(MEMBER_SQL, [slug, who.id, who.email])).rows[0]
+  const wanted: Role | null = policy.managedByGroups ? roleFromGroups(policy, who.groups) ?? policy.defaultRole : row ? (row.role as Role) : policy.defaultRole
+  if (policy.managedByGroups && !wanted) throw new ApiError(403, 'not_in_group', `${who.email} is not in a group that can use this workspace.`)
+  if (wanted && (!row || row.role !== wanted)) {
+    const ws = (await db.query(`select id from core.workspaces where slug = $1`, [slug])).rows[0]
+    if (!ws) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" not found.`)
+    await ssoSetRole(db, ws.id, who, wanted)
+    row = (await db.query(MEMBER_SQL, [slug, who.id, who.email])).rows[0]
+  }
   if (!row) throw new ApiError(403, 'not_invited', `${who.email} has not been invited to this workspace.`)
   let displayName: string = row.display_name
   if (!row.auth_subject) {
@@ -75,12 +85,13 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     const token = env.DEV_TOKEN
     const bearer = c.req.header('authorization')
     const openEditing = env.OPEN_EDITING === 'true'
+    const policy = ssoPolicy(env)
 
     // 2. A signed-in person (only when no Bearer header was sent).
     if (!bearer && auth) {
       const who = await auth.user(c.req.raw.headers)
       if (who) {
-        c.set('ctx', await memberFor(deps.getDb(), slug, who))
+        c.set('ctx', await memberFor(deps.getDb(), slug, who, policy))
         return next()
       }
     }

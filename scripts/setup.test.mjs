@@ -46,6 +46,19 @@ test('doctor catches half-set pairs, a short secret, and demo settings left on',
   assert.equal(levels(diagnoseSettings({ ...READY, AI_ENABLED: 'false', AI_PROVIDER: 'anthropic' })).AI, 'ok')
 })
 
+test('doctor understands company sign-in: a whole provider is ok, half of one fails, bad group settings are flagged', () => {
+  const { GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ...base } = READY
+  const oidc = { ...base, OIDC_ISSUER: 'https://acme.okta.com', OIDC_CLIENT_ID: 'id', OIDC_CLIENT_SECRET: 'secret' }
+  assert.match(diagnoseSettings(oidc).find((r) => r.area === 'Sign-in').message, /company sign-in/)
+  assert.equal(levels(diagnoseSettings({ ...oidc, OIDC_CLIENT_SECRET: undefined }))['Sign-in'], 'fail')
+  const fails = (env) => diagnoseSettings(env).some((r) => r.area === 'Sign-in' && r.level === 'fail')
+  assert.ok(fails({ ...oidc, OIDC_ISSUER: 'http://acme.okta.com' }), 'a plain-http issuer')
+  assert.ok(fails({ ...oidc, SSO_DEFAULT_ROLE: 'owner' }), 'owners are never added automatically')
+  assert.ok(!fails(oidc))
+  assert.ok(diagnoseSettings({ ...oidc, SSO_EDITOR_GROUPS: 'e' }).some((r) => r.level === 'warn' && /no owner group/.test(r.message)))
+  assert.ok(!diagnoseSettings({ ...oidc, SSO_OWNER_GROUPS: 'o' }).some((r) => r.level === 'warn' && r.area === 'Sign-in'))
+})
+
 test('bootstrap builds an empty database into a working workspace, and a second run changes nothing', async () => {
   const pg = new PGlite()
   const client = adapt(pg)

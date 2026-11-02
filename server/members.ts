@@ -2,6 +2,7 @@
 // role). The person's first Google sign-in links it to their account (see context.ts). Only owners change anything.
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
+import { ApiError } from './errors.js'
 
 export type Role = 'owner' | 'editor' | 'viewer'
 export type Member = { id: string; email: string; displayName: string; role: Role; status: 'active' | 'invited'; avatarUrl: string | null }
@@ -80,5 +81,26 @@ export async function removeMember(db: Db, ctx: RequestContext, id: string): Pro
     // Their open sessions end now, not when the cookie expires.
     if (user?.auth_subject) await tx.query(`delete from public.auth_session where user_id = $1`, [user.auth_subject])
     await audit(tx, ctx, 'removed', id, { email: before.email, role: before.role }, null)
+  })
+}
+
+// What the company sign-in does on its own: adds a signed-in person who has no invitation (SSO_DEFAULT_ROLE, or a group that
+// grants a role), and keeps an existing member's role in step with their groups. Both are audited, with the person as the actor.
+// A workspace never loses its only owner this way.
+export async function ssoSetRole(db: Db, workspaceId: string, who: { id: string; email: string; name: string; image: string | null }, role: Role): Promise<void> {
+  await db.transaction(async (tx) => {
+    const email = who.email.trim().toLowerCase()
+    let user = (await tx.query(`select id, auth_subject from core.users where lower(email) = $1`, [email])).rows[0]
+    if (user?.auth_subject && user.auth_subject !== who.id) throw new ApiError(403, 'account_mismatch', `${who.email} is already linked to a different sign-in account.`)
+    if (!user) user = (await tx.query(`insert into core.users (email, display_name, avatar_url) values ($1, $2, $3) returning id, auth_subject`, [email, who.name || email.split('@')[0], who.image])).rows[0]
+    const before = (await tx.query(`select id, role from core.memberships where workspace_id = $1 and user_id = $2 for update`, [workspaceId, user.id])).rows[0]
+    if (before?.role === role) return
+    if (before?.role === 'owner' && (await ownerCount(tx, workspaceId)) <= 1) return
+    const id: string = before
+      ? (await tx.query(`update core.memberships set role = $3, updated_by = $2 where workspace_id = $1 and user_id = $2 returning id`, [workspaceId, user.id, role])).rows[0].id
+      : (await tx.query(`insert into core.memberships (workspace_id, user_id, role, created_by, updated_by) values ($1, $2, $3, $2, $2) returning id`, [workspaceId, user.id, role])).rows[0].id
+    await tx.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'core.memberships', $3, $4, $5, $6)`, [
+      workspaceId, user.id, id, before ? 'role set by sign-in groups' : 'added by sign-in', before ? JSON.stringify({ email, role: before.role }) : null, JSON.stringify({ email, role }),
+    ])
   })
 }

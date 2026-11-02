@@ -3,9 +3,9 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { friendlyMessage, getMe } from '../api/client'
-import { useAiStatus, useMe } from '../api/hooks'
+import { useAiStatus, useMe, useSignInOptions } from '../api/hooks'
 import { setToken } from '../api/token'
-import { signInWithGoogle, signOut } from './authClient'
+import { signInWith, signOut } from './authClient'
 import styles from './AccessBar.module.scss'
 
 // The "Editing unlocked" badge and the Lock button are hidden unless VITE_SHOW_ACCESS_CONTROLS=true, so a shared demo looks
@@ -17,6 +17,7 @@ const showAccess = import.meta.env.VITE_SHOW_ACCESS_CONTROLS === 'true'
 // Shows whether this tab can edit, and asks for the access token to unlock editing.
 export function AccessBar() {
   const me = useMe()
+  const signInOptions = useSignInOptions()
   const ai = useAiStatus()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -91,7 +92,7 @@ export function AccessBar() {
           </Button>
         ))}
       {!signedIn && me.data?.signInAvailable && (
-        <Button kind="ghost" size="sm" onClick={() => signInWithGoogle()}>
+        <Button kind="ghost" size="sm" onClick={() => signInWith(signInOptions.data?.data[0]?.id ?? 'google')}>
           Sign in
         </Button>
       )}

@@ -4,7 +4,7 @@ import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, getDesign, saveDesignItem, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
-  createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
+  createProject, deleteProject, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -20,6 +20,9 @@ export const useMe = () => {
   const token = useToken()
   return useQuery({ queryKey: ['me', token], queryFn: () => getMe() })
 }
+
+// Which ways to sign in this deployment offers (public, so it works before anyone is signed in).
+export const useSignInOptions = () => useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, staleTime: 5 * 60_000 })
 
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: listMembers })
 export const useInviteMember = () => {

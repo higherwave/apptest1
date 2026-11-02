@@ -42,10 +42,22 @@ export function diagnoseSettings(env, appRoot = root) {
   const slug = env.WORKSPACE_SLUG || env.DEMO_WORKSPACE_SLUG
   out.push(slug ? ok('Workspace', `WORKSPACE_SLUG=${slug}`) : warn('Workspace', 'WORKSPACE_SLUG is not set, so the app looks for the demo workspace "higherwave-demo"', 'Create your workspace (npm run bootstrap) and set WORKSPACE_SLUG to its slug.'))
 
-  const auth = ['BETTER_AUTH_URL', 'BETTER_AUTH_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'].filter((k) => !env[k])
-  if (auth.length === 0) out.push(ok('Sign-in', 'configured'))
-  else if (auth.length === 4) out.push(warn('Sign-in', 'not configured: nobody can sign in', 'Set BETTER_AUTH_URL, BETTER_AUTH_SECRET (openssl rand -base64 32) and the identity provider client id and secret.'))
-  else out.push(fail('Sign-in', `partly configured: missing ${auth.join(', ')}`, 'Set all four, or none.'))
+  const base = ['BETTER_AUTH_URL', 'BETTER_AUTH_SECRET'].filter((k) => !env[k])
+  const google = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET'].filter((k) => !env[k])
+  const oidc = ['OIDC_ISSUER', 'OIDC_CLIENT_ID', 'OIDC_CLIENT_SECRET'].filter((k) => !env[k])
+  const anyProvider = google.length < 2 || oidc.length < 3
+  if (!anyProvider && base.length === 2) out.push(warn('Sign-in', 'not configured: nobody can sign in', 'Set BETTER_AUTH_URL, BETTER_AUTH_SECRET (openssl rand -base64 32) and either OIDC_ISSUER, OIDC_CLIENT_ID, OIDC_CLIENT_SECRET (your company sign-in) or GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.'))
+  else if (base.length || (google.length && google.length < 2) || (oidc.length && oidc.length < 3) || (google.length === 2 && oidc.length === 3)) {
+    const missing = [...base, ...(google.length < 2 ? google : []), ...(oidc.length < 3 ? oidc : [])]
+    out.push(fail('Sign-in', `partly configured: missing ${missing.join(', ') || 'a provider'}`, 'Set BETTER_AUTH_URL and BETTER_AUTH_SECRET, then every setting of one provider (the three OIDC_* or the two GOOGLE_*).'))
+  } else out.push(ok('Sign-in', oidc.length === 0 ? 'configured (company sign-in)' : 'configured (Google)'))
+  if (oidc.length === 0) {
+    if (env.OIDC_ISSUER && !/^https:\/\//.test(env.OIDC_ISSUER) && !/^http:\/\/(localhost|127\.)/.test(env.OIDC_ISSUER)) out.push(fail('Sign-in', 'OIDC_ISSUER is not an https address', 'Use the issuer URL from your identity provider, for example https://acme.okta.com'))
+    const groupsOn = !!(env.SSO_OWNER_GROUPS || env.SSO_EDITOR_GROUPS || env.SSO_VIEWER_GROUPS)
+    if (groupsOn && !env.SSO_OWNER_GROUPS) out.push(warn('Sign-in', 'sign-in groups decide roles but no owner group is set', 'Set SSO_OWNER_GROUPS so someone can manage the workspace (and keep DEV_TOKEN or bootstrap for emergencies).'))
+    if (env.SSO_DEFAULT_ROLE && !['viewer', 'editor'].includes(env.SSO_DEFAULT_ROLE.toLowerCase())) out.push(fail('Sign-in', `SSO_DEFAULT_ROLE=${env.SSO_DEFAULT_ROLE} is not viewer or editor`, 'Owners are never added automatically. Use viewer or editor, or unset it.'))
+    if (!groupsOn && !env.SSO_DEFAULT_ROLE) out.push(ok('Sign-in', 'invitation only: each person is invited on the Members page'))
+  }
   if (env.BETTER_AUTH_SECRET && env.BETTER_AUTH_SECRET.length < 32) out.push(fail('Sign-in', 'BETTER_AUTH_SECRET is shorter than 32 characters', 'Use: openssl rand -base64 32'))
 
   const production = env.VERCEL_ENV === 'production' || env.NODE_ENV === 'production'
