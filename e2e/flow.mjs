@@ -197,9 +197,9 @@ try {
 
   // Task List.
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Task List').click())
-  await waitText('Task 1')
+  await waitText('Question to Ask / Task to Observe')
   ok('the Task List shows the template’s starter tasks', await page.evaluate(() => document.querySelector('#task-0').value.length > 0 && document.querySelector('#task-0-followup-0')?.value.length > 0))
-  await clickText('Add task')
+  await clickText('Add question / task')
   await page.waitForSelector('#task-2')
   await page.type('#task-2', 'What would you do next?')
   await page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.innerText.trim() === 'Add follow-up').at(-1).click())

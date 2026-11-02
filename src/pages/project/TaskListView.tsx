@@ -24,23 +24,23 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
 
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Task List" description="The questions and tasks you will take participants through, with follow-ups." save={save} />
+      <ProjectHeader title="Task List" description="The questions to ask and the tasks to observe as you take participants through the session, with follow-ups." save={save} />
       <SaveAlerts {...save} />
 
-      {tasks.length === 0 && <p className={styles.empty}>No tasks yet. Add the first question.</p>}
+      {tasks.length === 0 && <p className={styles.empty}>No questions or tasks yet. Add the first one.</p>}
 
       {tasks.map((task, i) => (
         <fieldset key={i} className={styles.task}>
-          <legend className={styles.legend}>Task {i + 1}</legend>
+          <legend className={styles.legend}>{i + 1} · Question to Ask / Task to Observe</legend>
           <div className={styles.row}>
-            <TextInput id={`task-${i}`} labelText={`Question ${i + 1}`} hideLabel readOnly={readOnly} value={task.prompt} onChange={(e) => setTask(i, { prompt: e.target.value })} />
-            {!readOnly && <Button kind="ghost" size="md" hasIconOnly renderIcon={TrashCan} iconDescription={`Remove task ${i + 1}`} onClick={() => onChange(tasks.filter((_, j) => j !== i))} />}
+            <TextInput id={`task-${i}`} labelText={`Question to ask or task to observe ${i + 1}`} hideLabel readOnly={readOnly} value={task.prompt} onChange={(e) => setTask(i, { prompt: e.target.value })} />
+            {!readOnly && <Button kind="ghost" size="md" hasIconOnly renderIcon={TrashCan} iconDescription={`Remove question or task ${i + 1}`} onClick={() => onChange(tasks.filter((_, j) => j !== i))} />}
           </div>
           {task.followUps.map((followUp, j) => (
             <div key={j} className={styles.followUp}>
               <TextInput
                 id={`task-${i}-followup-${j}`}
-                labelText={`Follow-up ${j + 1} for task ${i + 1}`}
+                labelText={`Follow-up ${j + 1} for question or task ${i + 1}`}
                 hideLabel
                 readOnly={readOnly}
                 value={followUp}
@@ -61,7 +61,7 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
 
       {!readOnly && (
         <Button kind="secondary" size="md" renderIcon={Add} onClick={() => onChange([...tasks, { prompt: '', followUps: [] }])}>
-          Add task
+          Add question / task
         </Button>
       )}
     </div>
