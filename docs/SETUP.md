@@ -107,6 +107,8 @@ Who gets in, in order of how much the identity provider decides:
    and their role goes at their next sign-in (end a session now by removing them from the company directory, which stops new sign-ins). Put the people who
    run the workspace in the owner group **before** switching this on.
 
+To try a provider on your own machine before deploying, with a throwaway database, see [SSO-TRY.md](SSO-TRY.md) (`npm run sso:try`).
+
 Offboarding is the provider's job: a person it no longer signs in cannot start a session. An existing session lasts up to seven days; removing a member
 on the Members page (modes 1 and 2) ends theirs at once.
 
