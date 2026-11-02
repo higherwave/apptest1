@@ -36,17 +36,30 @@ export function PriorityNote({ theme, curation }: { theme: Row; curation: Curati
 }
 
 // How each project theme came to be filed here, with the model's reason when it made the match.
+// One line for each different match. The same project theme matched the same way in several projects (the same analysis run on
+// each) is one line with how many projects, not the same line again.
 export function MatchList({ theme }: { theme: Row }) {
   if (!theme.matches.length) return null
+  const lines = new Map<string, { match: Row['matches'][number]; projects: number }>()
+  for (const m of theme.matches) {
+    const key = [m.themeTitle, m.method, m.confidence, m.reason].join('|')
+    const line = lines.get(key)
+    if (line) line.projects++
+    else lines.set(key, { match: m, projects: 1 })
+  }
   return (
     <section aria-label="How themes were matched">
       <h3 className={styles.label}>How themes were matched</h3>
       <ul className={styles.matches}>
-        {theme.matches.map((m, i) => (
+        {[...lines.values()].map(({ match: m, projects }, i) => (
           <li key={i} className={styles.text}>
             <strong>{m.themeTitle}</strong>
             <br />
-            <span className={styles.muted}>{m.method === 'manual' ? 'Set by hand' : `AI match${pct(m.confidence)}`}{m.reason ? `: ${m.reason}` : ''}</span>
+            <span className={styles.muted}>
+              {m.method === 'manual' ? 'Set by hand' : `AI match${pct(m.confidence)}`}
+              {m.reason ? `: ${m.reason}` : ''}
+              {projects > 1 ? ` · in ${projects} projects` : ''}
+            </span>
           </li>
         ))}
       </ul>

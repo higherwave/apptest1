@@ -179,6 +179,14 @@
   padding: var(--at-space-xs) var(--at-space-lg) var(--at-space-lg);
 }
 
+// The recommendation: the first thing in an opened theme, across its full width, on a slightly darker ground than the rest.
+.banner {
+  grid-column: 1 / -1;
+  padding: var(--at-space-md) var(--at-space-lg);
+  background: var(--at-surface-hover);
+  border-radius: var(--at-radius-md);
+}
+
 .text {
   @include tokens.role('body-md');
   margin: var(--at-space-xs) 0 0;

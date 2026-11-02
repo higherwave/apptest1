@@ -801,6 +801,13 @@ try {
   await page.click(`[data-testid="platform-theme-${second.id}"] button`)
   await page.waitForSelector(`#theme-body-${second.id}`, { timeout: 8000 })
   ok('picking a theme opens its row, with where it comes from, a summary and a recommendation', await page.evaluate((t, total, firstId) => { const body = document.querySelector(`#theme-body-${t.id}`).innerText; return body.includes(`Raised by ${t.participantCount} of ${total} participants`) && /theme summary/i.test(body) && /recommendation/i.test(body) && (!t.summary || body.includes(t.summary)) && document.querySelector(`[data-testid="platform-theme-${firstId}"]`).dataset.open === 'false' }, second, insights.totalParticipants, insights.themes[0].id))
+  ok('the recommendation is a banner right under the row: first in the opened area, the full width of it, on a darker ground', await page.evaluate((id) => {
+    const detail = document.querySelector(`#theme-body-${id}`); const b = detail.querySelector('[data-testid^="recommendation-"]'); if (!b) return false
+    const r = b.getBoundingClientRect(); const d = detail.getBoundingClientRect(); const next = [...detail.children].find((e) => e !== b).getBoundingClientRect()
+    const bg = (el) => getComputedStyle(el).backgroundColor
+    return detail.firstElementChild === b && r.width > d.width - 80 && r.bottom <= next.top + 1 && bg(b) !== 'rgba(0, 0, 0, 0)' && bg(b) !== bg(detail)
+  }, second.id))
+  ok('How themes were matched lists each different match once', await page.evaluate((id) => { const lines = [...document.querySelectorAll(`#theme-body-${id} section[aria-label="How themes were matched"] li`)].map((l) => l.innerText); return new Set(lines).size === lines.length }, second.id))
   ok('the recommendation names the recommendation(s) the theme belongs to', await page.evaluate((t, recs) => { const body = document.querySelector(`#theme-body-${t.id}`).innerText; return recs.filter((r) => r.themes.some((x) => x.id === t.id)).every((r) => body.includes(r.title)) }, second, insights.recommendations))
   ok('the choice is in the address, so it can be shared', await page.evaluate((id) => location.search === `?theme=${id}`, second.id))
   ok('a theme row shows what became of it and how its reach is moving', await page.evaluate((rows) => rows.every((t) => { const r = document.querySelector(`[data-testid="platform-theme-${t.id}"]`).innerText; const label = { not_addressed: 'Not addressed', in_progress: 'In progress', too_early: 'Too early to tell', worked: 'Worked', needs_attention: 'Needs attention' }[t.status]; return r.includes(label) && (!t.opportunity || r.includes('Opportunity')) }), insights.themes))

@@ -135,6 +135,21 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                     </Button>
                     {open && (
                       <div id={`theme-body-${t.id}`} className={styles.detail}>
+                        <section aria-label="Recommendation" className={styles.banner} data-testid={`recommendation-${t.id}`}>
+                          <h3 className={styles.label}>Recommendation</h3>
+                          {recs.length === 0 ? (
+                            <p className={styles.text}>
+                              {t.opportunity ? `An opportunity: raised in ${plural(t.projectCount, 'project')} and no requirement addresses it yet.` : 'No recommendation yet.'}
+                            </p>
+                          ) : (
+                            recs.map((r) => (
+                              <p key={r.id} className={styles.text}>
+                                <strong>{r.title}</strong>
+                                {r.why ? ` ${r.why}` : ''}
+                              </p>
+                            ))
+                          )}
+                        </section>
                         <section aria-label="Where this comes from">
                           <h3 className={styles.label}>Where this comes from</h3>
                           <p className={styles.text}>
@@ -159,21 +174,6 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>
                         </section>
                         <MatchList theme={t} />
-                        <section aria-label="Recommendation">
-                          <h3 className={styles.label}>Recommendation</h3>
-                          {recs.length === 0 ? (
-                            <p className={styles.text}>
-                              {t.opportunity ? `An opportunity: raised in ${plural(t.projectCount, 'project')} and no requirement addresses it yet.` : 'No recommendation yet.'}
-                            </p>
-                          ) : (
-                            recs.map((r) => (
-                              <p key={r.id} className={styles.text}>
-                                <strong>{r.title}</strong>
-                                {r.why ? ` ${r.why}` : ''}
-                              </p>
-                            ))
-                          )}
-                        </section>
                       </div>
                     )}
                   </li>
