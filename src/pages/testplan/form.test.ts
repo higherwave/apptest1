@@ -33,14 +33,14 @@ test('toRequest trims, drops blank rows, and nulls empty text', () => {
     filled({
       name: '  Study  ',
       description: '  Whether first-time patients can book  ',
-      methods: ['Card sort'],
+      methods: ['Survey'],
       participants: [{ name: ' Ada ', role: '', email: ' ada@example.com ', phone: ' ', sessionMinutes: '' }, blankParticipant()],
     }),
   )
   assert.deepEqual(req, {
     name: 'Study',
     description: 'Whether first-time patients can book',
-    methods: ['Card sort'],
+    methods: ['Survey'],
     participants: [{ name: 'Ada', role: null, email: 'ada@example.com', phone: null, sessionMinutes: null }],
   })
 })
@@ -49,7 +49,7 @@ test('toRequest trims, drops blank rows, and nulls empty text', () => {
 
 const detail = {
   id: 'p1', name: 'Study', color: 'cream', template: 'Usability test', status: 'analyzed', sessions: 3, themes: 9, highPriority: 6, createdAt: '2026-10-20T00:00:00Z', version: 4,
-  study: { methods: ['Card sort', 'Diary study'] },
+  study: { methods: ['Survey', 'User Discussions'] },
   description: 'Whether it works',
   stages: [],
   participants: [
@@ -70,7 +70,7 @@ test('an untouched form is not changed; every part of the page notices its own e
   const f = formFromProject(detail as never)
   assert.equal(planChanged(f, detail as never), false)
   assert.equal(planChanged({ ...f, name: 'New name' }, detail as never), true)
-  assert.equal(planChanged({ ...f, methods: [...f.methods, 'Concept test'] }, detail as never), true)
+  assert.equal(planChanged({ ...f, methods: [...f.methods, 'Usability Test'] }, detail as never), true)
   assert.equal(planChanged({ ...f, description: 'Whether it works well' }, detail as never), true)
   assert.equal(planChanged({ ...f, participants: [f.participants[1], f.participants[0]] }, detail as never), true, 'reordering participants is a change')
   assert.equal(planChanged({ ...f, participants: [{ ...f.participants[0], phone: '556' }, f.participants[1]] }, detail as never), true)
@@ -81,7 +81,7 @@ test('whitespace, empty extra rows and method order are not changes', () => {
   const same = {
     ...f,
     name: ' Study ',
-    methods: ['Diary study', 'Card sort'],
+    methods: ['User Discussions', 'Survey'],
     description: ' Whether it works ',
     participants: [...f.participants, blankParticipant()],
   }

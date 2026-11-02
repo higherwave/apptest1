@@ -261,7 +261,7 @@ test('cache headers: anonymous reads are cacheable for a minute, token requests 
 const TOKEN = { DEV_TOKEN: 's3cret' }
 const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json' }
 const newProject = (over: Record<string, unknown> = {}) => ({
-  name: 'Onboarding study', methods: ['Moderated usability test'],
+  name: 'Onboarding study', methods: ['Usability Test'],
   description: '  Whether new users finish setup  ',
   participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', phone: ' (555) 010-0000 ', sessionMinutes: 45 }], ...over,
 })
@@ -275,7 +275,7 @@ test('GET /templates lists the four templates in order, with the method options'
   assert.deepEqual(body.data.map((t: any) => t.key), ['usability', 'discovery', 'concept', 'blank'])
   assert.equal(body.data[0].tasks[0].prompt, 'Find and book an appointment with a provider you would trust.')
   assert.deepEqual(body.data[0].tasks[0].followUps.length, 2)
-  assert.ok(body.methodOptions.includes('Diary study'))
+  assert.deepEqual(body.methodOptions, ['Contextual (walk-through)', 'User Discussions', 'Usability Test', 'Support or CSM channels', 'Survey'])
 })
 
 test('POST /projects creates the project, its description, stages, participants and the template starter tasks together', async () => {
@@ -287,7 +287,7 @@ test('POST /projects creates the project, its description, stages, participants 
   assert.deepEqual([created.name, created.status, created.sessions, created.themes, created.template], ['Onboarding study', 'draft', 0, 0, 'Usability test'])
   const id = created.id
   const q = async (sql: string) => (await pglite.query<any>(sql, [id])).rows as any[]
-  assert.deepEqual((await q(`select methods m from research.studies where project_id = $1`))[0], { m: ['Moderated usability test'] })
+  assert.deepEqual((await q(`select methods m from research.studies where project_id = $1`))[0], { m: ['Usability Test'] })
   assert.deepEqual((await q(`select what_testing w from research.studies where project_id = $1`))[0], { w: 'Whether new users finish setup' }, 'the description is trimmed and kept on the study')
   assert.equal((await q(`select count(*)::int n from research.test_items where project_id = $1`))[0].n, 0, 'the old test items are no longer written')
   assert.equal((await q(`select count(*)::int n from research.study_stages where study_id = $1`))[0].n, 5)
@@ -451,7 +451,7 @@ test('GET /projects/:id returns the test plan, stages, participants in order, an
     assert.equal(body.name, 'Clinic booking, usability round 1')
     assert.match(body.description, /^Whether patients can find a provider/)
     assert.equal('testItems' in body, false, 'the old test items are gone from the API')
-    assert.deepEqual(body.study.methods, ['Moderated usability test', 'Survey follow-up'])
+    assert.deepEqual(body.study.methods, ['Usability Test', 'Survey'])
     assert.equal(body.stages.length, 5)
     assert.deepEqual(body.participants.map((p: any) => p.name), ['Maya Chen', 'Daniel Ortiz', 'Priya Nair'])
     assert.equal(body.participants[0].sessionMinutes, 60)
@@ -503,11 +503,11 @@ test('PUT study saves the name, description, methods and participants, bumps the
   await withFresh(async ({ app, pg, p1, version }) => {
     const v0 = await version()
     const res = await put(app, `/projects/${p1}/study`, await planOf(app, p1, {
-      name: ' Clinic booking, round 1 ', methods: ['Card sort'], description: '  New wording  ',
+      name: ' Clinic booking, round 1 ', methods: ['Survey'], description: '  New wording  ',
     }), v0)
     assert.equal(res.status, 200)
     const body = await expectSpec(res, '/projects/{id}/study', 'put')
-    assert.deepEqual([body.name, body.version, body.study.methods], ['Clinic booking, round 1', v0 + 1, ['Card sort']])
+    assert.deepEqual([body.name, body.version, body.study.methods], ['Clinic booking, round 1', v0 + 1, ['Survey']])
     assert.equal(body.description, 'New wording', 'the description is trimmed')
     const cleared = await expectSpec(await put(app, `/projects/${p1}/study`, await planOf(app, p1, { description: '   ' }), v0 + 1), '/projects/{id}/study', 'put')
     assert.equal(cleared.description, null, 'a blank description is none')

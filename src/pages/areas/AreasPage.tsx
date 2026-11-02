@@ -1,9 +1,8 @@
 import { Button, Dropdown, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import { ApiRequestError, friendlyMessage, type Area } from '../../api/client'
-import { useAreas, useMe, useMergeArea, useRetireArea, useUpdateArea } from '../../api/hooks'
+import { useAreas, useCreateArea, useMe, useMergeArea, useRetireArea, useUpdateArea } from '../../api/hooks'
 import { ProjectHeader } from '../project/ProjectHeader'
-import { NewAreaDialog } from './NewAreaDialog'
 import styles from './AreasPage.module.scss'
 
 type Action = { kind: 'edit' | 'merge' | 'retire'; area: Area } | null
@@ -24,7 +23,9 @@ export function AreasPage() {
   const update = useUpdateArea()
   const merge = useMergeArea()
   const retire = useRetireArea()
-  const [adding, setAdding] = useState(false)
+  const create = useCreateArea()
+  const [newName, setNewName] = useState('')
+  const [heard, setHeard] = useState<{ existing?: string; similar: string[]; error?: string }>({ similar: [] })
   const [action, setAction] = useState<Action>(null)
   const [name, setName] = useState('')
   const [definition, setDefinition] = useState('')
@@ -59,6 +60,18 @@ export function AreasPage() {
       setError(err instanceof ApiRequestError && err.code === 'duplicate_area' ? `“${err.extra.existing?.name}” is the same area. Merge them instead.` : friendlyMessage(err))
     }
   }
+  // Adding by typing, as on a question. The same name (or another name of one) is not added twice; a look-alike is shown and may still be added.
+  const add = async (force: boolean) => {
+    setHeard({ similar: [] })
+    try {
+      await create.mutateAsync({ name: newName, definition: null, aliases: [], force })
+      setNewName('')
+    } catch (err) {
+      if (err instanceof ApiRequestError && err.code === 'duplicate_area') setHeard({ existing: err.extra.existing?.name, similar: [] })
+      else if (err instanceof ApiRequestError && err.code === 'similar_area') setHeard({ similar: (err.extra.similar ?? []).map((x: { name: string }) => x.name) })
+      else setHeard({ similar: [], error: friendlyMessage(err) })
+    }
+  }
   const busy = update.isPending || merge.isPending || retire.isPending
 
   return (
@@ -68,15 +81,39 @@ export function AreasPage() {
         description="What research is about, in one shared set of words. A question to ask or a task to observe names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement."
       />
       {canAdd && (
-        <div>
-          <Button kind="primary" size="md" onClick={() => setAdding(true)}>
-            Add area
-          </Button>
+        <div className={styles.add}>
+          <div className={styles.addRow}>
+            <TextInput
+              id="add-area-name"
+              labelText="Add an area"
+              placeholder="Type a name, for example Scheduling"
+              helperText="It joins the list for everyone. Questions can also add one as you type."
+              value={newName}
+              onChange={(e) => {
+                setNewName(e.target.value)
+                setHeard({ similar: [] })
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && newName.trim().length >= 2 && !create.isPending && void add(false)}
+            />
+            <Button kind="primary" size="md" disabled={newName.trim().length < 2 || create.isPending} onClick={() => void add(false)}>
+              Add
+            </Button>
+          </div>
+          {heard.existing && <InlineNotification kind="warning" lowContrast hideCloseButton title="Already on the list" subtitle={`“${heard.existing}” is the same area.`} />}
+          {heard.similar.length > 0 && (
+            <div className={styles.found} data-testid="area-similar">
+              <InlineNotification kind="info" lowContrast hideCloseButton title="This looks like an area you have" subtitle={`${heard.similar.map((n) => `“${n}”`).join(' and ')} may already cover it.`} />
+              <Button kind="tertiary" size="sm" onClick={() => void add(true)}>
+                Add it anyway
+              </Button>
+            </div>
+          )}
+          {heard.error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={heard.error} />}
         </div>
       )}
       {areas.isPending && <Loading small withOverlay={false} description="Loading the feature areas" />}
       {areas.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Could not load the areas" subtitle={friendlyMessage(areas.error)} />}
-      {areas.isSuccess && live.length === 0 && <p className={styles.empty}>No feature areas yet. Add the first one, or choose “New area” on a question in a task list.</p>}
+      {areas.isSuccess && live.length === 0 && <p className={styles.empty}>No feature areas yet. Add the first one, or type one in the Feature area box on a question in a task list.</p>}
       {live.length > 0 && (
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Feature areas">
@@ -128,8 +165,6 @@ export function AreasPage() {
           </p>
         </section>
       )}
-
-      <NewAreaDialog open={adding} onClose={() => setAdding(false)} onDone={() => setAdding(false)} />
 
       <Modal
         open={action?.kind === 'edit'}

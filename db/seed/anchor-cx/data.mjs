@@ -60,7 +60,7 @@ const TASKS_CONCEPT = [
 // Participants come from participants.csv, in the same order as the transcripts: CSM, support lead, CS operations manager, executive.
 export const PROJECTS = [
   {
-    key: 'a1', name: 'Health score trust', color: 'sky', tpl: 'discovery', methods: ['Contextual interview'], minutes: [60, 45, 60, 45],
+    key: 'a1', name: 'Health score trust', color: 'sky', tpl: 'discovery', methods: ['Contextual (walk-through)'], minutes: [60, 45, 60, 45],
     what: 'How people judge account health today, how they find out about risk, and where context is lost between teams',
     outcomes: ['Where trust in the health score breaks', 'How risk is found today', 'Where context is lost'],
     jtbd: ['an account’s health score changes', 'see what moved it', 'decide what to do before the renewal is at risk'],
@@ -84,7 +84,7 @@ export const PROJECTS = [
     },
   },
   {
-    key: 'a2', name: 'Renewal workspace', color: 'lavender', tpl: 'usability', methods: ['Moderated usability test'], minutes: [45, 45, 60, 45],
+    key: 'a2', name: 'Renewal workspace', color: 'lavender', tpl: 'usability', methods: ['Usability Test'], minutes: [45, 45, 60, 45],
     what: 'Whether the renewal workspace prototype lets a CSM prepare a renewal without leaving the page, and whether showing risk factors earns trust in the score',
     outcomes: ['A renewal prepared without leaving the page', 'More trust in the score with risk factors shown'],
     jtbd: ['I am preparing a renewal', 'see usage, tickets, the contract and notes in one place', 'walk into the call prepared'],
@@ -108,7 +108,7 @@ export const PROJECTS = [
     },
   },
   {
-    key: 'a3', name: 'Portfolio reporting', color: 'sand', tpl: 'concept', methods: ['Concept test'], minutes: [30, 30, 45, 30],
+    key: 'a3', name: 'Portfolio reporting', color: 'sand', tpl: 'concept', methods: ['User Discussions'], minutes: [30, 30, 45, 30],
     what: 'Whether a weekly digest, a drill-down portfolio dashboard and a board-ready export replace manual reporting, and what leaders would act on',
     outcomes: ['Replaces manual reporting', 'What leaders would act on'],
     jtbd: ['leadership asks how the portfolio is doing', 'answer without building a deck', 'spend the time on customers'],

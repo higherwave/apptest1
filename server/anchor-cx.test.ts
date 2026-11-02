@@ -32,8 +32,8 @@ test('Anchor CX adds three analysed projects beside the original demo, and the o
     assert.equal(p.status, 'analyzed')
     assert.equal(p.sessions, 4, 'four transcripts each')
   }
-  assert.deepEqual(projects.find((x: any) => x.name === 'Health score trust').methods, ['Contextual interview'])
-  assert.deepEqual(projects.find((x: any) => x.name === 'Portfolio reporting').methods, ['Concept test'])
+  assert.deepEqual(projects.find((x: any) => x.name === 'Health score trust').methods, ['Contextual (walk-through)'])
+  assert.deepEqual(projects.find((x: any) => x.name === 'Portfolio reporting').methods, ['User Discussions'])
 })
 
 test('each Anchor CX project has a plan, four participants with session lengths, transcripts in all three formats, and is not out of date', async () => {

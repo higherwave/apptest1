@@ -6,17 +6,6 @@
   gap: var(--at-space-xxs);
 }
 
-.row {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--at-space-xs);
-}
-
-.field {
-  flex: 1 1 auto;
-  min-inline-size: 0;
-}
-
 .suggestion {
   @include tokens.role('body-md');
   display: flex;

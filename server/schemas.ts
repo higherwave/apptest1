@@ -4,9 +4,7 @@ import { ApiError } from './errors.js'
 // Request bodies. The OpenAPI spec describes the same shapes; the contract tests keep them in step.
 export const TINTS = ['cream', 'mint', 'yellow', 'coral', 'lavender', 'sky', 'blue', 'rose', 'peach', 'sand'] as const
 
-export const METHOD_OPTIONS = [
-  'Moderated usability test', 'Unmoderated test', 'Contextual interview', 'Diary study', 'Concept test', 'Card sort', 'Survey follow-up',
-] as const
+export const METHOD_OPTIONS = ['Contextual (walk-through)', 'User Discussions', 'Usability Test', 'Support or CSM channels', 'Survey'] as const
 
 // Journey stages every new study starts with; they are editable per study later.
 // The journey stages every new project starts with. Neutral on purpose: the Platform Insights journey folds stages with the same name together

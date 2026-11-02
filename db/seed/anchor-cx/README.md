@@ -25,15 +25,15 @@ The speaker names in the files match the participant names, so quotes link to pe
 
 1. **Health score trust** (Discovery interviews, October 2026). Files `s1-*` in the four persona folders under `transcripts/`. Why do people not trust the health score, and how do they find out about risk?
 2. **Renewal workspace** (Usability test, October 2026). Files `s2-*` in the persona folders. A prototype shows risk factors beside the score, a handoff button and flexible playbooks. Does it earn trust?
-3. **Portfolio reporting** (Concept test, November 2026). Files `s3-*` in the persona folders. Concepts for a weekly digest, a drill-down portfolio dashboard and a board-ready export.
+3. **Portfolio reporting** (User Discussions, November 2026). Files `s3-*` in the persona folders. Concepts for a weekly digest, a drill-down portfolio dashboard and a board-ready export.
 
 Suggested test plan for each (name it as above, add the methods shown):
 
 | Study | Methods | What are we testing? | Outcomes to look for |
 |---|---|---|---|
-| 1 | Contextual interview | How people judge account health today and learn about risk | Where trust breaks; how risk is found; where context is lost |
-| 2 | Moderated usability test | The renewal workspace prototype: risk factors, handoff to support, segment playbooks | Can people prepare a renewal without leaving the page; do they trust the score |
-| 3 | Concept test | The portfolio dashboard, weekly digest and board export | Does it replace manual reporting; what would leaders act on |
+| 1 | Contextual (walk-through) | How people judge account health today and learn about risk | Where trust breaks; how risk is found; where context is lost |
+| 2 | Usability Test | The renewal workspace prototype: risk factors, handoff to support, segment playbooks | Can people prepare a renewal without leaving the page; do they trust the score |
+| 3 | User Discussions | The portfolio dashboard, weekly digest and board export | Does it replace manual reporting; what would leaders act on |
 
 Suggested tasks: (1) "Tell me about the last time you got ready for a customer check-in." (2) "How do you hear about an account at risk?" (3) "Walk me through handing a hard case to another team." (4) "How do you report on the portfolio today?"
 

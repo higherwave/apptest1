@@ -7,6 +7,30 @@
   max-width: 60rem;
 }
 
+.add {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  max-inline-size: 36rem;
+}
+
+.addRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--at-space-xs);
+  inline-size: 100%;
+
+  > :first-child { flex: 1 1 auto; }
+}
+
+.found {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+}
+
 .empty {
   @include tokens.role('body-md');
   margin: 0;

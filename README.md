@@ -174,10 +174,12 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
 
 - **Who:** anyone reads the list; an owner or editor adds an area; only an owner renames, merges or retires one. Retired areas keep what uses them
   and are not offered for new choices; a merge moves everything over and keeps the old name as an alias.
-- **Duplicates are caught when an area is added.** `shared/areas.ts` decides what counts as the same (same words in any order, an alias, a common ending
-  such as Schedule and Scheduling) or similar (one name inside the other, most words shared). The API answers 409 `duplicate_area` (use that one) or
-  409 `similar_area` (use one of those, or send `force: true`); the dialog offers exactly those choices. The same file suggests an area beside a question
-  (`suggestAreas`), with no model call.
+- **Adding is typing.** In the Feature area box on a question or a theme, type a name and choose "Add ...": it joins the list for everyone. There is no dialog
+  and no "New area" button; the Feature areas page has the same typing box. An area is optional everywhere: it helps the system file what people say, nothing depends on one.
+- **Duplicates are avoided, not forced.** Names that look like an existing area are listed before the add option (`shared/areas.ts` decides: same words in any
+  order, an alias or a common ending such as Schedule and Scheduling is the same; one name inside the other, or most words shared, is similar). The same name is never
+  added twice (409 `duplicate_area` from the API, and the box offers the existing one); a look-alike the person chose to add anyway goes through (`force: true`). The
+  same file suggests an area beside a question (`suggestAreas`), with no model call. Definitions and other names are added later by an owner (Edit on the page).
 - **The analysis uses them** (prompt `analysis-v2`, migration 0026 `research.themes.area_id`): it is given the live areas (name, definition, other names) and the planned
   questions with their areas, and each theme names the one area it is about, or none. The name is kept only if it is a live area (by name or another name);
   anything else is no area. The simulation (no model) files a theme under the area whose words it shares most (`suggestAreas`). A person can correct a theme's

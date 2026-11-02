@@ -58,7 +58,7 @@ test('the app runs on the new workspace with no demo data: owner, templates, a f
   const templates = await (await app.request('/api/v1/templates', { headers: h })).json()
   assert.deepEqual(templates.data.map((t: any) => t.key).sort(), ['blank', 'concept', 'discovery', 'usability'])
   assert.deepEqual((await (await app.request('/api/v1/projects', { headers: h })).json()).data, [])
-  const made = await app.request('/api/v1/projects', { method: 'POST', headers: h, body: JSON.stringify({ name: 'First study', methods: ['Moderated usability test'], description: 'Whether people finish setup', participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'ada@example.com', phone: '', sessionMinutes: 45 }] }) })
+  const made = await app.request('/api/v1/projects', { method: 'POST', headers: h, body: JSON.stringify({ name: 'First study', methods: ['Usability Test'], description: 'Whether people finish setup', participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'ada@example.com', phone: '', sessionMinutes: 45 }] }) })
   assert.equal(made.status, 201, JSON.stringify(await made.clone().json()))
   const insights = await (await app.request('/api/v1/insights/themes', { headers: h })).json()
   assert.deepEqual([insights.themes, insights.projects, insights.mergeSuggestions], [[], [], []])

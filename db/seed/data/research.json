@@ -27,13 +27,11 @@
     ]
   },
   "METHODS": [
-    "Moderated usability test",
-    "Unmoderated test",
-    "Contextual interview",
-    "Diary study",
-    "Concept test",
-    "Card sort",
-    "Survey follow-up"
+    "Contextual (walk-through)",
+    "User Discussions",
+    "Usability Test",
+    "Support or CSM channels",
+    "Survey"
   ],
   "TH": [
     {
@@ -209,7 +207,7 @@
         "A ranked list of usability issues"
       ],
       "methods": [
-        "Moderated usability test"
+        "Usability Test"
       ],
       "tasks": [
         {
@@ -239,7 +237,7 @@
         "Top unmet needs"
       ],
       "methods": [
-        "Contextual interview"
+        "Contextual (walk-through)"
       ],
       "tasks": [
         {
@@ -269,8 +267,8 @@
         "Preferred direction"
       ],
       "methods": [
-        "Concept test",
-        "Survey follow-up"
+        "User Discussions",
+        "Survey"
       ],
       "tasks": [
         {
