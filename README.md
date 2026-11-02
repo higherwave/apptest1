@@ -28,6 +28,21 @@ The earlier Whirl pilot app lives at the git tag `archive/old-react-test`.
     npm run rules:check      # is the pinned copy behind upstream? (exits 1 if so)
     npm run check:all    # typecheck + tests + page validation
 
+## Migrations on deploy
+
+`npm run build` ends with `node db/deploy-migrate.mjs`: on a **production** build (`VERCEL_ENV=production`) it applies any pending
+migrations to the database, after the app has built and before the deployment takes traffic. A failed build changes nothing; a failed
+migration is rolled back, fails the build, and leaves the previous deployment serving. Previews and local builds skip it.
+
+- It refuses a pending migration containing `drop table`, `drop column`, `drop schema`, `drop type`, `truncate` or `delete from`
+  (build fails and names the statement) unless the file has the line `-- migrate: allow-destructive`. An empty database (a new
+  environment) is never blocked.
+- `MIGRATE_ON_DEPLOY=true` runs it on any build (for another CI or host); `MIGRATE_ON_DEPLOY=false` turns it off. Without a
+  database variable a production build fails rather than deploying without its schema.
+- Write migrations so the **previous** code still works against the new schema (add, do not remove or rename in one step), because
+  the old deployment serves until the new one is ready. Remove things in a later release.
+- The manual command is unchanged: `node db/migrate.mjs up --yes` (status and dry run without `--yes`).
+
 ## Environment variables (Vercel)
 
 The Neon integration adds the database variables (with a custom prefix; the code finds them by suffix).

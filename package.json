@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:api": "tsx watch server/dev.ts",
-    "build": "tsc --noEmit && vite build && node scripts/finish-build.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/finish-build.mjs && node db/deploy-migrate.mjs",
     "preview": "vite preview",
     "lint": "oxlint",
     "typecheck": "tsc --noEmit",
@@ -21,7 +21,8 @@
     "e2e": "npm --prefix e2e install --silent && node e2e/run.mjs",
     "ai:fixtures": "tsx scripts/make-analysis-fixtures.ts",
     "rules:sync": "node scripts/sync-design-rules.mjs",
-    "rules:check": "node scripts/sync-design-rules.mjs --check"
+    "rules:check": "node scripts/sync-design-rules.mjs --check",
+    "migrate:deploy": "node db/deploy-migrate.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.89.0",

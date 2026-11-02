@@ -41,6 +41,28 @@ export function migrationFiles() {
     .sort();
 }
 
+// Statements that destroy data or structure. An automatic run refuses a pending migration that has one (see deploy-migrate.mjs);
+// a person applying it by hand with `up --yes` is deliberate, so the command line does not check.
+const DESTRUCTIVE = /\b(drop\s+(table|column|schema|type)|truncate|delete\s+from)\b/i;
+export const ALLOW_DESTRUCTIVE = '-- migrate: allow-destructive';
+export function destructiveStatements(sql) {
+  const code = sql.split(/\r?\n/).map((l) => l.replace(/--.*$/, '')).join('\n');
+  return code.split(';').map((s) => s.trim().replace(/\s+/g, ' ')).filter((s) => DESTRUCTIVE.test(s)).map((s) => s.slice(0, 120));
+}
+
+// One migration in its own transaction, recorded in the bookkeeping table. Throws, rolled back, with the file name.
+export async function applyMigration(client, name, sql) {
+  await client.query('begin');
+  try {
+    await client.query(sql);
+    await client.query('insert into public.schema_migrations (name) values ($1)', [name]);
+    await client.query('commit');
+  } catch (e) {
+    await client.query('rollback');
+    throw new Error(`${name} failed and was rolled back: ${e.message}`);
+  }
+}
+
 const [cmd = 'status', ...flags] = process.argv.slice(2);
 const yes = flags.includes('--yes');
 
@@ -74,16 +96,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       if (!pending.length) process.exit(0);
       if (!yes) { console.log('\nDry run. Re-run with --yes to apply.'); process.exit(0); }
       for (const f of pending) {
-        await client.query('begin');
-        try {
-          await client.query(readFileSync(join(dir, f), 'utf8'));
-          await client.query('insert into public.schema_migrations (name) values ($1)', [f]);
-          await client.query('commit');
-          console.log(`applied ${f}`);
-        } catch (e) {
-          await client.query('rollback');
-          throw new Error(`${f} failed and was rolled back: ${e.message}`);
-        }
+        await applyMigration(client, f, readFileSync(join(dir, f), 'utf8'));
+        console.log(`applied ${f}`);
       }
     } else if (cmd === 'down') {
       const last = applied[applied.length - 1];
