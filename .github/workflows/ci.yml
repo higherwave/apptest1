@@ -39,6 +39,8 @@ jobs:
         run: npm run validate:pages
       - name: Token registry matches theme.scss
         run: npm run check:tokens
+      - name: Colour pairs are readable
+        run: npm run check:contrast
       - name: API types match openapi.yaml
         run: npm run check:api-types
       - name: Production build

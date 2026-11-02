@@ -5,7 +5,7 @@
   position: fixed;
   inset-block-start: 0;
   inset-inline: 0;
-  z-index: 4;
+  z-index: var(--at-z-banner);
   display: flex;
   align-items: center;
   justify-content: space-between;

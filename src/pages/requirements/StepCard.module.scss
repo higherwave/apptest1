@@ -63,10 +63,9 @@
 }
 
 .text {
-  @include tokens.role('body-md');
+  @include tokens.role('reading-md');
   margin: 0;
   color: var(--at-body);
-  line-height: 1.6;
 }
 
 .flags,

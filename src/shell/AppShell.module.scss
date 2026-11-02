@@ -31,7 +31,7 @@ $narrow: 48rem;
   position: fixed;
   inset-block-start: var(--at-banner, 0rem); // below the spend alert when there is one
   inset-inline: 0;
-  z-index: 3;
+  z-index: var(--at-z-header);
   display: grid;
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
@@ -132,7 +132,7 @@ $narrow: 48rem;
   padding: var(--at-space-xxs);
   border-radius: var(--at-radius-md);
   background: var(--at-canvas);
-  box-shadow: 0 0 0 1px var(--at-hairline);
+  box-shadow: var(--at-ring);
 }
 
 .menuItem {
@@ -154,7 +154,7 @@ $narrow: 48rem;
   position: fixed;
   inset-block-start: calc(#{$header-height} + var(--at-banner, 0rem));
   inset-inline: 0;
-  z-index: 2;
+  z-index: var(--at-z-bar);
   display: flex;
   align-items: center;
   gap: var(--at-space-sm);

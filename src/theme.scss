@@ -33,11 +33,6 @@
   --at-surface-footer: #e4e5e8; // the grey band at the foot of every screen, as on the landing page
   --at-surface-dark: #181d26;
   --at-surface-dark-elevated: #1d1f25;
-  // App navigation rail (the dark grey icon column), after the Airtable app chrome.
-  --at-rail: #2d2f36;
-  --at-rail-hover: #3a3c44;
-  --at-rail-active: #4b4e57;
-  --at-rail-text: #e3e4e8;
   --at-signature-coral: #aa2d00;
   --at-signature-forest: #0a2e0e;
   --at-signature-cream: #f5e9d4;
@@ -71,6 +66,17 @@
   --at-space-xl: 32px;
   --at-space-xxl: 48px;
   --at-space-section: 96px;
+
+  // -- Layers and rings ---------------------------------------------------
+  // Stacking order for what this app draws. Carbon's own dialogs and menus sit far above (6000 and up), so these never cover them.
+  --at-z-raised: 1; // a chip or menu on a card, above the card's own link
+  --at-z-bar: 2; // the slim bar naming the project
+  --at-z-header: 3; // the app bar
+  --at-z-banner: 4; // the spend alert, above the app bar
+  // A one-pixel ring drawn with box-shadow, so it takes no space: at rest, selected, and a drop target.
+  --at-ring: 0 0 0 1px var(--at-hairline);
+  --at-ring-strong: 0 0 0 1px var(--at-border-strong);
+  --at-ring-ink-inset: inset 0 0 0 1px var(--at-ink);
 
   // -- Type ------------------------------------------------------------
   // Inter, self-hosted (@fontsource-variable/inter, loaded in main.tsx), is the face on every platform. DESIGN.md names it as the closest
@@ -135,7 +141,7 @@
   // --at-signature-forest and --at-ink.
   --at-on-tint-coral: #7a1f00;   // Pain point
   --at-on-tint-cream: #5a3d00;   // Need
-  --at-on-tint-yellow: #8a6d00;
+  --at-on-tint-yellow: #866a00; // was #8a6d00 (4.41:1 on the yellow tint); this is 4.6:1
 
   // Neutral states
   --at-surface-hover: #f2f3f5;

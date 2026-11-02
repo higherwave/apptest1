@@ -21,12 +21,10 @@
 }
 
 .groupLabel {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   padding: 0 var(--at-space-xxs) var(--at-space-xs);
   color: var(--at-muted);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
 }
 
 .groupLabelActive {

@@ -18,7 +18,7 @@ After a push, confirm `GET /api/v1/health` reports `version` equal to the short 
   `1px`), `<button>`, `<input>`, `<select>`, `<table>`; only components in `vendor/design-rules/components.json` (no Tabs, Switch,
   or Table: build tab-like controls from ghost Buttons).
 - Colors and type live only in `src/theme.scss` and `src/tokens.scss`. Everything else uses `var(--at-*)` and the `role()` mixin.
-  `npm run check:tokens` keeps the registry (`vendor/design-rules/tokens.json`) in step with `theme.scss`: change both together.
+  `npm run check:tokens` keeps the registry (`vendor/design-rules/tokens.json`) in step with `theme.scss`: change both together. It also fails on a token defined twice, `npm run check:contrast` checks the readable pairs in the registry, and the linter refuses hand-set `font-size`, `line-height`, `letter-spacing`, `font-family`, numeric `z-index`, an icon-only `Button` with no `iconDescription`, and namespace or default imports of `@carbon/react`. If nothing fits, add a type role or a layer token upstream; never override in a page.
 - `vendor/design-rules/` is a pinned copy from the design-system-mcp repo. Never edit it; change the rule upstream and run
   `npm run rules:sync`.
 

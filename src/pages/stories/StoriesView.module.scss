@@ -147,7 +147,7 @@ $column-min: 0;
 
   &[data-selected='true'] {
     border-color: var(--at-border-strong);
-    box-shadow: 0 0 0 1px var(--at-border-strong);
+    box-shadow: var(--at-ring-strong);
   }
 
   &[data-over='true'] { box-shadow: 0 calc(-1 * var(--at-space-xxs)) 0 var(--at-info-border); }
@@ -187,7 +187,6 @@ $column-min: 0;
 
 .title {
   @include tokens.role('label-md');
-  line-height: 1.35;
   display: -webkit-box;
   -webkit-line-clamp: 2; // folded: two lines; opened: four
   -webkit-box-orient: vertical;
@@ -257,18 +256,15 @@ $column-min: 0;
 }
 
 .panelKicker {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .panelTitle {
-  @include tokens.role('title-lg');
-  font-size: 1.375rem; // a step below the role's 1.5rem, so a long title leaves room for the details
+  @include tokens.role('panel-title');
   margin: 0;
   color: var(--at-ink);
-  font-weight: 500;
 }
 
 .designLink {
@@ -323,10 +319,9 @@ $column-min: 0;
 }
 
 .noteHead {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0 0 var(--at-space-xxs);
   color: var(--at-ink);
-  text-transform: uppercase;
 
   &:not(:first-child) {
     margin-block-start: var(--at-space-sm);
@@ -351,10 +346,9 @@ $column-min: 0;
 }
 
 .sub {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: var(--at-space-xs) 0 0;
   color: var(--at-ink);
-  text-transform: uppercase;
 }
 
 .list {

@@ -19,8 +19,16 @@ $weight-medium: 475;
   } @else if $name == 'display-md' {
     font: 400 2rem/1.14 var(--at-font-display);
     letter-spacing: 0;
+  } @else if $name == 'display-sm' {
+    // 28px: the editable name of a theme, a step between display-md and title-lg.
+    font: 400 1.75rem/1.14 var(--at-font-display);
+    letter-spacing: 0;
   } @else if $name == 'title-lg' {
     font: 400 1.5rem/1.28 var(--at-font-display);
+    letter-spacing: 0;
+  } @else if $name == 'panel-title' {
+    // 22px: the title in a side panel, a step below title-lg so a long title leaves room for the details.
+    font: #{$weight-medium} 1.375rem/1.3 var(--at-font-display);
     letter-spacing: 0;
   } @else if $name == 'title-md' {
     font: 400 1.25rem/1.43 var(--at-font-display);
@@ -42,6 +50,22 @@ $weight-medium: 475;
   } @else if $name == 'body-md' {
     font: 400 0.875rem/1.25 var(--at-font-text);
     letter-spacing: 0;
+  } @else if $name == 'reading-lg' {
+    // Paragraphs that are read, not scanned: 16px with the open line height a block of text needs.
+    font: 400 1rem/1.55 var(--at-font-text);
+    letter-spacing: 0;
+  } @else if $name == 'reading-md' {
+    font: 400 0.875rem/1.55 var(--at-font-text);
+    letter-spacing: 0;
+  } @else if $name == 'eyebrow' {
+    // The small uppercase label above a group or a field. Capitals need room: tracked 0.06em.
+    font: #{$weight-medium} 0.875rem/1.35 var(--at-font-text);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  } @else if $name == 'eyebrow-sm' {
+    font: 400 0.75rem/1.35 var(--at-font-text);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
   } @else if $name == 'caption' {
     font: #{$weight-medium} 0.875rem/1.35 var(--at-font-text);
     letter-spacing: 0;

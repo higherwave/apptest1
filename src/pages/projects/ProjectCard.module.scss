@@ -9,7 +9,7 @@
 }
 
 .menu {
-  z-index: 2;
+  z-index: var(--at-z-raised);
   position: absolute;
   inset-block-start: var(--at-space-xs);
   inset-inline-end: var(--at-space-xs);
@@ -139,7 +139,7 @@
 
   > div {
     position: relative;
-    z-index: 1;
+    z-index: var(--at-z-raised);
     display: inline-flex;
     align-items: baseline;
     gap: var(--at-space-xxs);
@@ -161,7 +161,7 @@
 .resume {
   @include tokens.role('label-md');
   position: relative;
-  z-index: 1;
+  z-index: var(--at-z-raised);
   align-self: flex-start;
   padding: var(--at-space-xxs) var(--at-space-sm);
   border-radius: var(--at-radius-sm);

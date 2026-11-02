@@ -111,10 +111,9 @@
 }
 
 .head {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   padding: var(--at-space-xs) var(--at-space-xs);
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .remove {

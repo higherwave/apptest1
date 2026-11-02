@@ -1,11 +1,11 @@
 {
   "repo": "higherwave/design-system-mcp",
   "ref": "main",
-  "commit": "65e7d5760b38c6031f31f07bf868889616d9b566",
+  "commit": "dbfb2bc7fbe575094bd974a1c89d44a4e446d9e6",
   "files": {
     "validateRules.ts": {
       "from": "lib/validateRules.ts",
-      "sha256": "e625acb6a8b4ca26069c6dde93bf4f9625722598633fe99ca73a309ec48dac52"
+      "sha256": "44826703274d06e7350127f27b82347c7085f165b58c67b9f419ee4d9d3419dc"
     },
     "components.json": {
       "from": "registry/components.json",
@@ -13,11 +13,15 @@
     },
     "tokens.json": {
       "from": "registry/tokens.json",
-      "sha256": "659390bc5fc437598fbc2dc4709af020a3350ad0dcdc04ee51fdbf2d4b6563ee"
+      "sha256": "e34f9bf476c52df2811862ae52c4102f2ffafd4bc7e0f82bb09e36abbf2826e8"
     },
     "check-tokens.mjs": {
       "from": "scripts/check-tokens.mjs",
-      "sha256": "6c416ab37d00eca3584ffc57a5525d0e396a15f7900cb5570deff43eaacb2104"
+      "sha256": "62b34b80465a040a47d3b10dbbeb98b35ff2c44c0c84750b137ae5fea373f501"
+    },
+    "check-contrast.mjs": {
+      "from": "scripts/check-contrast.mjs",
+      "sha256": "fe9a4e2b075b254c9d4f9229773f9e861157f259504322f0bec1db081135019c"
     }
   }
 }

@@ -9,11 +9,10 @@
 }
 
 .label {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
   font-weight: 400;
-  text-transform: uppercase;
 }
 
 .hidden {

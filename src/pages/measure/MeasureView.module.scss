@@ -153,11 +153,9 @@
 }
 
 .why {
-  @include tokens.role('label-md');
+  @include tokens.role('reading-lg');
   margin: 0;
   color: var(--at-ink);
-  font-weight: 400;
-  line-height: 1.55;
 }
 
 // Two columns that share their rows, so the fields line up across them: heading, description, then three rows of fields.
@@ -190,10 +188,9 @@
 }
 
 .colHead {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .pair {

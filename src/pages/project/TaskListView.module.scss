@@ -18,10 +18,9 @@
 }
 
 .legend {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   padding: 0 var(--at-space-xs);
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .row,

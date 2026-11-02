@@ -119,13 +119,12 @@
 }
 
 .label {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   display: flex;
   align-items: center;
   gap: var(--at-space-sm);
   margin: 0 0 var(--at-space-xs);
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .item2 {

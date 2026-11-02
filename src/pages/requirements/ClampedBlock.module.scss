@@ -1,12 +1,10 @@
 @use '../../tokens' as tokens;
 
 .body {
-  @include tokens.role('label-md');
+  @include tokens.role('reading-lg');
   display: flex;
   flex-direction: column;
   gap: var(--at-space-xs);
-  line-height: 1.55;
-  font-weight: 400;
   color: var(--at-ink);
   overflow: hidden;
 }

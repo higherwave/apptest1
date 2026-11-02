@@ -44,10 +44,9 @@
 }
 
 .head {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   padding: var(--at-space-xs) 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .name {

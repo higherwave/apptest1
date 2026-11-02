@@ -56,9 +56,7 @@ $stage-min: 13rem;
 }
 
 .stageNumber {
-  @include tokens.role('meta');
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  @include tokens.role('eyebrow-sm');
   opacity: 0.85;
 }
 
@@ -67,10 +65,9 @@ $stage-min: 13rem;
 }
 
 .rowLabel {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   padding: var(--at-space-md);
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .cell {
@@ -86,7 +83,7 @@ $stage-min: 13rem;
 
   &[data-over='true'] {
     background: var(--at-surface-hover);
-    box-shadow: inset 0 0 0 1px var(--at-ink);
+    box-shadow: var(--at-ring-ink-inset);
   }
 }
 

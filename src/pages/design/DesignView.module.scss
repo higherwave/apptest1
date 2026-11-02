@@ -72,10 +72,9 @@ $frame-max: 44rem;
 }
 
 .label {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .sub {
@@ -91,11 +90,9 @@ $frame-max: 44rem;
 }
 
 .why {
-  @include tokens.role('label-md');
+  @include tokens.role('reading-lg');
   margin: 0;
   color: var(--at-ink);
-  font-weight: 400;
-  line-height: 1.55;
 }
 
 // The list: one accordion item per requirement.
@@ -183,10 +180,9 @@ $frame-max: 44rem;
 }
 
 .colHead {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .reqTitle {
@@ -299,7 +295,7 @@ $frame-max: 44rem;
   padding: var(--at-space-xs);
   border-radius: var(--at-radius-md);
   background: var(--at-canvas);
-  box-shadow: 0 0 0 1px var(--at-hairline);
+  box-shadow: var(--at-ring);
   opacity: 0;
   transition: opacity 120ms ease;
 

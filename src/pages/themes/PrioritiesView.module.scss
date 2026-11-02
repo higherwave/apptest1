@@ -28,9 +28,8 @@
 
 .axisY,
 .axisX {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .axisX {
@@ -69,9 +68,8 @@
 }
 
 .zone {
-  @include tokens.role('meta');
+  @include tokens.role('eyebrow-sm');
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .chip {

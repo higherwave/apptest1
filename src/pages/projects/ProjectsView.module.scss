@@ -70,9 +70,8 @@
 }
 
 .listHead {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .rowMuted {

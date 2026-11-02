@@ -115,8 +115,7 @@
 // The name reads as a heading until it is used: no border at rest, a hairline on hover, the strong border when focused.
 .name {
   :global(.cds--text-area) {
-    @include tokens.role('display-md');
-    font-size: 1.75rem;
+    @include tokens.role('display-sm');
     min-block-size: 0;
     padding-inline: var(--at-space-xs);
     border-color: transparent;
@@ -147,10 +146,9 @@
 }
 
 .label {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: var(--at-space-sm) 0 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .quotes {

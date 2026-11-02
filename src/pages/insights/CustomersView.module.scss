@@ -107,10 +107,9 @@
 }
 
 .colHead {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
-  text-transform: uppercase;
 }
 
 .theme {
