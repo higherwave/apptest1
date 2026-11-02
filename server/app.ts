@@ -30,7 +30,7 @@ import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
-import { acceptSuggestion, dismissSuggestion, DuplicateTitle, findMergeSuggestions, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, writeRankRationales } from './platform-themes.js'
+import { acceptSuggestion, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null }
@@ -305,9 +305,10 @@ export function createApp(options: AppOptions = {}) {
       z.object({}).passthrough(),
       async (id, v) => {
         const result = await runAnalysis(getDb(), ai, c.get('ctx'), id, v)
-        // The matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails. (A duplicate check used to follow:
-        // it is switched off, because its panel is gone from the screen and its suggestions would only cost model calls.)
-        await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
+        // The matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails. New platform themes are where duplicates
+        // start, so the clear ones are folded together right after (each recorded, so it can be undone from the Platform Themes page).
+        const matched = await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
+        if (matched && 'created' in matched && matched.created) await autoMergeDuplicates(getDb(), ai, c.get('ctx')).catch(() => undefined)
         return result
       },
       'raw',
@@ -738,7 +739,27 @@ export function createApp(options: AppOptions = {}) {
     const id = themeId(c)
     const input = parseBody(z.object({ intoId: z.string().regex(UUID, 'Choose the theme to merge into.') }), await readJson(c))
     c.header('Cache-Control', 'no-store')
-    return c.json(await mergeThemes(getDb(), c.get('ctx'), id, input.intoId).catch(themeErrors))
+    const merged = await mergeThemes(getDb(), c.get('ctx'), id, input.intoId).catch(themeErrors)
+    return c.json({ id: merged.id, title: merged.title })
+  })
+  // What was merged, newest first, and taking one back. Automatic merges are listed with the person's own so one list answers "what changed?".
+  app.get('/insights/merges', withReadContext, async (c) => {
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json({ data: await listMerges(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.post('/insights/merges/:id/undo', withContext, async (c) => {
+    requireEditor(c)
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such merge.')
+    c.header('Cache-Control', 'no-store')
+    try {
+      return c.json(await undoMerge(getDb(), c.get('ctx'), id))
+    } catch (err) {
+      if (err instanceof MergeHistoryMissing) throw new ApiError(404, 'not_found', 'That merge cannot be undone: it was already undone, or the theme it was folded into is gone.')
+      if (err instanceof DuplicateTitle) throw new ApiError(409, 'duplicate_title', `"${err.existing}" is now used by another theme, so this one cannot be brought back under that name.`)
+      throw err
+    }
   })
   app.post('/insights/merge-suggestions/run', withContext, async (c) => {
     requireEditor(c)

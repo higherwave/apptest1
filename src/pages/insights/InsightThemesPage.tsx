@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
-import { useInsightsThemes, useMarkThemeReviewed, useMe, useThemeCuration } from '../../api/hooks'
+import { useInsightsThemes, useMarkThemeReviewed, useMe, useMerges, useThemeCuration } from '../../api/hooks'
 import { InsightThemesView } from './InsightThemesView'
 
 // Container: the cross-project themes. The open row lives in the address (?theme=), so a case study can link to one; with none asked for, the first is open.
@@ -11,6 +11,7 @@ export function InsightThemesPage() {
   const overview = useInsightsThemes()
   const me = useMe()
   const reviewed = useMarkThemeReviewed()
+  const merges = useMerges()
   const tidy = useThemeCuration()
   const actions = Object.values(tidy)
   const failed = actions.find((m) => m.isError)
@@ -35,6 +36,8 @@ export function InsightThemesPage() {
         busy: actions.some((m) => m.isPending),
         error: failed ? friendlyMessage(failed.error) : undefined,
         onRationale: run(() => tidy.rationale.mutate()),
+        merges: merges.data,
+        onUndo: (id) => run(() => tidy.undo.mutate(id))(),
       }}
       canReview={me.data?.role === 'owner' || me.data?.role === 'editor'}
       reviewing={reviewed.isPending}

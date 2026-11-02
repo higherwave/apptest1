@@ -760,6 +760,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/merges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The most recent merges of one platform theme into another, newest first: those the system made on its own when a pair was clear (`auto`, with the confidence and the reason) and those a person made. `canUndo` is false once undone or when the theme it was folded into is gone. */
+        get: operations["listMerges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/merges/{id}/undo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Takes a merge back: the theme that was folded in comes back under its old id and name, with the project themes, recommendation links and case-study links the merge moved. 404 when it was already undone or the theme it was folded into no longer exists; 409 `duplicate_title` when its old title is now used. Owners and editors. */
+        post: operations["undoMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/merge-suggestions/run": {
         parameters: {
             query?: never;
@@ -1365,6 +1399,24 @@ export interface components {
             /** Format: uuid */
             id: string;
             title: string;
+        };
+        MergeRecord: {
+            id: string;
+            keptId: string;
+            /** @description The theme it was folded into. */
+            keptTitle: string;
+            /** @description The theme that was folded in. */
+            mergedTitle: string;
+            /** @description True when the system merged them */
+            auto: boolean;
+            confidence: number | null;
+            reason: string | null;
+            createdAt: string;
+            undone: boolean;
+            canUndo: boolean;
+        };
+        MergeList: {
+            data: components["schemas"]["MergeRecord"][];
         };
         MergeSuggestion: {
             /** Format: uuid */
@@ -3614,6 +3666,53 @@ export interface operations {
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listMerges: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The merges. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeList"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    undoMerge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The theme that was brought back. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformThemeRef"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     findMergeSuggestions: {

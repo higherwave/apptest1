@@ -1022,6 +1022,38 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/merges:
+    get:
+      operationId: listMerges
+      summary: >
+        The most recent merges of one platform theme into another, newest first: those the system made on its own when a pair was clear
+        (`auto`, with the confidence and the reason) and those a person made. `canUndo` is false once undone or when the theme it was folded into is gone.
+      responses:
+        '200':
+          description: The merges.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MergeList' }
+        '401': { $ref: '#/components/responses/Error' }
+  /insights/merges/{id}/undo:
+    post:
+      operationId: undoMerge
+      summary: >
+        Takes a merge back: the theme that was folded in comes back under its old id and name, with the project themes, recommendation links and
+        case-study links the merge moved. 404 when it was already undone or the theme it was folded into no longer exists; 409 `duplicate_title` when its old title is now used.
+        Owners and editors.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The theme that was brought back.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformThemeRef' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /insights/merge-suggestions/run:
     post:
       operationId: findMergeSuggestions
@@ -1759,6 +1791,27 @@ components:
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
+    MergeRecord:
+      type: object
+      required: [id, keptId, keptTitle, mergedTitle, auto, confidence, reason, createdAt, undone, canUndo]
+      properties:
+        id: { type: string }
+        keptId: { type: string }
+        keptTitle: { type: string, description: The theme it was folded into. }
+        mergedTitle: { type: string, description: The theme that was folded in. }
+        auto: { type: boolean, description: True when the system merged them, not a person. }
+        confidence: { type: [number, 'null'] }
+        reason: { type: [string, 'null'] }
+        createdAt: { type: string }
+        undone: { type: boolean }
+        canUndo: { type: boolean }
+    MergeList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/MergeRecord' }
     MergeSuggestion:
       type: object
       required: [id, keep, merge, reason, confidence]

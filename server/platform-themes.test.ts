@@ -281,3 +281,150 @@ test('writing the rationale saves the model\'s text on the top-ranked themes, or
   assert.match(t1.rationale, /^Raised by \d+ of \d+ participants across \d+ of \d+ projects/)
   assert.equal((await plain.api('/insights/roadmap/rationale', 'POST', undefined, { 'content-type': 'application/json' })).status, 401)
 })
+
+// Feature areas in matching, automatic merging, and undo -------------------------------------------------------------------------------------
+
+import { applyAreaRule, CROSS_AREA_MIN_CONFIDENCE, type MatchInput } from './ai-matching.js'
+import { autoMergeAllowed, autoMergeDuplicates, AUTO_MERGE_OTHER, AUTO_MERGE_SAME_AREA } from './platform-themes.js'
+
+test('area rule: a match across feature areas needs more confidence; no area on either side is never held back', () => {
+  const input: MatchInput = {
+    themes: [
+      { id: 't1', title: 'Fees show up late', description: '', opportunity: '', category: 'pain_point', area: 'Billing' },
+      { id: 't2', title: 'Cannot find a slot', description: '', opportunity: '', category: 'pain_point', area: null },
+    ],
+    platform: [
+      { id: 'p1', title: 'Hidden costs at checkout', category: 'pain_point', area: 'Billing' },
+      { id: 'p2', title: 'Provider availability is hard to see', category: 'pain_point', area: 'Scheduling' },
+      { id: 'p3', title: 'Reminders', category: 'delight', area: null },
+    ],
+  }
+  const placed = (themeId: string, platformThemeId: string, confidence: number) => ({ themeId, platformThemeId, confidence })
+  assert.equal(CROSS_AREA_MIN_CONFIDENCE, 0.85)
+  const kept = applyAreaRule([placed('t1', 'p1', 0.65), placed('t1', 'p3', 0.65), placed('t2', 'p2', 0.65), placed('t1', 'p2', 0.9)], input, 'start-new')
+  assert.deepEqual(kept.map((p) => [p.themeId, p.platformThemeId ?? 'new']), [['t1', 'p1'], ['t1', 'p3'], ['t2', 'p2'], ['t1', 'p2']], 'same area, no area, and a confident cross-area match all stand')
+  const held = applyAreaRule([placed('t1', 'p2', 0.8)], input, 'start-new')
+  assert.deepEqual(held.map((p) => [p.platformThemeId ?? null, p.newTitle, p.newCategory]), [[null, 'Fees show up late', 'pain_point']], 'a doubtful match across areas starts its own theme')
+  assert.deepEqual(applyAreaRule([placed('t1', 'p2', 0.8)], input, 'drop'), [], 'the keyword matcher leaves it unplaced')
+  assert.deepEqual(applyAreaRule([{ themeId: 't1', newTitle: 'Something new here', newCategory: 'need', confidence: 0.7 }], input, 'drop').length, 1, 'a new theme is untouched')
+})
+
+test('the matcher prompt shows each theme and platform theme with its feature area, and says to prefer the same one', () => {
+  const p = buildMatchPrompt({
+    themes: [{ id: 't1', title: 'Fees show up late', description: 'd', opportunity: 'o', category: 'pain_point', area: 'Billing' }, { id: 't2', title: 'No area here', description: 'd', opportunity: 'o', category: 'need' }],
+    platform: [{ id: 'p1', title: 'Hidden costs', category: 'pain_point', area: 'Billing' }],
+  })
+  assert.match(p.user, /P1: "Hidden costs" \(pain_point\) \[area: Billing\]/)
+  assert.match(p.user, /N1: "Fees show up late" \(pain_point\) \[area: Billing\]/)
+  assert.ok(!/N2: .*\[area/.test(p.user))
+  assert.match(p.system, /Prefer a platform theme in the same area/)
+  assert.match(p.system, /0\.85 or more/)
+})
+
+test('automatic merging: same known area needs 0.75, anything else 0.9, and a pain point is never folded into a delight', () => {
+  assert.deepEqual([AUTO_MERGE_SAME_AREA, AUTO_MERGE_OTHER], [0.75, 0.9])
+  const a = (category = 'pain_point', area: string | null = 'Billing') => ({ category, area })
+  assert.equal(autoMergeAllowed(a(), a(), 0.75), true)
+  assert.equal(autoMergeAllowed(a(), a(), 0.74), false)
+  assert.equal(autoMergeAllowed(a(), a('pain_point', 'billing'), 0.8), true, 'area names compare without regard to case')
+  assert.equal(autoMergeAllowed(a(), a('pain_point', 'Scheduling'), 0.89), false)
+  assert.equal(autoMergeAllowed(a(), a('pain_point', 'Scheduling'), 0.9), true)
+  assert.equal(autoMergeAllowed(a(), a('pain_point', null), 0.8), false, 'one side without an area is not evidence')
+  assert.equal(autoMergeAllowed(a('pain_point', null), a('pain_point', null), 0.9), true)
+  assert.equal(autoMergeAllowed(a('pain_point'), a('delight'), 0.99), false)
+})
+
+test('a merge is recorded and undo puts back the theme, its tags, its links and every name exactly as they were', async () => {
+  const { api, pg, overview, ws } = await fixture()
+  const themes = (await overview()).themes
+  const into = themes.find((t: any) => t.matches.length > 0 && t.requirements)
+  const from = themes.find((t: any) => t.id !== into.id && t.matches.length > 0)
+  await pg.query(`insert into insights.platform_theme_aliases (platform_theme_id, workspace_id, alias) values ($1, $2, 'An older name of the folded theme')`, [from.id, ws])
+  const snapshot = async (id: string) => ({
+    sources: (await pg.query<any>(`select theme_id from insights.platform_theme_sources where platform_theme_id = $1 order by theme_id`, [id])).rows.map((r) => r.theme_id),
+    recs: (await pg.query<any>(`select recommendation_id from insights.recommendation_themes where platform_theme_id = $1 order by 1`, [id])).rows.map((r) => r.recommendation_id),
+    cases: (await pg.query<any>(`select case_study_id from insights.case_study_themes where platform_theme_id = $1 order by 1`, [id])).rows.map((r) => r.case_study_id),
+    aliases: (await pg.query<any>(`select alias from insights.platform_theme_aliases where platform_theme_id = $1 order by 1`, [id])).rows.map((r) => r.alias),
+  })
+  const [beforeFrom, beforeInto] = [await snapshot(from.id), await snapshot(into.id)]
+  const row = (await pg.query<any>(`select title, category, position from insights.platform_themes where id = $1`, [from.id])).rows[0]
+
+  assert.equal((await api(`/insights/themes/${from.id}/merge`, 'POST', { intoId: into.id })).status, 200)
+  assert.equal((await pg.query<any>(`select count(*)::int n from insights.platform_themes where id = $1`, [from.id])).rows[0].n, 0)
+  const listed = await (await api('/insights/merges')).json()
+  assert.equal(listed.data.length, 1)
+  assert.deepEqual([listed.data[0].keptId, listed.data[0].keptTitle, listed.data[0].mergedTitle, listed.data[0].auto, listed.data[0].undone, listed.data[0].canUndo], [into.id, into.title, from.title, false, false, true])
+  assert.equal((await api('/insights/merges')).status, 200)
+
+  assert.equal((await api(`/insights/merges/${listed.data[0].id}/undo`, 'POST', undefined, { 'content-type': 'application/json' })).status, 401, 'a visitor cannot undo')
+  const undone = await api(`/insights/merges/${listed.data[0].id}/undo`, 'POST')
+  assert.equal(undone.status, 200)
+  assert.deepEqual(await undone.json(), { id: from.id, title: from.title })
+  assert.deepEqual(await snapshot(from.id), beforeFrom, 'tags, links and names of the theme that came back')
+  assert.deepEqual(await snapshot(into.id), beforeInto, 'and the theme it had been folded into is as it was')
+  assert.deepEqual((await pg.query<any>(`select title, category, position from insights.platform_themes where id = $1`, [from.id])).rows[0], row)
+  assert.equal((await (await api('/insights/merges')).json()).data[0].undone, true)
+  assert.equal((await api(`/insights/merges/${listed.data[0].id}/undo`, 'POST')).status, 404, 'a merge is undone once')
+  assert.equal((await api('/insights/merges/not-a-uuid/undo', 'POST')).status, 404)
+
+  // It can be merged again, and undone again.
+  assert.equal((await api(`/insights/themes/${from.id}/merge`, 'POST', { intoId: into.id })).status, 200)
+  assert.equal((await (await api('/insights/merges')).json()).data.filter((m: any) => m.canUndo).length, 1)
+})
+
+test('undo is refused when the theme it was folded into is gone, or its old title is now taken; the merge stays on the list', async () => {
+  const { api, pg, overview } = await fixture()
+  const [a, b, c] = (await overview()).themes
+  await api(`/insights/themes/${b.id}/merge`, 'POST', { intoId: a.id })
+  const first = (await (await api('/insights/merges')).json()).data[0]
+  // Another theme takes the title that b had.
+  await pg.query(`update insights.platform_themes set title = $2 where id = $1`, [c.id, b.title])
+  const clash = await api(`/insights/merges/${first.id}/undo`, 'POST')
+  assert.equal(clash.status, 409)
+  assert.equal((await clash.json()).error.code, 'duplicate_title')
+  assert.equal((await (await api('/insights/merges')).json()).data[0].canUndo, true, 'still undoable once the clash is cleared')
+  // The theme it was folded into is itself merged away: the history goes with it.
+  await api(`/insights/themes/${a.id}/merge`, 'POST', { intoId: c.id })
+  assert.ok(!(await (await api('/insights/merges')).json()).data.some((m: any) => m.id === first.id && m.canUndo), 'nothing left to undo it into')
+})
+
+test('automatic merging folds the clear pairs, records them as automatic, and files the rest as suggestions', async () => {
+  const groupsFor = (confidence: number) => (input: DedupeInput) => {
+    const [x, y] = input.themes
+    return { groups: [{ keepId: x.id, mergeIds: [y.id], reason: 'They say the same thing', confidence }], promptVersion: 't' }
+  }
+  const run = async (confidence: number, setup: (pg: any, ids: { keep: string; merge: string }) => Promise<void>) => {
+    const provider: AiProvider = {
+      ...simulatedProvider, name: 'fake-model', live: true,
+      suggestMerges: async (input) => ({ value: groupsFor(confidence)(input), usage: { inputTokens: 100, outputTokens: 30, costUsd: 0.0002, model: 'fake-haiku' } }),
+    }
+    const { pg, db, ws, overview } = await fixture(provider)
+    const first = (await overview()).themes
+    const ai = makeAi({}, provider)
+    const user = (await pg.query<any>(`select id from core.users limit 1`)).rows[0].id as string
+    // Which two themes the stand-in model pairs is decided by the order the overview lists them in.
+    const ordered = await (async () => { let seen: string[] = []; await ai.provider.suggestMerges!({ themes: (await overview()).themes.map((t: any) => ({ id: t.id, title: t.title, category: t.category, participants: 0, projects: 0 })) }).then((r) => { seen = [r.value.groups[0].keepId, r.value.groups[0].mergeIds[0]] }); return seen })()
+    await setup(pg, { keep: ordered[0], merge: ordered[1] })
+    const result = await autoMergeDuplicates(db, ai, { workspaceId: ws, userId: user } as any)
+    return { result, pg, ordered, count: first.length, history: (await pg.query(`select auto, confidence::float8 c from insights.merge_history`)).rows as any[], left: (await pg.query<any>(`select count(*)::int n from insights.platform_themes`)).rows[0].n as number }
+  }
+  const area = async (pg: any, themeId: string, name: string) => {
+    const a = (await pg.query(`insert into insights.feature_areas (workspace_id, name) select workspace_id, $1 from insights.platform_themes limit 1 on conflict do nothing returning id`, [name])).rows[0]
+    const id = a?.id ?? (await pg.query(`select id from insights.feature_areas where name = $1`, [name])).rows[0].id
+    await pg.query(`update research.themes set area_id = $2 where id in (select theme_id from insights.platform_theme_sources where platform_theme_id = $1)`, [themeId, id])
+  }
+  const same = async (pg: any, ids: { keep: string; merge: string }) => { await pg.query(`update insights.platform_themes set category = 'pain_point' where id = any($1::uuid[])`, [[ids.keep, ids.merge]]); await area(pg, ids.keep, 'Booking'); await area(pg, ids.merge, 'Booking') }
+
+  // Same area at 0.8: merged on its own, recorded as automatic, nothing left to suggest.
+  const merged = await run(0.8, same)
+  assert.deepEqual([merged.result.merged, merged.result.suggested, merged.left], [1, 0, merged.count - 1])
+  assert.deepEqual(merged.history, [{ auto: true, c: 0.8 }])
+  // The same 0.8 across two different areas is only a suggestion; at 0.95 it is merged.
+  const cross = async (pg: any, ids: { keep: string; merge: string }) => { await pg.query(`update insights.platform_themes set category = 'pain_point' where id = any($1::uuid[])`, [[ids.keep, ids.merge]]); await area(pg, ids.keep, 'Booking'); await area(pg, ids.merge, 'Billing') }
+  const held = await run(0.8, cross)
+  assert.deepEqual([held.result.merged, held.result.suggested, held.left, held.history.length], [0, 1, held.count, 0])
+  assert.equal((await run(0.95, cross)).result.merged, 1)
+  // A pain point is not folded into a delight, however sure the model is.
+  const kinds = await run(0.99, async (pg, ids) => { await pg.query(`update insights.platform_themes set category = 'pain_point' where id = $1`, [ids.keep]); await pg.query(`update insights.platform_themes set category = 'delight' where id = $1`, [ids.merge]) })
+  assert.deepEqual([kinds.result.merged, kinds.result.suggested], [0, 1])
+})

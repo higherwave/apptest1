@@ -873,6 +873,19 @@ try {
   await page.evaluate(() => document.querySelector('[data-testid^="customer-"][data-open="true"] button[class*="themeLink"]').click())
   await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 })
   ok('a theme in a persona opens that theme', true)
+  // A merge is listed with Undo, and undoing it brings the theme back.
+  {
+    const auth = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }
+    const [keep, fold] = (await (await fetch(`${API}/api/v1/insights/themes`)).json()).themes
+    ok('the merge itself succeeds', (await fetch(`${API}/api/v1/insights/themes/${fold.id}/merge`, { method: 'POST', headers: auth, body: JSON.stringify({ intoId: keep.id }) })).status === 200)
+    await page.reload({ waitUntil: 'networkidle0' })
+    await page.waitForSelector('[data-testid="recent-merges"]', { timeout: 8000 })
+    ok('a merge appears under Recent merges, naming both themes and how it was made', await page.evaluate((k, f) => { const t = document.querySelector('[data-testid="recent-merges"]').innerText; return t.includes(k) && t.includes(f) && /merged by hand/i.test(t) }, keep.title, fold.title))
+    await page.$eval('[data-testid^="undo-"]', (el) => el.scrollIntoView({ block: 'center' }))
+    await page.click('[data-testid^="undo-"]')
+    await page.waitForFunction((id) => !!document.querySelector(`[data-testid="platform-theme-${id}"]`) && !document.querySelector('[data-testid^="undo-"]'), { timeout: 8000 }, fold.id)
+    ok('Undo brings the theme back to the list', true)
+  }
   await page.goto(`${BASE}/insights/customers`, { waitUntil: 'networkidle0' })
   ok('the old Customers address leads to Personas', await page.evaluate(() => location.pathname === '/insights/personas'))
   await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Personas').click())

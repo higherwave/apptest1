@@ -140,7 +140,7 @@ step. The reply must match a schema, cite only themes in the document, and use o
 and saves together, so a failed draft changes nothing. Creating a document that cannot be drafted removes it again. `AI_DRAFT_MODEL`
 optionally picks another model for drafting.
 
-Theme matching (`server/ai-matching.ts`, prompt `theme-match-v1`, model `claude-haiku-5-5`, `AI_MATCH_MODEL` to change it) runs after each
+Theme matching (`server/ai-matching.ts`, prompt `theme-match-v3`, model `claude-haiku-5-5`, `AI_MATCH_MODEL` to change it) runs after each
 analysis. Only current themes that have no platform theme yet are sent (tags already given stay put, so the numbers do not shuffle and
 each call stays small). The model puts each one under an existing platform theme or names a new one; matches below 0.6 confidence are
 left unmatched, and a "new" title that is an existing platform theme attaches to it, so near-duplicates are not created. A new platform
@@ -155,10 +155,15 @@ Migration 0021. A platform theme can be **renamed** (`PATCH /insights/themes/{id
 theme is deleted, and the audit log records it). Aliases are shown to the matcher ("also called"). Every model match stores its one-line
 reason and confidence (`platform_theme_sources.reason`); the open theme shows them under "How themes were matched".
 
-**There is no duplicates panel and no "Tidy this theme" tool on the screen** (removed Nov 2: matching is more predictable now that
-questions carry feature areas, and automatic merging with undo is planned instead). The API for renaming, merging and the suggestions
-(`server/ai-dedupe.ts`, prompt `theme-dedupe-v1`, `insights.merge_suggestions`, `POST /insights/merge-suggestions/run`) stays for that
-work, but nothing runs it on its own any more, so an analysis no longer spends a model call on it.
+**There is no duplicates panel and no "Tidy this theme" tool on the screen** (removed Nov 2). Instead, duplicates are handled on their own:
+after an analysis that started new platform themes, `autoMergeDuplicates` (`server/platform-themes.ts`; prompt `theme-dedupe-v2`,
+`server/ai-dedupe.ts`) asks the model which look-alikes say the same thing. A pair is merged without a person only when it is the same
+category and either both sit in the same known feature area at 0.75 confidence or more, or the model is at 0.9 or more; everything else
+(different categories never) is filed as a suggestion in `insights.merge_suggestions`. Migration 0028 `insights.merge_history` snapshots
+every merge, by hand or automatic: the theme that was folded in, its names, project-theme tags, recommendation and case-study links.
+**Recent merges** on the Platform Themes page lists them (`GET /insights/merges`), and **Undo** (`POST /insights/merges/{id}/undo`,
+owners and editors) brings the theme back under its old id with everything as it was. Undo is refused (409) if its old title is now taken,
+and a merge whose target theme has since been merged away or deleted leaves the list with it.
 
 The overview ranks problems and needs (`priority.rank`, `priority.score`: 60% share of participants plus 40% share of projects, times
 0.1 for worked up to 1.1 for needs attention, times 1.15 for an opportunity; delights are not ranked). The **Suggested priority** order
@@ -184,7 +189,11 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
   questions with their areas, and each theme names the one area it is about, or none. The name is kept only if it is a live area (by name or another name);
   anything else is no area. The simulation (no model) files a theme under the area whose words it shares most (`suggestAreas`). A person can correct a theme's
   area on the Themes page (`PUT /themes/{id}/area`). What is sent to the model changed, so `public/privacy.html` says so.
-- **Not built yet** (see the Build Plan): matching that prefers the same area, tiered automatic merging with undo, and rollups grouped by area.
+- **Matching prefers the same area** (prompt `theme-match-v3`): themes and platform themes are shown to the model with `[area: X]`; a match into a
+  platform theme of a different known area stands only at 0.85 confidence or more (`applyAreaRule` in `server/ai-matching.ts`), otherwise the theme starts
+  its own (model) or stays unplaced (keyword matcher). A platform theme's area is the most common area among the themes filed under it. Either side
+  without an area is never held back. See "Platform Themes: matching and merging" for automatic merging and undo.
+- **Not built yet** (see the Build Plan): rollups grouped by area, and proposing new areas from unassigned themes several participants raised.
 
 ## Spend alerts
 

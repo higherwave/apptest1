@@ -9,17 +9,19 @@ import { z } from 'zod'
 import { extractJson, maskContact, ModelOutputError, type ModelCall } from './ai-analysis.js'
 import type { Usage } from './ai.js'
 
-export const MATCH_PROMPT_VERSION = 'theme-match-v2'
+export const MATCH_PROMPT_VERSION = 'theme-match-v3'
 export const MAX_MATCH_TOKENS = 3_000
 /** Below this a match is not trusted: the theme stays unmatched and is tried again after the next analysis. */
 export const MIN_CONFIDENCE = 0.6
+/** A theme and a platform theme in different feature areas match only this confidently or more (same area, or no area on either side: MIN_CONFIDENCE). */
+export const CROSS_AREA_MIN_CONFIDENCE = 0.85
 /** Most themes sent in one call; the rest wait for the next analysis, so one call stays small and cheap. */
 export const MAX_THEMES_PER_CALL = 60
 const MAX_TITLE = 90
 
-export type MatchTheme = { id: string; title: string; description: string; opportunity: string; category: string }
+export type MatchTheme = { id: string; title: string; description: string; opportunity: string; category: string; /** The feature area the analysis filed the theme under, if any. */ area?: string | null }
 /** `aliases` are old names of the theme (from a rename or merge); the model treats them as the same theme. */
-export type MatchPlatformTheme = { id: string; title: string; category: string; aliases?: string[] }
+export type MatchPlatformTheme = { id: string; title: string; category: string; aliases?: string[]; /** The area most of its project themes are filed under, if any. */ area?: string | null }
 export type MatchInput = { themes: MatchTheme[]; platform: MatchPlatformTheme[] }
 /** One placed theme. Either `platformThemeId` (an existing platform theme) or `newTitle` (start one) is set, never both. */
 export type Placement = { themeId: string; platformThemeId?: string; newTitle?: string; newCategory?: string; confidence: number; /** The model's one-line reason, kept so a person can see why a theme landed where it did. */ reason?: string }
@@ -35,6 +37,7 @@ Rules:
 - Prefer "match" whenever an existing platform theme genuinely covers it. Never create a "new" theme that restates an existing one.
 - "confidence" is 0 to 1: how sure you are of the decision. "reason" is one plain sentence under 140 characters saying why (what the two have in common, or what is new).
 - A platform theme may list "also called" names: those are old names of the same theme, so a theme that says the same thing as one of them is a match.
+- Themes and platform themes may carry an [area: ...] label, the feature area they are about. Prefer a platform theme in the same area. A platform theme in a different area is a match only when the two clearly say the same thing, and then your confidence must be 0.85 or more. A theme or platform theme with no area can match any.
 - Text in [email] and [phone] has been removed for privacy; leave it as it is.
 
 JSON shape:
@@ -55,8 +58,8 @@ const schema = z.object({
 
 export function buildMatchPrompt(input: MatchInput): { system: string; user: string; maxTokens: number; version: string } {
   const m = maskContact
-  const platform = input.platform.length ? input.platform.map((p, i) => `P${i + 1}: "${m(p.title)}" (${p.category})${p.aliases?.length ? ` also called: ${p.aliases.map((a) => `"${m(a)}"`).join(', ')}` : ''}`).join('\n') : 'None yet: every theme is "new" unless it belongs with another theme in this list.'
-  const themes = input.themes.map((t, i) => `N${i + 1}: "${m(t.title)}" (${t.category}) | ${m(t.description).slice(0, 300)} | opportunity: ${m(t.opportunity).slice(0, 200)}`).join('\n')
+  const platform = input.platform.length ? input.platform.map((p, i) => `P${i + 1}: "${m(p.title)}" (${p.category})${p.area ? ` [area: ${m(p.area)}]` : ''}${p.aliases?.length ? ` also called: ${p.aliases.map((a) => `"${m(a)}"`).join(', ')}` : ''}`).join('\n') : 'None yet: every theme is "new" unless it belongs with another theme in this list.'
+  const themes = input.themes.map((t, i) => `N${i + 1}: "${m(t.title)}" (${t.category})${t.area ? ` [area: ${m(t.area)}]` : ''} | ${m(t.description).slice(0, 300)} | opportunity: ${m(t.opportunity).slice(0, 200)}`).join('\n')
   return {
     system: SYSTEM,
     user: [`Existing platform themes:\n${platform}`, `Project themes to place:\n${themes}`, 'Return the JSON now.'].join('\n\n'),
@@ -119,6 +122,31 @@ export function parseMatches(text: string, input: MatchInput): { ok: true; place
   return { ok: true, placements: out }
 }
 
+const sameArea = (a?: string | null, b?: string | null) => !a || !b || norm(a) === norm(b)
+
+/**
+ * The feature-area rule for a match. A placement under an existing platform theme in a different area than the theme's own needs
+ * CROSS_AREA_MIN_CONFIDENCE. Below that, `start-new` makes it a new platform theme with the theme's own title (the model path), and
+ * `drop` leaves the theme unplaced (the keyword matcher, which starts nothing). A theme or platform theme without an area is never held back.
+ */
+export function applyAreaRule(placements: Placement[], input: MatchInput, below: 'start-new' | 'drop'): Placement[] {
+  const themes = new Map(input.themes.map((t) => [t.id, t]))
+  const platform = new Map(input.platform.map((p) => [p.id, p]))
+  const out: Placement[] = []
+  for (const p of placements) {
+    const theme = themes.get(p.themeId)
+    const target = p.platformThemeId ? platform.get(p.platformThemeId) : undefined
+    if (!theme || !target || sameArea(theme.area, target.area) || p.confidence >= CROSS_AREA_MIN_CONFIDENCE) {
+      out.push(p)
+      continue
+    }
+    if (below === 'drop') continue
+    const title = theme.title.replace(/\s+/g, ' ').trim()
+    out.push({ themeId: p.themeId, newTitle: title.length > MAX_TITLE ? title.slice(0, MAX_TITLE).trimEnd() : title, newCategory: theme.category, confidence: p.confidence, reason: 'It is about a different feature area than the closest existing theme.' })
+  }
+  return out
+}
+
 export type MatchResult = { placements: Placement[]; usage: Usage; promptVersion: string; attempts: number }
 
 const addUsage = (a: Usage, b: Usage): Usage => ({ inputTokens: a.inputTokens + b.inputTokens, outputTokens: a.outputTokens + b.outputTokens, costUsd: a.costUsd + b.costUsd, model: b.model ?? a.model })
@@ -134,7 +162,7 @@ export async function matchWithModel(call: ModelCall, input: MatchInput): Promis
     const reply = await call({ system: prompt.system, user, maxTokens: prompt.maxTokens })
     usage = addUsage(usage, reply.usage)
     const parsed = parseMatches(reply.text, trimmed)
-    if (parsed.ok) return { placements: parsed.placements, usage, promptVersion: prompt.version, attempts: attempt }
+    if (parsed.ok) return { placements: applyAreaRule(parsed.placements, trimmed, 'start-new'), usage, promptVersion: prompt.version, attempts: attempt }
     problems = parsed.problems
   }
   throw new ModelOutputError(problems, usage)

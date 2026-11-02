@@ -5,7 +5,7 @@ import type { InsightsThemes } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
-import { MatchList, PriorityNote, type Curation } from './ThemeCuration'
+import { MatchList, PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
 import { STATUS } from './labels'
 import styles from './InsightThemesView.module.scss'
 
@@ -181,6 +181,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
               })}
             </ul>
           </section>
+          <RecentMerges curation={curation ?? NO_CURATION} />
         </>
       )}
     </div>

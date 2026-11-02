@@ -1,5 +1,5 @@
 import { Button, InlineNotification, Tag } from '@carbon/react'
-import type { InsightsThemes } from '../../api/client'
+import type { InsightsThemes, MergeRecord } from '../../api/client'
 import styles from './ThemeCuration.module.scss'
 
 type Row = InsightsThemes['themes'][number]
@@ -12,6 +12,9 @@ export type Curation = {
   busy: boolean
   error?: string
   onRationale: () => void
+  /** Recent merges, newest first, and taking one back. Without them the panel is not shown. */
+  merges?: MergeRecord[]
+  onUndo?: (id: string) => void
 }
 
 // The suggested rank, its figures, and the written reason; editors can have the reasons written.
@@ -60,6 +63,40 @@ export function MatchList({ theme }: { theme: Row }) {
               {m.reason ? `: ${m.reason}` : ''}
               {projects > 1 ? ` · in ${projects} projects` : ''}
             </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+
+// Themes folded into others, the ones the system merged on its own marked as such. Undo puts the theme back exactly as it was,
+// so a wrong merge costs one click, not a rebuild.
+export function RecentMerges({ curation }: { curation: Curation }) {
+  const merges = curation.merges ?? []
+  if (!merges.length) return null
+  return (
+    <section className={styles.recent} aria-label="Recent merges" data-testid="recent-merges">
+      <h2 className={styles.label}>Recent merges</h2>
+      <ul className={styles.matches}>
+        {merges.map((m) => (
+          <li key={m.id} className={styles.mergeRow} data-testid={`merge-${m.id}`}>
+            <span className={styles.text}>
+              <strong>{m.mergedTitle}</strong> was folded into <strong>{m.keptTitle}</strong>
+              <br />
+              <span className={styles.muted}>
+                {m.auto ? `Merged automatically${pct(m.confidence)}` : 'Merged by hand'} · {when(m.createdAt)}
+                {m.reason ? `: ${m.reason}` : ''}
+                {m.undone ? ' · Undone' : ''}
+              </span>
+            </span>
+            {m.canUndo && curation.canEdit && curation.onUndo && (
+              <Button kind="tertiary" size="sm" disabled={curation.busy} data-testid={`undo-${m.id}`} onClick={() => curation.onUndo!(m.id)}>
+                Undo
+              </Button>
+            )}
           </li>
         ))}
       </ul>

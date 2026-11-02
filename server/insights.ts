@@ -1,7 +1,7 @@
 import { PLATFORM_KEYWORDS } from '../shared/platform-keywords.mjs'
 import { callAi, callAiWithFallback, type Ai } from './ai.js'
 import { matchThemes } from '../shared/providers.mjs'
-import { MAX_THEMES_PER_CALL, type Placement } from './ai-matching.js'
+import { applyAreaRule, MAX_THEMES_PER_CALL, type Placement } from './ai-matching.js'
 import type { Db, Queryable } from './db.js'
 import { buildCaseStudyPrompt } from './case-briefs.js'
 import { insertMany } from './sql.js'
@@ -408,7 +408,7 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
   })
 }
 
-const CURRENT_THEME_ROWS = `select t.id, t.title, t.category, t.description, t.opportunity from research.themes t join (${CURRENT_THEMES}) c on c.id = t.id`
+const CURRENT_THEME_ROWS = `select t.id, t.title, t.category, t.description, t.opportunity, (select f.name from insights.feature_areas f where f.id = t.area_id) as area from research.themes t join (${CURRENT_THEMES}) c on c.id = t.id`
 
 // Keeps Platform Insights in step with the projects after each analysis. With a model provider the model places the themes that
 // have no platform theme yet (see refreshByModel); otherwise the keyword matcher below re-reads every theme.
@@ -416,7 +416,20 @@ export async function refreshPlatformMatches(db: Db, ai: Ai, workspaceId: string
   return ai.provider.matchPlatform ? refreshByModel(db, ai, workspaceId) : refreshByKeywords(db, ai, workspaceId)
 }
 
-type PlatformRow = { id: string; title: string; category: string; aliases: string[] }
+type PlatformRow = { id: string; title: string; category: string; aliases: string[]; area?: string | null }
+
+/** The feature area most of each platform theme's project themes are filed under (a tie goes to the name that sorts first), by platform theme id. */
+export async function platformAreas(db: Queryable, workspaceId: string): Promise<Map<string, string>> {
+  const rows = (
+    await db.query(
+      `select distinct on (s.platform_theme_id) s.platform_theme_id as id, a.name
+         from insights.platform_theme_sources s join research.themes th on th.id = s.theme_id join insights.feature_areas a on a.id = th.area_id
+        where s.workspace_id = $1 group by s.platform_theme_id, a.name order by s.platform_theme_id, count(*) desc, a.name`,
+      [workspaceId],
+    )
+  ).rows
+  return new Map(rows.map((r) => [r.id as string, r.name as string]))
+}
 
 // The keyword list is keyed by a theme's original title, so a renamed or merged theme keeps its keywords through its old names.
 const keywordsFor = (title: string, aliases: string[] = []): string[] => [...new Set([title, ...aliases].flatMap((t) => PLATFORM_KEYWORDS[t] ?? []))]
@@ -432,13 +445,16 @@ const aliasesByTheme = async (db: Queryable, workspaceId: string) => {
 async function refreshByKeywords(db: Db, ai: Ai, workspaceId: string): Promise<{ matched: number }> {
   return db.transaction(async (tx) => {
     const aliases = await aliasesByTheme(tx, workspaceId)
+    const areaOfPlatform = await platformAreas(tx, workspaceId) // before the automatic tags are cleared below
     const platform = (await tx.query(`select id, title from insights.platform_themes where workspace_id = $1`, [workspaceId])).rows
       .map((p) => ({ id: p.id as string, keywords: keywordsFor(p.title as string, aliases.get(p.id)) }))
       .filter((p) => p.keywords.length)
-    const themes = (await tx.query(CURRENT_THEME_ROWS, [workspaceId])).rows.map((t) => ({ id: t.id as string, title: t.title as string, description: t.description ?? '', opportunity: t.opportunity ?? '' }))
+    const themes = (await tx.query(CURRENT_THEME_ROWS, [workspaceId])).rows.map((t) => ({ id: t.id as string, title: t.title as string, category: t.category as string, description: t.description ?? '', opportunity: t.opportunity ?? '', area: (t.area as string | null) ?? null }))
     const manual = new Set((await tx.query(`select theme_id from insights.platform_theme_sources where workspace_id = $1 and match_method = 'manual'`, [workspaceId])).rows.map((r) => r.theme_id as string))
     await tx.query(`delete from insights.platform_theme_sources where workspace_id = $1 and match_method = 'auto'`, [workspaceId])
-    const matches = await callAi(tx, ai, workspaceId, 'theme_match', (p) => p.matchThemes(themes.filter((t) => !manual.has(t.id)), platform))
+    const raw = await callAi(tx, ai, workspaceId, 'theme_match', (p) => p.matchThemes(themes.filter((t) => !manual.has(t.id)), platform))
+    // A match across feature areas needs more confidence than one within an area; below it the theme stays unplaced (this matcher starts nothing).
+    const matches = applyAreaRule(raw.map((m: { themeId: string; platformThemeId: string; confidence: number }): Placement => ({ ...m })), { themes, platform: platform.map((p) => ({ id: p.id, title: '', category: '', area: areaOfPlatform.get(p.id) ?? null })) }, 'drop') as { themeId: string; platformThemeId: string; confidence: number }[]
     await insertMany(
       tx,
       'insights.platform_theme_sources',
@@ -459,10 +475,11 @@ async function refreshByKeywords(db: Db, ai: Ai, workspaceId: string): Promise<{
 // new platform theme, flagged for review; at the budget or credit ceiling the keyword matcher stands in and starts nothing.
 async function refreshByModel(db: Db, ai: Ai, workspaceId: string): Promise<{ matched: number; created: number }> {
   const aliases = await aliasesByTheme(db, workspaceId)
-  const platform: PlatformRow[] = (await db.query(`select id, title, category from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId])).rows.map((p) => ({ id: p.id as string, title: p.title as string, category: p.category as string, aliases: aliases.get(p.id) ?? [] }))
+  const areaOfPlatform = await platformAreas(db, workspaceId)
+  const platform: PlatformRow[] = (await db.query(`select id, title, category from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId])).rows.map((p) => ({ id: p.id as string, title: p.title as string, category: p.category as string, aliases: aliases.get(p.id) ?? [], area: areaOfPlatform.get(p.id as string) ?? null }))
   const unplaced = (
     await db.query(`${CURRENT_THEME_ROWS} where not exists (select 1 from insights.platform_theme_sources s where s.theme_id = t.id) order by t.created_at, t.title limit ${MAX_THEMES_PER_CALL}`, [workspaceId])
-  ).rows.map((t) => ({ id: t.id as string, title: t.title as string, category: t.category as string, description: (t.description ?? '') as string, opportunity: (t.opportunity ?? '') as string }))
+  ).rows.map((t) => ({ id: t.id as string, title: t.title as string, category: t.category as string, description: (t.description ?? '') as string, opportunity: (t.opportunity ?? '') as string, area: (t.area as string | null) ?? null }))
 
   let placements: Placement[] = []
   if (unplaced.length) {
@@ -472,7 +489,7 @@ async function refreshByModel(db: Db, ai: Ai, workspaceId: string): Promise<{ ma
         return { value: r.value.placements, usage: r.usage }
       }
       const keyed = platform.map((x) => ({ id: x.id, keywords: keywordsFor(x.title, x.aliases) })).filter((x) => x.keywords.length)
-      return { value: matchThemes(unplaced, keyed).map((m: { themeId: string; platformThemeId: string; confidence: number }): Placement => ({ ...m })), usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 } }
+      return { value: applyAreaRule(matchThemes(unplaced, keyed).map((m: { themeId: string; platformThemeId: string; confidence: number }): Placement => ({ ...m })), { themes: unplaced, platform }, 'drop'), usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 } }
     })
     placements = value
   }

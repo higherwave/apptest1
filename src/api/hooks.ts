@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
+  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -158,9 +158,11 @@ export const useThemeCuration = () => {
     find: useMutation({ mutationFn: () => findMergeSuggestions(), onSuccess: refresh }),
     accept: useMutation({ mutationFn: (id: string) => acceptMergeSuggestion(id), onSuccess: refresh }),
     dismiss: useMutation({ mutationFn: (id: string) => dismissMergeSuggestion(id), onSuccess: refresh }),
+    undo: useMutation({ mutationFn: (id: string) => undoMerge(id), onSuccess: refresh }),
     rationale: useMutation({ mutationFn: () => writeRankRationales(), onSuccess: refresh }),
   }
 }
+export const useMerges = () => useQuery({ queryKey: ['insights', 'merges'], queryFn: listMerges })
 export const useCustomers = () => useQuery({ queryKey: ['insights', 'customers'], queryFn: getCustomers })
 export const usePlatformJourney = () => useQuery({ queryKey: ['insights', 'journey'], queryFn: getPlatformJourney })
 export const useCaseBriefs = () => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs })

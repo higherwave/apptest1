@@ -177,6 +177,7 @@ export const saveChecklist = (id: string, version: number, items: ChecklistInput
 // Platform Insights -----------------------------------------------------------------------------------
 export type InsightsThemes = components['schemas']['InsightsThemes']
 export type PlatformThemeRow = InsightsThemes['themes'][number]
+export type MergeRecord = components['schemas']['MergeRecord']
 export type InsightRecommendation = InsightsThemes['recommendations'][number]
 export type PlatformThemeDetail = components['schemas']['PlatformThemeDetail']
 export type CaseStudy = components['schemas']['CaseStudy']
@@ -193,6 +194,8 @@ export const mergePlatformTheme = (id: string, intoId: string) => request<compon
 export const findMergeSuggestions = () => request<{ added: number; fallback?: 'budget' | 'credit' }>('/insights/merge-suggestions/run', { method: 'POST' })
 export const acceptMergeSuggestion = (id: string) => request<components['schemas']['PlatformThemeRef']>(`/insights/merge-suggestions/${id}/accept`, { method: 'POST' })
 export const dismissMergeSuggestion = (id: string) => request<null>(`/insights/merge-suggestions/${id}/dismiss`, { method: 'POST' })
+export const listMerges = () => request<components['schemas']['MergeList']>('/insights/merges').then((r) => r.data)
+export const undoMerge = (id: string) => request<components['schemas']['PlatformThemeRef']>(`/insights/merges/${id}/undo`, { method: 'POST' })
 export const writeRankRationales = () => request<{ written: number; fallback?: 'budget' | 'credit' }>('/insights/roadmap/rationale', { method: 'POST' })
 export const markThemeReviewed = (id: string) => request<null>(`/insights/themes/${id}/reviewed`, { method: 'POST' })
 export const getPlatformTheme = (id: string) => request<PlatformThemeDetail>(`/insights/themes/${id}`)
