@@ -6,6 +6,8 @@ import { anthropicProvider } from './anthropic.js'
 import { ModelOutputError, type AnalysisInput } from './ai-analysis.js'
 import type { DraftInput, StepDraft } from './ai-drafting.js'
 import type { MatchInput, Placement } from './ai-matching.js'
+import type { DedupeInput, MergeGroup } from './ai-dedupe.js'
+import type { RationaleInput, Rationale } from './ai-rationale.js'
 
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
@@ -24,6 +26,10 @@ export type AiProvider = {
   draftStep?(input: DraftInput): Promise<Priced<StepDraft & { promptVersion: string }>>
   /** Places project themes under existing or new platform themes. Providers without it use `matchThemes`, which only knows the keyword list. */
   matchPlatform?(input: MatchInput): Promise<Priced<{ placements: Placement[]; promptVersion: string }>>
+  /** Proposes platform themes to merge. Providers without it use a free word-overlap check. */
+  suggestMerges?(input: DedupeInput): Promise<Priced<{ groups: MergeGroup[]; promptVersion: string }>>
+  /** Writes why each ranked theme ranks where it does. Providers without it use a plain template from the same figures. */
+  writeRationales?(input: RationaleInput): Promise<Priced<{ rationales: Rationale[]; promptVersion: string }>>
   analyzeProject?(input: AnalysisInput): Promise<Priced<{ themes: ReturnType<Fn<'analyze'>>; promptVersion: string }>>
 }
 export type Ai = { provider: AiProvider; env: Env }

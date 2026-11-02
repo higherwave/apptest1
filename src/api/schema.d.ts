@@ -585,7 +585,8 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /** Renames a platform theme (3 to 90 characters). The old name stays as an alias. Owners and editors. 409 `duplicate_title` if another theme already has that name. */
+        patch: operations["renamePlatformTheme"];
         trace?: never;
     };
     "/insights/themes/{id}/reviewed": {
@@ -599,6 +600,91 @@ export interface paths {
         put?: never;
         /** Clears the "New, review" flag on a platform theme the model started. Owners and editors. */
         post: operations["markPlatformThemeReviewed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/themes/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Folds this platform theme into another. Its tags, recommendations and case studies move across, its name becomes an alias of the other, and it is deleted. Owners and editors. */
+        post: operations["mergePlatformTheme"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/merge-suggestions/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Compares every platform theme and files look-alike pairs as suggestions. Nothing is merged. Owners and editors; a model call when AI is live, else a free word check. */
+        post: operations["findMergeSuggestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/merge-suggestions/{id}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merges the suggested theme into the one to keep. Owners and editors. */
+        post: operations["acceptMergeSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/merge-suggestions/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Hides the suggestion for good (the pair is not suggested again). Owners and editors. */
+        post: operations["dismissMergeSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/insights/roadmap/rationale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Writes why each of the top eight ranked platform themes ranks where it does and saves it on the theme. Owners and editors; a model call when AI is live, else a plain template from the same figures. */
+        post: operations["writeRankRationales"];
         delete?: never;
         options?: never;
         head?: never;
@@ -983,6 +1069,8 @@ export interface components {
             checklist: components["schemas"]["ChecklistItem"][];
         };
         InsightsThemes: {
+            /** @description Pairs of platform themes that look like duplicates, waiting for a person to accept (merge) or dismiss, most confident first. */
+            mergeSuggestions: components["schemas"]["MergeSuggestion"][];
             /** @description Projects with a current analysis, oldest first. */
             projects: {
                 /** Format: uuid */
@@ -1003,6 +1091,26 @@ export interface components {
             };
             /** @description Ranked by reach, widest first (most projects, then most participants). */
             themes: {
+                /** @description Old names, kept when the theme was renamed or another was merged into it. */
+                aliases: string[];
+                /** @description Why it ranks where it does, written on request; null until then. */
+                rationale: string | null;
+                /** @description Suggested roadmap position among problems and needs; null for delights. */
+                priority: {
+                    rank: number;
+                    /** @description Reach (60% people, 40% projects) times what became of it, with a bump for opportunities. */
+                    score: number;
+                } | null;
+                /** @description The project themes filed under it (up to 12), with how each was matched. */
+                matches: {
+                    themeTitle: string;
+                    projectName: string;
+                    /** @enum {string} */
+                    method: "auto" | "manual";
+                    confidence: number | null;
+                    /** @description The model's one-line reason, when it made the match. */
+                    reason: string | null;
+                }[];
                 /** Format: uuid */
                 id: string;
                 title: string;
@@ -1122,6 +1230,25 @@ export interface components {
                 }[];
                 opportunities: number;
             }[];
+        };
+        PlatformThemeRef: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+        };
+        MergeSuggestion: {
+            /** Format: uuid */
+            id: string;
+            keep: components["schemas"]["MergeSuggestionTheme"];
+            merge: components["schemas"]["MergeSuggestionTheme"];
+            reason: string | null;
+            confidence: number | null;
+        };
+        MergeSuggestionTheme: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            participantCount: number;
         };
         PlatformThemeDetail: {
             /** Format: uuid */
@@ -2946,6 +3073,40 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    renamePlatformTheme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The theme. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformThemeRef"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     markPlatformThemeReviewed: {
         parameters: {
             query?: never;
@@ -2967,6 +3128,147 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    mergePlatformTheme: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    intoId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The theme that remains. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformThemeRef"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    findMergeSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many new suggestions were filed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        /**
+                         * @description The free word check was used because the budget or credit ran out.
+                         * @enum {string}
+                         */
+                        fallback?: "budget" | "credit";
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    acceptMergeSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The theme that remains. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformThemeRef"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    dismissMergeSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Dismissed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    writeRankRationales: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many rationales were written. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        written: number;
+                        /** @enum {string} */
+                        fallback?: "budget" | "credit";
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

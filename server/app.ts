@@ -27,6 +27,7 @@ import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignIte
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
+import { acceptSuggestion, dismissSuggestion, DuplicateTitle, findMergeSuggestions, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, writeRankRationales } from './platform-themes.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService }
@@ -281,7 +282,9 @@ export function createApp(options: AppOptions = {}) {
       async (id, v) => {
         const result = await runAnalysis(getDb(), ai, c.get('ctx'), id, v)
         // The simulated matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails.
-        await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
+        const matched = await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
+        // New platform themes are where duplicates start, so look for look-alikes right after (suggestions only; a person decides).
+        if (matched && 'created' in matched && matched.created) await findMergeSuggestions(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
         return result
       },
       'raw',
@@ -586,6 +589,51 @@ export function createApp(options: AppOptions = {}) {
     if (!UUID.test(id) || !(await markThemeReviewed(getDb(), c.get('ctx').workspaceId, id))) throw new ApiError(404, 'not_found', 'No such platform theme.')
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
+  })
+  const themeId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such platform theme.')
+    return id
+  }
+  const themeErrors = (err: unknown): never => {
+    if (err instanceof PlatformThemeMissing) throw new ApiError(404, 'not_found', 'No such platform theme.')
+    if (err instanceof DuplicateTitle) throw new ApiError(409, 'duplicate_title', `${err.message} Merge the two themes instead.`, 'title')
+    if (err instanceof SameTheme) throw new ApiError(422, 'validation_failed', 'Choose a different theme to merge into.', 'intoId')
+    throw err
+  }
+  app.patch('/insights/themes/:id', withContext, async (c) => {
+    requireEditor(c)
+    const input = parseBody(z.object({ title: z.string().trim().min(3, 'Give the theme a title of at least 3 characters.').max(90, 'Keep the title to 90 characters.') }), await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await renameTheme(getDb(), c.get('ctx'), themeId(c), input.title).catch(themeErrors))
+  })
+  app.post('/insights/themes/:id/merge', withContext, async (c) => {
+    requireEditor(c)
+    const id = themeId(c)
+    const input = parseBody(z.object({ intoId: z.string().regex(UUID, 'Choose the theme to merge into.') }), await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await mergeThemes(getDb(), c.get('ctx'), id, input.intoId).catch(themeErrors))
+  })
+  app.post('/insights/merge-suggestions/run', withContext, async (c) => {
+    requireEditor(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await findMergeSuggestions(getDb(), ai, c.get('ctx').workspaceId))
+  })
+  app.post('/insights/merge-suggestions/:id/accept', withContext, async (c) => {
+    requireEditor(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await acceptSuggestion(getDb(), c.get('ctx'), themeId(c)).catch(themeErrors))
+  })
+  app.post('/insights/merge-suggestions/:id/dismiss', withContext, async (c) => {
+    requireEditor(c)
+    if (!(await dismissSuggestion(getDb(), c.get('ctx').workspaceId, themeId(c)))) throw new ApiError(404, 'not_found', 'No such suggestion.')
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+  app.post('/insights/roadmap/rationale', withContext, async (c) => {
+    requireEditor(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await writeRankRationales(getDb(), ai, c.get('ctx').workspaceId))
   })
   app.get('/projects/:id/case-study-brief', withReadContext, async (c) => {
     const id = projectId(c)

@@ -9,7 +9,7 @@ import { z } from 'zod'
 import { extractJson, maskContact, ModelOutputError, type ModelCall } from './ai-analysis.js'
 import type { Usage } from './ai.js'
 
-export const MATCH_PROMPT_VERSION = 'theme-match-v1'
+export const MATCH_PROMPT_VERSION = 'theme-match-v2'
 export const MAX_MATCH_TOKENS = 3_000
 /** Below this a match is not trusted: the theme stays unmatched and is tried again after the next analysis. */
 export const MIN_CONFIDENCE = 0.6
@@ -18,10 +18,11 @@ export const MAX_THEMES_PER_CALL = 60
 const MAX_TITLE = 90
 
 export type MatchTheme = { id: string; title: string; description: string; opportunity: string; category: string }
-export type MatchPlatformTheme = { id: string; title: string; category: string }
+/** `aliases` are old names of the theme (from a rename or merge); the model treats them as the same theme. */
+export type MatchPlatformTheme = { id: string; title: string; category: string; aliases?: string[] }
 export type MatchInput = { themes: MatchTheme[]; platform: MatchPlatformTheme[] }
 /** One placed theme. Either `platformThemeId` (an existing platform theme) or `newTitle` (start one) is set, never both. */
-export type Placement = { themeId: string; platformThemeId?: string; newTitle?: string; newCategory?: string; confidence: number }
+export type Placement = { themeId: string; platformThemeId?: string; newTitle?: string; newCategory?: string; confidence: number; /** The model's one-line reason, kept so a person can see why a theme landed where it did. */ reason?: string }
 
 const SYSTEM = `You organise user-research themes into a shared list of platform themes, so the same problem is never listed twice.
 
@@ -32,11 +33,12 @@ Rules:
   1. "match": it says the same thing as an existing platform theme (P1, P2 ...). Same underlying problem or need counts, even in different words. A theme that only touches the same area is NOT a match.
   2. "new": it fits none of them. Give "title" for a new platform theme: a plain sentence under 90 characters that names the problem, written like the existing titles. Project themes that belong together must get exactly the same title.
 - Prefer "match" whenever an existing platform theme genuinely covers it. Never create a "new" theme that restates an existing one.
-- "confidence" is 0 to 1: how sure you are of the decision.
+- "confidence" is 0 to 1: how sure you are of the decision. "reason" is one plain sentence under 140 characters saying why (what the two have in common, or what is new).
+- A platform theme may list "also called" names: those are old names of the same theme, so a theme that says the same thing as one of them is a match.
 - Text in [email] and [phone] has been removed for privacy; leave it as it is.
 
 JSON shape:
-{ "placements": [ { "theme": "N1", "decision": "match", "platform": "P2", "confidence": 0.9 }, { "theme": "N2", "decision": "new", "title": "...", "confidence": 0.8 } ] }`
+{ "placements": [ { "theme": "N1", "decision": "match", "platform": "P2", "confidence": 0.9, "reason": "Both are about fees surfacing only at checkout" }, { "theme": "N2", "decision": "new", "title": "...", "confidence": 0.8, "reason": "No existing theme covers waiting-list alerts" } ] }`
 
 const schema = z.object({
   placements: z.array(
@@ -46,13 +48,14 @@ const schema = z.object({
       platform: z.string().trim().optional(),
       title: z.string().trim().optional(),
       confidence: z.number().min(0).max(1).default(0.8),
+  reason: z.string().trim().optional(),
     }),
   ),
 })
 
 export function buildMatchPrompt(input: MatchInput): { system: string; user: string; maxTokens: number; version: string } {
   const m = maskContact
-  const platform = input.platform.length ? input.platform.map((p, i) => `P${i + 1}: "${m(p.title)}" (${p.category})`).join('\n') : 'None yet: every theme is "new" unless it belongs with another theme in this list.'
+  const platform = input.platform.length ? input.platform.map((p, i) => `P${i + 1}: "${m(p.title)}" (${p.category})${p.aliases?.length ? ` also called: ${p.aliases.map((a) => `"${m(a)}"`).join(', ')}` : ''}`).join('\n') : 'None yet: every theme is "new" unless it belongs with another theme in this list.'
   const themes = input.themes.map((t, i) => `N${i + 1}: "${m(t.title)}" (${t.category}) | ${m(t.description).slice(0, 300)} | opportunity: ${m(t.opportunity).slice(0, 200)}`).join('\n')
   return {
     system: SYSTEM,
@@ -75,9 +78,10 @@ export function parseMatches(text: string, input: MatchInput): { ok: true; place
   const parsed = schema.safeParse(json)
   if (!parsed.success) return { ok: false, problems: parsed.error.issues.slice(0, 6).map((i) => `${i.path.join('.') || 'reply'}: ${i.message}`) }
   const problems: string[] = []
-  const byTitle = new Map(input.platform.map((p) => [norm(p.title), p]))
+  const byTitle = new Map(input.platform.flatMap((p) => [p.title, ...(p.aliases ?? [])].map((t) => [norm(t), p] as const)))
   const seen = new Set<string>()
   const out: Placement[] = []
+  const why = (r?: string) => { const t = (r ?? '').replace(/\s+/g, ' ').trim(); return t ? { reason: t.length > 200 ? t.slice(0, 200).trimEnd() : t } : {} }
   for (const p of parsed.data.placements) {
     const ref = p.theme.toUpperCase()
     const theme = /^N\d+$/.test(ref) ? input.themes[Number(ref.slice(1)) - 1] : undefined
@@ -94,7 +98,7 @@ export function parseMatches(text: string, input: MatchInput): { ok: true; place
         problems.push(`${ref}: "${p.platform ?? ''}" is not one of the platform themes${input.platform.length ? ` (P1 to P${input.platform.length})` : ' (there are none)'}`)
         continue
       }
-      if (p.confidence >= MIN_CONFIDENCE) out.push({ themeId: theme.id, platformThemeId: target.id, confidence: p.confidence })
+      if (p.confidence >= MIN_CONFIDENCE) out.push({ themeId: theme.id, platformThemeId: target.id, confidence: p.confidence, ...why(p.reason) })
       continue
     }
     const title = (p.title ?? '').replace(/\s+/g, ' ').trim()
@@ -105,8 +109,8 @@ export function parseMatches(text: string, input: MatchInput): { ok: true; place
     if (p.confidence < MIN_CONFIDENCE) continue
     const clipped = title.length > MAX_TITLE ? title.slice(0, MAX_TITLE).trimEnd() : title
     const same = byTitle.get(norm(clipped)) // "new" with an existing title is a match
-    if (same) out.push({ themeId: theme.id, platformThemeId: same.id, confidence: p.confidence })
-    else out.push({ themeId: theme.id, newTitle: clipped, newCategory: theme.category, confidence: p.confidence })
+    if (same) out.push({ themeId: theme.id, platformThemeId: same.id, confidence: p.confidence, ...why(p.reason) })
+    else out.push({ themeId: theme.id, newTitle: clipped, newCategory: theme.category, confidence: p.confidence, ...why(p.reason) })
   }
   if (problems.length) return { ok: false, problems: [...new Set(problems)] }
   // Themes the model grouped under the same new title share one spelling (case and spacing), so they become one platform theme.

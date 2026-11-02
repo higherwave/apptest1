@@ -30,7 +30,16 @@ export type PlatformThemeRow = {
   sources: { projectId: string; participantCount: number }[]
   /** What the theme means, in the words of the project that raised it most (its widest reach); null when no project wrote a description. */
   summary: string | null
+  /** The project themes filed under it, with how each was matched and, for the model's matches, why. */
+  matches: { themeTitle: string; projectName: string; method: 'auto' | 'manual'; confidence: number | null; reason: string | null }[]
+  /** Suggested roadmap order among problems and needs (delights are not ranked): reach and breadth, weighed by what became of it. */
+  priority: { rank: number; score: number } | null
+  /** Why it ranks where it does, written on request; null until then. */
+  rationale: string | null
+  /** Old names, from a rename or a merge. */
+  aliases: string[]
 }
+export type MergeSuggestion = { id: string; keep: { id: string; title: string; participantCount: number }; merge: { id: string; title: string; participantCount: number }; reason: string | null; confidence: number | null }
 export type Recommendation = {
   id: string
   title: string
@@ -46,6 +55,8 @@ export type ThemesOverview = {
   summary: { recurring: number; opportunities: number; needsAttention: number; worked: number }
   themes: PlatformThemeRow[]
   recommendations: Recommendation[]
+  /** Pairs of platform themes the model (or the word check) thinks say the same thing, waiting for a person to accept or dismiss. */
+  mergeSuggestions: MergeSuggestion[]
 }
 export type InsightQuote = { id: string; text: string; speaker: string; session: string; timestamp: string | null }
 export type PlatformThemeDetail = {
@@ -162,9 +173,9 @@ export async function projectsWithAnalysis(db: Queryable, workspaceId: string): 
 
 // Themes across every analysed project, the recommendations drawn from them, and the numbers behind both.
 export async function getThemesOverview(db: Queryable, workspaceId: string): Promise<ThemesOverview> {
-  const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows] = await Promise.all([
+  const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows, matchRows, aliasRows, suggestionRows] = await Promise.all([
     projectsWithAnalysis(db, workspaceId),
-    db.query(`select id, title, category, needs_review from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
+    db.query(`select id, title, category, needs_review, rationale from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
     db.query(PEOPLE, [workspaceId]),
     db.query(`select id, title, why, priority from insights.recommendations where workspace_id = $1 order by position, title`, [workspaceId]),
     db.query(
@@ -190,6 +201,17 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
        where s.workspace_id = $1 and coalesce(trim(t.description), '') <> ''`,
       [workspaceId],
     ),
+    db.query(
+      `select s.platform_theme_id, s.match_method, s.confidence::float8 as confidence, s.reason, t.title as theme_title, p.name as project_name
+       from insights.platform_theme_sources s
+       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join research.themes t on t.id = s.theme_id
+       join core.projects p on p.id = c.project_id
+       where s.workspace_id = $1 order by p.created_at, p.name, t.title`,
+      [workspaceId],
+    ),
+    db.query(`select platform_theme_id, alias from insights.platform_theme_aliases where workspace_id = $1 order by created_at, alias`, [workspaceId]),
+    db.query(`select id, keep_id, merge_id, reason, confidence::float8 as confidence from insights.merge_suggestions where workspace_id = $1 and status = 'pending' order by confidence desc nulls last, created_at`, [workspaceId]),
   ])
   // theme -> project -> people
   const byTheme = new Map<string, Map<string, Set<string>>>()
@@ -226,8 +248,19 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     const reach = (projectId: string) => sources.find((x) => x.projectId === projectId)?.participantCount ?? 0
     const described = describedRows.rows.filter((r) => r.platform_theme_id === t.id).sort((a, b) => reach(b.project_id) - reach(a.project_id))
     const summary = described.length ? String(described[0].description).trim() : null
-    return { id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary }
+    const matches = matchRows.rows.filter((r) => r.platform_theme_id === t.id).slice(0, 12).map((r) => ({ themeTitle: r.theme_title as string, projectName: r.project_name as string, method: r.match_method as 'auto' | 'manual', confidence: (r.confidence ?? null) as number | null, reason: (r.reason ?? null) as string | null }))
+    return {
+      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
+      matches, priority: null, rationale: (t.rationale ?? null) as string | null, aliases: aliasRows.rows.filter((a) => a.platform_theme_id === t.id).map((a) => a.alias as string),
+    }
   })
+  // Suggested roadmap order: how widely it was raised (people and projects), weighed by what became of it. Delights are not ranked.
+  const totalPeople = projects.reduce((n, p) => n + p.participants, 0)
+  const scored = themes
+    .filter((t) => t.category !== 'delight')
+    .map((t) => ({ t, score: priorityScore(t, totalPeople, projects.length) }))
+    .sort((a, b) => b.score - a.score || b.t.participantCount - a.t.participantCount || a.t.title.localeCompare(b.t.title))
+  scored.forEach((x, i) => (x.t.priority = { rank: i + 1, score: x.score }))
   // Reach first: raised in the most projects, then by the most people.
   themes.sort((a, b) => b.projectCount - a.projectCount || b.participantCount - a.participantCount || a.title.localeCompare(b.title))
   const recommendations: Recommendation[] = recRows.rows.map((r) => {
@@ -241,7 +274,21 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     needsAttention: themes.filter((t) => t.status === 'needs_attention').length,
     worked: themes.filter((t) => t.status === 'worked').length,
   }
-  return { projects, totalParticipants: projects.reduce((n, p) => n + p.participants, 0), summary, themes, recommendations }
+  const byId = new Map(themes.map((t) => [t.id, t]))
+  const mergeSuggestions: MergeSuggestion[] = suggestionRows.rows.flatMap((r) => {
+    const keep = byId.get(r.keep_id)
+    const merge = byId.get(r.merge_id)
+    return keep && merge ? [{ id: r.id as string, keep: { id: keep.id, title: keep.title, participantCount: keep.participantCount }, merge: { id: merge.id, title: merge.title, participantCount: merge.participantCount }, reason: (r.reason ?? null) as string | null, confidence: (r.confidence ?? null) as number | null }] : []
+  })
+  return { projects, totalParticipants: totalPeople, summary, themes, recommendations, mergeSuggestions }
+}
+
+const STATUS_WEIGHT: Record<ThemeStatus, number> = { not_addressed: 1, needs_attention: 1.1, in_progress: 0.5, too_early: 0.4, worked: 0.1 }
+/** 0 to about 130: reach (60% people, 40% projects) times what became of it, with a bump for opportunities. */
+export function priorityScore(t: Pick<PlatformThemeRow, 'participantCount' | 'projectCount' | 'status' | 'opportunity'>, totalPeople: number, totalProjects: number): number {
+  const people = totalPeople ? Math.min(1, t.participantCount / totalPeople) : 0
+  const projects = totalProjects ? Math.min(1, t.projectCount / totalProjects) : 0
+  return Math.round(100 * (0.6 * people + 0.4 * projects) * STATUS_WEIGHT[t.status] * (t.opportunity ? 1.15 : 1))
 }
 
 const MAX_QUOTES = 5
@@ -369,15 +416,24 @@ export async function refreshPlatformMatches(db: Db, ai: Ai, workspaceId: string
   return ai.provider.matchPlatform ? refreshByModel(db, ai, workspaceId) : refreshByKeywords(db, ai, workspaceId)
 }
 
-type PlatformRow = { id: string; title: string; category: string }
+type PlatformRow = { id: string; title: string; category: string; aliases: string[] }
+
+// The keyword list is keyed by a theme's original title, so a renamed or merged theme keeps its keywords through its old names.
+const keywordsFor = (title: string, aliases: string[] = []): string[] => [...new Set([title, ...aliases].flatMap((t) => PLATFORM_KEYWORDS[t] ?? []))]
+const aliasesByTheme = async (db: Queryable, workspaceId: string) => {
+  const m = new Map<string, string[]>()
+  for (const r of (await db.query(`select platform_theme_id, alias from insights.platform_theme_aliases where workspace_id = $1 order by created_at, alias`, [workspaceId])).rows) m.set(r.platform_theme_id, [...(m.get(r.platform_theme_id) ?? []), r.alias])
+  return m
+}
 
 // The simulated matcher: re-reads every project's current themes and tags each with the platform theme whose keywords it
 // matches best. Automatic tags are replaced; a tag someone set by hand is never touched. Run after each analysis,
 // so the Insights numbers follow the projects.
 async function refreshByKeywords(db: Db, ai: Ai, workspaceId: string): Promise<{ matched: number }> {
   return db.transaction(async (tx) => {
+    const aliases = await aliasesByTheme(tx, workspaceId)
     const platform = (await tx.query(`select id, title from insights.platform_themes where workspace_id = $1`, [workspaceId])).rows
-      .map((p) => ({ id: p.id as string, keywords: PLATFORM_KEYWORDS[p.title as string] ?? [] }))
+      .map((p) => ({ id: p.id as string, keywords: keywordsFor(p.title as string, aliases.get(p.id)) }))
       .filter((p) => p.keywords.length)
     const themes = (await tx.query(CURRENT_THEME_ROWS, [workspaceId])).rows.map((t) => ({ id: t.id as string, title: t.title as string, description: t.description ?? '', opportunity: t.opportunity ?? '' }))
     const manual = new Set((await tx.query(`select theme_id from insights.platform_theme_sources where workspace_id = $1 and match_method = 'manual'`, [workspaceId])).rows.map((r) => r.theme_id as string))
@@ -402,7 +458,8 @@ async function refreshByKeywords(db: Db, ai: Ai, workspaceId: string): Promise<{
 // a lock and the ledger keeps the cost even if the write fails. A theme the model puts under a title no platform theme has starts a
 // new platform theme, flagged for review; at the budget or credit ceiling the keyword matcher stands in and starts nothing.
 async function refreshByModel(db: Db, ai: Ai, workspaceId: string): Promise<{ matched: number; created: number }> {
-  const platform: PlatformRow[] = (await db.query(`select id, title, category from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId])).rows as PlatformRow[]
+  const aliases = await aliasesByTheme(db, workspaceId)
+  const platform: PlatformRow[] = (await db.query(`select id, title, category from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId])).rows.map((p) => ({ id: p.id as string, title: p.title as string, category: p.category as string, aliases: aliases.get(p.id) ?? [] }))
   const unplaced = (
     await db.query(`${CURRENT_THEME_ROWS} where not exists (select 1 from insights.platform_theme_sources s where s.theme_id = t.id) order by t.created_at, t.title limit ${MAX_THEMES_PER_CALL}`, [workspaceId])
   ).rows.map((t) => ({ id: t.id as string, title: t.title as string, category: t.category as string, description: (t.description ?? '') as string, opportunity: (t.opportunity ?? '') as string }))
@@ -414,7 +471,7 @@ async function refreshByModel(db: Db, ai: Ai, workspaceId: string): Promise<{ ma
         const r = await p.matchPlatform({ themes: unplaced, platform })
         return { value: r.value.placements, usage: r.usage }
       }
-      const keyed = platform.map((x) => ({ id: x.id, keywords: PLATFORM_KEYWORDS[x.title] ?? [] })).filter((x) => x.keywords.length)
+      const keyed = platform.map((x) => ({ id: x.id, keywords: keywordsFor(x.title, x.aliases) })).filter((x) => x.keywords.length)
       return { value: matchThemes(unplaced, keyed).map((m: { themeId: string; platformThemeId: string; confidence: number }): Placement => ({ ...m })), usage: { inputTokens: 0, outputTokens: 0, costUsd: 0 } }
     })
     placements = value
@@ -425,14 +482,16 @@ async function refreshByModel(db: Db, ai: Ai, workspaceId: string): Promise<{ ma
     await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [`platform-match:${workspaceId}`])
     // A tag on a theme that is no longer current (its project was re-analysed) goes with it.
     await tx.query(`delete from insights.platform_theme_sources s where s.workspace_id = $1 and not exists (select 1 from (${CURRENT_THEMES}) c where c.id = s.theme_id)`, [workspaceId])
+    const norm = (t: string) => t.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
     const byTitle = new Map<string, string>()
-    for (const p of (await tx.query(`select id, title from insights.platform_themes where workspace_id = $1`, [workspaceId])).rows) byTitle.set(String(p.title).trim().toLowerCase(), p.id as string)
+    for (const p of (await tx.query(`select id, title from insights.platform_themes where workspace_id = $1`, [workspaceId])).rows) byTitle.set(norm(String(p.title)), p.id as string)
+    for (const a of (await tx.query(`select platform_theme_id, alias from insights.platform_theme_aliases where workspace_id = $1`, [workspaceId])).rows) if (!byTitle.has(norm(String(a.alias)))) byTitle.set(norm(String(a.alias)), a.platform_theme_id as string)
     let matched = 0
     let created = 0
     for (const m of placements) {
       let target = m.platformThemeId
       if (!target && m.newTitle) {
-        const key = m.newTitle.trim().toLowerCase()
+        const key = norm(m.newTitle)
         target = byTitle.get(key)
         if (!target) {
           const made = await tx.query(
@@ -448,10 +507,10 @@ async function refreshByModel(db: Db, ai: Ai, workspaceId: string): Promise<{ ma
       if (!target) continue
       // Only a theme that is still current and still untagged is tagged (a hand-made tag is never replaced).
       const res = await tx.query(
-        `insert into insights.platform_theme_sources (platform_theme_id, theme_id, workspace_id, match_method, confidence)
-         select $3, $2, $1, 'auto', $4 where exists (select 1 from (${CURRENT_THEMES}) c where c.id = $2) and not exists (select 1 from insights.platform_theme_sources where theme_id = $2)
+        `insert into insights.platform_theme_sources (platform_theme_id, theme_id, workspace_id, match_method, confidence, reason)
+         select $3, $2, $1, 'auto', $4, $5 where exists (select 1 from (${CURRENT_THEMES}) c where c.id = $2) and not exists (select 1 from insights.platform_theme_sources where theme_id = $2)
          on conflict do nothing returning theme_id`,
-        [workspaceId, m.themeId, target, Number(m.confidence.toFixed(2))],
+        [workspaceId, m.themeId, target, Number(m.confidence.toFixed(2)), m.reason ?? null],
       )
       matched += res.rows.length
     }

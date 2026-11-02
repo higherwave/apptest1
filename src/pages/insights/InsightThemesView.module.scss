@@ -198,3 +198,10 @@
   .rowTitle,
   .rowCount { flex: 1 1 100%; }
 }
+
+.order {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}

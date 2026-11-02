@@ -5,6 +5,8 @@ import { ApiError } from './errors.js'
 import { analyzeWithModel, type AnalysisInput, type ModelCall } from './ai-analysis.js'
 import { draftWithModel } from './ai-drafting.js'
 import { matchWithModel } from './ai-matching.js'
+import { dedupeWithModel } from './ai-dedupe.js'
+import { rationalesWithModel } from './ai-rationale.js'
 import { simulatedProvider, type AiProvider, type Usage } from './ai.js'
 
 export const DEFAULT_ANALYSIS_MODEL = 'claude-sonnet-5-5'
@@ -77,6 +79,14 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
     matchPlatform: async (input) => {
       const r = await matchWithModel(matchCall, input)
       return { value: { placements: r.placements, promptVersion: r.promptVersion }, usage: r.usage }
+    },
+    suggestMerges: async (input) => {
+      const r = await dedupeWithModel(matchCall, input)
+      return { value: { groups: r.groups, promptVersion: r.promptVersion }, usage: r.usage }
+    },
+    writeRationales: async (input) => {
+      const r = await rationalesWithModel(matchCall, input)
+      return { value: { rationales: r.rationales, promptVersion: r.promptVersion }, usage: r.usage }
     },
     draftStep: async (input) => {
       const r = await draftWithModel(draftCall, input)

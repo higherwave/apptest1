@@ -109,6 +109,25 @@ theme is created with `needs_review` (migration 0020) and shows a "New, review" 
 if the research behind an unreviewed one goes away, it goes too. Hand-made tags are never replaced. The call is made before the write
 transaction opens. At the budget or credit ceiling the keyword matcher places what it knows and starts nothing new.
 
+## Keeping Platform Themes tidy
+
+Migration 0021. Owners and editors can **rename** a platform theme (`PATCH /insights/themes/{id}`) or **merge** one into another
+(`POST /insights/themes/{id}/merge`: tags, recommendations and case studies move across, the old name becomes an *alias*, the merged
+theme is deleted, and the audit log records it). Aliases are shown to the matcher ("also called"), so a theme the old name describes
+attaches to the right place. Every model match stores its one-line reason and confidence (`platform_theme_sources.reason`); the open
+theme shows them under "How themes were matched".
+
+`server/ai-dedupe.ts` (prompt `theme-dedupe-v1`, Haiku) compares *all* platform themes and files look-alike pairs in
+`insights.merge_suggestions`; nothing merges until a person clicks Merge (or Not the same, which is remembered). It runs after an
+analysis that created a new platform theme, and from the **Check for duplicates** button. Without a model, or at the budget, a free
+word-overlap check files the obvious ones.
+
+The overview ranks problems and needs (`priority.rank`, `priority.score`: 60% share of participants plus 40% share of projects, times
+0.1 for worked up to 1.1 for needs attention, times 1.15 for an opportunity; delights are not ranked). The **Suggested priority** order
+sorts by it. `server/ai-rationale.ts` (prompt `rank-rationale-v1`) writes one or two sentences for each of the top eight
+(`POST /insights/roadmap/rationale`); every "N of M participants/projects" it writes must be a figure it was given, and without a model a
+plain template from the same figures is used.
+
 ## Spend alerts
 
 `GET /ai/status` returns `spendLevel` (`ok`, `half` from 50%, `high` from 80%, `reached` at 100% of `AI_MONTHLY_BUDGET_USD`) and `month`

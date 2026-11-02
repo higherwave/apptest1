@@ -5,6 +5,7 @@ import type { InsightsThemes } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
+import { DuplicatesPanel, MatchList, PriorityNote, ThemeTools, type Curation } from './ThemeCuration'
 import { STATUS } from './labels'
 import styles from './InsightThemesView.module.scss'
 
@@ -19,6 +20,8 @@ export type InsightThemesViewProps = {
   canReview?: boolean
   reviewing?: boolean
   onReviewed?: (id: string) => void
+  /** Rename, merge, duplicate suggestions and the rank rationale. */
+  curation?: Curation
 }
 
 type Row = InsightsThemes['themes'][number]
@@ -33,17 +36,21 @@ const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => numbe
   { key: 'worked', label: 'Worked', count: (o) => o.summary.worked, keep: (t) => t.status === 'worked' },
 ]
 
+const NO_CURATION: Curation = { canEdit: false, busy: false, onRename: () => {}, onMerge: () => {}, onFindDuplicates: () => {}, onAccept: () => {}, onDismiss: () => {}, onRationale: () => {} }
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
 // Presentational: what the team should do (recommendations), then every theme seen across projects as a row that opens to say where it
 // comes from, what it means and what to do about it. Scanning the rows is the point; the evidence lives in each project.
-export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed }: InsightThemesViewProps) {
+export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed, curation }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter>('all')
   // A recommendation picked on the strip narrows the table to the themes it covers.
   const [recId, setRecId] = useState<string | null>(null)
   const rec = overview?.recommendations.find((r) => r.id === recId) ?? null
   const byCount = overview ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : []
-  const shown = rec ? byCount.filter((t) => rec.themes.some((x) => x.id === t.id)) : byCount
+  const narrowed = rec ? byCount.filter((t) => rec.themes.some((x) => x.id === t.id)) : byCount
+  // Reach is the server's order; Suggested priority follows the rank (delights, which are not ranked, last).
+  const [order, setOrder] = useState<'reach' | 'priority'>('reach')
+  const shown = order === 'priority' ? [...narrowed].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)) : narrowed
   return (
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
@@ -68,6 +75,17 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                 )
               })}
             </section>
+          </div>
+
+          {curation && <DuplicatesPanel suggestions={overview.mergeSuggestions} curation={curation} />}
+
+          <div className={styles.order} role="group" aria-label="Order the themes">
+            <span className={styles.label}>Order</span>
+            {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
+              <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
+                {label}
+              </Button>
+            ))}
           </div>
 
           {rec && (
@@ -101,6 +119,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                         <span className={styles.chips}>
                           <CategoryBadge category={t.category} />
                           {t.needsReview && <Tag size="sm" type="warm-gray">New · review</Tag>}
+                          {order === 'priority' && t.priority && <Tag size="sm" type="purple">#{t.priority.rank}</Tag>}
                           {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
                         </span>
                         <span>
@@ -122,6 +141,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           <p className={styles.text}>
                             Raised by {t.participantCount} of {overview.totalParticipants} participants across {t.projectCount} of {plural(overview.projects.length, 'project')}.
                           </p>
+                          {t.aliases.length > 0 && <p className={styles.text}>Also known as: {t.aliases.join('; ')}.</p>}
                         </section>
                         {t.needsReview && (
                           <section aria-label="Needs review" data-testid={`review-${t.id}`}>
@@ -134,10 +154,13 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                             )}
                           </section>
                         )}
+                        <PriorityNote theme={t} curation={curation ?? NO_CURATION} />
                         <section aria-label="Theme summary">
                           <h3 className={styles.label}>Theme summary</h3>
                           <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>
                         </section>
+                        <MatchList theme={t} />
+                        {curation?.canEdit && <ThemeTools key={`${t.id}:${t.title}`} theme={t} others={overview.themes.filter((x) => x.id !== t.id)} curation={curation} />}
                         <section aria-label="Recommendation">
                           <h3 className={styles.label}>Recommendation</h3>
                           {recs.length === 0 ? (

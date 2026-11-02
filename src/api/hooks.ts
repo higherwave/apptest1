@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed,
+  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, getDesign, saveDesignItem, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, getMe, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -125,6 +125,19 @@ export const usePlatformTheme = (id: string | null) => useQuery({ queryKey: ['in
 export const useMarkThemeReviewed = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (id: string) => markThemeReviewed(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['insights'] }) })
+}
+// Keeping platform themes tidy: each action changes the themes, so every Platform Insights query is refreshed afterwards.
+export const useThemeCuration = () => {
+  const queryClient = useQueryClient()
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ['insights'] })
+  return {
+    rename: useMutation({ mutationFn: (v: { id: string; title: string }) => renamePlatformTheme(v.id, v.title), onSuccess: refresh }),
+    merge: useMutation({ mutationFn: (v: { id: string; intoId: string }) => mergePlatformTheme(v.id, v.intoId), onSuccess: refresh }),
+    find: useMutation({ mutationFn: () => findMergeSuggestions(), onSuccess: refresh }),
+    accept: useMutation({ mutationFn: (id: string) => acceptMergeSuggestion(id), onSuccess: refresh }),
+    dismiss: useMutation({ mutationFn: (id: string) => dismissMergeSuggestion(id), onSuccess: refresh }),
+    rationale: useMutation({ mutationFn: () => writeRankRationales(), onSuccess: refresh }),
+  }
 }
 export const useCustomers = () => useQuery({ queryKey: ['insights', 'customers'], queryFn: getCustomers })
 export const usePlatformJourney = () => useQuery({ queryKey: ['insights', 'journey'], queryFn: getPlatformJourney })

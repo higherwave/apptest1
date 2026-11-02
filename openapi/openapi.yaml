@@ -773,6 +773,32 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /insights/themes/{id}:
+    patch:
+      operationId: renamePlatformTheme
+      summary: Renames a platform theme (3 to 90 characters). The old name stays as an alias. Owners and editors. 409 `duplicate_title` if another theme already has that name.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string, minLength: 3, maxLength: 90 }
+      responses:
+        '200':
+          description: The theme.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformThemeRef' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
     get:
       operationId: getPlatformTheme
       summary: One platform theme and where it comes from, per project, with some quotes. Open to read as the viewer.
@@ -798,6 +824,96 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/themes/{id}/merge:
+    post:
+      operationId: mergePlatformTheme
+      summary: Folds this platform theme into another. Its tags, recommendations and case studies move across, its name becomes an alias of the other, and it is deleted. Owners and editors.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intoId]
+              properties:
+                intoId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: The theme that remains.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformThemeRef' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/merge-suggestions/run:
+    post:
+      operationId: findMergeSuggestions
+      summary: Compares every platform theme and files look-alike pairs as suggestions. Nothing is merged. Owners and editors; a model call when AI is live, else a free word check.
+      responses:
+        '200':
+          description: How many new suggestions were filed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added]
+                properties:
+                  added: { type: integer }
+                  fallback: { type: string, enum: [budget, credit], description: The free word check was used because the budget or credit ran out. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/merge-suggestions/{id}/accept:
+    post:
+      operationId: acceptMergeSuggestion
+      summary: Merges the suggested theme into the one to keep. Owners and editors.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The theme that remains.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PlatformThemeRef' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/merge-suggestions/{id}/dismiss:
+    post:
+      operationId: dismissMergeSuggestion
+      summary: Hides the suggestion for good (the pair is not suggested again). Owners and editors.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Dismissed. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /insights/roadmap/rationale:
+    post:
+      operationId: writeRankRationales
+      summary: Writes why each of the top eight ranked platform themes ranks where it does and saves it on the theme. Owners and editors; a model call when AI is live, else a plain template from the same figures.
+      responses:
+        '200':
+          description: How many rationales were written.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [written]
+                properties:
+                  written: { type: integer }
+                  fallback: { type: string, enum: [budget, credit] }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /insights/customers:
     get:
@@ -1292,8 +1408,12 @@ components:
           items: { $ref: '#/components/schemas/ChecklistItem' }
     InsightsThemes:
       type: object
-      required: [projects, totalParticipants, summary, themes, recommendations]
+      required: [projects, totalParticipants, summary, themes, recommendations, mergeSuggestions]
       properties:
+        mergeSuggestions:
+          type: array
+          description: Pairs of platform themes that look like duplicates, waiting for a person to accept (merge) or dismiss, most confident first.
+          items: { $ref: '#/components/schemas/MergeSuggestion' }
         projects:
           type: array
           description: Projects with a current analysis, oldest first.
@@ -1320,8 +1440,29 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, needsReview, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary]
+            required: [id, title, category, needsReview, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
             properties:
+              aliases: { type: array, items: { type: string }, description: 'Old names, kept when the theme was renamed or another was merged into it.' }
+              rationale: { type: [string, 'null'], description: 'Why it ranks where it does, written on request; null until then.' }
+              priority:
+                type: [object, 'null']
+                description: Suggested roadmap position among problems and needs; null for delights.
+                required: [rank, score]
+                properties:
+                  rank: { type: integer, minimum: 1 }
+                  score: { type: integer, description: 'Reach (60% people, 40% projects) times what became of it, with a bump for opportunities.' }
+              matches:
+                type: array
+                description: The project themes filed under it (up to 12), with how each was matched.
+                items:
+                  type: object
+                  required: [themeTitle, projectName, method, confidence, reason]
+                  properties:
+                    themeTitle: { type: string }
+                    projectName: { type: string }
+                    method: { type: string, enum: [auto, manual] }
+                    confidence: { type: [number, 'null'] }
+                    reason: { type: [string, 'null'], description: 'The model''s one-line reason, when it made the match.' }
               id: { type: string, format: uuid }
               title: { type: string }
               category: { type: string, enum: [pain_point, need, expectation, delight] }
@@ -1461,6 +1602,28 @@ components:
                     status: { type: string, enum: [not_addressed, in_progress, too_early, worked, needs_attention] }
                     opportunity: { type: boolean }
               opportunities: { type: integer }
+    PlatformThemeRef:
+      type: object
+      required: [id, title]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+    MergeSuggestion:
+      type: object
+      required: [id, keep, merge, reason, confidence]
+      properties:
+        id: { type: string, format: uuid }
+        keep: { $ref: '#/components/schemas/MergeSuggestionTheme' }
+        merge: { $ref: '#/components/schemas/MergeSuggestionTheme' }
+        reason: { type: [string, 'null'] }
+        confidence: { type: [number, 'null'] }
+    MergeSuggestionTheme:
+      type: object
+      required: [id, title, participantCount]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        participantCount: { type: integer }
     PlatformThemeDetail:
       type: object
       required: [id, title, category, needsReview, participantCount, totalParticipants, projectCount, totalProjects, sources, quotes]
