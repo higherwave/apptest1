@@ -1,7 +1,9 @@
 // Keeps a pinned copy of the design-system rules in vendor/design-rules/, so the linter runs with no sibling checkout
-// (a fresh clone, CI, a new company's fork). The copy is two files from the design-system-mcp repo:
+// (a fresh clone, CI, a new company's fork). The copy is four files from the design-system-mcp repo:
 //   lib/validateRules.ts      the validator
 //   registry/components.json  the allowlist of components
+//   registry/tokens.json      the design tokens, as data
+//   scripts/check-tokens.mjs  the drift check between tokens.json and src/theme.scss
 // and vendor/design-rules/SOURCE.json records where they came from and a hash of each, so a hand edit is caught by the tests.
 //
 //   npm run rules:sync                       copy from ../design-system-mcp if it is checked out, else download from `repo` in SOURCE.json
@@ -19,6 +21,8 @@ const dir = join(root, 'vendor', 'design-rules')
 const FILES = [
   { upstream: 'lib/validateRules.ts', local: 'validateRules.ts' },
   { upstream: 'registry/components.json', local: 'components.json' },
+  { upstream: 'registry/tokens.json', local: 'tokens.json' },
+  { upstream: 'scripts/check-tokens.mjs', local: 'check-tokens.mjs' },
 ]
 const sha256 = (s) => createHash('sha256').update(s).digest('hex')
 

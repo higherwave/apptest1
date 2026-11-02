@@ -1,0 +1,64 @@
+# Every push to main and every pull request: the same checks `npm run check:all` runs, plus a production build and the browser
+# tests. Nothing here needs a database or any secret: tests run on an in-memory Postgres, and the build skips migrations because
+# it is not a Vercel production build (see db/deploy-migrate.mjs).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            db/package-lock.json
+      - run: npm ci
+      - run: npm --prefix db ci
+      - name: Types
+        run: npm run typecheck
+      - name: Lint
+        run: npm run lint
+      - name: API and unit tests
+        run: npm run test:api
+      - name: Database tests
+        run: npm run test:db
+      - name: Design-system rules over src/
+        run: npm run validate:pages
+      - name: Token registry matches theme.scss
+        run: npm run check:tokens
+      - name: API types match openapi.yaml
+        run: npm run check:api-types
+      - name: Production build
+        run: npm run build
+      # Informational: says when the pinned design rules fall behind the design-system repo. It does not fail the build.
+      - name: Pinned design rules are current
+        run: npm run rules:check
+        continue-on-error: true
+
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Browser tests (in-memory API, headless Chrome)
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run e2e

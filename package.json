@@ -14,7 +14,7 @@
     "test": "npm run test:api && npm run test:db",
     "test:db": "npm --prefix db test",
     "validate:pages": "node --experimental-strip-types --no-warnings scripts/validate-pages.mjs",
-    "check:all": "npm run typecheck && npm test && npm run validate:pages",
+    "check:all": "npm run typecheck && npm test && npm run validate:pages && npm run check:tokens",
     "gen:api": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o src/api/schema.d.ts",
     "check:api-types": "npx --yes -p typescript@5 -p openapi-typescript@7 openapi-typescript openapi/openapi.yaml -o /tmp/signalflow-schema.check.d.ts && diff -q /tmp/signalflow-schema.check.d.ts src/api/schema.d.ts",
     "dev:api:memory": "tsx server/dev-memory.ts",
@@ -22,7 +22,8 @@
     "ai:fixtures": "tsx scripts/make-analysis-fixtures.ts",
     "rules:sync": "node scripts/sync-design-rules.mjs",
     "rules:check": "node scripts/sync-design-rules.mjs --check",
-    "migrate:deploy": "node db/deploy-migrate.mjs"
+    "migrate:deploy": "node db/deploy-migrate.mjs",
+    "check:tokens": "node vendor/design-rules/check-tokens.mjs src/theme.scss vendor/design-rules/tokens.json"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.89.0",

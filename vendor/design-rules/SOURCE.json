@@ -1,7 +1,7 @@
 {
   "repo": "higherwave/design-system-mcp",
   "ref": "main",
-  "commit": "ebafec2c40566000056fe440f5f5c0294ce3a4bc",
+  "commit": "ed5b3b6c1ce6d973230e05db1b9cf6c0372596c4",
   "files": {
     "validateRules.ts": {
       "from": "lib/validateRules.ts",
@@ -10,6 +10,14 @@
     "components.json": {
       "from": "registry/components.json",
       "sha256": "a39f75689bf50684c88f686bebb0b10a0e5f5aadad8579c6b91bc1cd9470cb0e"
+    },
+    "tokens.json": {
+      "from": "registry/tokens.json",
+      "sha256": "eb3801813089199db5ed44b9fde6922353f6635761fa673f4332e62894f4c64e"
+    },
+    "check-tokens.mjs": {
+      "from": "scripts/check-tokens.mjs",
+      "sha256": "3cb14e4ae4e09301611db28209be5e3775e0d503d97cc785d9cbc5b912dfd291"
     }
   }
 }
