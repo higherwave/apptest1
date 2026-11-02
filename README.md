@@ -15,14 +15,17 @@ The earlier Whirl pilot app lives at the git tag `archive/old-react-test`.
 | `api/index.ts` | Vercel function entry; `vercel.json` rewrites `/api/*` to it |
 | `openapi/openapi.yaml` | The API contract. Written first; tests check the routes against it |
 | `db/` | Migrations, demo seed and their tests (see `db/README.md`) |
-| `scripts/validate-pages.mjs` | Runs the design-system MCP rules over `src/` |
+| `scripts/validate-pages.mjs` | Runs the design-system rules over `src/`, from the pinned copy in `vendor/design-rules/` (no other checkout needed) |
+| `vendor/design-rules/` | A pinned copy of the validator and component allowlist from the design-system-mcp repo, with `SOURCE.json` recording where it came from and a hash of each file. Never edit by hand |
 
 ## Commands
 
     npm run dev          # React app on :5173 (proxies /api to :8787)
     npm run dev:api      # API on :8787; uses db/.env.local when present
     npm test             # API tests + database tests, all on an in-memory Postgres (no Neon compute)
-    npm run validate:pages   # MCP design-system rules over src/ (needs ../design-system-mcp)
+    npm run validate:pages   # design-system rules over src/ (uses vendor/design-rules; MCP_REPO=/path tries a checkout instead)
+    npm run rules:sync       # refresh vendor/design-rules from ../design-system-mcp, or from GitHub when it is not checked out
+    npm run rules:check      # is the pinned copy behind upstream? (exits 1 if so)
     npm run check:all    # typecheck + tests + page validation
 
 ## Environment variables (Vercel)
