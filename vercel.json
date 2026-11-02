@@ -22,7 +22,7 @@
       "destination": "/about.html"
     },
     {
-      "source": "/((?!assets/|favicon|apple-touch-icon.png|logo.png|robots.txt|privacy.html|about.html|landing|app.html).*)",
+      "source": "/((?!assets/|fonts/|favicon|apple-touch-icon.png|logo.png|robots.txt|privacy.html|about.html|landing|app.html).*)",
       "destination": "/app.html"
     }
   ]

@@ -73,10 +73,11 @@
   --at-space-section: 96px;
 
   // -- Type ------------------------------------------------------------
-  // Airtable's faces (Haas Groot Disp, Haas) are licensed, so they are named first and used if installed. Helvetica Neue is the
-  // nearest installed face on Apple devices; Arimo (Helvetica-metric, loaded from Google Fonts) stands in elsewhere.
-  --at-font-display: 'Haas Groot Disp', 'Haas', 'Helvetica Neue', Helvetica, 'Arimo', Arial, sans-serif;
-  --at-font-text: 'Haas', 'Helvetica Neue', Helvetica, 'Arimo', Arial, sans-serif;
+  // Inter, self-hosted (@fontsource-variable/inter, loaded in main.tsx), is the face on every platform. DESIGN.md names it as the closest
+  // open substitute for Airtable's licensed Haas faces. The optical-size axis gives large text the tighter Display cut on its own, so
+  // one family serves both tokens. The system faces are only the fallback while it loads.
+  --at-font-display: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --at-font-text: 'Inter Variable', 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 
   // -- Re-point Carbon's own tokens at the Airtable palette ------------
   // Everything built from @carbon/react (Tile, Tag, DataTable, Tabs, Button,
@@ -345,6 +346,7 @@
 
 body {
   font-family: var(--at-font-text);
+  font-optical-sizing: auto;
   background: var(--at-page);
 }
 

@@ -3,42 +3,48 @@
 // radius/spacing custom properties and global Carbon overrides live in
 // theme.scss, imported once globally.
 
+// Inter in place of Haas (see theme.scss). Two best-guess adjustments, from DESIGN.md's note on substitutes and from comparing the screens:
+// the 500 of the design system becomes 475, because Inter's medium reads heavier than Haas's (the pricing sub-system in DESIGN.md
+// uses the same 475); and the large sizes are 5% tighter in line height, to match Haas's lower cap height. Small text keeps the
+// design system's line heights, so dense screens do not get cramped.
+$weight-medium: 475;
+
 @mixin role($name) {
   @if $name == 'display-xl' {
-    font: 500 3rem/1.1 var(--at-font-display);
+    font: #{$weight-medium} 3rem/1.05 var(--at-font-display);
     letter-spacing: 0;
   } @else if $name == 'display-lg' {
-    font: 400 2.5rem/1.2 var(--at-font-display);
+    font: 400 2.5rem/1.14 var(--at-font-display);
     letter-spacing: 0;
   } @else if $name == 'display-md' {
-    font: 400 2rem/1.2 var(--at-font-display);
+    font: 400 2rem/1.14 var(--at-font-display);
     letter-spacing: 0;
   } @else if $name == 'title-lg' {
-    font: 400 1.5rem/1.35 var(--at-font-display);
-    letter-spacing: 0.12px;
+    font: 400 1.5rem/1.28 var(--at-font-display);
+    letter-spacing: 0;
   } @else if $name == 'title-md' {
-    font: 400 1.25rem/1.5 var(--at-font-display);
+    font: 400 1.25rem/1.43 var(--at-font-display);
     letter-spacing: 0;
   } @else if $name == 'title-sm' {
-    font: 500 1.125rem/1.4 var(--at-font-text);
+    font: #{$weight-medium} 1.125rem/1.33 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'label-md' {
-    font: 500 1rem/1.4 var(--at-font-text);
+    font: #{$weight-medium} 1rem/1.4 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'button' {
-    font: 500 1rem/1.4 var(--at-font-text);
+    font: #{$weight-medium} 1rem/1.4 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'button-sm' {
     // App-density addition: DESIGN.md's button role is sized for marketing
     // heroes (16px); in-app actions run one step down at body size.
-    font: 500 0.875rem/1.25 var(--at-font-text);
+    font: #{$weight-medium} 0.875rem/1.25 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'body-md' {
     font: 400 0.875rem/1.25 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'caption' {
-    font: 500 0.875rem/1.35 var(--at-font-text);
-    letter-spacing: 0.16px;
+    font: #{$weight-medium} 0.875rem/1.35 var(--at-font-text);
+    letter-spacing: 0;
   } @else if $name == 'meta' {
     // App-density addition: 12px meta line (stage status, table headers,
     // badges, group headings) below DESIGN.md's 14px caption.
