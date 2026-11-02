@@ -89,6 +89,7 @@ try {
   await page.click('[aria-label="Account"]')
   await clickText('Members')
   await waitText('Invite')
+  await waitText('sam@demo.signalflow.example') // the list arrives after the form
   ok('the account menu opens the Members page, which lists the demo members', (await text()).includes('david@demo.signalflow.example') && (await text()).includes('sam@demo.signalflow.example'))
 
   // Invite, change role, then see what that person gets.

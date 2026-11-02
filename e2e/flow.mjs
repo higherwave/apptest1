@@ -80,6 +80,7 @@ try {
   await page.type('#p-email-0', 'not-an-email')
   await page.type('#p-phone-0', '(555) 010-0000')
   ok('the participants table asks for Session length, with a dropdown and no date field', await page.evaluate(() => /session length/i.test(document.querySelector('[role="table"][aria-label="Participants"]').innerText) && !/session date/i.test(document.body.innerText) && !document.querySelector('#p-date-0') && !!document.querySelector('#p-length-0')))
+  await page.$eval('#p-length-0', (el) => el.scrollIntoView({ block: 'center' })) // a list that opens below the window cannot be hit-tested
   await page.click('#p-length-0')
   await page.waitForSelector('[role="option"]')
   ok('the choices are 30 min, 45 min and 1 hour', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].map((o) => o.innerText.trim()).join('|') === '30 min|45 min|1 hour'))
