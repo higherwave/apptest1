@@ -9,8 +9,11 @@ import type { Env } from './db.js'
 export type Screenshot = { type: 'image/jpeg'; data: Buffer }
 export type CaptureService = (url: string) => Promise<Screenshot>
 
-/** A failure with a message fit to show the person, with no internals in it. */
+/** A failure with a message fit to show the person. */
 export class CaptureError extends Error {}
+
+// A short, safe reason for a failure the person cannot fix but whoever runs the deployment can: the first line of the error, without paths.
+const reason = (err: unknown) => String((err as Error)?.message ?? err).split('\n')[0].replace(/\/[\w./@-]+/g, '<path>').slice(0, 140)
 
 // Addresses that are not the public internet: loopback, private, link-local (cloud metadata), shared, documentation, multicast.
 const V4_BLOCKS: [string, number][] = [
@@ -125,7 +128,7 @@ async function capture(link: string, env: Env, allowPrivate: boolean): Promise<S
     }
   } catch (err) {
     console.error('Thumbnail capture: the browser did not start', err)
-    throw new CaptureError('The thumbnail service could not start. Upload a screenshot instead.')
+    throw new CaptureError(`The thumbnail service could not start (${reason(err)}). Upload a screenshot instead.`)
   }
   const timer = setTimeout(() => void browser.close().catch(() => undefined), OVERALL_MS)
   try {
@@ -174,9 +177,65 @@ async function capture(link: string, env: Env, allowPrivate: boolean): Promise<S
   } catch (err) {
     if (err instanceof CaptureError) throw err
     console.error('Thumbnail capture failed', err)
-    throw new CaptureError('The page could not be captured. Upload a screenshot instead.')
+    throw new CaptureError(`The page could not be captured (${reason(err)}). Upload a screenshot instead.`)
   } finally {
     clearTimeout(timer)
     await browser.close().catch(() => undefined)
   }
+}
+
+export type PreflightStep = { name: string; ok: boolean; ms: number; detail?: string }
+export type Preflight = { ok: boolean; enabled: boolean; node: string; platform: string; arch: string; steps: PreflightStep[]; checkedAt: string }
+
+// What the deployment can actually do, step by step, without visiting any page: is the browser package there, does its binary unpack,
+// does the browser start, can it draw. Safe to expose: it reads nothing of anyone's and opens no address. It is slow (a browser start),
+// so the answer is kept for five minutes.
+let lastPreflight: { at: number; key: string; value: Preflight } | undefined
+export async function capturePreflight(env: Env): Promise<Preflight> {
+  const key = `${env.CHROME_PATH}|${env.DESIGN_CAPTURE}`
+  if (lastPreflight && lastPreflight.key === key && Date.now() - lastPreflight.at < 5 * 60_000) return lastPreflight.value
+  const steps: PreflightStep[] = []
+  const step = async <T>(name: string, fn: () => Promise<T>): Promise<T | undefined> => {
+    const t = Date.now()
+    try {
+      const out = await fn()
+      steps.push({ name, ok: true, ms: Date.now() - t, detail: typeof out === 'string' ? out : undefined })
+      return out
+    } catch (err) {
+      steps.push({ name, ok: false, ms: Date.now() - t, detail: reason(err) })
+      return undefined
+    }
+  }
+  const base = { node: process.version, platform: process.platform, arch: process.arch, checkedAt: new Date().toISOString() }
+  if (env.DESIGN_CAPTURE === 'false') return { ...base, ok: false, enabled: false, steps }
+  let executablePath = env.CHROME_PATH
+  if (!executablePath) {
+    const chromium = await step('the browser package loads', async () => (await import('@sparticuz/chromium')).default)
+    if (chromium) executablePath = await step('the browser unpacks', async () => (await chromium.executablePath()) as string)
+    if (executablePath) {
+      const { statSync } = await import('node:fs')
+      await step('the browser file is there', async () => `${Math.round(statSync(executablePath!).size / 1_000_000)} MB`)
+    }
+  }
+  if (executablePath) {
+    const { default: puppeteer } = await import('puppeteer-core')
+    const chromium = env.CHROME_PATH ? undefined : (await import('@sparticuz/chromium')).default
+    const browser = await step('the browser starts', async () =>
+      env.CHROME_PATH
+        ? await puppeteer.launch({ executablePath, headless: true, args: env.CI ? ['--no-sandbox'] : [] })
+        : await puppeteer.launch({ executablePath, args: chromium!.args, headless: 'shell' }),
+    )
+    if (browser) {
+      await step('the browser draws a page', async () => {
+        const page = await browser.newPage()
+        await page.setContent('<h1 style="font-family:sans-serif">ok</h1>')
+        const shot = await page.screenshot({ type: 'jpeg' })
+        return `${shot.length} bytes, ${await browser.version()}`
+      })
+      await browser.close().catch(() => undefined)
+    }
+  }
+  const value: Preflight = { ...base, ok: steps.length > 0 && steps.every((s) => s.ok), enabled: true, steps }
+  lastPreflight = { at: Date.now(), key, value }
+  return value
 }

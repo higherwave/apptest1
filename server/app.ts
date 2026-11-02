@@ -24,7 +24,7 @@ import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
-import { CaptureError, makeCapture, type CaptureService } from './capture.js'
+import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
@@ -66,6 +66,13 @@ export function createApp(options: AppOptions = {}) {
   app.get('/health', (c) =>
     c.json({ status: 'ok', time: new Date().toISOString(), version: env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? 'dev' }),
   )
+
+  // Whether thumbnails from links can work on this deployment, step by step (see capturePreflight). Public and read-only: it visits no
+  // address and touches no data, and its answer is cached for five minutes.
+  app.get('/health/capture', async (c) => {
+    c.header('Cache-Control', 'public, s-maxage=300')
+    return c.json(await capturePreflight(env))
+  })
 
   // Whether AI is live or simulated, for the header indicator. Never touches the database for the anonymous viewer; the
   // token holder also sees this month's spend against the budget.

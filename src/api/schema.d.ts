@@ -55,6 +55,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/health/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether thumbnails from prototype links can work on this deployment, step by step: the browser package, its unpacking, starting it, drawing a page. Public and read-only (it visits no address and reads no data); the answer is kept for five minutes. */
+        get: operations["getCaptureHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me": {
         parameters: {
             query?: never;
@@ -1916,6 +1933,21 @@ export interface components {
             /** @description True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`. */
             rolesManagedBySso: boolean;
         };
+        CaptureHealth: {
+            ok: boolean;
+            /** @description False when DESIGN_CAPTURE=false. */
+            enabled: boolean;
+            node: string;
+            platform: string;
+            arch: string;
+            checkedAt: string;
+            steps: {
+                name: string;
+                ok: boolean;
+                ms: number;
+                detail?: string;
+            }[];
+        };
         SignInOptionList: {
             data: {
                 /** @enum {string} */
@@ -2076,6 +2108,26 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getCaptureHealth: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The result of each step. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptureHealth"];
+                };
+            };
         };
     };
     getMe: {

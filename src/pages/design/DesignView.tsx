@@ -55,6 +55,11 @@ function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory, ca
               <Tag size="sm" type={item.prototypeUrl || item.hasImage ? 'green' : 'gray'}>
                 {item.prototypeUrl || item.hasImage ? 'Prototype' : 'No prototype'}
               </Tag>
+              {capture.capturing.has(item.storyId) && (
+                <Tag size="sm" type="blue">
+                  Capturing thumbnail…
+                </Tag>
+              )}
               <Tag size="sm" type={item.notes ? 'green' : 'gray'}>
                 {item.notes ? 'Notes' : 'No notes'}
               </Tag>
@@ -157,6 +162,13 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory, capture }: { i
                 {canEdit && <p className={styles.emptyHint}>Link the live prototype and a thumbnail is taken from it, upload a screenshot, or both. You can also drop an image here. Then note the design decisions on the right.</p>}
               </div>
             )}
+            {busy && (
+              <div className={styles.capturing} role="status" data-testid={`capturing-${item.key}`}>
+                <Loading small withOverlay={false} description="Capturing a thumbnail" />
+                <p className={styles.capturingText}>Capturing a thumbnail from the link…</p>
+                <p className={styles.capturingHint}>This can take up to 20 seconds.</p>
+              </div>
+            )}
             {canEdit && (
               <div className={styles.actions} data-empty={!item.hasImage && !hasLink}>
                 <Button kind={item.hasImage || hasLink ? 'secondary' : 'primary'} size="sm" onClick={upload}>
@@ -195,12 +207,6 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory, capture }: { i
               Story →
             </a>
           </div>
-          {busy && (
-            <p className={styles.capturing} role="status">
-              <Loading small withOverlay={false} description="Capturing a thumbnail" />
-              Capturing a thumbnail from the link…
-            </p>
-          )}
           {captureError && !busy && (
             <p className={styles.error} role="alert">
               {captureError} The link is kept; you can upload a screenshot instead.

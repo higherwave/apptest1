@@ -1916,6 +1916,21 @@ test('capture is for editors, can be switched off, and refuses private addresses
   assert.equal((await expectSpec(unavailable, '/stories/{id}/design/capture', 'post')).error.code, 'capture_unavailable')
 })
 
+test('the capture health check answers without a session, step by step, and says when the browser cannot start', async () => {
+  const off = createApp({ env: { DESIGN_CAPTURE: 'false' } })
+  const disabled = await expectSpec(await off.request('/api/v1/health/capture'), '/health/capture')
+  assert.deepEqual([disabled.enabled, disabled.ok, disabled.steps], [false, false, []])
+
+  const broken = createApp({ env: { CHROME_PATH: '/nonexistent/chrome' } })
+  const res = await broken.request('/api/v1/health/capture')
+  assert.match(res.headers.get('cache-control') ?? '', /s-maxage=300/)
+  const body = await expectSpec(res, '/health/capture')
+  assert.equal(body.ok, false)
+  const failed = body.steps.find((s: any) => !s.ok)
+  assert.equal(failed.name, 'the browser starts')
+  assert.ok(failed.detail && !failed.detail.includes('/nonexistent'), 'a reason, with paths hidden')
+})
+
 test('only editors can save design rows; a visitor can read the table', async () => {
   const { app, p1, story } = await boardFixture()
   const r1 = await story('R1')

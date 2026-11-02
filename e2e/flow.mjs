@@ -576,6 +576,8 @@ try {
     await clickInOpenDialog('Save link')
   }
   await setLink(`${BASE}/about.html`)
+  await page.waitForSelector('[data-testid="capturing-R1"]', { timeout: 8000 })
+  ok('while the thumbnail is being taken, the box says so', await page.evaluate(() => /capturing a thumbnail/i.test(document.querySelector('[data-testid="capturing-R1"]').innerText) && /capturing thumbnail/i.test(document.querySelector('[data-testid="design-R1"] h3').innerText)))
   await page.waitForFunction(() => { const i = document.querySelector('[data-testid="design-R1"] img'); return i && i.complete && i.naturalWidth > 0 }, { timeout: 30000 })
   const shot = await page.evaluate(() => { const i = document.querySelector('[data-testid="design-R1"] img'); return { w: i.naturalWidth, h: i.naturalHeight } })
   const c1 = (await designApi()).items.find((i) => i.key === 'R1')

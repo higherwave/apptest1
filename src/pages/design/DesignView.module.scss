@@ -345,10 +345,25 @@ $frame-max: 44rem;
 }
 
 .capturing {
+  position: absolute;
+  inset: 0;
+  z-index: var(--at-z-raised);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--at-space-xs);
+  background: var(--at-surface-soft);
+}
+
+.capturingText {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.capturingHint {
   @include tokens.role('meta');
   margin: 0;
-  display: flex;
-  align-items: center;
-  gap: var(--at-space-sm);
   color: var(--at-muted);
 }

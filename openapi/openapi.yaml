@@ -42,6 +42,18 @@ paths:
               schema: { $ref: '#/components/schemas/DatabaseHealth' }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /health/capture:
+    get:
+      operationId: getCaptureHealth
+      summary: >
+        Whether thumbnails from prototype links can work on this deployment, step by step: the browser package, its unpacking, starting
+        it, drawing a page. Public and read-only (it visits no address and reads no data); the answer is kept for five minutes.
+      responses:
+        '200':
+          description: The result of each step.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CaptureHealth' }
   /me:
     get:
       operationId: getMe
@@ -2449,6 +2461,26 @@ components:
         via: { type: string, enum: [session, token, open, anonymous], description: 'How this request was let in.' }
         signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
         rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
+    CaptureHealth:
+      type: object
+      required: [ok, enabled, node, platform, arch, checkedAt, steps]
+      properties:
+        ok: { type: boolean }
+        enabled: { type: boolean, description: 'False when DESIGN_CAPTURE=false.' }
+        node: { type: string }
+        platform: { type: string }
+        arch: { type: string }
+        checkedAt: { type: string }
+        steps:
+          type: array
+          items:
+            type: object
+            required: [name, ok, ms]
+            properties:
+              name: { type: string }
+              ok: { type: boolean }
+              ms: { type: integer }
+              detail: { type: string }
     SignInOptionList:
       type: object
       required: [data]
