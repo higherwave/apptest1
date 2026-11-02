@@ -1,0 +1,104 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-width: 60rem;
+}
+
+.empty {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+// A grid with table roles (the page's design rules keep raw tables out): one row per area.
+.table {
+  min-inline-size: 44rem;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 2.2fr) minmax(0, 1.6fr) minmax(0, 1.4fr) 3rem;
+  gap: var(--at-space-sm);
+  align-items: center;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child { border-block-start: none; }
+}
+
+.head {
+  @include tokens.role('eyebrow');
+  padding: var(--at-space-xs) 0;
+  color: var(--at-muted);
+}
+
+.name {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.definition {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xxs);
+}
+
+.used {
+  @include tokens.role('body-md');
+  color: var(--at-body);
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+}
+
+.retired {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+}
+
+.retiredHead {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

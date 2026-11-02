@@ -4,6 +4,7 @@ import type { ProjectDetail } from '../../api/client'
 import type { TaskForm } from '../testplan/form'
 import { ProjectHeader } from './ProjectHeader'
 import { SaveAlerts, type SaveBarProps } from './SaveBar'
+import { AreaPicker } from '../areas/AreaPicker'
 import styles from './TaskListView.module.scss'
 
 export type TaskListViewProps = {
@@ -36,6 +37,7 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
             <TextInput id={`task-${i}`} labelText={`Question to ask or task to observe ${i + 1}`} hideLabel readOnly={readOnly} value={task.prompt} onChange={(e) => setTask(i, { prompt: e.target.value })} />
             {!readOnly && <Button kind="ghost" size="md" hasIconOnly renderIcon={TrashCan} iconDescription={`Remove question or task ${i + 1}`} onClick={() => onChange(tasks.filter((_, j) => j !== i))} />}
           </div>
+          <AreaPicker id={`task-${i}-area`} label="Feature area" value={task.areaId} about={task.prompt} readOnly={readOnly} onChange={(areaId) => setTask(i, { areaId })} />
           {task.followUps.map((followUp, j) => (
             <div key={j} className={styles.followUp}>
               <TextInput
@@ -60,7 +62,7 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
       ))}
 
       {!readOnly && (
-        <Button kind="secondary" size="md" renderIcon={Add} onClick={() => onChange([...tasks, { prompt: '', followUps: [] }])}>
+        <Button kind="secondary" size="md" renderIcon={Add} onClick={() => onChange([...tasks, { prompt: '', areaId: null, followUps: [] }])}>
           Add question / task
         </Button>
       )}

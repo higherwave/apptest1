@@ -11,7 +11,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, createAreaSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -24,6 +24,7 @@ import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
+import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
@@ -274,6 +275,7 @@ export function createApp(options: AppOptions = {}) {
       if (err instanceof VersionConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this project since you opened it.', undefined, { current: { version: err.current } })
       if (err instanceof UnknownParticipant) throw new ApiError(422, 'validation_failed', 'That participant does not belong to this project.', 'participants')
       if (err instanceof UnknownTranscript) throw new ApiError(422, 'validation_failed', 'That transcript does not belong to this project.', 'transcripts')
+      if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That feature area does not exist or has been retired. Choose another.', 'areaId')
       if (err instanceof NoTranscripts) throw new ApiError(422, 'no_transcripts', 'Add at least one transcript before analyzing.', 'transcripts')
       throw err
     }
@@ -515,6 +517,59 @@ export function createApp(options: AppOptions = {}) {
     return c.json(board)
   })
 
+
+  // Feature areas ---------------------------------------------------------------------------------------------
+  // The shared list of what research is about. Anyone reads it; an editor adds an area (after a duplicate check); an owner edits, merges
+  // and retires. An area is a label on a question, task or test item, never a requirement.
+
+  const requireAreaOwner = (c: Context) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change the feature areas.')
+  }
+  const areaId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such feature area.')
+    return id
+  }
+  const areaErrors = (err: unknown): never => {
+    if (err instanceof AreaMissing) throw new ApiError(404, 'not_found', 'No such feature area.')
+    if (err instanceof AreaDuplicate) throw new ApiError(409, 'duplicate_area', `"${err.existing.name}" already exists: use it.`, 'name', { existing: err.existing })
+    if (err instanceof AreaSimilar) throw new ApiError(409, 'similar_area', `This looks like ${err.similar.map((s) => `"${s.name}"`).join(' or ')}. Use that, or add it anyway.`, 'name', { similar: err.similar })
+    if (err instanceof AreaConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this area since you opened it.', undefined, { current: { version: err.current } })
+    throw err
+  }
+
+  app.get('/areas', withReadContext, async (c) => {
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json({ data: await listAreas(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.post('/areas', withContext, async (c) => {
+    requireEditor(c)
+    const input = parseBody(createAreaSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await createArea(getDb(), c.get('ctx'), input).catch(areaErrors), 201)
+  })
+  app.patch('/areas/:id', withContext, async (c) => {
+    requireAreaOwner(c)
+    const id = areaId(c)
+    const expected = expectedVersion(c)
+    const input = parseBody(updateAreaSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await updateArea(getDb(), c.get('ctx'), id, expected, input).catch(areaErrors))
+  })
+  app.post('/areas/:id/merge', withContext, async (c) => {
+    requireAreaOwner(c)
+    const id = areaId(c)
+    const input = parseBody(mergeAreaSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await mergeAreas(getDb(), c.get('ctx'), id, input.intoId).catch(areaErrors))
+  })
+  app.post('/areas/:id/retire', withContext, async (c) => {
+    requireAreaOwner(c)
+    const id = areaId(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await retireArea(getDb(), c.get('ctx'), id).catch(areaErrors))
+  })
 
   // The Design step ------------------------------------------------------------------------------------------
 

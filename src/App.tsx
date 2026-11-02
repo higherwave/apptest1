@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './shell/AppShell'
 import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
+import { AreasPage } from './pages/areas/AreasPage'
 import { MembersPage } from './pages/members/MembersPage'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
@@ -51,6 +52,7 @@ export function App() {
         <Route path="insights/customers" element={<Navigate to="/insights/personas" replace />} />
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
         <Route path="insights/journey" element={<PlatformJourneyPage />} />
+        <Route path="insights/areas" element={<AreasPage />} />
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />
         <Route path="insights/:section" element={<Placeholder />} />
         <Route path="*" element={<Placeholder title="Page not found" />} />

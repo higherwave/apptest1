@@ -106,6 +106,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/areas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions, tasks and test items use each. Active ones first, then retired ones. */
+        get: operations["listAreas"];
+        put?: never;
+        /** Adds an area (owner or editor). 409 `duplicate_area` when the name is, or is an alias of, an existing area (use it; `existing` says which); 409 `similar_area` when it only resembles one (`similar` lists them), unless `force` is true. */
+        post: operations["createArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Owners only. Changes the name, definition and aliases; a changed name stays as an alias. If-Match is the area's version. */
+        patch: operations["updateArea"];
+        trace?: never;
+    };
+    "/areas/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners only. Folds this area into another: its questions, tasks and test items move, its name and aliases become aliases of the target, and it is retired (`mergedInto` says where it went). Returns the target. */
+        post: operations["mergeArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/{id}/retire": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners only. Takes an area off the picker. What already uses it keeps it. */
+        post: operations["retireArea"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/members": {
         parameters: {
             query?: never;
@@ -1014,6 +1083,8 @@ export interface components {
             tasks: {
                 id: string;
                 prompt: string;
+                /** @description The feature area this question or task is about. Follow-ups share their parent's. */
+                areaId: string | null;
                 followUps: {
                     id: string;
                     prompt: string;
@@ -1024,10 +1095,14 @@ export interface components {
             id: string;
             /** @description What is being tested and what the team wants to learn. */
             description: string | null;
+            /** @description The feature area this item is about. */
+            areaId: string | null;
             outcomes: string[];
         };
         TestItemInput: {
             description?: string | null;
+            /** @description A live feature area of this workspace */
+            areaId?: string | null;
             outcomes?: string[];
         };
         ParticipantInput: {
@@ -1710,6 +1785,8 @@ export interface components {
         SaveTasksRequest: {
             tasks: {
                 prompt: string;
+                /** @description A live feature area of this workspace */
+                areaId?: string | null;
                 followUps?: string[];
             }[];
         };
@@ -1948,6 +2025,39 @@ export interface components {
                 detail?: string;
             }[];
         };
+        Area: {
+            id: string;
+            name: string;
+            /** @description What is in and out of this area, in a line. */
+            definition: string | null;
+            aliases: string[];
+            retired: boolean;
+            /** @description The area this one was merged into */
+            mergedInto: string | null;
+            usage: {
+                tasks: number;
+                testItems: number;
+            };
+            version: number;
+        };
+        AreaList: {
+            data: components["schemas"]["Area"][];
+        };
+        CreateAreaRequest: {
+            name: string;
+            definition?: string | null;
+            aliases?: string[];
+            /** @description Add it even though it resembles an existing area. */
+            force?: boolean;
+        };
+        UpdateAreaRequest: {
+            name: string;
+            definition?: string | null;
+            aliases?: string[];
+        };
+        MergeAreaRequest: {
+            intoId: string;
+        };
         SignInOptionList: {
             data: {
                 /** @enum {string} */
@@ -2170,6 +2280,145 @@ export interface operations {
                     "application/json": components["schemas"]["SignInOptionList"];
                 };
             };
+        };
+    };
+    listAreas: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The areas. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaList"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    createArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateAreaRequest"];
+            };
+        };
+        responses: {
+            /** @description The new area. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    updateArea: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAreaRequest"];
+            };
+        };
+        responses: {
+            /** @description The area as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    mergeArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeAreaRequest"];
+            };
+        };
+        responses: {
+            /** @description The area it was merged into. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    retireArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The retired area. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Area"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     listMembers: {

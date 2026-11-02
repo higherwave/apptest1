@@ -1,0 +1,27 @@
+@use '../../tokens' as tokens;
+
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+}
+
+.row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--at-space-xs);
+}
+
+.field {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.suggestion {
+  @include tokens.role('body-md');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+  margin: 0;
+  color: var(--at-muted);
+}

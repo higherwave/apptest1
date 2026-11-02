@@ -2,7 +2,7 @@ import type { CreateProjectRequest, ProjectDetail } from '../../api/client'
 
 // Form state and rules for the test plan page (new and existing projects). No React in here, so it is easy to test.
 export type PlanParticipant = { id?: string; name: string; role: string; email: string; phone: string; sessionMinutes: string }
-export type PlanItem = { description: string; outcomes: string[] }
+export type PlanItem = { description: string; outcomes: string[]; areaId: string | null }
 export type PlanForm = { name: string; methods: string[]; testItems: PlanItem[]; participants: PlanParticipant[] }
 // Keyed the way the API names fields, for example 'name' or 'participants.0.email'.
 export type FieldErrors = Record<string, string>
@@ -15,13 +15,13 @@ export const SESSION_LENGTHS = [
 ] as const
 
 export const blankParticipant = (): PlanParticipant => ({ name: '', role: '', email: '', phone: '', sessionMinutes: '' })
-export const blankItem = (): PlanItem => ({ description: '', outcomes: [''] })
+export const blankItem = (): PlanItem => ({ description: '', outcomes: [''], areaId: null })
 export const emptyForm = (): PlanForm => ({ name: '', methods: [], testItems: [blankItem()], participants: [blankParticipant()] })
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const hasContent = (p: PlanParticipant) => [p.name, p.role, p.email, p.phone, p.sessionMinutes].some((v) => v.trim())
 const cleanOutcomes = (outcomes: string[]) => outcomes.map((o) => o.trim()).filter(Boolean)
-const cleanItems = (items: PlanItem[]) => items.map((i) => ({ description: i.description.trim(), outcomes: cleanOutcomes(i.outcomes) })).filter((i) => i.description || i.outcomes.length)
+const cleanItems = (items: PlanItem[]) => items.map((i) => ({ description: i.description.trim(), outcomes: cleanOutcomes(i.outcomes), areaId: i.areaId })).filter((i) => i.description || i.outcomes.length)
 
 export function validate(form: PlanForm): FieldErrors {
   const errors: FieldErrors = {}
@@ -43,7 +43,7 @@ const participantRequests = (form: PlanForm) =>
   form.participants.filter(hasContent).map((p) => ({
     id: p.id ?? null, name: p.name.trim(), role: p.role.trim() || null, email: p.email.trim(), phone: p.phone.trim() || null, sessionMinutes: p.sessionMinutes ? (Number(p.sessionMinutes) as 30 | 45 | 60) : null,
   }))
-const itemRequests = (form: PlanForm) => cleanItems(form.testItems).map((i) => ({ description: i.description || null, outcomes: i.outcomes }))
+const itemRequests = (form: PlanForm) => cleanItems(form.testItems).map((i) => ({ description: i.description || null, outcomes: i.outcomes, areaId: i.areaId }))
 
 export function toRequest(form: PlanForm): CreateProjectRequest {
   return { name: form.name.trim(), methods: form.methods, testItems: itemRequests(form), participants: participantRequests(form).map(({ id: _id, ...p }) => p) }
@@ -54,7 +54,7 @@ export function toRequest(form: PlanForm): CreateProjectRequest {
 export const formFromProject = (p: ProjectDetail): PlanForm => ({
   name: p.name,
   methods: [...p.study.methods],
-  testItems: p.testItems.length ? p.testItems.map((i) => ({ description: i.description ?? '', outcomes: i.outcomes.length ? [...i.outcomes] : [''] })) : [blankItem()],
+  testItems: p.testItems.length ? p.testItems.map((i) => ({ description: i.description ?? '', outcomes: i.outcomes.length ? [...i.outcomes] : [''], areaId: i.areaId ?? null })) : [blankItem()],
   participants: p.participants.length
     ? p.participants.map((x) => ({ id: x.id, name: x.name, role: x.role ?? '', email: x.email, phone: x.phone ?? '', sessionMinutes: x.sessionMinutes ? String(x.sessionMinutes) : '' }))
     : [blankParticipant()],
@@ -68,8 +68,8 @@ export const toPlanRequest = (form: PlanForm) => ({ name: form.name.trim(), meth
 
 // Task list --------------------------------------------------------------------------------------------
 
-export type TaskForm = { prompt: string; followUps: string[] }[]
-export const taskFormFromProject = (p: ProjectDetail): TaskForm => p.tasks.map((t) => ({ prompt: t.prompt, followUps: t.followUps.map((f) => f.prompt) }))
-export const tasksKey = (t: TaskForm) => JSON.stringify(t.filter((x) => x.prompt.trim()).map((x) => [x.prompt.trim(), x.followUps.map((f) => f.trim()).filter(Boolean)]))
+export type TaskForm = { prompt: string; areaId: string | null; followUps: string[] }[]
+export const taskFormFromProject = (p: ProjectDetail): TaskForm => p.tasks.map((t) => ({ prompt: t.prompt, areaId: t.areaId ?? null, followUps: t.followUps.map((f) => f.prompt) }))
+export const tasksKey = (t: TaskForm) => JSON.stringify(t.filter((x) => x.prompt.trim()).map((x) => [x.prompt.trim(), x.areaId, x.followUps.map((f) => f.trim()).filter(Boolean)]))
 export const tasksChanged = (form: TaskForm, saved: ProjectDetail) => tasksKey(form) !== tasksKey(taskFormFromProject(saved))
-export const toTasksRequest = (form: TaskForm) => ({ tasks: form.filter((t) => t.prompt.trim()).map((t) => ({ prompt: t.prompt.trim(), followUps: t.followUps.map((f) => f.trim()).filter(Boolean) })) })
+export const toTasksRequest = (form: TaskForm) => ({ tasks: form.filter((t) => t.prompt.trim()).map((t) => ({ prompt: t.prompt.trim(), areaId: t.areaId, followUps: t.followUps.map((f) => f.trim()).filter(Boolean) })) })

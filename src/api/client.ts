@@ -15,6 +15,8 @@ export class ApiRequestError extends Error {
     public field?: string,
     /** On a 409, the version the project is at now. */
     public current?: { version: number },
+    /** Other fields of the error body: `existing` and `similar` on a duplicate area. */
+    public extra: Record<string, any> = {},
   ) {
     super(message)
   }
@@ -35,7 +37,7 @@ async function request<T>(path: string, { method = 'GET', body, token, version }
     body: body !== undefined ? JSON.stringify(body) : undefined,
   })
   const parsed = res.status === 204 ? null : await res.json().catch(() => null)
-  if (!res.ok) throw new ApiRequestError(res.status, parsed?.error?.code ?? 'unknown', parsed?.error?.message ?? res.statusText, parsed?.error?.field, parsed?.current)
+  if (!res.ok) throw new ApiRequestError(res.status, parsed?.error?.code ?? 'unknown', parsed?.error?.message ?? res.statusText, parsed?.error?.field, parsed?.current, parsed ?? {})
   return parsed as T
 }
 
@@ -69,6 +71,13 @@ export type SignInOption = components['schemas']['SignInOptionList']['data'][num
 export const getSignInOptions = () => request<components['schemas']['SignInOptionList']>('/sign-in-options')
 export type Member = components['schemas']['Member']
 export type MemberRole = Member['role']
+// Feature areas: the shared list of what research is about.
+export type Area = components['schemas']['Area']
+export const listAreas = () => request<components['schemas']['AreaList']>('/areas')
+export const createArea = (body: components['schemas']['CreateAreaRequest']) => request<Area>('/areas', { method: 'POST', body })
+export const updateArea = (id: string, version: number, body: components['schemas']['UpdateAreaRequest']) => request<Area>(`/areas/${id}`, { method: 'PATCH', body, version })
+export const mergeArea = (id: string, intoId: string) => request<Area>(`/areas/${id}/merge`, { method: 'POST', body: { intoId } })
+export const retireArea = (id: string) => request<Area>(`/areas/${id}/retire`, { method: 'POST' })
 export const listMembers = () => request<components['schemas']['MemberList']>('/members')
 export const inviteMember = (input: components['schemas']['InviteMemberRequest']) => request<Member>('/members', { method: 'POST', body: input })
 export const changeMemberRole = (id: string, role: MemberRole) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { role } })

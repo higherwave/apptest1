@@ -1,5 +1,6 @@
 import { Close } from '@carbon/icons-react'
 import { Button, Dropdown, TextArea, TextInput } from '@carbon/react'
+import { AreaPicker } from '../areas/AreaPicker'
 import { blankItem, blankParticipant, SESSION_LENGTHS, type FieldErrors, type PlanForm, type PlanItem, type PlanParticipant } from './form'
 import styles from './TestPlanForm.module.scss'
 
@@ -80,6 +81,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
                 onChange={(e) => setItem(i, { outcomes: [e.target.value, ...item.outcomes.slice(1)] })}
               />
             </div>
+            <AreaPicker id={`item-${i}-area`} label="Feature area" value={item.areaId} about={item.description} readOnly={readOnly} onChange={(areaId) => setItem(i, { areaId })} />
           </div>
         ))}
         {!readOnly && (

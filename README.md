@@ -167,6 +167,21 @@ sorts by it. `server/ai-rationale.ts` (prompt `rank-rationale-v1`) writes one or
 (`POST /insights/roadmap/rationale`); every "N of M participants/projects" it writes must be a figure it was given, and without a model a
 plain template from the same figures is used.
 
+## Feature areas
+
+One shared list per workspace of what research is about (Scheduling, Reminders, Account setup): `insights.feature_areas`, API under `/api/v1/areas`,
+page at `/insights/areas`. A question to ask or task to observe (`research.tasks.area_id`) and a test item (`research.test_items.area_id`) can name
+one; follow-ups share their parent's. An area is a label, never a gate: nothing requires one, and a theme with none is matched freeform.
+
+- **Who:** anyone reads the list; an owner or editor adds an area; only an owner renames, merges or retires one. Retired areas keep what uses them
+  and are not offered for new choices; a merge moves everything over and keeps the old name as an alias.
+- **Duplicates are caught when an area is added.** `shared/areas.ts` decides what counts as the same (same words in any order, an alias, a common ending
+  such as Schedule and Scheduling) or similar (one name inside the other, most words shared). The API answers 409 `duplicate_area` (use that one) or
+  409 `similar_area` (use one of those, or send `force: true`); the dialog offers exactly those choices. The same file suggests an area beside a question
+  (`suggestAreas`), with no model call.
+- **Not built yet** (see the Build Plan): the analysis receiving tasks and areas and assigning themes to them, matching that prefers the same area, tiered
+  automatic merging with undo, and rollups grouped by area.
+
 ## Spend alerts
 
 `GET /ai/status` returns `spendLevel` (`ok`, `half` from 50%, `high` from 80%, `reached` at 100% of `AI_MONTHLY_BUDGET_USD`) and `month`

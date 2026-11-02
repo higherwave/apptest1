@@ -1,6 +1,7 @@
 import type { Db, Queryable } from './db.js'
 import type { CreateProjectInput, SavePlanInput, SaveTasksInput } from './schemas.js'
 import { DEFAULT_STAGES, TINTS } from './schemas.js'
+import { assertAreasUsable } from './areas.js'
 import { insertMany } from './sql.js'
 import { claimVersion } from './versioning.js'
 
@@ -102,10 +103,10 @@ export async function listTemplates(db: Queryable, workspaceId: string): Promise
 }
 
 // Test items: replaced as a whole on every save, since nothing else refers to them.
-type TestItemInput = { description: string | null; outcomes: string[] }
+type TestItemInput = { description: string | null; outcomes: string[]; areaId?: string | null }
 async function insertTestItems(tx: Queryable, ctx: { workspaceId: string; userId: string }, projectId: string, items: TestItemInput[]) {
   await insertMany(tx, 'research.test_items', items.map((i, position) => ({
-    workspace_id: ctx.workspaceId, project_id: projectId, position, description: i.description, outcomes: i.outcomes, created_by: ctx.userId, updated_by: ctx.userId,
+    workspace_id: ctx.workspaceId, project_id: projectId, position, description: i.description, outcomes: i.outcomes, area_id: i.areaId ?? null, created_by: ctx.userId, updated_by: ctx.userId,
   })))
 }
 
@@ -134,6 +135,7 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
 
     const w = ctx.workspaceId
     await insertMany(tx, 'research.studies', [{ project_id: projectId, workspace_id: w, methods: input.methods, created_by: ctx.userId, updated_by: ctx.userId }])
+    await assertAreasUsable(tx, ctx.workspaceId, input.testItems.map((i) => i.areaId))
     await insertTestItems(tx, ctx, projectId, input.testItems)
     await insertMany(tx, 'research.study_stages', DEFAULT_STAGES.map((name, position) => ({ workspace_id: w, study_id: projectId, position, name })))
     await insertMany(tx, 'research.participants', input.participants.map((p, position) => ({
@@ -172,29 +174,29 @@ export async function getProjectSummary(db: Queryable, workspaceId: string, proj
 
 export type ProjectDetail = ProjectSummary & {
   study: { methods: string[] }
-  testItems: { id: string; description: string | null; outcomes: string[] }[]
+  testItems: { id: string; description: string | null; outcomes: string[]; areaId: string | null }[]
   stages: { position: number; name: string }[]
   participants: { id: string; name: string; role: string | null; email: string; phone: string | null; sessionMinutes: number | null }[]
-  tasks: { id: string; prompt: string; followUps: { id: string; prompt: string }[] }[]
+  tasks: { id: string; prompt: string; areaId: string | null; followUps: { id: string; prompt: string }[] }[]
 }
 
 export async function getProjectDetail(db: Queryable, workspaceId: string, projectId: string): Promise<ProjectDetail | undefined> {
   const summary = await getProjectSummary(db, workspaceId, projectId)
   if (!summary) return undefined
   const study = (await db.query(`select methods from research.studies where project_id = $1`, [projectId])).rows[0]
-  const items = (await db.query(`select id, description, outcomes from research.test_items where project_id = $1 order by position`, [projectId])).rows
+  const items = (await db.query(`select id, description, outcomes, area_id from research.test_items where project_id = $1 order by position`, [projectId])).rows
   const stages = (await db.query(`select position, name from research.study_stages where study_id = $1 order by position`, [projectId])).rows
   const participants = (await db.query(`select id, name, role, email, phone, session_minutes from research.participants where project_id = $1 order by position, name`, [projectId])).rows
-  const tasks = (await db.query(`select id, parent_task_id, prompt from research.tasks where project_id = $1 order by position`, [projectId])).rows
+  const tasks = (await db.query(`select id, parent_task_id, prompt, area_id from research.tasks where project_id = $1 order by position`, [projectId])).rows
   return {
     ...summary,
     study: { methods: study?.methods ?? [] },
-    testItems: items.map((i) => ({ id: i.id, description: i.description ?? null, outcomes: i.outcomes ?? [] })),
+    testItems: items.map((i) => ({ id: i.id, description: i.description ?? null, outcomes: i.outcomes ?? [], areaId: i.area_id ?? null })),
     stages: stages.map((s) => ({ position: s.position, name: s.name })),
     participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null, email: p.email, phone: p.phone ?? null, sessionMinutes: p.session_minutes ?? null })),
     tasks: tasks
       .filter((t) => !t.parent_task_id)
-      .map((t) => ({ id: t.id, prompt: t.prompt, followUps: tasks.filter((f) => f.parent_task_id === t.id).map((f) => ({ id: f.id, prompt: f.prompt })) })),
+      .map((t) => ({ id: t.id, prompt: t.prompt, areaId: t.area_id ?? null, followUps: tasks.filter((f) => f.parent_task_id === t.id).map((f) => ({ id: f.id, prompt: f.prompt })) })),
   }
 }
 
@@ -237,6 +239,8 @@ export async function savePlan(db: Db, ctx: { workspaceId: string; userId: strin
   await db.transaction(async (tx) => {
     await claimVersion(tx, ctx, projectId, expected, input.name)
     await tx.query(`update research.studies set methods = $2, updated_by = $3 where project_id = $1`, [projectId, input.methods, ctx.userId])
+    const had = new Set((await tx.query(`select area_id from research.test_items where project_id = $1 and area_id is not null`, [projectId])).rows.map((r) => r.area_id as string))
+    await assertAreasUsable(tx, ctx.workspaceId, input.testItems.map((i) => i.areaId), had)
     await tx.query(`delete from research.test_items where project_id = $1`, [projectId])
     await insertTestItems(tx, ctx, projectId, input.testItems)
 
@@ -267,9 +271,11 @@ export async function savePlan(db: Db, ctx: { workspaceId: string; userId: strin
 export async function saveTasks(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string, expected: number, input: SaveTasksInput): Promise<void> {
   await db.transaction(async (tx) => {
     await claimVersion(tx, ctx, projectId, expected)
+    const had = new Set((await tx.query(`select area_id from research.tasks where project_id = $1 and area_id is not null`, [projectId])).rows.map((r) => r.area_id as string))
+    await assertAreasUsable(tx, ctx.workspaceId, input.tasks.map((t) => t.areaId), had)
     await tx.query(`delete from research.tasks where project_id = $1`, [projectId])
     for (const [i, t] of input.tasks.entries()) {
-      const parent = (await tx.query(`insert into research.tasks (workspace_id, project_id, position, prompt, created_by, updated_by) values ($1, $2, $3, $4, $5, $5) returning id`, [ctx.workspaceId, projectId, i, t.prompt, ctx.userId])).rows[0].id
+      const parent = (await tx.query(`insert into research.tasks (workspace_id, project_id, position, prompt, area_id, created_by, updated_by) values ($1, $2, $3, $4, $6, $5, $5) returning id`, [ctx.workspaceId, projectId, i, t.prompt, ctx.userId, t.areaId ?? null])).rows[0].id
       await insertMany(tx, 'research.tasks', t.followUps.map((f, j) => ({ workspace_id: ctx.workspaceId, project_id: projectId, parent_task_id: parent, position: j, prompt: f, created_by: ctx.userId, updated_by: ctx.userId })))
     }
     await audit(tx, ctx, projectId, 'tasks_saved', { count: input.tasks.length })

@@ -82,6 +82,101 @@ paths:
           content:
             application/json:
               schema: { $ref: '#/components/schemas/SignInOptionList' }
+  /areas:
+    get:
+      operationId: listAreas
+      summary: >
+        The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions, tasks
+        and test items use each. Active ones first, then retired ones.
+      responses:
+        '200':
+          description: The areas.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AreaList' }
+        '401': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createArea
+      summary: >
+        Adds an area (owner or editor). 409 `duplicate_area` when the name is, or is an alias of, an existing area (use it; `existing` says
+        which); 409 `similar_area` when it only resembles one (`similar` lists them), unless `force` is true.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateAreaRequest' }
+      responses:
+        '201':
+          description: The new area.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /areas/{id}:
+    patch:
+      operationId: updateArea
+      summary: Owners only. Changes the name, definition and aliases; a changed name stays as an alias. If-Match is the area's version.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateAreaRequest' }
+      responses:
+        '200':
+          description: The area as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /areas/{id}/merge:
+    post:
+      operationId: mergeArea
+      summary: >
+        Owners only. Folds this area into another: its questions, tasks and test items move, its name and aliases become aliases of the
+        target, and it is retired (`mergedInto` says where it went). Returns the target.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MergeAreaRequest' }
+      responses:
+        '200':
+          description: The area it was merged into.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /areas/{id}/retire:
+    post:
+      operationId: retireArea
+      summary: Owners only. Takes an area off the picker. What already uses it keeps it.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The retired area.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Area' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /members:
     get:
       operationId: listMembers
@@ -1334,10 +1429,11 @@ components:
           type: array
           items:
             type: object
-            required: [id, prompt, followUps]
+            required: [id, prompt, areaId, followUps]
             properties:
               id: { type: string }
               prompt: { type: string }
+              areaId: { type: [string, 'null'], description: 'The feature area this question or task is about. Follow-ups share their parent''s.' }
               followUps:
                 type: array
                 items:
@@ -1348,10 +1444,11 @@ components:
                     prompt: { type: string }
     TestItem:
       type: object
-      required: [id, description, outcomes]
+      required: [id, description, outcomes, areaId]
       properties:
         id: { type: string }
         description: { type: [string, 'null'], description: What is being tested and what the team wants to learn. }
+        areaId: { type: [string, 'null'], description: The feature area this item is about. }
         outcomes:
           type: array
           items: { type: string }
@@ -1359,6 +1456,7 @@ components:
       type: object
       properties:
         description: { type: [string, 'null'] }
+        areaId: { type: [string, 'null'], description: A live feature area of this workspace, or none. 422 unknown_area otherwise. }
         outcomes:
           type: array
           items: { type: string }
@@ -2207,6 +2305,7 @@ components:
             required: [prompt]
             properties:
               prompt: { type: string }
+              areaId: { type: [string, 'null'], description: A live feature area of this workspace, or none. 422 unknown_area otherwise. }
               followUps:
                 type: array
                 items: { type: string }
@@ -2481,6 +2580,56 @@ components:
               ok: { type: boolean }
               ms: { type: integer }
               detail: { type: string }
+    Area:
+      type: object
+      required: [id, name, definition, aliases, retired, mergedInto, usage, version]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        definition: { type: [string, 'null'], description: 'What is in and out of this area, in a line.' }
+        aliases:
+          type: array
+          items: { type: string }
+        retired: { type: boolean }
+        mergedInto: { type: [string, 'null'], description: The area this one was merged into, when it was. }
+        usage:
+          type: object
+          required: [tasks, testItems]
+          properties:
+            tasks: { type: integer }
+            testItems: { type: integer }
+        version: { type: integer }
+    AreaList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Area' }
+    CreateAreaRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        definition: { type: [string, 'null'] }
+        aliases:
+          type: array
+          items: { type: string }
+        force: { type: boolean, description: Add it even though it resembles an existing area. }
+    UpdateAreaRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        definition: { type: [string, 'null'] }
+        aliases:
+          type: array
+          items: { type: string }
+    MergeAreaRequest:
+      type: object
+      required: [intoId]
+      properties:
+        intoId: { type: string }
     SignInOptionList:
       type: object
       required: [data]

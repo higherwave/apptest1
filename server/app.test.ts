@@ -1931,6 +1931,72 @@ test('the capture health check answers without a session, step by step, and says
   assert.ok(failed.detail && !failed.detail.includes('/nonexistent'), 'a reason, with paths hidden')
 })
 
+test('feature areas: editors add them with a duplicate check, owners curate, and a question or test item can name one', async () => {
+  const { app: owner, alex: editor, sam: viewer, send, p1, pg } = await boardFixture()
+  const make = (who: ReturnType<typeof createApp>, body: unknown) => send(who, 'POST', '/areas', body)
+
+  // Adding: editors may, viewers may not.
+  const scheduling = await expectSpec(await make(editor, { name: 'Scheduling', definition: 'Booking, moving and cancelling an appointment', aliases: ['Booking'] }), '/areas', 'post')
+  assert.deepEqual([scheduling.name, scheduling.aliases, scheduling.retired, scheduling.usage], ['Scheduling', ['Booking'], false, { tasks: 0, testItems: 0 }])
+  assert.equal((await make(viewer, { name: 'Reminders' })).status, 403)
+  assert.equal((await make(owner, { name: 'x' })).status, 422, 'a name of at least two characters')
+
+  // The duplicate check: the same words or an alias is refused; a look-alike needs force.
+  const same = await expectSpec(await make(editor, { name: 'scheduling' }), '/areas', 'post')
+  assert.equal(same.error.code, 'duplicate_area')
+  assert.equal(same.existing.id, scheduling.id)
+  assert.equal((await expectSpec(await make(editor, { name: 'Booking' }), '/areas', 'post')).error.code, 'duplicate_area', 'an alias counts')
+  const similar = await expectSpec(await make(editor, { name: 'Appointment scheduling' }), '/areas', 'post')
+  assert.equal(similar.error.code, 'similar_area')
+  assert.deepEqual(similar.similar.map((s: any) => s.name), ['Scheduling'])
+  const forced = await expectSpec(await make(editor, { name: 'Appointment scheduling', force: true }), '/areas', 'post')
+  assert.equal(forced.name, 'Appointment scheduling')
+  const reminders = await (await make(owner, { name: 'Reminders' })).json()
+
+  // A question to ask and a test item can name an area; unknown or foreign ids are refused; follow-ups share the parent's.
+  const project = async () => (await (await owner.request(`/api/v1/projects/${p1}`, { headers: { authorization: 'Bearer s3cret' } })).json())
+  let v = (await project()).version
+  const saved = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Reschedule a visit', areaId: scheduling.id, followUps: ['Why?'] }, { prompt: 'Anything else?' }] }, v)
+  const detail = await expectSpec(saved, '/projects/{id}/tasks', 'put')
+  assert.deepEqual(detail.tasks.map((t: any) => [t.prompt, t.areaId]), [['Reschedule a visit', scheduling.id], ['Anything else?', null]])
+  assert.equal(detail.tasks[0].followUps.length, 1)
+  const unknown = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Q', areaId: '11111111-1111-4111-8111-111111111111' }] }, detail.version)
+  assert.equal(unknown.status, 422)
+  assert.equal((await unknown.json()).error.code, 'unknown_area')
+  const items = await put(owner, `/projects/${p1}/study`, { name: detail.name, methods: detail.study.methods, testItems: [{ description: 'Rescheduling', outcomes: ['Finds it'], areaId: reminders.id }], participants: detail.participants.map(({ id, ...p }: any) => ({ id, ...p })) }, detail.version)
+  const planned = await expectSpec(items, '/projects/{id}/study', 'put')
+  assert.equal(planned.testItems[0].areaId, reminders.id)
+
+  // Usage counts follow, and the list is readable by everyone.
+  const list = await expectSpec(await viewer.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } }), '/areas')
+  const usage = Object.fromEntries(list.data.map((a: any) => [a.name, a.usage]))
+  assert.deepEqual([usage.Scheduling, usage.Reminders], [{ tasks: 1, testItems: 0 }, { tasks: 0, testItems: 1 }])
+
+  // Owners curate: rename keeps the old name as an alias; editors cannot; a stale version conflicts; If-Match is required.
+  const renamed = await expectSpec(await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments', definition: 'Booking and moving appointments', aliases: ['Booking'] }, scheduling.version), '/areas/{id}', 'patch')
+  assert.deepEqual([renamed.name, renamed.aliases.sort()], ['Appointments', ['Booking', 'Scheduling']])
+  assert.equal((await send(editor, 'PATCH', `/areas/${scheduling.id}`, { name: 'Nope' }, renamed.version)).status, 403)
+  assert.equal((await expectSpec(await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments again' }, scheduling.version), '/areas/{id}', 'patch')).error.code, 'version_conflict')
+  assert.equal((await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments' })).status, 428)
+  assert.equal((await expectSpec(await send(owner, 'PATCH', `/areas/${reminders.id}`, { name: 'appointments' }, reminders.version), '/areas/{id}', 'patch')).error.code, 'duplicate_area', 'a rename cannot collide')
+
+  // Merging moves what used the area and keeps its names; retiring takes it off the picker but keeps what uses it.
+  const merged = await expectSpec(await send(owner, 'POST', `/areas/${reminders.id}/merge`, { intoId: scheduling.id }), '/areas/{id}/merge', 'post')
+  assert.deepEqual([merged.id, merged.usage, merged.aliases.includes('Reminders')], [scheduling.id, { tasks: 1, testItems: 1 }, true])
+  const after = (await (await owner.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } })).json()).data
+  const old = after.find((a: any) => a.id === reminders.id)
+  assert.deepEqual([old.retired, old.mergedInto], [true, scheduling.id])
+  assert.equal((await send(owner, 'POST', `/areas/${old.id}/merge`, { intoId: old.id })).status, 409)
+  const retired = await expectSpec(await send(owner, 'POST', `/areas/${forced.id}/retire`), '/areas/{id}/retire', 'post')
+  assert.equal(retired.retired, true)
+  const live = await (await owner.request(`/api/v1/projects/${p1}`, { headers: { authorization: 'Bearer s3cret' } })).json()
+  const keep = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Reschedule a visit', areaId: scheduling.id }] }, live.version)
+  assert.equal(keep.status, 200)
+  const toRetired = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Reschedule a visit', areaId: forced.id }] }, (await keep.json()).version)
+  assert.equal(toRetired.status, 422, 'a retired area is not offered for new assignments')
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where entity = 'insights.feature_areas'`)).rows[0].n >= 6, true)
+})
+
 test('only editors can save design rows; a visitor can read the table', async () => {
   const { app, p1, story } = await boardFixture()
   const r1 = await story('R1')

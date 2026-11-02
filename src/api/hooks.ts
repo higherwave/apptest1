@@ -4,7 +4,7 @@ import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
-  createProject, deleteProject, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
+  createProject, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -19,6 +19,25 @@ export const useTemplates = () => useQuery({ queryKey: ['templates'], queryFn: l
 export const useMe = () => {
   const token = useToken()
   return useQuery({ queryKey: ['me', token], queryFn: () => getMe() })
+}
+
+// The workspace's feature areas. Every change refetches the list: usage counts and aliases move together.
+export const useAreas = () => useQuery({ queryKey: ['areas'], queryFn: listAreas, staleTime: 60_000 })
+export const useCreateArea = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (body: Parameters<typeof createArea>[0]) => createArea(body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
+}
+export const useUpdateArea = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { id: string; version: number; body: Parameters<typeof updateArea>[2] }) => updateArea(v.id, v.version, v.body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
+}
+export const useMergeArea = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { id: string; intoId: string }) => mergeArea(v.id, v.intoId), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
+}
+export const useRetireArea = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => retireArea(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
 }
 
 // Which ways to sign in this deployment offers (public, so it works before anyone is signed in).

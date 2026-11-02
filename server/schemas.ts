@@ -28,6 +28,8 @@ export const participantSchema = z.object({
 export const testItemSchema = z.object({
   description: optionalText(1000),
   outcomes: z.array(text(300)).default([]).transform((a) => a.filter(Boolean)),
+  // The feature area this item is about (insights.feature_areas), or none.
+  areaId: z.uuid().nullish().transform((v) => v ?? null),
 })
 const testItems = z
   .array(testItemSchema)
@@ -64,7 +66,7 @@ export const savePlanSchema = z.object({
 export type SavePlanInput = z.infer<typeof savePlanSchema>
 
 export const saveTasksSchema = z.object({
-  tasks: z.array(z.object({ prompt: text(500).min(1, 'Enter the question.'), followUps: z.array(text(500)).default([]).transform((a) => a.filter(Boolean)) })).max(50),
+  tasks: z.array(z.object({ prompt: text(500).min(1, 'Enter the question.'), areaId: z.uuid().nullish().transform((v) => v ?? null), followUps: z.array(text(500)).default([]).transform((a) => a.filter(Boolean)) })).max(50),
 })
 export type SaveTasksInput = z.infer<typeof saveTasksSchema>
 
@@ -162,6 +164,16 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 // POST /stories/:id/design/capture. `replace` lets the capture overwrite a picture a person uploaded (the Capture button; the automatic
 // capture after a link is saved never sets it).
 export const captureSchema = z.object({ replace: z.boolean().optional() }).default({})
+// Adding a feature area. `force` is for a name that only resembles an existing area, when the person meant it.
+export const createAreaSchema = z.object({
+  name: text(60).min(2, 'Give the area a name of at least 2 characters.'),
+  definition: optionalText(300),
+  aliases: z.array(text(60)).max(12, 'Keep to 12 alternative names.').default([]),
+  force: z.boolean().default(false),
+})
+export const updateAreaSchema = createAreaSchema.omit({ force: true })
+export const mergeAreaSchema = z.object({ intoId: z.uuid('Choose the area to merge into.') })
+
 export const designSchema = z.object({
   prototypeUrl: text(2000)
     .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Enter a link that starts with http:// or https://.')
