@@ -17,6 +17,11 @@ export type DesignViewProps = {
   /** A requirement key (R3) to open and bring into view when the table first shows, as the Stories panel's Design link asks. */
   openKey?: string | null
   onSave: (storyId: string, body: DesignRequest) => Promise<unknown>
+  /** Requirements whose thumbnail is being taken from the link right now, and the reason one could not be (by requirement id). */
+  capturing: ReadonlySet<string>
+  captureErrors: Record<string, string>
+  /** Asks the server for a thumbnail of the saved link; `replace` lets it overwrite an uploaded picture. */
+  onCapture: (storyId: string, replace: boolean) => Promise<unknown>
   onGoRequirements: () => void
   /** Opens the Stories board with this requirement's card selected. */
   onViewStory: (key: string) => void
@@ -27,7 +32,9 @@ const PRIORITY_LABEL = { high: 'High', medium: 'Medium', low: 'Low' } as const
 // One requirement as an accordion item. The heading row is the requirement's title with what has been done so far; opened, it shows
 // the research behind it, then the prototype (link and thumbnail) on the left and the design notes on the right. The link and the
 // notes save when the field is left, if they changed; a picture saves as soon as it is chosen.
-function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory }: { item: DesignItem; projectId: string; canEdit: boolean; open: boolean; onToggle: () => void; onSave: DesignViewProps['onSave']; onViewStory: DesignViewProps['onViewStory'] }) {
+type Capture = Pick<DesignViewProps, 'capturing' | 'captureErrors' | 'onCapture'> & { enabled: boolean }
+
+function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory, capture }: { item: DesignItem; projectId: string; canEdit: boolean; open: boolean; onToggle: () => void; onSave: DesignViewProps['onSave']; onViewStory: DesignViewProps['onViewStory']; capture: Capture }) {
   return (
     <li className={styles.item} data-testid={`design-${item.key}`} data-open={open}>
       <h3 className={styles.itemHead}>
@@ -55,7 +62,7 @@ function Row({ item, projectId, canEdit, open, onToggle, onSave, onViewStory }: 
           </span>
         </Button>
       </h3>
-      {open && <RowBody item={item} projectId={projectId} canEdit={canEdit} onSave={onSave} onViewStory={onViewStory} />}
+      {open && <RowBody item={item} projectId={projectId} canEdit={canEdit} onSave={onSave} onViewStory={onViewStory} capture={capture} />}
     </li>
   )
 }
@@ -69,7 +76,7 @@ const hostOf = (url: string) => {
   }
 }
 
-function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: DesignItem; projectId: string; canEdit: boolean; onSave: DesignViewProps['onSave']; onViewStory: DesignViewProps['onViewStory'] }) {
+function RowBody({ item, projectId, canEdit, onSave, onViewStory, capture }: { item: DesignItem; projectId: string; canEdit: boolean; onSave: DesignViewProps['onSave']; onViewStory: DesignViewProps['onViewStory']; capture: Capture }) {
   const [notes, setNotes] = useState(item.notes ?? '')
   const [pictureError, setPictureError] = useState<string | undefined>()
   const [linkOpen, setLinkOpen] = useState(false)
@@ -103,6 +110,9 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
     void onSave(item.storyId, body({ prototypeUrl: link.trim() }))
   }
   const hasLink = !!item.prototypeUrl
+  const busy = capture.capturing.has(item.storyId)
+  const captureError = capture.captureErrors[item.storyId]
+  const captureLabel = !item.hasImage ? 'Capture from link' : item.imageSource === 'capture' ? 'Refresh thumbnail' : 'Capture from link instead'
   const upload = () => picker.current?.click()
   const picture = item.hasImage ? <img className={styles.thumb} src={designImageUrl(item.storyId, item.version)} alt={`Prototype of ${item.key}: ${item.title}`} /> : null
   const open = (child: React.ReactNode) => (
@@ -144,7 +154,7 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
             {!item.hasImage && !hasLink && (
               <div className={styles.empty}>
                 <p className={styles.emptyText}>{canEdit ? 'Add the prototype' : 'No prototype yet'}</p>
-                {canEdit && <p className={styles.emptyHint}>Link the live prototype, upload a screenshot, or both. You can also drop an image here. Then note the design decisions on the right.</p>}
+                {canEdit && <p className={styles.emptyHint}>Link the live prototype and a thumbnail is taken from it, upload a screenshot, or both. You can also drop an image here. Then note the design decisions on the right.</p>}
               </div>
             )}
             {canEdit && (
@@ -155,6 +165,11 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
                 <Button kind="secondary" size="sm" onClick={openLink}>
                   {hasLink ? 'Edit link' : 'Link prototype'}
                 </Button>
+                {hasLink && capture.enabled && (
+                  <Button kind="secondary" size="sm" disabled={busy} onClick={() => void capture.onCapture(item.storyId, true)}>
+                    {captureLabel}
+                  </Button>
+                )}
                 {item.hasImage && (
                   <Button kind="ghost" size="sm" onClick={() => void onSave(item.storyId, body({ image: null }))}>
                     Remove screenshot
@@ -180,6 +195,17 @@ function RowBody({ item, projectId, canEdit, onSave, onViewStory }: { item: Desi
               Story →
             </a>
           </div>
+          {busy && (
+            <p className={styles.capturing} role="status">
+              <Loading small withOverlay={false} description="Capturing a thumbnail" />
+              Capturing a thumbnail from the link…
+            </p>
+          )}
+          {captureError && !busy && (
+            <p className={styles.error} role="alert">
+              {captureError} The link is kept; you can upload a screenshot instead.
+            </p>
+          )}
           {pictureError && <p className={styles.error}>{pictureError}</p>}
           {canEdit && (
             <div className={styles.hiddenPicker}>
@@ -360,7 +386,7 @@ export function DesignView(props: DesignViewProps) {
               </div>
               <ul className={styles.list} aria-label="Requirements and their prototypes">
                 {design.items.map((item) => (
-                  <Row key={item.storyId} item={item} projectId={design.projectId} canEdit={canEdit} open={opened.has(item.storyId)} onToggle={() => toggle(item.storyId)} onSave={props.onSave} onViewStory={props.onViewStory} />
+                  <Row key={item.storyId} item={item} projectId={design.projectId} canEdit={canEdit} open={opened.has(item.storyId)} onToggle={() => toggle(item.storyId)} onSave={props.onSave} onViewStory={props.onViewStory} capture={{ enabled: design.captureEnabled, capturing: props.capturing, captureErrors: props.captureErrors, onCapture: props.onCapture }} />
                 ))}
               </ul>
             </>

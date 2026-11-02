@@ -25,7 +25,8 @@ async function waitFor(url, label, ms = 60_000) {
   throw new Error(`${label} did not start within ${ms / 1000}s`)
 }
 
-start('npx', ['tsx', 'server/dev-memory.ts'], { DEV_TOKEN: TOKEN, API_PORT: '8791' })
+// CAPTURE_TEST: thumbnails from links start switched off (the flow turns them on for its own section) and use this machine's Chrome.
+start('npx', ['tsx', 'server/dev-memory.ts'], { DEV_TOKEN: TOKEN, API_PORT: '8791', CAPTURE_TEST: 'true', CHROME_PATH: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' })
 start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791', VITE_SHOW_ACCESS_CONTROLS: 'true' }) // the tests lock and unlock editing, so the controls are shown
 await waitFor('http://localhost:8791/api/v1/health', 'The API')
 await waitFor('http://localhost:5198/', 'The app')

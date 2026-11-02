@@ -551,6 +551,57 @@ try {
   await page.waitForFunction(() => !document.querySelector('[data-testid="design-R1"] img'), { timeout: 8000 })
   ok('removing the screenshot keeps the link', await (async () => { const i = (await designApi()).items.find((x) => x.key === 'R1'); return i.hasImage === false && i.prototypeUrl === 'https://example.com/prototype-r1' })())
 
+  // Thumbnails from links: switched on only for this section (the server starts with capture off, so the checks above stay as they are).
+  await fetch(`${API}/__test/capture/true`, { method: 'POST' })
+  await page.goto(`${BASE}/projects/${projectId}/design`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid^="design-R"]', { timeout: 8000 })
+  await page.evaluate(() => { const b = document.querySelector('[data-testid="design-R1"] h3 button'); if (b.getAttribute('aria-expanded') !== 'true') b.click() })
+  await page.waitForSelector('[data-testid="design-R1"] [data-frame]')
+  const r1Buttons = () => page.evaluate(() => [...document.querySelectorAll('[data-testid="design-R1"] [data-frame] button')].map((b) => b.innerText.trim()))
+  ok('with a link and no picture, the box offers Capture from link beside the others', (await r1Buttons()).includes('Capture from link'))
+  const untilR1 = async (test, ms) => {
+    const end = Date.now() + ms
+    while (Date.now() < end) {
+      if (test((await designApi()).items.find((i) => i.key === 'R1'))) return
+      await new Promise((r) => setTimeout(r, 300))
+    }
+    throw new Error('R1 did not reach the expected state')
+  }
+  const setLink = async (url) => {
+    await page.evaluate(() => [...document.querySelectorAll('[data-testid="design-R1"] [data-frame] button')].find((b) => b.innerText.trim() === 'Edit link').click())
+    await page.waitForSelector('#design-link-R1', { visible: true })
+    await page.click('#design-link-R1', { clickCount: 3 })
+    await page.type('#design-link-R1', url)
+    await clickInOpenDialog('Save link')
+  }
+  await setLink(`${BASE}/about.html`)
+  await page.waitForFunction(() => { const i = document.querySelector('[data-testid="design-R1"] img'); return i && i.complete && i.naturalWidth > 0 }, { timeout: 30000 })
+  const shot = await page.evaluate(() => { const i = document.querySelector('[data-testid="design-R1"] img'); return { w: i.naturalWidth, h: i.naturalHeight } })
+  const c1 = (await designApi()).items.find((i) => i.key === 'R1')
+  ok('saving a new link takes a thumbnail from it, on its own: a real 960 x 600 picture marked as a capture', c1.hasImage && c1.imageSource === 'capture' && shot.w === 960 && shot.h === 600, `${shot.w}x${shot.h} ${c1.imageSource}`)
+  ok('a captured picture offers Refresh thumbnail', (await r1Buttons()).includes('Refresh thumbnail'))
+  const pngBytes = join(mkdtempSync(join(tmpdir(), 'sf-')), 'mine.png')
+  writeFileSync(pngBytes, Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==', 'base64'))
+  await (await page.$('[data-testid="design-R1"] input[type=file]')).uploadFile(pngBytes)
+  await untilR1((i) => i.imageSource === 'upload', 10000)
+  await setLink(`${BASE}/privacy.html`)
+  await page.waitForFunction(() => document.body.innerText.includes('All changes saved at'), { timeout: 8000 })
+  await new Promise((r) => setTimeout(r, 4000)) // time enough for a capture, if one wrongly started
+  ok('a picture a person uploaded is not replaced when the link changes', (await designApi()).items.find((i) => i.key === 'R1').imageSource === 'upload')
+  ok('and then offers Capture from link instead', (await r1Buttons()).includes('Capture from link instead'))
+  await page.evaluate(() => [...document.querySelectorAll('[data-testid="design-R1"] [data-frame] button')].find((b) => b.innerText.trim() === 'Capture from link instead').click())
+  await untilR1((i) => i.imageSource === 'capture', 30000)
+  ok('choosing it replaces the upload with a capture of the new link', true)
+  await setLink('http://localhost:9/')
+  await page.waitForFunction(() => /could not be opened/i.test(document.querySelector('[data-testid="design-R1"]')?.innerText ?? ''), { timeout: 30000 })
+  ok('a link that cannot be opened says so, keeps the link, and keeps the earlier picture', await (async () => { const i = (await designApi()).items.find((x) => x.key === 'R1'); return i.prototypeUrl === 'http://localhost:9/' && i.hasImage && /upload a screenshot instead/i.test(await page.evaluate(() => document.querySelector('[data-testid="design-R1"]').innerText)) })())
+  await fetch(`${API}/__test/capture/false`, { method: 'POST' })
+  await page.goto(`${BASE}/projects/${projectId}/design`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid^="design-R"]', { timeout: 8000 })
+  await page.evaluate(() => { const b = document.querySelector('[data-testid="design-R1"] h3 button'); if (b.getAttribute('aria-expanded') !== 'true') b.click() })
+  await page.waitForSelector('[data-testid="design-R1"] [data-frame]')
+  ok('with capture switched off the Capture buttons are gone and upload still works', !(await r1Buttons()).some((t) => /capture|refresh thumbnail/i.test(t)))
+
   // Measure: how each requirement will be known to have worked, then check-ins over time.
   const measureApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   ok('the Measure step is unlocked once the requirements are published', !(await navLocked('Measure')))

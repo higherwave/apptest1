@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getBoard, getDesign, saveDesignItem, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getBoard, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, deleteProject, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
@@ -153,6 +153,17 @@ export const useSaveDesign = (projectId: string) => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (v: { storyId: string; version: number; body: DesignRequest }) => saveDesignItem(v.storyId, v.version, v.body),
+    onSuccess: (item) => {
+      queryClient.setQueryData(['design', projectId], (d: Awaited<ReturnType<typeof getDesign>> | undefined) => (d ? { ...d, items: d.items.map((i) => (i.storyId === item.storyId ? item : i)) } : d))
+    },
+  })
+}
+
+// A thumbnail taken from the prototype link; the cached table takes the row it returns, like a save.
+export const useCaptureDesign = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { storyId: string; replace: boolean }) => captureDesignImage(v.storyId, v.replace),
     onSuccess: (item) => {
       queryClient.setQueryData(['design', projectId], (d: Awaited<ReturnType<typeof getDesign>> | undefined) => (d ? { ...d, items: d.items.map((i) => (i.storyId === item.storyId ? item : i)) } : d))
     },

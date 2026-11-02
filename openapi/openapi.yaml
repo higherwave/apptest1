@@ -643,6 +643,33 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
+  /stories/{id}/design/capture:
+    post:
+      operationId: captureDesignImage
+      summary: >
+        Takes the thumbnail from the saved prototype link: the server opens the page in a headless browser on its side and keeps a
+        960 px picture of it. Only public web pages are captured (private and internal addresses are refused). An uploaded picture is left
+        alone unless `replace` is true. Needs an owner or editor. 422 `no_link` without a link, 422 `capture_failed` when the page could not
+        be captured (nothing is saved), 409 `link_changed` if the link changed meanwhile, 503 `capture_unavailable` when switched off.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CaptureRequest' }
+      responses:
+        '200':
+          description: The row as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DesignItem' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /stories/{id}/design/image:
     get:
       operationId: getDesignImage
@@ -2261,7 +2288,7 @@ components:
         version: { type: integer }
     DesignItem:
       type: object
-      required: [storyId, key, title, priority, summary, whyItMatters, theme, prototypeUrl, notes, hasImage, version]
+      required: [storyId, key, title, priority, summary, whyItMatters, theme, prototypeUrl, notes, hasImage, imageSource, version]
       properties:
         storyId: { type: string }
         key: { type: string, description: 'R1, R2 ...' }
@@ -2279,14 +2306,16 @@ components:
         prototypeUrl: { type: [string, 'null'] }
         notes: { type: [string, 'null'] }
         hasImage: { type: boolean }
+        imageSource: { type: [string, 'null'], enum: [upload, capture, null], description: 'Who made the picture: a person (upload) or the server from the link (capture). Null without a picture.' }
         version: { type: integer, description: '0 when nothing has been saved for this requirement yet.' }
     Design:
       type: object
-      required: [specId, specName, projectId, decisions, items]
+      required: [specId, specName, projectId, captureEnabled, decisions, items]
       properties:
         specId: { type: string }
         specName: { type: string }
         projectId: { type: string }
+        captureEnabled: { type: boolean, description: 'False when thumbnail capture is switched off on this deployment (DESIGN_CAPTURE=false).' }
         decisions:
           type: object
           required: [reasoning, alternatives]
@@ -2303,6 +2332,10 @@ components:
         items:
           type: array
           items: { $ref: '#/components/schemas/DesignItem' }
+    CaptureRequest:
+      type: object
+      properties:
+        replace: { type: boolean, description: 'Let the capture replace a picture a person uploaded.' }
     DesignRequest:
       type: object
       properties:

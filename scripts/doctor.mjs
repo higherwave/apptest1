@@ -60,6 +60,8 @@ export function diagnoseSettings(env, appRoot = root) {
   }
   if (env.BETTER_AUTH_SECRET && env.BETTER_AUTH_SECRET.length < 32) out.push(fail('Sign-in', 'BETTER_AUTH_SECRET is shorter than 32 characters', 'Use: openssl rand -base64 32'))
 
+  if (env.DESIGN_CAPTURE_ALLOW_PRIVATE === 'true') out.push(fail('Access', 'DESIGN_CAPTURE_ALLOW_PRIVATE=true lets thumbnails visit private network addresses', 'Remove it: it is for tests only.'))
+
   const production = env.VERCEL_ENV === 'production' || env.NODE_ENV === 'production'
   if (env.OPEN_EDITING === 'true') out.push(warn('Access', 'OPEN_EDITING=true: anyone with the link can edit', 'A company deployment sets OPEN_EDITING=false.'))
   else out.push(ok('Access', env.OPEN_EDITING === 'false' ? 'editing needs an invitation' : 'OPEN_EDITING is not on'))

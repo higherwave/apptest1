@@ -12,10 +12,20 @@ const env = { ...process.env }
 // AUTH_TEST=true switches on sign-in with the stand-in service (see fakeAuth), for the browser tests of sign-in. It also
 // adds POST /__test/public-view/true|false so a test can flip PUBLIC_VIEW while the server runs.
 const testAuth = process.env.AUTH_TEST === 'true'
+const testCapture = process.env.CAPTURE_TEST === 'true'
 // The stand-in needs a provider to offer on the sign-in screen (it never contacts Google).
 if (testAuth) Object.assign(env, { GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID ?? 'test', GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET ?? 'test' })
 const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined })
 const root = new Hono()
+if (testCapture) {
+  // CAPTURE_TEST=true: thumbnails can be switched on and off while the server runs, and may visit this machine's own pages.
+  env.DESIGN_CAPTURE = 'false'
+  env.DESIGN_CAPTURE_ALLOW_PRIVATE = 'true'
+  root.post('/__test/capture/:on', (c) => {
+    env.DESIGN_CAPTURE = c.req.param('on') === 'true' ? 'true' : 'false'
+    return c.json({ capture: env.DESIGN_CAPTURE })
+  })
+}
 if (testAuth) {
   root.post('/__test/public-view/:on', (c) => {
     env.PUBLIC_VIEW = c.req.param('on') === 'true' ? 'true' : 'false'

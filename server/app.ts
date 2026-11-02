@@ -11,7 +11,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -24,14 +24,15 @@ import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
-import { DesignConflict, getDesign, getDesignImage, getDesignItem, saveDesignItem } from './design.js'
+import { CaptureError, makeCapture, type CaptureService } from './capture.js'
+import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, dismissSuggestion, DuplicateTitle, findMergeSuggestions, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, writeRankRationales } from './platform-themes.js'
 import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -39,6 +40,9 @@ export function createApp(options: AppOptions = {}) {
   const getDb = options.getDb ?? lazyPgDb(env, getPool)
   const auth = options.auth ?? (authConfigured(env) ? makeBetterAuth(env, getPool) : undefined)
   const ai = makeAi(env, options.provider)
+  // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
+  const capture = options.capture === null ? undefined : options.capture ?? makeCapture(env)
+  const captureOn = () => !!capture && env.DESIGN_CAPTURE !== 'false'
   const app = new Hono().basePath('/api/v1')
 
   app.onError((err, c) => {
@@ -520,7 +524,7 @@ export function createApp(options: AppOptions = {}) {
     }
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
-    return c.json(design)
+    return c.json({ ...design, captureEnabled: captureOn() })
   })
 
   app.put('/stories/:id/design', withContext, async (c) => {
@@ -538,6 +542,39 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'no-store')
     return c.json((await getDesignItem(getDb(), c.get('ctx').workspaceId, id))!)
+  })
+
+  // Takes a thumbnail from the saved prototype link, on our side. The model-free work runs before any database transaction: the page
+  // is loaded first, then the picture is kept only if the row still has that link.
+  app.post('/stories/:id/design/capture', withContext, async (c) => {
+    requireEditor(c)
+    const id = storyId(c)
+    const ctx = c.get('ctx')
+    const { replace } = parseBody(captureSchema, await readJson(c).catch(() => ({})))
+    const item = await getDesignItem(getDb(), ctx.workspaceId, id)
+    if (!item) throw new ApiError(404, 'not_found', 'No such requirement.')
+    if (!item.prototypeUrl) throw new ApiError(422, 'no_link', 'Link the prototype first: the thumbnail is taken from the link.', 'prototypeUrl')
+    if (!capture || !captureOn()) throw new ApiError(503, 'capture_unavailable', 'Thumbnails from links are switched off on this deployment. Upload a screenshot instead.')
+    if (item.hasImage && !replace && item.imageSource === 'upload') {
+      c.header('Cache-Control', 'no-store')
+      return c.json(item)
+    }
+    let shot
+    try {
+      shot = await capture(item.prototypeUrl)
+    } catch (err) {
+      if (err instanceof CaptureError) throw new ApiError(422, 'capture_failed', err.message)
+      console.error(err)
+      throw new ApiError(422, 'capture_failed', 'The page could not be captured. Upload a screenshot instead.')
+    }
+    try {
+      await saveCapturedImage(getDb(), ctx, id, item.prototypeUrl, shot, !!replace)
+    } catch (err) {
+      if (err instanceof DesignChanged) throw new ApiError(409, 'link_changed', 'The link changed while the page was loading, so the picture was not kept.')
+      throw err
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json((await getDesignItem(getDb(), ctx.workspaceId, id))!)
   })
 
   // The thumbnail itself. The page asks for it with the row's version in the address, so a new picture is a new address.

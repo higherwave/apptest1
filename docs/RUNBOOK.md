@@ -42,6 +42,16 @@ and push again, or apply it by hand (`node db/migrate.mjs up --yes`) and push.
 
 Spend is recorded per call in `core.ai_usage`; owners see problems under Account menu > AI status.
 
+## Design thumbnails
+
+| Symptom | Cause and action |
+| --- | --- |
+| "The thumbnail service could not start" | Chromium did not launch in the function. Read the Vercel function log for `Thumbnail capture: the browser did not start`; check the function has `includeFiles` for `@sparticuz/chromium` (vercel.json) and enough memory and time. Upload still works |
+| "That address is on a private network" | By design: only public pages are captured. Upload a screenshot |
+| A sign-in page is captured | The prototype is private. Upload a screenshot instead |
+| Capture is slow | A cold start takes several seconds; a page that never goes quiet is captured after 20 seconds |
+| Need to switch it off | Set `DESIGN_CAPTURE=false` (no redeploy of code needed, only the setting) |
+
 ## Secrets
 
 Rotate on any suspicion of exposure, and anything that was ever pasted into a chat. Changing `BETTER_AUTH_SECRET` signs everyone out.

@@ -7,6 +7,7 @@ import { PGlite } from '@electric-sql/pglite'
 import { createDemoDatabase, pgliteDb } from './test-utils.js'
 import { parse } from 'yaml'
 import { createApp } from './app.js'
+import { CaptureError } from './capture.js'
 import { getProvider, makeAi, simulatedProvider, type AiProvider } from './ai.js'
 import { cleanConnectionString, databaseUnavailable, findConnectionString, wrapDb, type Db } from './db.js'
 // @ts-expect-error plain ESM helpers shared with the db/ tooling
@@ -1319,7 +1320,7 @@ async function boardFixture() {
     const before = beforeKey ? await story(beforeKey) : null
     return send(who, 'POST', `/stories/${s.id}/move`, { status, beforeId: before?.id ?? null }, s.version)
   }
-  return { app, alex, sam, pg, p1, send, board, story, column, move }
+  return { app, alex, sam, pg, db: d, p1, send, board, story, column, move }
 }
 
 test('the board is the published document’s stories: 10 cards in four columns, with themes and criteria counts', async () => {
@@ -1825,6 +1826,94 @@ test('a thumbnail is kept, served as an image, replaced or removed; leaving imag
   assert.equal((await put({ prototypeUrl: null, notes: null, image: { type: 'image/svg+xml', data: PIXEL } }, gone.version)).status, 422, 'only png, jpeg and webp')
   assert.equal((await put({ prototypeUrl: null, notes: null, image: { type: 'image/png', data: 'not base64!' } }, gone.version)).status, 422)
   void p1
+})
+
+const JPEG = Buffer.from('/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAMCAgICAgMCAgIDAwMDBAYEBAQEBAgGBgUGCQgKCgkICQkKDA8MCgsOCwkJDRENDg8QEBEQCgwSExIQEw8QEBD/yQALCAABAAEBAREA/8wABgAQEAX/2gAIAQEAAD8A0s8g/9k=', 'base64')
+
+test('capturing a thumbnail from the prototype link: kept as a capture, served as an image, never over an upload unless asked', async () => {
+  const { app: owner, db, send, story, pg } = await boardFixture()
+  const calls: string[] = []
+  const app = createApp({ env: TOKEN, getDb: () => db, capture: async (url) => (calls.push(url), { type: 'image/jpeg', data: JPEG }) })
+  const r4 = await story('R4')
+  const row = (await (await send(owner, 'PUT', `/stories/${r4.id}/design`, { prototypeUrl: 'https://example.com/fees', notes: null }, 0)).json())
+  assert.equal(row.imageSource, null)
+
+  const res = await send(app, 'POST', `/stories/${r4.id}/design/capture`)
+  const saved = await expectSpec(res, '/stories/{id}/design/capture', 'post')
+  assert.deepEqual([saved.hasImage, saved.imageSource, saved.version > row.version], [true, 'capture', true])
+  assert.deepEqual(calls, ['https://example.com/fees'])
+  const img = await app.request(`/api/v1/stories/${r4.id}/design/image?v=${saved.version}`)
+  assert.equal(img.headers.get('content-type'), 'image/jpeg')
+  assert.equal(Buffer.compare(Buffer.from(await img.arrayBuffer()), JPEG), 0)
+  assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where verb = 'thumbnail captured'`)).rows[0].n, 1)
+
+  // A captured picture is refreshed by another capture on its own.
+  assert.equal((await send(app, 'POST', `/stories/${r4.id}/design/capture`)).status, 200)
+  assert.equal(calls.length, 2)
+
+  // An uploaded picture is left alone (the page is not even visited) unless replace is asked for.
+  const up = await (await send(app, 'PUT', `/stories/${r4.id}/design`, { prototypeUrl: 'https://example.com/fees', notes: null, image: { type: 'image/png', data: PIXEL } }, saved.version + 1)).json()
+  assert.equal(up.imageSource, 'upload')
+  const kept = await (await send(app, 'POST', `/stories/${r4.id}/design/capture`)).json()
+  assert.deepEqual([kept.imageSource, kept.version, calls.length], ['upload', up.version, 2])
+  const replaced = await (await send(app, 'POST', `/stories/${r4.id}/design/capture`, { replace: true })).json()
+  assert.deepEqual([replaced.imageSource, calls.length], ['capture', 3])
+
+  // Removing the picture clears its source.
+  const gone = await (await send(app, 'PUT', `/stories/${r4.id}/design`, { prototypeUrl: 'https://example.com/fees', notes: null, image: null }, replaced.version)).json()
+  assert.deepEqual([gone.hasImage, gone.imageSource], [false, null])
+})
+
+test('a capture that cannot be made saves nothing and says why; a changed link is not given the old picture', async () => {
+  const { app: owner, db, send, story } = await boardFixture()
+  const r5 = await story('R5')
+  const failing = createApp({ env: TOKEN, getDb: () => db, capture: async () => { throw new CaptureError('That page could not be opened.') } })
+  assert.equal((await send(failing, 'POST', `/stories/${r5.id}/design/capture`)).status, 422, 'a requirement with no design row has no link yet')
+  const first = await (await send(owner, 'PUT', `/stories/${r5.id}/design`, { prototypeUrl: 'https://example.com/a', notes: null }, 0)).json()
+  const res = await send(failing, 'POST', `/stories/${r5.id}/design/capture`)
+  assert.equal(res.status, 422)
+  const body = await expectSpec(res, '/stories/{id}/design/capture', 'post')
+  assert.deepEqual([body.error.code, body.error.message], ['capture_failed', 'That page could not be opened.'])
+  assert.equal((await (await send(owner, 'GET', `/stories/${r5.id}/design/image`)).status), 404)
+
+  // The link is changed while the page is still loading.
+  const racing = createApp({
+    env: TOKEN, getDb: () => db,
+    capture: async () => {
+      await send(owner, 'PUT', `/stories/${r5.id}/design`, { prototypeUrl: 'https://example.com/b', notes: null }, first.version)
+      return { type: 'image/jpeg', data: JPEG }
+    },
+  })
+  const late = await send(racing, 'POST', `/stories/${r5.id}/design/capture`)
+  assert.equal(late.status, 409)
+  assert.equal((await expectSpec(late, '/stories/{id}/design/capture', 'post')).error.code, 'link_changed')
+  assert.equal((await owner.request(`/api/v1/stories/${r5.id}/design/image`, { headers: auth })).status, 404)
+})
+
+test('capture is for editors, can be switched off, and refuses private addresses without starting a browser', async () => {
+  const { app: owner, sam, db, send, story, p1 } = await boardFixture()
+  const r6 = await story('R6')
+  assert.equal((await send(owner, 'PUT', `/stories/${r6.id}/design`, { prototypeUrl: 'http://169.254.169.254/latest/meta-data/', notes: null }, 0)).status, 200)
+
+  // The real service, with its address checks: refused before any browser is launched.
+  const real = createApp({ env: TOKEN, getDb: () => db })
+  const refused = await send(real, 'POST', `/stories/${r6.id}/design/capture`)
+  assert.equal(refused.status, 422)
+  const refusal = await expectSpec(refused, '/stories/{id}/design/capture', 'post')
+  assert.equal(refusal.error.code, 'capture_failed')
+  assert.match(refusal.error.message, /private network/)
+
+  // A viewer cannot capture; a visitor with no token cannot either.
+  assert.equal((await send(sam, 'POST', `/stories/${r6.id}/design/capture`)).status, 403)
+  assert.equal((await real.request(`/api/v1/stories/${r6.id}/design/capture`, { method: 'POST' })).status, 401)
+
+  // Switched off: the table says so, and the route answers 503.
+  const off = createApp({ env: { ...TOKEN, DESIGN_CAPTURE: 'false' }, getDb: () => db })
+  assert.equal((await (await off.request(`/api/v1/projects/${p1}/design`)).json()).captureEnabled, false)
+  assert.equal((await (await owner.request(`/api/v1/projects/${p1}/design`)).json()).captureEnabled, true)
+  const unavailable = await send(off, 'POST', `/stories/${r6.id}/design/capture`)
+  assert.equal(unavailable.status, 503)
+  assert.equal((await expectSpec(unavailable, '/stories/{id}/design/capture', 'post')).error.code, 'capture_unavailable')
 })
 
 test('only editors can save design rows; a visitor can read the table', async () => {

@@ -469,6 +469,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stories/{id}/design/capture": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Takes the thumbnail from the saved prototype link: the server opens the page in a headless browser on its side and keeps a 960 px picture of it. Only public web pages are captured (private and internal addresses are refused). An uploaded picture is left alone unless `replace` is true. Needs an owner or editor. 422 `no_link` without a link, 422 `capture_failed` when the page could not be captured (nothing is saved), 409 `link_changed` if the link changed meanwhile, 503 `capture_unavailable` when switched off. */
+        post: operations["captureDesignImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stories/{id}/design/image": {
         parameters: {
             query?: never;
@@ -1761,6 +1778,11 @@ export interface components {
             prototypeUrl: string | null;
             notes: string | null;
             hasImage: boolean;
+            /**
+             * @description Who made the picture: a person (upload) or the server from the link (capture). Null without a picture.
+             * @enum {string|null}
+             */
+            imageSource: "upload" | "capture" | null;
             /** @description 0 when nothing has been saved for this requirement yet. */
             version: number;
         };
@@ -1768,6 +1790,8 @@ export interface components {
             specId: string;
             specName: string;
             projectId: string;
+            /** @description False when thumbnail capture is switched off on this deployment (DESIGN_CAPTURE=false). */
+            captureEnabled: boolean;
             decisions: {
                 reasoning: string | null;
                 alternatives: {
@@ -1776,6 +1800,10 @@ export interface components {
                 }[];
             };
             items: components["schemas"]["DesignItem"][];
+        };
+        CaptureRequest: {
+            /** @description Let the capture replace a picture a person uploaded. */
+            replace?: boolean;
         };
         DesignRequest: {
             /** @description A link starting with http:// or https://. */
@@ -2895,6 +2923,38 @@ export interface operations {
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
+        };
+    };
+    captureDesignImage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["CaptureRequest"];
+            };
+        };
+        responses: {
+            /** @description The row as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DesignItem"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     getDesignImage: {

@@ -72,6 +72,9 @@ The Neon integration adds the database variables (with a custom prefix; the code
 | `BETTER_AUTH_URL` | The address the app is served from, for example `https://apptest1-eta.vercel.app`. Locally, `http://localhost:5198` in `db/.env.local` |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | Optional. Other addresses the app is served from, comma-separated, for example the old `vercel.app` address while moving to your own domain. `BETTER_AUTH_URL` is always trusted |
 | `BETTER_AUTH_SECRET` | A random string of 32 or more characters that signs sign-in cookies (for example `openssl rand -base64 32`). Changing it signs everyone out. Sign-in is on only when these two and one provider's settings (`GOOGLE_*` or `OIDC_*`) are set |
+| `DESIGN_CAPTURE` | Default on. Set `false` to switch off thumbnails taken from prototype links (the Design table then offers upload only). The server opens the link in headless Chromium on its own side (`server/capture.ts`); nothing goes to a third party. Only public web pages are captured: private, loopback and link-local addresses, odd ports and credentials in a link are refused, including on every redirect and page resource |
+| `CHROME_PATH` | Where to find a Chrome or Chromium for thumbnails when not on Vercel (Vercel uses the Chromium inside `@sparticuz/chromium`; `vercel.json` gives that function 60 seconds and includes its files). A developer's own Chrome is fine |
+| `DESIGN_CAPTURE_ALLOW_PRIVATE` | Tests only. `true` lets thumbnails visit this machine's own pages. Never set it on a deployment: `npm run doctor` warns |
 | `WORKSPACE_SLUG` (older name `DEMO_WORKSPACE_SLUG`) | The workspace this deployment serves. Default `higherwave-demo`. Create your own with `npm run bootstrap` |
 | `DEV_USER_EMAIL` | The identity used for the demo token and the read-only viewer. Default `david@demo.signalflow.example`; not needed when everyone signs in |
 

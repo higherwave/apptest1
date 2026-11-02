@@ -44,6 +44,7 @@ test('doctor catches half-set pairs, a short secret, and demo settings left on',
   assert.equal(open.filter((r) => r.area === 'Access' && r.level === 'warn').length, 2, 'open editing and public view on a company workspace')
   assert.ok(diagnoseSettings({ ...READY, VERCEL_ENV: 'production', DEV_TOKEN: 't' }).some((r) => r.area === 'Access' && /DEV_TOKEN/.test(r.message)))
   assert.equal(levels(diagnoseSettings({ ...READY, AI_ENABLED: 'false', AI_PROVIDER: 'anthropic' })).AI, 'ok')
+  assert.ok(diagnoseSettings({ ...READY, DESIGN_CAPTURE_ALLOW_PRIVATE: 'true' }).some((r) => r.level === 'fail' && /private network/.test(r.message)), 'thumbnails must not be allowed to visit private addresses')
 })
 
 test('doctor understands company sign-in: a whole provider is ok, half of one fails, bad group settings are flagged', () => {

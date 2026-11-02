@@ -51,6 +51,8 @@ export type DesignRequest = components['schemas']['DesignRequest']
 export const getDesign = (projectId: string) => request<Design>(`/projects/${projectId}/design`)
 // The row's version is 0 when nothing has been saved for the requirement yet.
 export const saveDesignItem = (storyId: string, version: number, body: DesignRequest) => request<DesignItem>(`/stories/${storyId}/design`, { method: 'PUT', body, version })
+// Takes the thumbnail from the saved prototype link, on the server. `replace` lets it overwrite a picture a person uploaded.
+export const captureDesignImage = (storyId: string, replace = false) => request<DesignItem>(`/stories/${storyId}/design/capture`, { method: 'POST', body: replace ? { replace: true } : {} })
 export const designImageUrl = (storyId: string, version: number) => `/api/v1/stories/${storyId}/design/image?v=${version}`
 
 export type Measure = components['schemas']['Measure']

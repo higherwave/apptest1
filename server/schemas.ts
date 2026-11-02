@@ -159,6 +159,9 @@ export const measureSchema = z.object({
 // A design row: where the prototype is, what it looks like, and the notes. The picture is a small downscaled image sent as base64
 // (at most about 600 KB of it); leaving `image` out keeps the current one, null removes it.
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+// POST /stories/:id/design/capture. `replace` lets the capture overwrite a picture a person uploaded (the Capture button; the automatic
+// capture after a link is saved never sets it).
+export const captureSchema = z.object({ replace: z.boolean().optional() }).default({})
 export const designSchema = z.object({
   prototypeUrl: text(2000)
     .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Enter a link that starts with http:// or https://.')
