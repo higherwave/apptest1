@@ -234,6 +234,15 @@ export async function capturePreflight(env: Env): Promise<Preflight> {
       })
       await browser.close().catch(() => undefined)
     }
+    // The whole path a real capture takes (address checks, page load, picture) on a fixed page of this app's own site: nothing a
+    // visitor chooses, so it cannot be used to visit anything else.
+    const own = env.BETTER_AUTH_URL
+    if (own && steps.every((s) => s.ok)) {
+      await step('a page is captured end to end', async () => {
+        const shot = await capture(new URL('/about.html', own).toString(), env, env.DESIGN_CAPTURE_ALLOW_PRIVATE === 'true')
+        return `${new URL('/about.html', own).host}: ${Math.round(shot.data.length / 1000)} KB`
+      })
+    }
   }
   const value: Preflight = { ...base, ok: steps.length > 0 && steps.every((s) => s.ok), enabled: true, steps }
   lastPreflight = { at: Date.now(), key, value }
