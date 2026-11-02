@@ -106,6 +106,8 @@ export type ThemeList = components['schemas']['ThemeList']
 export type ThemeCategory = Theme['category']
 export const listThemes = (projectId: string) => request<ThemeList>(`/projects/${projectId}/themes?include=quotes`)
 // An edit is checked against the version of that theme's edits, so edits to other themes never conflict.
+// Files a theme under a feature area, or none.
+export const setThemeArea = (themeId: string, areaId: string | null) => request<Theme>(`/themes/${themeId}/area`, { method: 'PUT', body: { areaId } })
 export const updateTheme = (themeId: string, version: number, body: ThemePatch) => request<Theme>(`/themes/${themeId}`, { method: 'PATCH', body, version })
 export const resetPriorityOverrides = (projectId: string) => request<{ data: Theme[] }>(`/projects/${projectId}/priority-overrides`, { method: 'DELETE' })
 export type SpecDetail = components['schemas']['SpecDetail']

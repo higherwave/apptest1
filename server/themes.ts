@@ -1,3 +1,4 @@
+import { assertAreasUsable } from './areas.js'
 import type { Db, Queryable } from './db.js'
 import { ApiError } from './errors.js'
 import { currentAnalysisRun } from './transcripts.js'
@@ -29,6 +30,8 @@ export type Theme = {
   totalParticipants: number
   mentionCount: number
   score: number | null
+  /** The feature area the theme is about (the analysis's choice, or a person's), or none. */
+  area: { id: string; name: string } | null
   quotes?: Quote[]
 }
 
@@ -45,8 +48,10 @@ const THEME_SQL = `
          t.suggested_priority, t.suggested_effort, t.effort_note, t.score,
          o.title as o_title, o.stage_position as o_stage, o.priority as o_priority, o.effort as o_effort,
          coalesce(o.version, 0) as override_version,
-         st.participant_count::int as participant_count, st.total_participants::int as total_participants, st.mention_count::int as mention_count
+         st.participant_count::int as participant_count, st.total_participants::int as total_participants, st.mention_count::int as mention_count,
+         fa.id as area_id, fa.name as area_name
   from research.themes t
+  left join insights.feature_areas fa on fa.id = t.area_id
   left join research.theme_overrides o on o.theme_id = t.id
   join research.theme_stats st on st.theme_id = t.id`
 
@@ -74,6 +79,7 @@ function toTheme(r: Record<string, any>): Theme {
     totalParticipants: r.total_participants,
     mentionCount: r.mention_count,
     score: r.score === null ? null : Number(r.score),
+    area: r.area_id ? { id: r.area_id, name: r.area_name } : null,
   }
 }
 
@@ -157,5 +163,16 @@ export async function resetPriorityOverrides(db: Db, ctx: Actor, projectId: stri
     await tx.query(`update research.theme_overrides set priority = null, effort = null, updated_by = $3 where theme_id in (select id from research.themes where project_id = $1 and run_id = $2)`, [projectId, run.id, ctx.userId])
     await tx.query(`delete from research.theme_overrides where title is null and stage_position is null and priority is null and effort is null and theme_id in (select id from research.themes where project_id = $1 and run_id = $2)`, [projectId, run.id])
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.projects', entity_id: projectId, verb: 'priorities_reset' }])
+  })
+}
+
+/** Files a theme under a feature area, or under none (editors). The area must be a live one of this workspace. */
+export async function setThemeArea(db: Db, ctx: Actor, themeId: string, areaId: string | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    const t = (await tx.query(`select t.id, t.area_id, t.run_id from research.themes t join core.projects p on p.id = t.project_id where t.id = $1 and p.workspace_id = $2 for update of t`, [themeId, ctx.workspaceId])).rows[0]
+    if (!t) throw new ThemeNotFound()
+    await assertAreasUsable(tx, ctx.workspaceId, [areaId], new Set(t.area_id ? [t.area_id as string] : []))
+    await tx.query(`update research.themes set area_id = $2, updated_by = $3 where id = $1`, [themeId, areaId, ctx.userId])
+    await tx.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'research.themes', $3, 'area set', $4, $5)`, [ctx.workspaceId, ctx.userId, themeId, JSON.stringify({ areaId: t.area_id ?? null }), JSON.stringify({ areaId })])
   })
 }

@@ -35,6 +35,7 @@ export function ThemesPage() {
       onCategory={setCategory}
       onSelect={setPicked}
       onEdit={data.edit}
+      onArea={data.setArea}
       onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
     />
   )

@@ -350,6 +350,23 @@ export interface paths {
         patch: operations["updateTheme"];
         trace?: never;
     };
+    "/themes/{id}/area": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Files a theme under a feature area, or under none (`areaId` null). The analysis chooses an area for each theme; this is the person's correction. 422 `unknown_area` for an area that does not exist or is retired. Needs an owner or editor. */
+        put: operations["setThemeArea"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/priority-overrides": {
         parameters: {
             query?: never;
@@ -1713,6 +1730,11 @@ export interface components {
             totalParticipants: number;
             mentionCount: number;
             score: number | null;
+            /** @description The feature area the theme is about, as the analysis filed it or a person corrected it. Null when none fits. */
+            area: {
+                id: string;
+                name: string;
+            } | null;
             quotes?: components["schemas"]["Quote"][];
         };
         ThemeList: {
@@ -2024,6 +2046,8 @@ export interface components {
             mergedInto: string | null;
             usage: {
                 tasks: number;
+                /** @description Themes of the current analyses filed under this area. */
+                themes: number;
             };
             version: number;
         };
@@ -2834,6 +2858,38 @@ export interface operations {
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    setThemeArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    areaId: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description The theme as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Theme"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     resetPriorityOverrides: {

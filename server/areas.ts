@@ -12,7 +12,7 @@ export type Area = {
   retired: boolean
   /** The area this one was merged into, when it was. */
   mergedInto: string | null
-  usage: { tasks: number }
+  usage: { tasks: number; themes: number }
   version: number
 }
 
@@ -44,12 +44,13 @@ const audit = (tx: Queryable, ctx: RequestContext, verb: string, id: string, bef
 
 const AREA_SQL = `
   select a.id, a.name, a.definition, a.aliases, a.retired_at, a.merged_into, a.version,
-         (select count(*)::int from research.tasks t where t.area_id = a.id) as tasks
+         (select count(*)::int from research.tasks t where t.area_id = a.id) as tasks,
+         (select count(*)::int from research.themes th join core.agent_runs r on r.id = th.run_id where th.area_id = a.id and r.superseded_at is null) as themes
   from insights.feature_areas a`
 
 const toArea = (r: Record<string, any>): Area => ({
   id: r.id, name: r.name, definition: r.definition ?? null, aliases: r.aliases ?? [], retired: !!r.retired_at, mergedInto: r.merged_into ?? null,
-  usage: { tasks: r.tasks ?? 0 }, version: r.version,
+  usage: { tasks: r.tasks ?? 0, themes: r.themes ?? 0 }, version: r.version,
 })
 
 /** Every area, active first (alphabetical), then retired ones. */
@@ -122,7 +123,7 @@ export async function retireArea(db: Db, ctx: RequestContext, id: string): Promi
   })
 }
 
-/** Folds an area into another: its questions and tasks move, its name and aliases become aliases of the target, and it is retired. Owners. */
+/** Folds an area into another: its questions, tasks and themes move, its name and aliases become aliases of the target, and it is retired. Owners. */
 export async function mergeAreas(db: Db, ctx: RequestContext, id: string, intoId: string): Promise<Area> {
   if (id === intoId) throw new AreaConflict(0)
   return db.transaction(async (tx) => {
@@ -131,6 +132,7 @@ export async function mergeAreas(db: Db, ctx: RequestContext, id: string, intoId
     const into = await getArea(tx, ctx.workspaceId, intoId)
     if (!from || !into || into.retired) throw new AreaMissing()
     await tx.query(`update research.tasks set area_id = $2 where area_id = $1 and workspace_id = $3`, [id, intoId, ctx.workspaceId])
+    await tx.query(`update research.themes set area_id = $2 where area_id = $1 and workspace_id = $3`, [id, intoId, ctx.workspaceId])
     await tx.query(`update insights.feature_areas set aliases = $3, updated_by = $4 where workspace_id = $1 and id = $2`, [ctx.workspaceId, intoId, cleanAliases([...into.aliases, from.name, ...from.aliases], into.name), ctx.userId])
     await tx.query(`update insights.feature_areas set retired_at = now(), merged_into = $3, updated_by = $4 where workspace_id = $1 and id = $2`, [ctx.workspaceId, id, intoId, ctx.userId])
     await audit(tx, ctx, 'merged', id, { name: from.name, usage: from.usage }, { into: into.name })

@@ -1939,7 +1939,7 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
 
   // Adding: editors may, viewers may not.
   const scheduling = await expectSpec(await make(editor, { name: 'Scheduling', definition: 'Booking, moving and cancelling an appointment', aliases: ['Booking'] }), '/areas', 'post')
-  assert.deepEqual([scheduling.name, scheduling.aliases, scheduling.retired, scheduling.usage], ['Scheduling', ['Booking'], false, { tasks: 0 }])
+  assert.deepEqual([scheduling.name, scheduling.aliases, scheduling.retired, scheduling.usage], ['Scheduling', ['Booking'], false, { tasks: 0, themes: 0 }])
   assert.equal((await make(viewer, { name: 'Reminders' })).status, 403)
   assert.equal((await make(owner, { name: 'x' })).status, 422, 'a name of at least two characters')
 
@@ -1969,7 +1969,7 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
   // Usage counts follow, and the list is readable by everyone.
   const list = await expectSpec(await viewer.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } }), '/areas')
   const usage = Object.fromEntries(list.data.map((a: any) => [a.name, a.usage]))
-  assert.deepEqual([usage.Scheduling, usage.Reminders], [{ tasks: 1 }, { tasks: 1 }])
+  assert.deepEqual([usage.Scheduling, usage.Reminders], [{ tasks: 1, themes: 0 }, { tasks: 1, themes: 0 }])
 
   // Owners curate: rename keeps the old name as an alias; editors cannot; a stale version conflicts; If-Match is required.
   const renamed = await expectSpec(await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments', definition: 'Booking and moving appointments', aliases: ['Booking'] }, scheduling.version), '/areas/{id}', 'patch')
@@ -1981,7 +1981,7 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
 
   // Merging moves what used the area and keeps its names; retiring takes it off the picker but keeps what uses it.
   const merged = await expectSpec(await send(owner, 'POST', `/areas/${reminders.id}/merge`, { intoId: scheduling.id }), '/areas/{id}/merge', 'post')
-  assert.deepEqual([merged.id, merged.usage, merged.aliases.includes('Reminders')], [scheduling.id, { tasks: 2 }, true])
+  assert.deepEqual([merged.id, merged.usage, merged.aliases.includes('Reminders')], [scheduling.id, { tasks: 2, themes: 0 }, true])
   const after = (await (await owner.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } })).json()).data
   const old = after.find((a: any) => a.id === reminders.id)
   assert.deepEqual([old.retired, old.mergedInto], [true, scheduling.id])
@@ -1994,6 +1994,43 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
   const toRetired = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Reschedule a visit', areaId: forced.id }] }, (await keep.json()).version)
   assert.equal(toRetired.status, 422, 'a retired area is not offered for new assignments')
   assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where entity = 'insights.feature_areas'`)).rows[0].n >= 6, true)
+})
+
+test('feature areas on themes: the simulated analysis files themes under areas, a person can correct it, and counts and merges follow', async () => {
+  const { app: owner, alex: editor, sam: viewer, send, p1 } = await boardFixture()
+  const make = async (name: string, definition: string) => (await send(owner, 'POST', '/areas', { name, definition })).json()
+  const booking = await make('Booking form', 'The forms people fill in to book a visit')
+  const prices = await make('Pricing and fees', 'What a visit costs and the fees at checkout')
+  const bookingId = booking.id as string
+
+  const version = async () => ((await (await owner.request(`/api/v1/projects/${p1}`, { headers: { authorization: 'Bearer s3cret' } })).json()) as any).version as number
+  const run = await send(owner, 'POST', `/projects/${p1}/analysis-runs`, {}, await version())
+  assert.equal(run.status, 201)
+  const list = await expectSpec(await owner.request(`/api/v1/projects/${p1}/themes`, { headers: { authorization: 'Bearer s3cret' } }), '/projects/{id}/themes')
+  const byTitle = Object.fromEntries(list.data.map((t: any) => [t.title, t.area?.name ?? null]))
+  assert.equal(byTitle['Booking form repeats questions'], 'Booking form', 'a theme about the booking form is filed under it')
+  assert.equal(byTitle['Price surprises at confirmation'], 'Pricing and fees')
+  const filed = list.data.filter((t: any) => t.area)
+  assert.ok(filed.length >= 2 && filed.length < list.data.length, 'themes about nothing on the list stay without an area')
+
+  // A person corrects one: to another area, to none; viewers cannot; unknown and retired areas are refused.
+  const theme = list.data.find((t: any) => t.title === 'Booking form repeats questions')
+  const moved = await expectSpec(await send(owner, 'PUT', `/themes/${theme.id}/area`, { areaId: prices.id }), '/themes/{id}/area', 'put')
+  assert.equal(moved.area.name, 'Pricing and fees')
+  const cleared = await expectSpec(await send(editor, 'PUT', `/themes/${theme.id}/area`, { areaId: null }), '/themes/{id}/area', 'put')
+  assert.equal(cleared.area, null)
+  assert.equal((await send(viewer, 'PUT', `/themes/${theme.id}/area`, { areaId: bookingId })).status, 403)
+  const unknown = await send(owner, 'PUT', `/themes/${theme.id}/area`, { areaId: '11111111-1111-4111-8111-111111111111' })
+  assert.equal(unknown.status, 422)
+  assert.equal((await unknown.json()).error.code, 'unknown_area')
+  assert.equal((await send(owner, 'PUT', `/themes/11111111-1111-4111-8111-111111111111/area`, { areaId: null })).status, 404)
+
+  // The Feature areas list counts themes of the current analysis, and a merge moves them.
+  const counts = async () => Object.fromEntries(((await (await owner.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } })).json()) as any).data.map((a: any) => [a.name, a.usage.themes]))
+  const before = await counts()
+  assert.ok(before['Booking form'] >= 0 && before['Pricing and fees'] >= 1)
+  const merged = await expectSpec(await send(owner, 'POST', `/areas/${prices.id}/merge`, { intoId: bookingId }), '/areas/{id}/merge', 'post')
+  assert.equal(merged.usage.themes, before['Booking form'] + before['Pricing and fees'], 'the themes moved to the area it was merged into')
 })
 
 test('only editors can save design rows; a visitor can read the table', async () => {

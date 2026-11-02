@@ -13,7 +13,7 @@ import { parseTranscript, scoreTheme, type AnalyzedQuote, type AnalyzedTheme } f
 import type { Usage } from './ai.js'
 import type { Queryable } from './db.js'
 
-export const ANALYSIS_PROMPT_VERSION = 'analysis-v1'
+export const ANALYSIS_PROMPT_VERSION = 'analysis-v2'
 
 // Per-run limits (the plan's third cost layer, for the part that depends on the input and output).
 export const MAX_INPUT_CHARS = 80_000 // about 20,000 tokens of transcript text
@@ -33,6 +33,10 @@ export type AnalysisInput = {
   /** The project's journey stages in order; the model picks one by number (1 is the first). */
   stages: string[]
   study?: { what?: string | null; outcomes?: string[] }
+  /** The questions to ask and tasks to observe, each with its feature area (by name) if it has one. */
+  tasks?: { prompt: string; area: string | null }[]
+  /** The workspace's live feature areas. When there are any, each theme is filed under one. */
+  areas?: { name: string; definition: string | null; aliases: string[] }[]
 }
 
 export class ModelOutputError extends Error {
@@ -145,6 +149,13 @@ JSON shape:
 
 Categories: pain_point is something that blocks, confuses or frustrates; need is something participants want that is missing; expectation is how they assume it should work; delight is something that worked well or pleased them.`
 
+// Added to the instructions only when the workspace has feature areas.
+const AREA_RULES = `
+
+Feature areas: the user message lists the workspace's feature areas, and the questions the team planned to ask, each with its area. Add one more key to every theme:
+      "area": "the exact name of the one feature area this theme is about, copied from the list, or null"
+Choose the area the participants were talking about, not the area of the question that happened to prompt it. Use null when no listed area fits: never invent an area, never rename one, never join two. Use the same area for themes about the same feature.`
+
 export function buildAnalysisPrompt(input: AnalysisInput): { system: string; user: string; maxTokens: number; version: string; index: ReturnType<typeof indexTranscripts> } {
   const index = indexTranscripts(input)
   const chars = index.lines.reduce((n, l) => n + l.masked.length, 0)
@@ -155,17 +166,28 @@ export function buildAnalysisPrompt(input: AnalysisInput): { system: string; use
     study.what ? `What is being tested: ${mask(study.what)}` : '',
     study.outcomes?.length ? `Outcomes the team expects: ${study.outcomes.map(mask).join('; ')}` : '',
   ].filter(Boolean)
+  const areas = input.areas ?? []
+  const areaBlock = areas.length
+    ? `Feature areas (use these names exactly):\n${areas.map((a) => `- ${mask(a.name)}${a.definition ? `: ${mask(a.definition)}` : ''}${a.aliases.length ? ` (also called: ${a.aliases.map(mask).join(', ')})` : ''}`).join('\n')}`
+    : ''
+  const taskBlock = (input.tasks ?? []).length
+    ? `Questions to ask and tasks to observe, in order:\n${(input.tasks ?? []).map((t, i) => `${i + 1}. ${mask(t.prompt)}${t.area ? ` [area: ${mask(t.area)}]` : ''}`).join('\n')}`
+    : ''
   const transcripts = input.transcripts.map((_, t) => {
     const body = index.lines.filter((l) => l.t === t).map((l) => `[T${t + 1}.U${l.u + 1}] ${l.speaker.id}: ${l.masked}`)
     return `## Transcript ${t + 1}\n${body.join('\n')}`
   })
   const user = [
     ...context,
+    areaBlock,
+    taskBlock,
     `Journey stages:\n${input.stages.map((s, i) => `${i + 1}. ${s}`).join('\n')}`,
     transcripts.join('\n\n'),
     'Return the JSON now.',
-  ].join('\n\n')
-  return { system: SYSTEM, user, maxTokens: MAX_OUTPUT_TOKENS, version: ANALYSIS_PROMPT_VERSION, index }
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+  return { system: areas.length ? SYSTEM + AREA_RULES : SYSTEM, user, maxTokens: MAX_OUTPUT_TOKENS, version: ANALYSIS_PROMPT_VERSION, index }
 }
 
 // The reply: parse and validate ------------------------------------------------------------------------------------------
@@ -181,6 +203,7 @@ const themeSchema = z.object({
   effort: z.number().int().min(1).max(3),
   effortNote: z.string().trim().max(300).default(''),
   quotes: z.array(quoteSchema).min(1),
+  area: z.string().trim().max(120).nullish(),
 }) // unknown keys, such as a participant count the model volunteered, are dropped
 const replySchema = z.object({ themes: z.array(themeSchema).min(1).max(MAX_THEMES) })
 export type ModelTheme = z.infer<typeof themeSchema>
@@ -267,7 +290,7 @@ export function groundThemes(themes: ModelTheme[], index: ReturnType<typeof inde
     kept.push({
       id: `m${kept.length + 1}`, title: unmaskIds(th.title, index.speakers), cat: CATEGORY_LABEL[th.category], stage: th.stage - 1, sev: th.severity, kw: [],
       desc: unmaskIds(th.description, index.speakers), opp: unmaskIds(th.opportunity, index.speakers), quotes, ppl, total, mentions: quotes.length, score, prio,
-      eff: th.effort, effNote: unmaskIds(th.effortNote, index.speakers),
+      eff: th.effort, effNote: unmaskIds(th.effortNote, index.speakers), area: th.area ?? null,
     })
   }
   kept.sort((a, b) => b.score - a.score)
@@ -313,5 +336,7 @@ export async function loadAnalysisInput(db: Queryable, projectId: string): Promi
   const participants = (await rows(`select name from research.participants where project_id = $1 order by position`)).map((r) => ({ name: r.name as string }))
   const stages = (await rows(`select name from research.study_stages where study_id = $1 order by position`)).map((r) => r.name as string)
   const study = (await rows(`select what_testing, outcomes from research.studies where project_id = $1`))[0]
-  return { transcripts, participants, stages, study: { what: (study?.what_testing as string | null) || null, outcomes: (study?.outcomes as string[] | undefined) ?? [] } }
+  const tasks = (await rows(`select t.prompt, a.name as area from research.tasks t left join insights.feature_areas a on a.id = t.area_id where t.project_id = $1 and t.parent_task_id is null order by t.position`)).map((r) => ({ prompt: r.prompt as string, area: (r.area as string | null) ?? null }))
+  const areas = (await db.query(`select name, definition, aliases from insights.feature_areas where workspace_id = (select workspace_id from core.projects where id = $1) and retired_at is null order by lower(name)`, [projectId])).rows.map((r) => ({ name: r.name as string, definition: (r.definition as string | null) ?? null, aliases: (r.aliases as string[]) ?? [] }))
+  return { transcripts, participants, stages, tasks, areas, study: { what: (study?.what_testing as string | null) || null, outcomes: (study?.outcomes as string[] | undefined) ?? [] } }
 }

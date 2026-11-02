@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { friendlyMessage, listThemes, resetPriorityOverrides, updateTheme, type Theme, type ThemeList, type ThemePatch } from '../../api/client'
+import { friendlyMessage, listThemes, resetPriorityOverrides, setThemeArea, updateTheme, type Theme, type ThemeList, type ThemePatch } from '../../api/client'
 import { applyPatch } from './themeEdits'
 
 // The project's themes (with quotes) and the ways to change them. An edit shows at once, is sent with the version
@@ -36,6 +36,27 @@ export function useThemeData(projectId: string) {
     }
   }
 
+  // The person's correction of the area the analysis chose. The row shows it at once and goes back if the save fails.
+  async function setArea(theme: Theme, areaId: string | null) {
+    if (pending.has(theme.id) || (theme.area?.id ?? null) === areaId) return
+    setPending((p) => new Set(p).add(theme.id))
+    setError(undefined)
+    try {
+      const saved = await setThemeArea(theme.id, areaId)
+      mapThemes((t) => (t.id === theme.id ? { ...saved, quotes: t.quotes } : t))
+      await queryClient.invalidateQueries({ queryKey: ['areas'] })
+    } catch (err) {
+      setError(friendlyMessage(err))
+      await queryClient.invalidateQueries({ queryKey: key })
+    } finally {
+      setPending((p) => {
+        const n = new Set(p)
+        n.delete(theme.id)
+        return n
+      })
+    }
+  }
+
   async function resetAll() {
     setError(undefined)
     try {
@@ -46,5 +67,5 @@ export function useThemeData(projectId: string) {
     await queryClient.invalidateQueries({ queryKey: key })
   }
 
-  return { themes, list: themes.data?.data ?? [], stages: themes.data?.stages ?? [], edit, resetAll, pending, error, clearError: () => setError(undefined) }
+  return { themes, list: themes.data?.data ?? [], stages: themes.data?.stages ?? [], edit, setArea, resetAll, pending, error, clearError: () => setError(undefined) }
 }

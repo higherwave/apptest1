@@ -56,6 +56,32 @@ test('masking: speakers become ids and contact details and names never reach the
   assert.equal(unmaskIds('P1 and P2 both struggled; M1 asked.', p.index.speakers), 'Maya Chen and Daniel Ortiz both struggled; Moderator asked.')
 })
 
+test('feature areas: the prompt lists the areas and the planned questions with their areas, asks for an area per theme, and only when areas exist', () => {
+  const withAreas: AnalysisInput = {
+    ...SMALL,
+    areas: [{ name: 'Scheduling', definition: 'Booking and moving an appointment', aliases: ['Booking'] }, { name: 'Billing', definition: null, aliases: [] }],
+    tasks: [{ prompt: 'Book a visit for next week. Email maya.chen@example.com if stuck.', area: 'Scheduling' }, { prompt: 'Find the price', area: null }],
+  }
+  const p = buildAnalysisPrompt(withAreas)
+  assert.match(p.user, /Feature areas \(use these names exactly\):\n- Scheduling: Booking and moving an appointment \(also called: Booking\)\n- Billing/)
+  assert.match(p.user, /Questions to ask and tasks to observe, in order:\n1\. Book a visit for next week\. Email \[email\] if stuck\. \[area: Scheduling\]\n2\. Find the price/)
+  assert.ok(!p.user.includes('maya.chen@example.com'), 'contact details in a planned question are masked too')
+  assert.match(p.system, /"area": "the exact name of the one feature area/)
+  assert.match(p.system, /Use null when no listed area fits/)
+  const plain = buildAnalysisPrompt(SMALL)
+  assert.ok(!plain.system.includes('Feature areas') && !plain.user.includes('Feature areas'), 'with no areas the prompt asks for none')
+})
+
+test('a theme carries the area the model named, or none; the name is kept as written for the run code to resolve', () => {
+  const reply = JSON.stringify({ themes: [{ ...theme(), area: ' Scheduling ' }, { ...theme({ title: 'Prices are hidden until checkout' }), area: null }, { ...theme({ title: 'Reminders are welcome' }) }] })
+  const parsed = parseReply(reply, 3)
+  assert.equal(parsed.ok, true)
+  if (!parsed.ok) return
+  assert.deepEqual(parsed.themes.map((t) => t.area ?? null), ['Scheduling', null, null])
+  const grounded = groundThemes(parsed.themes, indexTranscripts(SMALL)).themes
+  assert.deepEqual(grounded.map((t) => t.area), ['Scheduling', null, null])
+})
+
 test('the input size is limited', () => {
   const big = { ...SMALL, transcripts: [{ name: 'x', text: `00:00:01 Someone Here: ${'word '.repeat(MAX_INPUT_CHARS / 4)}` }] }
   assert.throws(() => buildAnalysisPrompt(big), TranscriptsTooLarge)
@@ -219,9 +245,37 @@ test('a model-shaped analysis is saved by the real run: themes, quotes, the run 
   const expected = JSON.parse(fixture('p1')).themes as { quotes: unknown[] }[]
   assert.equal(result.themes, expected.length)
   const run = (await pglite.query<any>(`select provider, prompt_version, status from core.agent_runs where id = $1`, [result.runId])).rows[0]
-  assert.deepEqual(run, { provider: 'recorded-model', prompt_version: 'analysis-v1', status: 'complete' })
+  assert.deepEqual(run, { provider: 'recorded-model', prompt_version: 'analysis-v2', status: 'complete' })
   assert.equal((await pglite.query<any>(`select count(*)::int n from research.themes where run_id = $1`, [result.runId])).rows[0].n, expected.length)
   assert.equal((await pglite.query<any>(`select count(*)::int n from research.theme_quotes q join research.themes t on t.id = q.theme_id where t.run_id = $1`, [result.runId])).rows[0].n, expected.reduce((n, t) => n + t.quotes.length, 0))
   const spend = (await pglite.query<any>(`select purpose, provider, input_tokens, cost_usd::float8 as cost from core.ai_usage where run_id = $1`, [result.runId])).rows
   assert.deepEqual(spend, [{ purpose: 'analysis', provider: 'recorded-model', input_tokens: 1000, cost: 0.007 }])
+})
+
+test('feature areas: the area a model names is filed by name or another name, and a name that is not a live area is no area', async () => {
+  const { db, pglite } = await createDemoDatabase()
+  const pid = (await db.query(`select id, version, workspace_id from core.projects where name = $1`, [PROJECTS.p1])).rows[0] as { id: string; version: number; workspace_id: string }
+  const area = async (name: string, aliases: string[] = [], retired = false) =>
+    ((await pglite.query<any>(`insert into insights.feature_areas (workspace_id, name, aliases, retired_at) values ($1, $2, $3, $4) returning id`, [pid.workspace_id, name, aliases, retired ? new Date() : null])).rows[0] as { id: string }).id
+  const scheduling = await area('Scheduling', ['Booking'])
+  await area('Billing', [], true)
+  const input = await loadAnalysisInput(db, pid.id)
+  assert.deepEqual(input.areas?.map((a) => a.name), ['Scheduling'], 'the model is offered live areas only')
+
+  const reply = JSON.parse(fixture('p1')) as { themes: Record<string, unknown>[] }
+  const named = ['Scheduling', 'booking', 'Billing', 'An area nobody made', null]
+  reply.themes.forEach((t, i) => (t.area = named[i] ?? null))
+  const model: AiProvider = {
+    ...simulatedProvider, name: 'recorded-model', live: true,
+    analyze: async () => {
+      const r = await analyzeWithModel(replying(JSON.stringify(reply)), input)
+      return { value: r.themes, usage: r.usage }
+    },
+  }
+  const ai: Ai = { provider: model, env: { AI_MONTHLY_BUDGET_USD: '10' } }
+  const actor = (await db.query(`select u.id as "userId", w.id as "workspaceId" from core.users u join core.memberships m on m.user_id = u.id join core.workspaces w on w.id = m.workspace_id where u.email = 'david@demo.signalflow.example'`)).rows[0] as { userId: string; workspaceId: string }
+  const result = await runAnalysis(db, ai, actor, pid.id, pid.version)
+  const filed = (await pglite.query<any>(`select area_id from research.themes where run_id = $1`, [result.runId])).rows.map((r) => r.area_id as string | null)
+  assert.equal(filed.filter((a) => a === scheduling).length, 2, 'the exact name and the other name both file under Scheduling')
+  assert.equal(filed.filter((a) => a === null).length, filed.length - 2, 'a retired area, an invented one and null are no area')
 })

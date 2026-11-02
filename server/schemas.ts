@@ -164,6 +164,8 @@ export const createAreaSchema = z.object({
 export const updateAreaSchema = createAreaSchema.omit({ force: true })
 export const mergeAreaSchema = z.object({ intoId: z.uuid('Choose the area to merge into.') })
 
+export const themeAreaSchema = z.object({ areaId: z.uuid().nullable() })
+
 export const designSchema = z.object({
   prototypeUrl: text(2000)
     .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Enter a link that starts with http:// or https://.')

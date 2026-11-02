@@ -86,7 +86,7 @@ test('a full run through the live provider saves a grounded analysis and the rea
   assert.ok(result.themes > 0)
   assert.equal(f.calls.length, 1)
   const run = (await pglite.query<any>(`select provider, prompt_version, status from core.agent_runs where id = $1`, [result.runId])).rows[0]
-  assert.deepEqual(run, { provider: 'anthropic', prompt_version: 'analysis-v1', status: 'complete' })
+  assert.deepEqual(run, { provider: 'anthropic', prompt_version: 'analysis-v2', status: 'complete' })
   const spend = (await pglite.query<any>(`select purpose, provider, model, input_tokens, output_tokens, cost_usd::float8 as cost from core.ai_usage`)).rows
   assert.deepEqual(spend, [{ purpose: 'analysis', provider: 'anthropic', model: DEFAULT_ANALYSIS_MODEL, input_tokens: 18_000, output_tokens: 3_000, cost: 0.066 }])
   const sent = JSON.parse(f.calls[0].init.body as string)

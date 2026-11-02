@@ -178,8 +178,11 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
   such as Schedule and Scheduling) or similar (one name inside the other, most words shared). The API answers 409 `duplicate_area` (use that one) or
   409 `similar_area` (use one of those, or send `force: true`); the dialog offers exactly those choices. The same file suggests an area beside a question
   (`suggestAreas`), with no model call.
-- **Not built yet** (see the Build Plan): the analysis receiving tasks and areas and assigning themes to them, matching that prefers the same area, tiered
-  automatic merging with undo, and rollups grouped by area.
+- **The analysis uses them** (prompt `analysis-v2`, migration 0026 `research.themes.area_id`): it is given the live areas (name, definition, other names) and the planned
+  questions with their areas, and each theme names the one area it is about, or none. The name is kept only if it is a live area (by name or another name);
+  anything else is no area. The simulation (no model) files a theme under the area whose words it shares most (`suggestAreas`). A person can correct a theme's
+  area on the Themes page (`PUT /themes/{id}/area`). What is sent to the model changed, so `public/privacy.html` says so.
+- **Not built yet** (see the Build Plan): matching that prefers the same area, tiered automatic merging with undo, and rollups grouped by area.
 
 ## Spend alerts
 

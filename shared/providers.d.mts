@@ -15,6 +15,8 @@ export type AnalyzedTheme = ThemeDef & {
   prio: 'High' | 'Medium' | 'Low'
   eff: number
   effNote: string
+  /** The feature area the theme is about, by name (the model's choice or the simulation's); filed under an area when saved. Absent when the provider does not say. */
+  area?: string | null
 }
 export function analyze(
   transcripts: { name: string; text: string }[],

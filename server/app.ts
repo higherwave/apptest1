@@ -11,7 +11,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, createAreaSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -31,7 +31,7 @@ import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, 
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, dismissSuggestion, DuplicateTitle, findMergeSuggestions, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, writeRankRationales } from './platform-themes.js'
-import { getTheme, listThemes, patchTheme, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
+import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null }
 
@@ -329,6 +329,23 @@ export function createApp(options: AppOptions = {}) {
   })
 
   // Edits are per theme: the If-Match is the version of that theme's edits (0 when it has none).
+  // Files a theme under a feature area, or none. The analysis chooses one; this is the person's correction.
+  app.put('/themes/:id/area', withContext, async (c) => {
+    requireEditor(c)
+    const themeId = c.req.param('id')
+    if (!UUID.test(themeId)) throw new ApiError(404, 'not_found', 'No such theme.')
+    const input = parseBody(themeAreaSchema, await readJson(c))
+    try {
+      await setThemeArea(getDb(), c.get('ctx'), themeId, input.areaId)
+    } catch (err) {
+      if (err instanceof ThemeNotFound) throw new ApiError(404, 'not_found', 'No such theme.')
+      if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That feature area does not exist or has been retired. Choose another.', 'areaId')
+      throw err
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await getTheme(getDb(), c.get('ctx').workspaceId, themeId))
+  })
+
   app.patch('/themes/:id', withContext, async (c) => {
     requireEditor(c)
     const themeId = c.req.param('id')

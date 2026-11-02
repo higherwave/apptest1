@@ -6,6 +6,7 @@ import { ApiError } from './errors.js'
 import { insertMany } from './sql.js'
 import { claimVersion, ProjectNotFound, VersionConflict, type Actor } from './versioning.js'
 import { transcriptsKey } from './transcripts.js'
+import { similarAreas, suggestAreas } from '../shared/areas.js'
 
 // The simulated analysis: the prototype's keyword matching over the project's transcripts. Its theme
 // definitions and effort estimates are the prototype's own (shared/stub-config.mjs).
@@ -56,6 +57,10 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
     )
     // The monthly budget or the account's credit is used up: the simulation ran instead, and the run says so.
     if (fallback) await db.query(`update core.agent_runs set provider = $2, prompt_version = 'keyword-v1' where id = $1`, [runId, simulatedProvider.name])
+    // The simulation has no judgement of its own, so it files each theme under the area whose name, other names and definition it shares
+    // the most words with (the same free matching the Task List uses). A model names the area itself.
+    const live = (await db.query(`select id, name, definition, aliases from insights.feature_areas where workspace_id = $1 and retired_at is null`, [ctx.workspaceId])).rows as { id: string; name: string; definition: string | null; aliases: string[] }[]
+    for (const th of themes) if (th.area === undefined) th.area = suggestAreas(`${th.title} ${th.desc}`, live).find((s) => s.score >= 2)?.area.name ?? null
     const result = await store(db, ctx, projectId, expected, runId, themes)
     return fallback ? { ...result, fallback } : result
   } catch (err) {
@@ -82,12 +87,15 @@ async function store(db: Db, ctx: Actor, projectId: string, expected: number, ru
     for (const row of (await tx.query(`select u.id, u.transcript_id, u.position from research.utterances u join research.transcripts t on t.id = u.transcript_id where t.project_id = $1`, [projectId])).rows) {
       utterance.set(`${row.transcript_id}:${row.position}`, row.id)
     }
-    const themeRows = themes.map((th) => ({ th, id: crypto.randomUUID() }))
+    // An area the analysis named is kept only if it is a live area of this workspace (by its name or another name it goes by); anything else is no area.
+    const live = (await tx.query(`select id, name, aliases from insights.feature_areas where workspace_id = $1 and retired_at is null`, [ctx.workspaceId])).rows as { id: string; name: string; aliases: string[] }[]
+    const areaOf = (name: string | null | undefined) => (name ? similarAreas(name, live).find((s) => s.reason !== 'similar')?.area.id ?? null : null)
+    const themeRows = themes.map((th) => ({ th, id: crypto.randomUUID(), areaId: areaOf(th.area) }))
     await insertMany(
       tx,
       'research.themes',
-      themeRows.map(({ th, id }) => ({
-        id, workspace_id: ctx.workspaceId, project_id: projectId, run_id: runId, title: th.title, category: CATEGORY[th.cat], stage_position: th.stage, severity: th.sev,
+      themeRows.map(({ th, id, areaId }) => ({
+        id, workspace_id: ctx.workspaceId, project_id: projectId, run_id: runId, area_id: areaId, title: th.title, category: CATEGORY[th.cat], stage_position: th.stage, severity: th.sev,
         description: th.desc, opportunity: th.opp, suggested_priority: th.prio.toLowerCase(), suggested_effort: th.eff, effort_note: th.effNote, score: Number(th.score.toFixed(4)),
         created_by: ctx.userId, updated_by: ctx.userId,
       })),

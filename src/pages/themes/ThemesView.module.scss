@@ -60,6 +60,16 @@
   color: var(--at-muted);
 }
 
+.cardArea {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.area {
+  max-inline-size: 28rem;
+}
+
 .detail {
   display: flex;
   flex-direction: column;

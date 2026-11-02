@@ -40,3 +40,9 @@
   margin: 0;
   color: var(--at-muted);
 }
+
+.areaNote {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}

@@ -1,3 +1,4 @@
+import { AreaPicker } from '../areas/AreaPicker'
 import { Button, ClickableTile, InlineNotification, Loading, TextArea } from '@carbon/react'
 import { Dropdown } from '@carbon/react'
 import { useState } from 'react'
@@ -19,12 +20,14 @@ export type ThemesViewProps = {
   errorText?: string
   onCategory: (c: ThemeCategory | 'all') => void
   onSelect: (id: string) => void
+  /** Files the theme under another feature area, or none. */
+  onArea: (theme: Theme, areaId: string | null) => void
   onEdit: (theme: Theme, patch: ThemePatch) => void
   onGoTranscripts: () => void
 }
 
 // Presentational: the themes found in the transcripts, a filter, and one theme in detail with its quotes.
-export function ThemesView({ state, project, themes, stages, category, selectedId, canEdit, pending, errorText, onCategory, onSelect, onEdit, onGoTranscripts }: ThemesViewProps) {
+export function ThemesView({ state, project, themes, stages, category, selectedId, canEdit, pending, errorText, onCategory, onSelect, onEdit, onArea, onGoTranscripts }: ThemesViewProps) {
   const selected = themes.find((t) => t.id === selectedId) ?? null
   const shown = category === 'all' ? themes : themes.filter((t) => t.category === category)
   const count = (c: ThemeCategory | 'all') => (c === 'all' ? themes.length : themes.filter((t) => t.category === c).length)
@@ -71,6 +74,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                       <CategoryBadge category={t.category} />
                     </div>
                     <p className={styles.cardTitle}>{t.title}</p>
+                    <p className={styles.cardArea} data-testid={`theme-area-${t.id}`}>{t.area ? t.area.name : 'No area'}</p>
                     <p className={styles.cardMeta}>
                       {participantsLabel(t)} · {LEVEL_LABEL[t.priority as Level]} priority
                     </p>
@@ -125,6 +129,9 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                       <p className={styles.text}>{selected.opportunity}</p>
                     </>
                   )}
+                  <div className={styles.area}>
+                    <AreaPicker id="theme-area" label="Feature area" value={selected.area?.id ?? null} readOnly={!canEdit || pending.has(selected.id)} about={`${selected.title} ${selected.description ?? ''}`} onChange={(areaId) => onArea(selected, areaId)} />
+                  </div>
                   <div className={styles.stage}>
                   <Dropdown
                     id="theme-stage"

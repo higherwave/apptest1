@@ -28,6 +28,11 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
       <ProjectHeader title="Task List" description="The questions to ask and the tasks to observe as you take participants through the session, with follow-ups." save={save} />
       <SaveAlerts {...save} />
 
+      {tasks.length > 0 && (
+        <p className={styles.areaNote} data-testid="area-note">
+          {tasks.filter((t) => t.areaId).length} of {tasks.length} {tasks.length === 1 ? 'has' : 'have'} a feature area. The analysis files what people say under these areas, so a question with none is filed by what was said alone.
+        </p>
+      )}
       {tasks.length === 0 && <p className={styles.empty}>No questions or tasks yet. Add the first one.</p>}
 
       {tasks.map((task, i) => (

@@ -478,6 +478,33 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /themes/{id}/area:
+    put:
+      operationId: setThemeArea
+      summary: >
+        Files a theme under a feature area, or under none (`areaId` null). The analysis chooses an area for each theme; this is the
+        person's correction. 422 `unknown_area` for an area that does not exist or is retired. Needs an owner or editor.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [areaId]
+              properties:
+                areaId: { type: [string, 'null'] }
+      responses:
+        '200':
+          description: The theme as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Theme' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /projects/{id}/priority-overrides:
     delete:
       operationId: resetPriorityOverrides
@@ -2171,7 +2198,7 @@ components:
         text: { type: string }
     Theme:
       type: object
-      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, edited, overrideVersion, participantCount, totalParticipants, mentionCount, score]
+      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, edited, overrideVersion, participantCount, totalParticipants, mentionCount, score, area]
       properties:
         id: { type: string }
         title: { type: string, description: The person's name for the theme if they renamed it, otherwise the analysis's. }
@@ -2193,6 +2220,13 @@ components:
         totalParticipants: { type: integer }
         mentionCount: { type: integer }
         score: { type: [number, 'null'] }
+        area:
+          type: [object, 'null']
+          description: The feature area the theme is about, as the analysis filed it or a person corrected it. Null when none fits.
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
         quotes:
           type: array
           items: { $ref: '#/components/schemas/Quote' }
@@ -2567,9 +2601,10 @@ components:
         mergedInto: { type: [string, 'null'], description: The area this one was merged into, when it was. }
         usage:
           type: object
-          required: [tasks]
+          required: [tasks, themes]
           properties:
             tasks: { type: integer }
+            themes: { type: integer, description: Themes of the current analyses filed under this area. }
         version: { type: integer }
     AreaList:
       type: object

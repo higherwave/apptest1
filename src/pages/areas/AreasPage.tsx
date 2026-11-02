@@ -8,7 +8,13 @@ import styles from './AreasPage.module.scss'
 
 type Action = { kind: 'edit' | 'merge' | 'retire'; area: Area } | null
 
-const used = (a: Area) => (a.usage.tasks ? `${a.usage.tasks} ${a.usage.tasks === 1 ? 'question or task' : 'questions and tasks'}` : 'Not used yet')
+const used = (a: Area) => {
+  const parts = [
+    a.usage.tasks && `${a.usage.tasks} ${a.usage.tasks === 1 ? 'question or task' : 'questions and tasks'}`,
+    a.usage.themes && `${a.usage.themes} ${a.usage.themes === 1 ? 'theme' : 'themes'}`,
+  ].filter(Boolean)
+  return parts.length ? parts.join(', ') : 'Not used yet'
+}
 
 // The shared list of feature areas. Everyone reads it, an editor adds one (the duplicate check is in the dialog), and an owner edits,
 // merges and retires. Connected: it owns the dialogs' state.
