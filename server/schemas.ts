@@ -24,24 +24,14 @@ export const participantSchema = z.object({
   sessionMinutes: z.union([z.literal(30), z.literal(45), z.literal(60)], 'Choose 30 minutes, 45 minutes or 1 hour.').nullish().transform((v) => v ?? null),
 })
 
-// A test item: what is being tested and what the team expects to learn. An item with neither is dropped.
-export const testItemSchema = z.object({
-  description: optionalText(1000),
-  outcomes: z.array(text(300)).default([]).transform((a) => a.filter(Boolean)),
-  // The feature area this item is about (insights.feature_areas), or none.
-  areaId: z.uuid().nullish().transform((v) => v ?? null),
-})
-const testItems = z
-  .array(testItemSchema)
-  .max(20, 'A test plan can hold up to 20 test items.')
-  .default([])
-  .transform((a) => a.filter((i) => i.description || i.outcomes.length))
+// The project description: a short, high-level orientation for the whole project. Specifics live in the Task List.
+const projectDescription = optionalText(2000)
 
 export const createProjectSchema = z.object({
   name: text(120).min(1, 'Enter a project name.'),
   templateKey: z.enum(['usability', 'discovery', 'concept', 'blank']).default('blank'),
   methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
-  testItems,
+  description: projectDescription,
   participants: z.array(participantSchema).min(1, 'Add at least one participant.'),
 })
 export type CreateProjectInput = z.infer<typeof createProjectSchema>
@@ -55,12 +45,12 @@ export function parseBody<T extends z.ZodType>(schema: T, body: unknown): z.outp
   throw new ApiError(422, 'validation_failed', issue.message, field || undefined)
 }
 
-// Saving the test plan page: name, methods, test items and participants in one save. An existing participant keeps its
+// Saving the test plan page: name, methods, description and participants in one save. An existing participant keeps its
 // id, so transcript speakers matched to it stay matched. Tasks have their own save.
 export const savePlanSchema = z.object({
   name: text(120).min(1, 'Enter a project name.'),
   methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
-  testItems,
+  description: projectDescription,
   participants: z.array(participantSchema.extend({ id: z.uuid().nullish().transform((v) => v ?? null) })).min(1, 'Add at least one participant.'),
 })
 export type SavePlanInput = z.infer<typeof savePlanSchema>

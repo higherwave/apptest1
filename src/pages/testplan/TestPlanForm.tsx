@@ -1,15 +1,13 @@
 import { Close } from '@carbon/icons-react'
 import { Button, Dropdown, TextArea, TextInput } from '@carbon/react'
-import { AreaPicker } from '../areas/AreaPicker'
-import { blankItem, blankParticipant, SESSION_LENGTHS, type FieldErrors, type PlanForm, type PlanItem, type PlanParticipant } from './form'
+import { blankParticipant, SESSION_LENGTHS, type FieldErrors, type PlanForm, type PlanParticipant } from './form'
 import styles from './TestPlanForm.module.scss'
 
 type TestPlanFormProps = { form: PlanForm; errors: FieldErrors; methodOptions: string[]; readOnly?: boolean; onChange: (next: PlanForm) => void }
 
-// The whole test plan on one page: name, methods, test items (a description and one expected outcome each) and participants.
+// The whole test plan on one page: name, a short project description, methods and participants. The specific questions and tasks are on the Task List.
 // Shared by New test plan and a project's Test Plan step.
 export function TestPlanForm({ form, errors, methodOptions, readOnly = false, onChange }: TestPlanFormProps) {
-  const setItem = (i: number, patch: Partial<PlanItem>) => onChange({ ...form, testItems: form.testItems.map((it, j) => (j === i ? { ...it, ...patch } : it)) })
   const setParticipant = (i: number, patch: Partial<PlanParticipant>) => onChange({ ...form, participants: form.participants.map((p, j) => (j === i ? { ...p, ...patch } : p)) })
 
   return (
@@ -23,6 +21,20 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
         invalid={!!errors.name}
         invalidText={errors.name}
         onChange={(e) => onChange({ ...form, name: e.target.value })}
+      />
+
+      <TextArea
+        id="project-description"
+        labelText="Project description"
+        helperText="A sentence or two on what this research is for. The specific questions and tasks go on the Task List."
+        placeholder="e.g. Whether first-time patients can find a provider and book without calling the clinic"
+        rows={3}
+        maxCount={2000}
+        readOnly={readOnly}
+        value={form.description}
+        invalid={!!errors.description}
+        invalidText={errors.description}
+        onChange={(e) => onChange({ ...form, description: e.target.value })}
       />
 
       <section className={styles.section} aria-labelledby="methods-label">
@@ -45,50 +57,6 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
             )
           })}
         </div>
-      </section>
-
-      <section className={styles.section} aria-labelledby="items-label">
-        <h2 id="items-label" className={styles.label}>
-          What are we testing? <span className={styles.optional}>optional</span>
-        </h2>
-        {form.testItems.map((item, i) => (
-          <div key={i} className={styles.card} role="group" aria-label={`Test item ${i + 1}`}>
-            {!readOnly && form.testItems.length > 1 && (
-              <div className={styles.cardHead}>
-                <Button kind="ghost" size="sm" onClick={() => onChange({ ...form, testItems: form.testItems.filter((_, j) => j !== i) })}>
-                  Remove test item
-                </Button>
-              </div>
-            )}
-            <div className={styles.pair}>
-              <TextArea
-                id={`item-${i}-description`}
-                labelText="Description"
-                placeholder="The feature, flow, or concept, and what you want to learn"
-                rows={3}
-                readOnly={readOnly}
-                value={item.description}
-                onChange={(e) => setItem(i, { description: e.target.value })}
-              />
-              {/* One outcome a test item. A plan saved earlier with more than one keeps the others, which are not shown here. */}
-              <TextArea
-                id={`item-${i}-outcome-0`}
-                labelText="Outcome expected"
-                placeholder="What would success look like?"
-                rows={3}
-                readOnly={readOnly}
-                value={item.outcomes[0] ?? ''}
-                onChange={(e) => setItem(i, { outcomes: [e.target.value, ...item.outcomes.slice(1)] })}
-              />
-            </div>
-            <AreaPicker id={`item-${i}-area`} label="Feature area" value={item.areaId} about={item.description} readOnly={readOnly} onChange={(areaId) => setItem(i, { areaId })} />
-          </div>
-        ))}
-        {!readOnly && (
-          <Button className={styles.add} kind="ghost" size="sm" onClick={() => onChange({ ...form, testItems: [...form.testItems, blankItem()] })}>
-            + Add test item
-          </Button>
-        )}
       </section>
 
       <section className={styles.section} aria-labelledby="participants-label">

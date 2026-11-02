@@ -8,10 +8,7 @@ import styles from './AreasPage.module.scss'
 
 type Action = { kind: 'edit' | 'merge' | 'retire'; area: Area } | null
 
-const used = (a: Area) => {
-  const parts = [a.usage.tasks && `${a.usage.tasks} ${a.usage.tasks === 1 ? 'question or task' : 'questions and tasks'}`, a.usage.testItems && `${a.usage.testItems} test ${a.usage.testItems === 1 ? 'item' : 'items'}`].filter(Boolean)
-  return parts.length ? parts.join(', ') : 'Not used yet'
-}
+const used = (a: Area) => (a.usage.tasks ? `${a.usage.tasks} ${a.usage.tasks === 1 ? 'question or task' : 'questions and tasks'}` : 'Not used yet')
 
 // The shared list of feature areas. Everyone reads it, an editor adds one (the duplicate check is in the dialog), and an owner edits,
 // merges and retires. Connected: it owns the dialogs' state.
@@ -62,7 +59,7 @@ export function AreasPage() {
     <div className={styles.page}>
       <ProjectHeader
         title="Feature areas"
-        description="What research is about, in one shared set of words. A question to ask, a task to observe or a test item names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement."
+        description="What research is about, in one shared set of words. A question to ask or a task to observe names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement."
       />
       {canAdd && (
         <div>

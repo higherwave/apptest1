@@ -262,7 +262,7 @@ const TOKEN = { DEV_TOKEN: 's3cret' }
 const auth = { authorization: 'Bearer s3cret', 'content-type': 'application/json' }
 const newProject = (over: Record<string, unknown> = {}) => ({
   name: 'Onboarding study', methods: ['Moderated usability test'],
-  testItems: [{ description: 'Whether new users finish setup', outcomes: ['Completion above 80%', ''] }, { description: '', outcomes: [] }],
+  description: '  Whether new users finish setup  ',
   participants: [{ name: 'Ada Lovelace', role: 'Engineer', email: 'Ada@Example.com', phone: ' (555) 010-0000 ', sessionMinutes: 45 }], ...over,
 })
 const post = (app: ReturnType<typeof createApp>, body: unknown, headers: Record<string, string> = auth) =>
@@ -278,7 +278,7 @@ test('GET /templates lists the four templates in order, with the method options'
   assert.ok(body.methodOptions.includes('Diary study'))
 })
 
-test('POST /projects creates the project, test items, stages, participants and the template starter tasks together', async () => {
+test('POST /projects creates the project, its description, stages, participants and the template starter tasks together', async () => {
   await demoDb()
   const app = createApp({ env: TOKEN, getDb: () => db })
   const res = await post(app, newProject({ templateKey: 'usability' }))
@@ -288,7 +288,8 @@ test('POST /projects creates the project, test items, stages, participants and t
   const id = created.id
   const q = async (sql: string) => (await pglite.query<any>(sql, [id])).rows as any[]
   assert.deepEqual((await q(`select methods m from research.studies where project_id = $1`))[0], { m: ['Moderated usability test'] })
-  assert.deepEqual((await q(`select description d, outcomes o, position p from research.test_items where project_id = $1 order by position`)), [{ d: 'Whether new users finish setup', o: ['Completion above 80%'], p: 0 }], 'the empty second item is dropped')
+  assert.deepEqual((await q(`select what_testing w from research.studies where project_id = $1`))[0], { w: 'Whether new users finish setup' }, 'the description is trimmed and kept on the study')
+  assert.equal((await q(`select count(*)::int n from research.test_items where project_id = $1`))[0].n, 0, 'the old test items are no longer written')
   assert.equal((await q(`select count(*)::int n from research.study_stages where study_id = $1`))[0].n, 5)
   assert.deepEqual((await q(`select name from research.study_stages where study_id = $1 order by position`)).map((r: any) => r.name), ['Discover', 'Explore', 'Decide', 'Deliver', 'Follow up'], 'a new project starts with general stages, not a clinic’s')
   assert.deepEqual((await q(`select name, email, phone, session_minutes m from research.participants where project_id = $1`))[0], { name: 'Ada Lovelace', email: 'ada@example.com', phone: '(555) 010-0000', m: 45 })
@@ -319,7 +320,7 @@ test('POST /projects validates, naming the field: 422 validation_failed', async 
     [newProject({ participants: [{ name: '', email: 'a@b.co' }] }), 'participants.0.name'],
     [newProject({ methods: ['Mind reading'] }), 'methods.0'],
     [newProject({ templateKey: 'nope' }), 'templateKey'],
-    [newProject({ testItems: Array.from({ length: 21 }, () => ({ description: 'x', outcomes: [] })) }), 'testItems'],
+    [newProject({ description: 'x'.repeat(2001) }), 'description'],
     [newProject({ participants: [{ name: 'Ada', email: 'a@b.co', sessionMinutes: 20 }] }), 'participants.0.sessionMinutes'],
   ]
   for (const [body, field] of cases) {
@@ -437,7 +438,7 @@ const put = (app: ReturnType<typeof createApp>, path: string, body: unknown, ver
 const planOf = async (app: ReturnType<typeof createApp>, id: string, over: Record<string, unknown> = {}) => {
   const d = await (await app.request(`/api/v1/projects/${id}`)).json()
   return {
-    name: d.name, methods: d.study.methods, testItems: d.testItems.map((i: any) => ({ description: i.description, outcomes: i.outcomes })),
+    name: d.name, description: d.description, methods: d.study.methods,
     participants: d.participants.map((p: any) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionMinutes: p.sessionMinutes })), ...over,
   }
 }
@@ -448,9 +449,8 @@ test('GET /projects/:id returns the test plan, stages, participants in order, an
     const body = await expectSpec(res, '/projects/{id}')
     assert.equal(res.headers.get('etag'), `"${await version()}"`)
     assert.equal(body.name, 'Clinic booking, usability round 1')
-    assert.equal(body.testItems.length, 1)
-    assert.match(body.testItems[0].description, /^Whether patients can find a provider/)
-    assert.deepEqual(body.testItems[0].outcomes, ['Task completion rate above 80%', 'Top barriers ranked by severity'])
+    assert.match(body.description, /^Whether patients can find a provider/)
+    assert.equal('testItems' in body, false, 'the old test items are gone from the API')
     assert.deepEqual(body.study.methods, ['Moderated usability test', 'Survey follow-up'])
     assert.equal(body.stages.length, 5)
     assert.deepEqual(body.participants.map((p: any) => p.name), ['Maya Chen', 'Daniel Ortiz', 'Priya Nair'])
@@ -499,20 +499,21 @@ test('saving needs If-Match: without it, 428 precondition_required', async () =>
   })
 })
 
-test('PUT study saves the name, methods, test items and participants, bumps the version by one, and audits it', async () => {
+test('PUT study saves the name, description, methods and participants, bumps the version by one, and audits it', async () => {
   await withFresh(async ({ app, pg, p1, version }) => {
     const v0 = await version()
     const res = await put(app, `/projects/${p1}/study`, await planOf(app, p1, {
-      name: ' Clinic booking, round 1 ', methods: ['Card sort'],
-      testItems: [{ description: 'New wording', outcomes: ['One', '', 'Two'] }, { description: '', outcomes: [] }, { description: null, outcomes: ['Only an outcome'] }],
+      name: ' Clinic booking, round 1 ', methods: ['Card sort'], description: '  New wording  ',
     }), v0)
     assert.equal(res.status, 200)
     const body = await expectSpec(res, '/projects/{id}/study', 'put')
     assert.deepEqual([body.name, body.version, body.study.methods], ['Clinic booking, round 1', v0 + 1, ['Card sort']])
-    assert.deepEqual(body.testItems.map((i: any) => [i.description, i.outcomes]), [['New wording', ['One', 'Two']], [null, ['Only an outcome']]], 'blank outcomes and the empty item are dropped; order is kept')
+    assert.equal(body.description, 'New wording', 'the description is trimmed')
+    const cleared = await expectSpec(await put(app, `/projects/${p1}/study`, await planOf(app, p1, { description: '   ' }), v0 + 1), '/projects/{id}/study', 'put')
+    assert.equal(cleared.description, null, 'a blank description is none')
     assert.equal(body.participants.length, 3, 'the participants were sent back unchanged')
     assert.equal(res.headers.get('etag'), `"${v0 + 1}"`)
-    assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where entity_id = $1 and verb = 'plan_saved'`, [p1])).rows[0].n, 1)
+    assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where entity_id = $1 and verb = 'plan_saved'`, [p1])).rows[0].n, 2, 'each save is audited (the second is the blank-description one above)')
     // Themes and board are untouched by a plan save.
     assert.equal(body.themes, 9)
   })
@@ -973,16 +974,17 @@ test('the seeded document reads back whole: eight approved steps, the brief, the
   assert.deepEqual([spec.canPublish, spec.stale], [false, false])
 })
 
-test('drafting reads every test item: the descriptions frame the problem and the outcomes become goals', async () => {
+test('drafting reads the project description for the problem, and the outcomes carried over from the old test items as goals', async () => {
   const { app, pg, call, round2, approveThrough } = await specFixture()
   const v = ((await pg.query<any>(`select version from core.projects where id = $1`, [round2])).rows[0] as { version: number }).version
-  const saved = await put(app, `/projects/${round2}/study`, await planOf(app, round2, { testItems: [{ description: 'Booking flow', outcomes: ['Outcome from item one'] }, { description: 'Reminders', outcomes: ['Outcome from item two'] }] }), v)
+  const saved = await put(app, `/projects/${round2}/study`, await planOf(app, round2, { description: 'Booking flow and reminders' }), v)
   assert.equal(saved.status, 200)
+  await pg.query(`update research.studies set outcomes = $2 where project_id = $1`, [round2, ['Outcome from item one', 'Outcome from item two']])
   const spec = await (await call('POST', `/projects/${round2}/specs`, {})).json()
-  assert.match(spec.steps[0].text, /barriers to booking flow; reminders/)
+  assert.match(spec.steps[0].text, /barriers to booking flow and reminders/)
   const goals = (await approveThrough(spec.id, 2)).steps[2]
   const output = JSON.stringify((await pg.query<any>(`select output from core.agent_steps where id = $1`, [goals.id])).rows[0].output)
-  assert.ok(output.includes('Outcome from item one') && output.includes('Outcome from item two'), 'both items\' outcomes reach the goals step')
+  assert.ok(output.includes('Outcome from item one') && output.includes('Outcome from item two'), 'the carried-over outcomes reach the goals step')
 })
 
 test('starting a document drafts step 1 and leaves seven waiting; it needs analysis, the token and an editing role', async () => {
@@ -1931,13 +1933,13 @@ test('the capture health check answers without a session, step by step, and says
   assert.ok(failed.detail && !failed.detail.includes('/nonexistent'), 'a reason, with paths hidden')
 })
 
-test('feature areas: editors add them with a duplicate check, owners curate, and a question or test item can name one', async () => {
+test('feature areas: editors add them with a duplicate check, owners curate, and a question to ask can name one', async () => {
   const { app: owner, alex: editor, sam: viewer, send, p1, pg } = await boardFixture()
   const make = (who: ReturnType<typeof createApp>, body: unknown) => send(who, 'POST', '/areas', body)
 
   // Adding: editors may, viewers may not.
   const scheduling = await expectSpec(await make(editor, { name: 'Scheduling', definition: 'Booking, moving and cancelling an appointment', aliases: ['Booking'] }), '/areas', 'post')
-  assert.deepEqual([scheduling.name, scheduling.aliases, scheduling.retired, scheduling.usage], ['Scheduling', ['Booking'], false, { tasks: 0, testItems: 0 }])
+  assert.deepEqual([scheduling.name, scheduling.aliases, scheduling.retired, scheduling.usage], ['Scheduling', ['Booking'], false, { tasks: 0 }])
   assert.equal((await make(viewer, { name: 'Reminders' })).status, 403)
   assert.equal((await make(owner, { name: 'x' })).status, 422, 'a name of at least two characters')
 
@@ -1953,24 +1955,21 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
   assert.equal(forced.name, 'Appointment scheduling')
   const reminders = await (await make(owner, { name: 'Reminders' })).json()
 
-  // A question to ask and a test item can name an area; unknown or foreign ids are refused; follow-ups share the parent's.
+  // A question to ask can name an area; unknown ids are refused; follow-ups share the parent's.
   const project = async () => (await (await owner.request(`/api/v1/projects/${p1}`, { headers: { authorization: 'Bearer s3cret' } })).json())
   let v = (await project()).version
-  const saved = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Reschedule a visit', areaId: scheduling.id, followUps: ['Why?'] }, { prompt: 'Anything else?' }] }, v)
+  const saved = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Reschedule a visit', areaId: scheduling.id, followUps: ['Why?'] }, { prompt: 'When do you want a reminder?', areaId: reminders.id }] }, v)
   const detail = await expectSpec(saved, '/projects/{id}/tasks', 'put')
-  assert.deepEqual(detail.tasks.map((t: any) => [t.prompt, t.areaId]), [['Reschedule a visit', scheduling.id], ['Anything else?', null]])
+  assert.deepEqual(detail.tasks.map((t: any) => [t.prompt, t.areaId]), [['Reschedule a visit', scheduling.id], ['When do you want a reminder?', reminders.id]])
   assert.equal(detail.tasks[0].followUps.length, 1)
   const unknown = await put(owner, `/projects/${p1}/tasks`, { tasks: [{ prompt: 'Q', areaId: '11111111-1111-4111-8111-111111111111' }] }, detail.version)
   assert.equal(unknown.status, 422)
   assert.equal((await unknown.json()).error.code, 'unknown_area')
-  const items = await put(owner, `/projects/${p1}/study`, { name: detail.name, methods: detail.study.methods, testItems: [{ description: 'Rescheduling', outcomes: ['Finds it'], areaId: reminders.id }], participants: detail.participants.map(({ id, ...p }: any) => ({ id, ...p })) }, detail.version)
-  const planned = await expectSpec(items, '/projects/{id}/study', 'put')
-  assert.equal(planned.testItems[0].areaId, reminders.id)
 
   // Usage counts follow, and the list is readable by everyone.
   const list = await expectSpec(await viewer.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } }), '/areas')
   const usage = Object.fromEntries(list.data.map((a: any) => [a.name, a.usage]))
-  assert.deepEqual([usage.Scheduling, usage.Reminders], [{ tasks: 1, testItems: 0 }, { tasks: 0, testItems: 1 }])
+  assert.deepEqual([usage.Scheduling, usage.Reminders], [{ tasks: 1 }, { tasks: 1 }])
 
   // Owners curate: rename keeps the old name as an alias; editors cannot; a stale version conflicts; If-Match is required.
   const renamed = await expectSpec(await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments', definition: 'Booking and moving appointments', aliases: ['Booking'] }, scheduling.version), '/areas/{id}', 'patch')
@@ -1982,7 +1981,7 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
 
   // Merging moves what used the area and keeps its names; retiring takes it off the picker but keeps what uses it.
   const merged = await expectSpec(await send(owner, 'POST', `/areas/${reminders.id}/merge`, { intoId: scheduling.id }), '/areas/{id}/merge', 'post')
-  assert.deepEqual([merged.id, merged.usage, merged.aliases.includes('Reminders')], [scheduling.id, { tasks: 1, testItems: 1 }, true])
+  assert.deepEqual([merged.id, merged.usage, merged.aliases.includes('Reminders')], [scheduling.id, { tasks: 2 }, true])
   const after = (await (await owner.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } })).json()).data
   const old = after.find((a: any) => a.id === reminders.id)
   assert.deepEqual([old.retired, old.mergedInto], [true, scheduling.id])

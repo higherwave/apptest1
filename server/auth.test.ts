@@ -37,7 +37,7 @@ async function invite(email: string, role: 'owner' | 'editor' | 'viewer', target
   const u = (await target.query<any>(`insert into core.users (email, display_name) values ($1, $2) on conflict ((lower(email))) do update set email = excluded.email returning id`, [email, email.split('@')[0]])).rows[0].id
   await target.query(`insert into core.memberships (workspace_id, user_id, role) values ($1, $2, $3) on conflict (workspace_id, user_id) do update set role = excluded.role`, [w, u, role])
 }
-const newProject = (name: string) => JSON.stringify({ name, methods: ['Concept test'], testItems: [], participants: [{ name: 'Ada', email: 'ada@example.com' }] })
+const newProject = (name: string) => JSON.stringify({ name, methods: ['Concept test'], description: null, participants: [{ name: 'Ada', email: 'ada@example.com' }] })
 
 test('authConfigured needs all four settings', () => {
   assert.equal(authConfigured(SIGNED_IN), true)

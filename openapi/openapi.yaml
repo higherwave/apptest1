@@ -86,8 +86,7 @@ paths:
     get:
       operationId: listAreas
       summary: >
-        The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions, tasks
-        and test items use each. Active ones first, then retired ones.
+        The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions and tasks use each. Active ones first, then retired ones.
       responses:
         '200':
           description: The areas.
@@ -143,7 +142,7 @@ paths:
     post:
       operationId: mergeArea
       summary: >
-        Owners only. Folds this area into another: its questions, tasks and test items move, its name and aliases become aliases of the
+        Owners only. Folds this area into another: its questions and tasks move, its name and aliases become aliases of the
         target, and it is retired (`mergedInto` says where it went). Returns the target.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -333,8 +332,7 @@ paths:
     put:
       operationId: saveStudy
       summary: >
-        Saves the whole test plan page in one save: name, methods, test items and participants. Test items are replaced as
-        a list; a participant with an id is updated in place (so transcript speakers matched to it stay matched), one
+        Saves the whole test plan page in one save: name, description, methods and participants. A participant with an id is updated in place (so transcript speakers matched to it stay matched), one
         without is added, and one left out is removed. Needs the token and If-Match.
       parameters:
         - { $ref: '#/components/parameters/Id' }
@@ -1381,7 +1379,7 @@ components:
         hint: { type: [string, 'null'] }
     ProjectDetail:
       type: object
-      required: [id, name, color, template, methods, status, sessions, themes, highPriority, measurements, createdAt, version, study, testItems, stages, participants, tasks]
+      required: [id, name, color, template, methods, status, sessions, themes, highPriority, measurements, createdAt, version, study, description, stages, participants, tasks]
       properties:
         id: { type: string }
         name: { type: string }
@@ -1402,9 +1400,7 @@ components:
             methods:
               type: array
               items: { type: string }
-        testItems:
-          type: array
-          items: { $ref: '#/components/schemas/TestItem' }
+        description: { type: [string, 'null'], description: A short, high-level orientation for the whole project. The specifics are the questions and tasks on the Task List. }
         stages:
           type: array
           items:
@@ -1442,24 +1438,6 @@ components:
                   properties:
                     id: { type: string }
                     prompt: { type: string }
-    TestItem:
-      type: object
-      required: [id, description, outcomes, areaId]
-      properties:
-        id: { type: string }
-        description: { type: [string, 'null'], description: What is being tested and what the team wants to learn. }
-        areaId: { type: [string, 'null'], description: The feature area this item is about. }
-        outcomes:
-          type: array
-          items: { type: string }
-    TestItemInput:
-      type: object
-      properties:
-        description: { type: [string, 'null'] }
-        areaId: { type: [string, 'null'], description: A live feature area of this workspace, or none. 422 unknown_area otherwise. }
-        outcomes:
-          type: array
-          items: { type: string }
     ParticipantInput:
       type: object
       required: [name, email]
@@ -1478,10 +1456,7 @@ components:
         methods:
           type: array
           items: { type: string }
-        testItems:
-          type: array
-          description: An item with neither a description nor outcomes is dropped.
-          items: { $ref: '#/components/schemas/TestItemInput' }
+        description: { type: [string, 'null'], description: A short, high-level orientation for the whole project, at most 2000 characters. }
         participants:
           type: array
           description: At least one. Name and a valid email are required.
@@ -2359,9 +2334,7 @@ components:
         methods:
           type: array
           items: { type: string }
-        testItems:
-          type: array
-          items: { $ref: '#/components/schemas/TestItemInput' }
+        description: { type: [string, 'null'], description: A short, high-level orientation for the whole project, at most 2000 characters. }
         participants:
           type: array
           description: At least one. Name and a valid email are required.
@@ -2594,10 +2567,9 @@ components:
         mergedInto: { type: [string, 'null'], description: The area this one was merged into, when it was. }
         usage:
           type: object
-          required: [tasks, testItems]
+          required: [tasks]
           properties:
             tasks: { type: integer }
-            testItems: { type: integer }
         version: { type: integer }
     AreaList:
       type: object

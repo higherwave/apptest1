@@ -148,18 +148,17 @@ theme is created with `needs_review` (migration 0020) and shows a "New, review" 
 if the research behind an unreviewed one goes away, it goes too. Hand-made tags are never replaced. The call is made before the write
 transaction opens. At the budget or credit ceiling the keyword matcher places what it knows and starts nothing new.
 
-## Keeping Platform Themes tidy
+## Platform Themes: matching and merging
 
-Migration 0021. Owners and editors can **rename** a platform theme (`PATCH /insights/themes/{id}`) or **merge** one into another
+Migration 0021. A platform theme can be **renamed** (`PATCH /insights/themes/{id}`) or **merged** into another
 (`POST /insights/themes/{id}/merge`: tags, recommendations and case studies move across, the old name becomes an *alias*, the merged
-theme is deleted, and the audit log records it). Aliases are shown to the matcher ("also called"), so a theme the old name describes
-attaches to the right place. Every model match stores its one-line reason and confidence (`platform_theme_sources.reason`); the open
-theme shows them under "How themes were matched".
+theme is deleted, and the audit log records it). Aliases are shown to the matcher ("also called"). Every model match stores its one-line
+reason and confidence (`platform_theme_sources.reason`); the open theme shows them under "How themes were matched".
 
-`server/ai-dedupe.ts` (prompt `theme-dedupe-v1`, Haiku) compares *all* platform themes and files look-alike pairs in
-`insights.merge_suggestions`; nothing merges until a person clicks Merge (or Not the same, which is remembered). It runs after an
-analysis that created a new platform theme, and from the **Check for duplicates** button. Without a model, or at the budget, a free
-word-overlap check files the obvious ones.
+**There is no duplicates panel and no "Tidy this theme" tool on the screen** (removed Nov 2: matching is more predictable now that
+questions carry feature areas, and automatic merging with undo is planned instead). The API for renaming, merging and the suggestions
+(`server/ai-dedupe.ts`, prompt `theme-dedupe-v1`, `insights.merge_suggestions`, `POST /insights/merge-suggestions/run`) stays for that
+work, but nothing runs it on its own any more, so an analysis no longer spends a model call on it.
 
 The overview ranks problems and needs (`priority.rank`, `priority.score`: 60% share of participants plus 40% share of projects, times
 0.1 for worked up to 1.1 for needs attention, times 1.15 for an opportunity; delights are not ranked). The **Suggested priority** order

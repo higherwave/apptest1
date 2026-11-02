@@ -113,7 +113,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions, tasks and test items use each. Active ones first, then retired ones. */
+        /** The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions and tasks use each. Active ones first, then retired ones. */
         get: operations["listAreas"];
         put?: never;
         /** Adds an area (owner or editor). 409 `duplicate_area` when the name is, or is an alias of, an existing area (use it; `existing` says which); 409 `similar_area` when it only resembles one (`similar` lists them), unless `force` is true. */
@@ -150,7 +150,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Owners only. Folds this area into another: its questions, tasks and test items move, its name and aliases become aliases of the target, and it is retired (`mergedInto` says where it went). Returns the target. */
+        /** Owners only. Folds this area into another: its questions and tasks move, its name and aliases become aliases of the target, and it is retired (`mergedInto` says where it went). Returns the target. */
         post: operations["mergeArea"];
         delete?: never;
         options?: never;
@@ -272,7 +272,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Saves the whole test plan page in one save: name, methods, test items and participants. Test items are replaced as a list; a participant with an id is updated in place (so transcript speakers matched to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match. */
+        /** Saves the whole test plan page in one save: name, description, methods and participants. A participant with an id is updated in place (so transcript speakers matched to it stay matched), one without is added, and one left out is removed. Needs the token and If-Match. */
         put: operations["saveStudy"];
         post?: never;
         delete?: never;
@@ -1063,7 +1063,8 @@ export interface components {
             study: {
                 methods: string[];
             };
-            testItems: components["schemas"]["TestItem"][];
+            /** @description A short */
+            description: string | null;
             stages: {
                 position: number;
                 name: string;
@@ -1091,20 +1092,6 @@ export interface components {
                 }[];
             }[];
         };
-        TestItem: {
-            id: string;
-            /** @description What is being tested and what the team wants to learn. */
-            description: string | null;
-            /** @description The feature area this item is about. */
-            areaId: string | null;
-            outcomes: string[];
-        };
-        TestItemInput: {
-            description?: string | null;
-            /** @description A live feature area of this workspace */
-            areaId?: string | null;
-            outcomes?: string[];
-        };
         ParticipantInput: {
             /** @description Present for an existing participant. */
             id?: string | null;
@@ -1121,8 +1108,8 @@ export interface components {
         SavePlanRequest: {
             name: string;
             methods?: string[];
-            /** @description An item with neither a description nor outcomes is dropped. */
-            testItems?: components["schemas"]["TestItemInput"][];
+            /** @description A short */
+            description?: string | null;
             /** @description At least one. Name and a valid email are required. */
             participants: components["schemas"]["ParticipantInput"][];
         };
@@ -1820,7 +1807,8 @@ export interface components {
              */
             templateKey?: "usability" | "discovery" | "concept" | "blank";
             methods?: string[];
-            testItems?: components["schemas"]["TestItemInput"][];
+            /** @description A short */
+            description?: string | null;
             /** @description At least one. Name and a valid email are required. */
             participants: components["schemas"]["ParticipantInput"][];
         };
@@ -2036,7 +2024,6 @@ export interface components {
             mergedInto: string | null;
             usage: {
                 tasks: number;
-                testItems: number;
             };
             version: number;
         };

@@ -306,13 +306,12 @@ export async function analyzeWithModel(call: ModelCall, input: AnalysisInput): P
   throw new ModelOutputError(problems, usage)
 }
 
-/** What the model is given about a project, read from the database: its transcripts, participants, journey stages and test items. */
+/** What the model is given about a project, read from the database: its transcripts, participants, journey stages and project description. */
 export async function loadAnalysisInput(db: Queryable, projectId: string): Promise<AnalysisInput> {
   const rows = async (sql: string) => (await db.query(sql, [projectId])).rows
   const transcripts = (await rows(`select name, raw_text from research.transcripts where project_id = $1 order by position, name`)).map((r) => ({ name: r.name as string, text: r.raw_text as string }))
   const participants = (await rows(`select name from research.participants where project_id = $1 order by position`)).map((r) => ({ name: r.name as string }))
   const stages = (await rows(`select name from research.study_stages where study_id = $1 order by position`)).map((r) => r.name as string)
-  const items = await rows(`select description, outcomes from research.test_items where project_id = $1 order by position`)
-  const what = items.map((i) => i.description as string | null).filter(Boolean).join(' ')
-  return { transcripts, participants, stages, study: { what: what || null, outcomes: items.flatMap((i) => (i.outcomes as string[]) ?? []) } }
+  const study = (await rows(`select what_testing, outcomes from research.studies where project_id = $1`))[0]
+  return { transcripts, participants, stages, study: { what: (study?.what_testing as string | null) || null, outcomes: (study?.outcomes as string[] | undefined) ?? [] } }
 }

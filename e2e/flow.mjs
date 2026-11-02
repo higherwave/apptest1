@@ -56,9 +56,11 @@ try {
   // 3. New test plan is one page; Save validates it.
   await clickText('New project')
   await waitText('New test plan')
-  await page.waitForSelector('#item-0-description') // the form shows once the test methods have loaded
+  await page.waitForSelector('#project-description') // the form shows once the test methods have loaded
+  await waitText('Test methods')
   ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Research Projects'))
-  ok('one page holds the name, methods, test items and participants', await page.evaluate(() => ['#project-name', '#item-0-description', '#p-name-0', '#p-phone-0'].every((sel) => document.querySelector(sel)) && document.body.innerText.includes('Test methods') && !document.body.innerText.includes('Starting template')))
+  const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description', '#p-name-0', '#p-phone-0'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), template: document.body.innerText.includes('Starting template'), what: /what are we testing/i.test(document.body.innerText), item: !!document.querySelector('#item-0-description') }))
+  ok('one page holds the name, a project description, methods and participants, and no What are we testing? section', plan.fields.every(Boolean) && plan.methods && !plan.template && !plan.what && !plan.item, JSON.stringify(plan))
   ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 9 }))
   await clickText('Save test plan')
   await waitText('Enter a project name.')
@@ -69,13 +71,8 @@ try {
   ok('Save asks for a participant', true)
   await clickText('Card sort')
   ok('a test method toggles on when chosen', await page.evaluate(() => [...document.querySelectorAll('button[aria-pressed]')].find((b) => b.innerText.trim() === 'Card sort').getAttribute('aria-pressed') === 'true'))
-  await page.type('#item-0-description', 'Whether first-time users can book')
-  await page.type('#item-0-outcome-0', 'Most finish in under two minutes')
-  ok('a test item has one outcome, beside its description, and no way to add another', await page.evaluate(() => { const d = document.querySelector('#item-0-description').getBoundingClientRect(); const o = document.querySelector('#item-0-outcome-0').getBoundingClientRect(); return Math.abs(d.top - o.top) <= 2 && d.right <= o.left + 2 && !document.querySelector('#item-0-outcome-1') && !document.body.innerText.includes('Add outcome') && !document.body.innerText.includes('Outcomes expected') && /Outcome expected/i.test(document.querySelector('#item-0-outcome-0').closest('.cds--form-item').innerText) }))
-  ok('What are we testing? is marked optional', await page.evaluate(() => /what are we testing\?\s*optional/i.test(document.querySelector('#items-label').innerText)))
-  await clickText('+ Add test item')
-  await page.waitForSelector('#item-1-description')
-  ok('a second test item can be added', await page.evaluate(() => document.querySelectorAll('[id^="item-"][id$="-description"]').length === 2 && !document.body.innerText.includes('Test Item')))
+  await page.type('#project-description', 'Whether first-time users can book')
+  ok('the project description sits just below the project name and above the methods', await page.evaluate(() => { const n = document.querySelector('#project-name').getBoundingClientRect(); const d = document.querySelector('#project-description').getBoundingClientRect(); const m = document.querySelector('#methods-label').getBoundingClientRect(); return d.top >= n.bottom - 1 && d.bottom <= m.top + 1 && /project description/i.test(document.querySelector('label[for="project-description"]').innerText) }))
   await page.type('#p-name-0', 'Ada Lovelace')
   await page.type('#p-email-0', 'not-an-email')
   await page.type('#p-phone-0', '(555) 010-0000')
@@ -98,9 +95,9 @@ try {
   const createdId = page.url().match(/projects\/([0-9a-f-]{36})\//)[1]
   const created = await (await fetch(`${API}/api/v1/projects/${createdId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   ok('the chosen session length is saved with the participant', created.participants[0].sessionMinutes === 45)
-  ok('the plan was saved: one test item with its one outcome, the method and the phone number',
-    created.testItems.length === 1 && created.testItems[0].description === 'Whether first-time users can book' && created.testItems[0].outcomes.length === 1 && created.study.methods.join() === 'Card sort' && created.participants[0].phone === '(555) 010-0000',
-    JSON.stringify(created.testItems))
+  ok('the plan was saved: the description, the method and the phone number',
+    created.description === 'Whether first-time users can book' && created.study.methods.join() === 'Card sort' && created.participants[0].phone === '(555) 010-0000',
+    JSON.stringify(created.description))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('E2E Study')
   const names = await cardNames()
@@ -151,36 +148,26 @@ try {
 
   // Someone else saves while this page is open: the save is refused, then overwritten on purpose.
   const apiGet = async () => (await fetch(`${API}/api/v1/projects/${projectId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  const apiPutStudy = async (body) => { const cur = await apiGet(); return fetch(`${API}/api/v1/projects/${projectId}/study`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', 'if-match': String(cur.version) }, body: JSON.stringify({ name: cur.name, methods: cur.study.methods, testItems: cur.testItems.map((i) => ({ description: i.description, outcomes: i.outcomes })), participants: cur.participants.map((p) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionMinutes: p.sessionMinutes })), ...body }) }) }
-  ok('someone else saves through the API', (await apiPutStudy({ testItems: [{ description: 'Their wording', outcomes: [] }] })).status === 200)
-  await retype('#item-0-description', 'My wording')
+  const apiPutStudy = async (body) => { const cur = await apiGet(); return fetch(`${API}/api/v1/projects/${projectId}/study`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json', 'if-match': String(cur.version) }, body: JSON.stringify({ name: cur.name, description: cur.description, methods: cur.study.methods, participants: cur.participants.map((p) => ({ id: p.id, name: p.name, role: p.role, email: p.email, phone: p.phone, sessionMinutes: p.sessionMinutes })), ...body }) }) }
+  ok('someone else saves through the API', (await apiPutStudy({ description: 'Their wording' })).status === 200)
+  await retype('#project-description', 'My wording')
   await clickText('Save test plan')
   await waitText('Changed by someone else')
   ok('a stale save is refused with a conflict notice', (await text()).includes('Nothing was overwritten'))
-  ok('their wording is still what is saved', (await apiGet()).testItems[0].description === 'Their wording')
+  ok('their wording is still what is saved', (await apiGet()).description === 'Their wording')
   await clickText('Overwrite with mine')
   await waitText('All changes saved at')
-  ok('Overwrite with mine saves my wording', (await apiGet()).testItems[0].description === 'My wording')
+  ok('Overwrite with mine saves my wording', (await apiGet()).description === 'My wording')
 
   // A second conflict, resolved the other way: reload their version.
-  ok('someone else saves again', (await apiPutStudy({ testItems: [{ description: 'Their second wording', outcomes: [] }] })).status === 200)
-  await retype('#item-0-description', 'My second wording')
+  ok('someone else saves again', (await apiPutStudy({ description: 'Their second wording' })).status === 200)
+  await retype('#project-description', 'My second wording')
   await clickText('Save test plan')
   await waitText('Changed by someone else')
   await clickText('Reload their version')
-  await page.waitForFunction(() => document.querySelector('#item-0-description')?.value === 'Their second wording', { timeout: 8000 })
+  await page.waitForFunction(() => document.querySelector('#project-description')?.value === 'Their second wording', { timeout: 8000 })
   ok('Reload their version discards my edit and shows theirs', true)
 
-  // A plan saved earlier with two outcomes shows the first and keeps the second when something else is edited.
-  ok('someone saves a test item with two outcomes through the API', (await apiPutStudy({ testItems: [{ description: 'Two outcomes', outcomes: ['First outcome', 'Second outcome'] }] })).status === 200)
-  await page.reload({ waitUntil: 'networkidle0' })
-  await page.waitForSelector('#item-0-outcome-0')
-  ok('the page shows the first outcome only', await page.evaluate(() => document.querySelector('#item-0-outcome-0').value === 'First outcome' && !document.querySelector('#item-0-outcome-1')))
-  await retype('#item-0-description', 'Two outcomes, reworded')
-  await clickText('Save test plan')
-  await waitText('All changes saved at')
-  ok('editing the description keeps the second outcome', (await apiGet()).testItems[0].outcomes.join('|') === 'First outcome|Second outcome')
-  await apiPutStudy({ testItems: [{ description: 'Their second wording', outcomes: [] }] })
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('#project-name')
 
@@ -801,6 +788,7 @@ try {
   ok('a theme row shows what became of it and how its reach is moving', await page.evaluate((rows) => rows.every((t) => { const r = document.querySelector(`[data-testid="platform-theme-${t.id}"]`).innerText; const label = { not_addressed: 'Not addressed', in_progress: 'In progress', too_early: 'Too early to tell', worked: 'Worked', needs_attention: 'Needs attention' }[t.status]; return r.includes(label) && (!t.opportunity || r.includes('Opportunity')) }), insights.themes))
   ok('the list no longer repeats project names, quotes or requirement lists', await page.evaluate((names) => { const list = document.querySelector('ul[aria-label="Themes across projects"]').innerText; return !names.some((n) => list.includes(n)) && !document.querySelector('ul[aria-label="Themes across projects"] blockquote') && !/what happened/i.test(list) }, insights.projects.map((p) => p.name)))
   ok('the column heads line up with the cells beneath them', await page.evaluate(() => { const heads = [...document.querySelectorAll('section[aria-labelledby="themes-heading"] > div[aria-hidden] > *')].map((e) => e.getBoundingClientRect().left); const row = document.querySelector('[data-testid^="platform-theme-"] button > span'); const cells = [...row.children].map((e) => e.getBoundingClientRect().left); return heads.length === 5 && cells.length === 5 && heads.every((h, i) => Math.abs(h - cells[i]) <= 2) }))
+  await page.$eval(`[data-testid="platform-theme-${second.id}"] button`, (el) => el.scrollIntoView({ block: 'center' })) // the fixed header would cover it
   await page.click(`[data-testid="platform-theme-${second.id}"] button`)
   ok('picking an open row closes it', await page.evaluate((id) => !document.querySelector(`#theme-body-${id}`), second.id))
   const cardCount = await page.evaluate(() => document.querySelectorAll('section[aria-label="What the themes add up to"] button').length)
@@ -813,11 +801,8 @@ try {
     await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('All themes')).click())
     await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.themes.length)
     ok('All themes shows every theme again', true)
-    // Keeping the list tidy: duplicates panel, order by suggested priority, rename with the old name kept.
-    ok('the duplicates panel is there with a Check for duplicates button', await page.evaluate(() => { const p = document.querySelector('[data-testid="duplicates-panel"]'); return !!p && /Possible duplicates/i.test(p.innerText) && [...p.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Check for duplicates') }))
-    await page.evaluate(() => [...document.querySelectorAll('[data-testid="duplicates-panel"] button')].find((b) => b.innerText.trim() === 'Check for duplicates').click())
-    await new Promise((r) => setTimeout(r, 800))
-    ok('checking for duplicates in a demo with distinct titles finds none', await page.evaluate(() => /None waiting/.test(document.querySelector('[data-testid="duplicates-panel"]').innerText)))
+    // The list has no duplicates panel and no tidy tools; order by suggested priority.
+    ok('there is no duplicates panel and no Tidy this theme section', await page.evaluate(() => !document.querySelector('[data-testid="duplicates-panel"]') && !/check for duplicates|possible duplicates|tidy this theme/i.test(document.body.innerText)))
     await page.click('[data-testid="order-priority"]')
     const byRank = [...insights.themes].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)).map((t) => t.id)
     await page.waitForFunction((ids) => [...document.querySelectorAll('[data-testid^="platform-theme-"]')].map((e) => e.dataset.testid.replace('platform-theme-', '')).join() === ids.join(), { timeout: 5000 }, byRank)
@@ -827,16 +812,7 @@ try {
     await page.waitForSelector(`[data-testid="priority-${first}"]`, { timeout: 5000 })
     ok('an open theme shows its suggested priority with a rank and score', await page.evaluate((id) => /Suggested priority/i.test(document.querySelector(`[data-testid="priority-${id}"]`).innerText) && /#1\b/.test(document.querySelector(`[data-testid="priority-${id}"]`).innerText), first))
     ok('and how each project theme was matched', await page.evaluate((id) => /How themes were matched/i.test(document.querySelector(`[data-testid="platform-theme-${id}"]`).innerText), first))
-    const oldTitle = insights.themes.find((t) => t.id === first).title
-    await retype(`#rename-${first}`, 'Renamed by the browser test')
-    await page.evaluate((id) => [...document.querySelectorAll(`[data-testid="tools-${id}"] button`)].find((b) => b.innerText.trim() === 'Rename').click(), first)
-    await page.waitForFunction((id) => document.querySelector(`[data-testid="platform-theme-${id}"]`).innerText.includes('Renamed by the browser test'), { timeout: 5000 }, first)
-    await page.waitForFunction((t) => document.querySelector('[data-testid^="platform-theme-"][data-open="true"]').innerText.includes(`Also known as: ${t}`), { timeout: 5000 }, oldTitle)
-    ok('renaming a theme changes its title and keeps the old name as "Also known as"', true)
-    await retype(`#rename-${first}`, oldTitle)
-    await page.evaluate((id) => [...document.querySelectorAll(`[data-testid="tools-${id}"] button`)].find((b) => b.innerText.trim() === 'Rename').click(), first)
-    await page.waitForFunction((id, t) => document.querySelector(`[data-testid="platform-theme-${id}"]`).innerText.includes(t), { timeout: 5000 }, first, oldTitle)
-    ok('and renaming it back restores the title', true)
+    ok('an open theme has no Tidy this theme tools', await page.evaluate((id) => !document.querySelector(`[data-testid="tools-${id}"]`), first))
     await page.click('[data-testid="order-reach"]')
   }
   await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Personas').click())
@@ -933,7 +909,11 @@ try {
   await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].some((b) => b.getAttribute('aria-pressed') === 'true' && !b.disabled), { timeout: 15000 }) // theme buttons wait while a save is running
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
   await waitText('The board no longer matches this document')
-  await clickText('Update board')
+  // The button can be clicked a moment before it is ready (a save is finishing): click again until the dialog is there.
+  for (let tries = 0; tries < 4; tries++) {
+    await clickText('Update board')
+    if (await page.waitForFunction(() => document.body.innerText.includes('Update the board?'), { timeout: 3000 }).then(() => true, () => false)) break
+  }
   await waitText('Update the board?')
   ok('Update board shows what it will change first', (await text()).includes('Stories that have been moved, edited or given criteria are never removed'))
   await clickInOpenDialog('Update board')

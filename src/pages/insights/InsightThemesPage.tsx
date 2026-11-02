@@ -34,11 +34,6 @@ export function InsightThemesPage() {
         canEdit: me.data?.role === 'owner' || me.data?.role === 'editor',
         busy: actions.some((m) => m.isPending),
         error: failed ? friendlyMessage(failed.error) : undefined,
-        onRename: (id, title) => run(() => tidy.rename.mutate({ id, title }))(),
-        onMerge: (id, intoId) => run(() => tidy.merge.mutate({ id, intoId }))(),
-        onFindDuplicates: run(() => tidy.find.mutate()),
-        onAccept: (id) => run(() => tidy.accept.mutate(id))(),
-        onDismiss: (id) => run(() => tidy.dismiss.mutate(id))(),
         onRationale: run(() => tidy.rationale.mutate()),
       }}
       canReview={me.data?.role === 'owner' || me.data?.role === 'editor'}

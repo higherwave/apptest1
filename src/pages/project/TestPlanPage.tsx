@@ -68,4 +68,4 @@ export function TestPlanPage() {
   )
 }
 
-const emptyPlan: PlanForm = { name: '', methods: [], testItems: [], participants: [] }
+const emptyPlan: PlanForm = { name: '', description: '', methods: [], participants: [] }

@@ -103,13 +103,6 @@ export async function listTemplates(db: Queryable, workspaceId: string): Promise
 }
 
 // Test items: replaced as a whole on every save, since nothing else refers to them.
-type TestItemInput = { description: string | null; outcomes: string[]; areaId?: string | null }
-async function insertTestItems(tx: Queryable, ctx: { workspaceId: string; userId: string }, projectId: string, items: TestItemInput[]) {
-  await insertMany(tx, 'research.test_items', items.map((i, position) => ({
-    workspace_id: ctx.workspaceId, project_id: projectId, position, description: i.description, outcomes: i.outcomes, area_id: i.areaId ?? null, created_by: ctx.userId, updated_by: ctx.userId,
-  })))
-}
-
 // Create and delete ----------------------------------------------------------------------------------
 
 export class TemplateMissing extends Error {}
@@ -134,9 +127,7 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
     ).rows[0].id as string
 
     const w = ctx.workspaceId
-    await insertMany(tx, 'research.studies', [{ project_id: projectId, workspace_id: w, methods: input.methods, created_by: ctx.userId, updated_by: ctx.userId }])
-    await assertAreasUsable(tx, ctx.workspaceId, input.testItems.map((i) => i.areaId))
-    await insertTestItems(tx, ctx, projectId, input.testItems)
+    await insertMany(tx, 'research.studies', [{ project_id: projectId, workspace_id: w, methods: input.methods, what_testing: input.description, created_by: ctx.userId, updated_by: ctx.userId }])
     await insertMany(tx, 'research.study_stages', DEFAULT_STAGES.map((name, position) => ({ workspace_id: w, study_id: projectId, position, name })))
     await insertMany(tx, 'research.participants', input.participants.map((p, position) => ({
       workspace_id: w, project_id: projectId, position, name: p.name, role: p.role, email: p.email.toLowerCase(), phone: p.phone, session_minutes: p.sessionMinutes, created_by: ctx.userId, updated_by: ctx.userId,
@@ -174,7 +165,8 @@ export async function getProjectSummary(db: Queryable, workspaceId: string, proj
 
 export type ProjectDetail = ProjectSummary & {
   study: { methods: string[] }
-  testItems: { id: string; description: string | null; outcomes: string[]; areaId: string | null }[]
+  /** A short orientation for the whole project (research.studies.what_testing). */
+  description: string | null
   stages: { position: number; name: string }[]
   participants: { id: string; name: string; role: string | null; email: string; phone: string | null; sessionMinutes: number | null }[]
   tasks: { id: string; prompt: string; areaId: string | null; followUps: { id: string; prompt: string }[] }[]
@@ -183,15 +175,14 @@ export type ProjectDetail = ProjectSummary & {
 export async function getProjectDetail(db: Queryable, workspaceId: string, projectId: string): Promise<ProjectDetail | undefined> {
   const summary = await getProjectSummary(db, workspaceId, projectId)
   if (!summary) return undefined
-  const study = (await db.query(`select methods from research.studies where project_id = $1`, [projectId])).rows[0]
-  const items = (await db.query(`select id, description, outcomes, area_id from research.test_items where project_id = $1 order by position`, [projectId])).rows
+  const study = (await db.query(`select methods, what_testing from research.studies where project_id = $1`, [projectId])).rows[0]
   const stages = (await db.query(`select position, name from research.study_stages where study_id = $1 order by position`, [projectId])).rows
   const participants = (await db.query(`select id, name, role, email, phone, session_minutes from research.participants where project_id = $1 order by position, name`, [projectId])).rows
   const tasks = (await db.query(`select id, parent_task_id, prompt, area_id from research.tasks where project_id = $1 order by position`, [projectId])).rows
   return {
     ...summary,
     study: { methods: study?.methods ?? [] },
-    testItems: items.map((i) => ({ id: i.id, description: i.description ?? null, outcomes: i.outcomes ?? [], areaId: i.area_id ?? null })),
+    description: study?.what_testing ?? null,
     stages: stages.map((s) => ({ position: s.position, name: s.name })),
     participants: participants.map((p) => ({ id: p.id, name: p.name, role: p.role ?? null, email: p.email, phone: p.phone ?? null, sessionMinutes: p.session_minutes ?? null })),
     tasks: tasks
@@ -238,11 +229,7 @@ export class UnknownParticipant extends Error {}
 export async function savePlan(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string, expected: number, input: SavePlanInput): Promise<void> {
   await db.transaction(async (tx) => {
     await claimVersion(tx, ctx, projectId, expected, input.name)
-    await tx.query(`update research.studies set methods = $2, updated_by = $3 where project_id = $1`, [projectId, input.methods, ctx.userId])
-    const had = new Set((await tx.query(`select area_id from research.test_items where project_id = $1 and area_id is not null`, [projectId])).rows.map((r) => r.area_id as string))
-    await assertAreasUsable(tx, ctx.workspaceId, input.testItems.map((i) => i.areaId), had)
-    await tx.query(`delete from research.test_items where project_id = $1`, [projectId])
-    await insertTestItems(tx, ctx, projectId, input.testItems)
+    await tx.query(`update research.studies set methods = $2, what_testing = $3, updated_by = $4 where project_id = $1`, [projectId, input.methods, input.description, ctx.userId])
 
     const existing = new Set((await tx.query(`select id from research.participants where project_id = $1`, [projectId])).rows.map((r) => r.id as string))
     const keep = new Set<string>()
@@ -263,7 +250,7 @@ export async function savePlan(db: Db, ctx: { workspaceId: string; userId: strin
     }
     const remove = [...existing].filter((id) => !keep.has(id))
     if (remove.length) await tx.query(`delete from research.participants where id = any($1::uuid[])`, [remove])
-    await audit(tx, ctx, projectId, 'plan_saved', { name: input.name, testItems: input.testItems.length, participants: input.participants.length })
+    await audit(tx, ctx, projectId, 'plan_saved', { name: input.name, participants: input.participants.length })
   })
 }
 

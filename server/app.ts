@@ -305,10 +305,9 @@ export function createApp(options: AppOptions = {}) {
       z.object({}).passthrough(),
       async (id, v) => {
         const result = await runAnalysis(getDb(), ai, c.get('ctx'), id, v)
-        // The simulated matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails.
-        const matched = await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
-        // New platform themes are where duplicates start, so look for look-alikes right after (suggestions only; a person decides).
-        if (matched && 'created' in matched && matched.created) await findMergeSuggestions(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
+        // The matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails. (A duplicate check used to follow:
+        // it is switched off, because its panel is gone from the screen and its suggestions would only cost model calls.)
+        await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
         return result
       },
       'raw',

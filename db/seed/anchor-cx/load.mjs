@@ -81,8 +81,7 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
     if (people.length !== 4) throw new Error(`${proj.name}: expected 4 participants, found ${people.length}`);
 
     await insert(db, 'core.projects', [{ id: P, workspace_id: WS, name: proj.name, color: proj.color, kind: 'research', template_id: await templateId(proj.tpl), owner_id: USER, created_by: USER }]);
-    await insert(db, 'research.studies', [{ project_id: P, workspace_id: WS, jtbd_when: proj.jtbd[0], jtbd_want: proj.jtbd[1], jtbd_so: proj.jtbd[2], methods: proj.methods }]);
-    await insert(db, 'research.test_items', [{ id: aid(`item:${proj.key}`), workspace_id: WS, project_id: P, position: 0, description: proj.what, outcomes: proj.outcomes }]);
+    await insert(db, 'research.studies', [{ project_id: P, workspace_id: WS, what_testing: proj.what, outcomes: proj.outcomes, jtbd_when: proj.jtbd[0], jtbd_want: proj.jtbd[1], jtbd_so: proj.jtbd[2], methods: proj.methods }]);
     await insert(db, 'research.study_stages', D.STAGES.map((name, i) => ({ id: aid(`stage:${proj.key}:${i}`), workspace_id: WS, study_id: P, position: i, name })));
     await insert(db, 'research.participants', people.map((p, i) => ({
       id: aid(`part:${proj.key}:${i}`), workspace_id: WS, project_id: P, name: p.name, role: p.role, email: p.email.toLowerCase(), phone: p.phone,

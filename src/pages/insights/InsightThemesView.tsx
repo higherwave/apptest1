@@ -5,7 +5,7 @@ import type { InsightsThemes } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
-import { DuplicatesPanel, MatchList, PriorityNote, ThemeTools, type Curation } from './ThemeCuration'
+import { MatchList, PriorityNote, type Curation } from './ThemeCuration'
 import { STATUS } from './labels'
 import styles from './InsightThemesView.module.scss'
 
@@ -36,7 +36,7 @@ const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => numbe
   { key: 'worked', label: 'Worked', count: (o) => o.summary.worked, keep: (t) => t.status === 'worked' },
 ]
 
-const NO_CURATION: Curation = { canEdit: false, busy: false, onRename: () => {}, onMerge: () => {}, onFindDuplicates: () => {}, onAccept: () => {}, onDismiss: () => {}, onRationale: () => {} }
+const NO_CURATION: Curation = { canEdit: false, busy: false, onRationale: () => {} }
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
 // Presentational: what the team should do (recommendations), then every theme seen across projects as a row that opens to say where it
@@ -77,7 +77,6 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
             </section>
           </div>
 
-          {curation && <DuplicatesPanel suggestions={overview.mergeSuggestions} curation={curation} />}
 
           <div className={styles.order} role="group" aria-label="Order the themes">
             <span className={styles.label}>Order</span>
@@ -160,7 +159,6 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>
                         </section>
                         <MatchList theme={t} />
-                        {curation?.canEdit && <ThemeTools key={`${t.id}:${t.title}`} theme={t} others={overview.themes.filter((x) => x.id !== t.id)} curation={curation} />}
                         <section aria-label="Recommendation">
                           <h3 className={styles.label}>Recommendation</h3>
                           {recs.length === 0 ? (

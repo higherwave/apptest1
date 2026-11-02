@@ -2,8 +2,7 @@ import type { CreateProjectRequest, ProjectDetail } from '../../api/client'
 
 // Form state and rules for the test plan page (new and existing projects). No React in here, so it is easy to test.
 export type PlanParticipant = { id?: string; name: string; role: string; email: string; phone: string; sessionMinutes: string }
-export type PlanItem = { description: string; outcomes: string[]; areaId: string | null }
-export type PlanForm = { name: string; methods: string[]; testItems: PlanItem[]; participants: PlanParticipant[] }
+export type PlanForm = { name: string; description: string; methods: string[]; participants: PlanParticipant[] }
 // Keyed the way the API names fields, for example 'name' or 'participants.0.email'.
 export type FieldErrors = Record<string, string>
 
@@ -15,13 +14,10 @@ export const SESSION_LENGTHS = [
 ] as const
 
 export const blankParticipant = (): PlanParticipant => ({ name: '', role: '', email: '', phone: '', sessionMinutes: '' })
-export const blankItem = (): PlanItem => ({ description: '', outcomes: [''], areaId: null })
-export const emptyForm = (): PlanForm => ({ name: '', methods: [], testItems: [blankItem()], participants: [blankParticipant()] })
+export const emptyForm = (): PlanForm => ({ name: '', description: '', methods: [], participants: [blankParticipant()] })
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const hasContent = (p: PlanParticipant) => [p.name, p.role, p.email, p.phone, p.sessionMinutes].some((v) => v.trim())
-const cleanOutcomes = (outcomes: string[]) => outcomes.map((o) => o.trim()).filter(Boolean)
-const cleanItems = (items: PlanItem[]) => items.map((i) => ({ description: i.description.trim(), outcomes: cleanOutcomes(i.outcomes), areaId: i.areaId })).filter((i) => i.description || i.outcomes.length)
 
 export function validate(form: PlanForm): FieldErrors {
   const errors: FieldErrors = {}
@@ -43,28 +39,28 @@ const participantRequests = (form: PlanForm) =>
   form.participants.filter(hasContent).map((p) => ({
     id: p.id ?? null, name: p.name.trim(), role: p.role.trim() || null, email: p.email.trim(), phone: p.phone.trim() || null, sessionMinutes: p.sessionMinutes ? (Number(p.sessionMinutes) as 30 | 45 | 60) : null,
   }))
-const itemRequests = (form: PlanForm) => cleanItems(form.testItems).map((i) => ({ description: i.description || null, outcomes: i.outcomes, areaId: i.areaId }))
+const descriptionRequest = (form: PlanForm) => form.description.trim() || null
 
 export function toRequest(form: PlanForm): CreateProjectRequest {
-  return { name: form.name.trim(), methods: form.methods, testItems: itemRequests(form), participants: participantRequests(form).map(({ id: _id, ...p }) => p) }
+  return { name: form.name.trim(), description: descriptionRequest(form), methods: form.methods, participants: participantRequests(form).map(({ id: _id, ...p }) => p) }
 }
 
 // Editing an existing project ------------------------------------------------------------------------
 
 export const formFromProject = (p: ProjectDetail): PlanForm => ({
   name: p.name,
+  description: p.description ?? '',
   methods: [...p.study.methods],
-  testItems: p.testItems.length ? p.testItems.map((i) => ({ description: i.description ?? '', outcomes: i.outcomes.length ? [...i.outcomes] : [''], areaId: i.areaId ?? null })) : [blankItem()],
   participants: p.participants.length
     ? p.participants.map((x) => ({ id: x.id, name: x.name, role: x.role ?? '', email: x.email, phone: x.phone ?? '', sessionMinutes: x.sessionMinutes ? String(x.sessionMinutes) : '' }))
     : [blankParticipant()],
 })
 
 // What the save would send, so "has it changed" ignores blank rows, spacing and the order methods were ticked in.
-const planKey = (f: PlanForm) => JSON.stringify([f.name.trim(), [...f.methods].sort(), itemRequests(f), participantRequests(f).map((p) => ({ ...p, email: p.email.toLowerCase() }))])
+const planKey = (f: PlanForm) => JSON.stringify([f.name.trim(), descriptionRequest(f), [...f.methods].sort(), participantRequests(f).map((p) => ({ ...p, email: p.email.toLowerCase() }))])
 export const planChanged = (form: PlanForm, saved: ProjectDetail) => planKey(form) !== planKey(formFromProject(saved))
 
-export const toPlanRequest = (form: PlanForm) => ({ name: form.name.trim(), methods: form.methods, testItems: itemRequests(form), participants: participantRequests(form) })
+export const toPlanRequest = (form: PlanForm) => ({ name: form.name.trim(), description: descriptionRequest(form), methods: form.methods, participants: participantRequests(form) })
 
 // Task list --------------------------------------------------------------------------------------------
 

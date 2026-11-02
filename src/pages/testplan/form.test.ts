@@ -1,7 +1,7 @@
 // npm run test:api also runs these.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { blankItem, blankParticipant, emptyForm, formFromProject, planChanged, taskFormFromProject, tasksChanged, toPlanRequest, toRequest, toTasksRequest, validate, type PlanForm } from './form.js'
+import { blankParticipant, emptyForm, formFromProject, planChanged, taskFormFromProject, tasksChanged, toPlanRequest, toRequest, toTasksRequest, validate, type PlanForm } from './form.js'
 
 const ada = { name: 'Ada', role: 'Engineer', email: 'ada@example.com', phone: '(555) 010-0000', sessionMinutes: '45' }
 const filled = (over: Partial<PlanForm> = {}): PlanForm => ({ ...emptyForm(), name: 'Study', participants: [ada], ...over })
@@ -11,7 +11,7 @@ test('a test plan needs a project name', () => {
   assert.deepEqual(validate(filled()), {})
 })
 
-test('test items and methods are optional', () => assert.deepEqual(validate(filled({ testItems: [blankItem()], methods: [] })), {}))
+test('the description and methods are optional', () => assert.deepEqual(validate(filled({ description: '', methods: [] })), {}))
 
 test('it needs one participant with a name and a valid email', () => {
   assert.deepEqual(validate({ ...emptyForm(), name: 'Study' }), { 'participants.0.name': 'Add at least one participant.', 'participants.0.email': 'Enter an email address.' })
@@ -28,19 +28,19 @@ test('empty extra participant rows are ignored; a filled one is checked', () => 
   assert.deepEqual(validate(rows), { 'participants.2.name': 'Enter a name.', 'participants.2.email': 'Enter a valid email address.' })
 })
 
-test('toRequest trims, drops empty items, blank outcomes and rows, and nulls empty text', () => {
+test('toRequest trims, drops blank rows, and nulls empty text', () => {
   const req = toRequest(
     filled({
       name: '  Study  ',
+      description: '  Whether first-time patients can book  ',
       methods: ['Card sort'],
-      testItems: [{ description: ' Booking flow ', outcomes: ['A ', '', ' '], areaId: null }, blankItem(), { description: '  ', outcomes: ['Only an outcome'], areaId: null }],
       participants: [{ name: ' Ada ', role: '', email: ' ada@example.com ', phone: ' ', sessionMinutes: '' }, blankParticipant()],
     }),
   )
   assert.deepEqual(req, {
     name: 'Study',
+    description: 'Whether first-time patients can book',
     methods: ['Card sort'],
-    testItems: [{ description: 'Booking flow', outcomes: ['A'], areaId: null }, { description: null, outcomes: ['Only an outcome'], areaId: null }],
     participants: [{ name: 'Ada', role: null, email: 'ada@example.com', phone: null, sessionMinutes: null }],
   })
 })
@@ -50,7 +50,7 @@ test('toRequest trims, drops empty items, blank outcomes and rows, and nulls emp
 const detail = {
   id: 'p1', name: 'Study', color: 'cream', template: 'Usability test', status: 'analyzed', sessions: 3, themes: 9, highPriority: 6, createdAt: '2026-10-20T00:00:00Z', version: 4,
   study: { methods: ['Card sort', 'Diary study'] },
-  testItems: [{ id: 'i1', description: 'Whether it works', outcomes: ['One', 'Two'], areaId: 'a1' }, { id: 'i2', description: null, outcomes: [], areaId: null }],
+  description: 'Whether it works',
   stages: [],
   participants: [
     { id: 'a1', name: 'Ada', role: null, email: 'ada@example.com', phone: '555', sessionMinutes: 60 },
@@ -59,11 +59,11 @@ const detail = {
   tasks: [{ id: 't1', prompt: 'Book', areaId: 'a1', followUps: [{ id: 'f1', prompt: 'Why?' }] }, { id: 't2', prompt: 'Cancel', areaId: null, followUps: [] }],
 } as const
 
-test('a project becomes form state: nulls become empty text, and there is always an outcome row', () => {
+test('a project becomes form state: nulls become empty text', () => {
   const f = formFromProject(detail as never)
-  assert.deepEqual(f.testItems, [{ description: 'Whether it works', outcomes: ['One', 'Two'], areaId: 'a1' }, { description: '', outcomes: [''], areaId: null }])
+  assert.equal(f.description, 'Whether it works')
   assert.deepEqual(f.participants[0], { id: 'a1', name: 'Ada', role: '', email: 'ada@example.com', phone: '555', sessionMinutes: '60' })
-  assert.deepEqual(formFromProject({ ...detail, testItems: [] } as never).testItems, [blankItem()], 'one item to type into')
+  assert.equal(formFromProject({ ...detail, description: null } as never).description, '', 'a project with no description gets an empty box')
 })
 
 test('an untouched form is not changed; every part of the page notices its own edits', () => {
@@ -71,18 +71,18 @@ test('an untouched form is not changed; every part of the page notices its own e
   assert.equal(planChanged(f, detail as never), false)
   assert.equal(planChanged({ ...f, name: 'New name' }, detail as never), true)
   assert.equal(planChanged({ ...f, methods: [...f.methods, 'Concept test'] }, detail as never), true)
-  assert.equal(planChanged({ ...f, testItems: [{ ...f.testItems[0], outcomes: ['One'] }, f.testItems[1]] }, detail as never), true)
+  assert.equal(planChanged({ ...f, description: 'Whether it works well' }, detail as never), true)
   assert.equal(planChanged({ ...f, participants: [f.participants[1], f.participants[0]] }, detail as never), true, 'reordering participants is a change')
   assert.equal(planChanged({ ...f, participants: [{ ...f.participants[0], phone: '556' }, f.participants[1]] }, detail as never), true)
 })
 
-test('whitespace, blank outcomes, empty extra rows and method order are not changes', () => {
+test('whitespace, empty extra rows and method order are not changes', () => {
   const f = formFromProject(detail as never)
   const same = {
     ...f,
     name: ' Study ',
     methods: ['Diary study', 'Card sort'],
-    testItems: [{ description: ' Whether it works ', outcomes: ['One', '', 'Two '], areaId: 'a1' }, f.testItems[1], blankItem()],
+    description: ' Whether it works ',
     participants: [...f.participants, blankParticipant()],
   }
   assert.equal(planChanged(same, detail as never), false)
@@ -93,9 +93,10 @@ test('the save request carries everything on the page: participants keep ids and
   const f = formFromProject(detail as never)
   const added = { ...f, participants: [...f.participants, { ...blankParticipant(), name: 'Cy', email: 'cy@example.com' }] }
   const req = toPlanRequest(added)
-  assert.deepEqual(Object.keys(req).sort(), ['methods', 'name', 'participants', 'testItems'])
+  assert.deepEqual(Object.keys(req).sort(), ['description', 'methods', 'name', 'participants'])
   assert.deepEqual(req.participants.map((p) => [p.id, p.name]), [['a1', 'Ada'], ['b2', 'Bo'], [null, 'Cy']])
-  assert.deepEqual(req.testItems, [{ description: 'Whether it works', outcomes: ['One', 'Two'], areaId: 'a1' }], 'the empty second item is dropped')
+  assert.equal(req.description, 'Whether it works')
+  assert.equal(toPlanRequest({ ...added, description: '   ' }).description, null, 'a blank description is sent as none')
 })
 
 test('task list: unchanged is not dirty; blank rows are ignored; requests are trimmed', () => {
