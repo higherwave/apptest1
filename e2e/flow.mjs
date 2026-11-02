@@ -877,7 +877,7 @@ try {
     ok('at 50% the owner sees a banner with the spend and the budget', /Half of the monthly AI budget/.test(half) && half.includes('$5.20 of $10.00') && half.includes('52%'), half)
     ok('the banner sits above the app bar and the app bar moved down', await p2.evaluate(() => { const b = document.querySelector('[data-testid="spend-banner"]').getBoundingClientRect(); const h = document.querySelector('header').getBoundingClientRect(); return b.top === 0 && h.top >= b.bottom - 1 }))
     ok('the page below is not hidden by the banner', await p2.evaluate(() => { const h = document.querySelector('header').getBoundingClientRect(); const m = document.querySelector('main').getBoundingClientRect(); return m.top >= h.bottom - 1 }))
-    await p2.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'AI status').click())
+    await p2.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'AI status').click()) // a token holder has no account menu, so it is a button
     await p2.waitForFunction(() => document.querySelector('.cds--modal.is-visible')?.innerText.includes('Spend this month'), { timeout: 5000 })
     ok('the AI status dialog shows the spend this month and the alert level', await p2.evaluate(() => { const t = document.querySelector('.cds--modal.is-visible').innerText; return t.includes('$5.20 of $10.00 (52%)') && t.includes('50% reached') && t.includes('No problems in the past 30 days') }))
     await p2.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.getAttribute('aria-label') === 'close' || b.className.includes('close'))?.click())

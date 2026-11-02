@@ -32,6 +32,10 @@ export function AccessBar() {
   // deployment without sign-in still needs them.
   const tokenControls = !signedIn && (showAccess || !me.data?.signInAvailable)
 
+  // AI status (spend and recent problems) is a link in the account menu; a token holder with no account menu gets a button instead.
+  const showStatus = editing && !!(ai.data?.problems || ai.data?.budgetUsd !== undefined)
+  const statusLabel = `AI status${ai.data?.problems ? ` (${ai.data.problems.length})` : ''}`
+
   const close = () => {
     setOpen(false)
     setValue('')
@@ -74,9 +78,9 @@ export function AccessBar() {
           {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
         </Tag>
       )}
-      {editing && (ai.data?.problems || ai.data?.budgetUsd !== undefined) && (
+      {showStatus && !signedIn && (
         <Button kind="ghost" size="sm" onClick={() => setProblemOpen(true)}>
-          AI status{ai.data?.problems ? ` (${ai.data.problems.length})` : ''}
+          {statusLabel}
         </Button>
       )}
       {tokenControls &&
@@ -104,6 +108,7 @@ export function AccessBar() {
           </Tag>
           <OverflowMenu iconDescription="Account" align="bottom-end" flipped size="sm" aria-label="Account">
             <OverflowMenuItem itemText="Members" onClick={() => navigate('/members')} />
+            {showStatus && <OverflowMenuItem itemText={statusLabel} onClick={() => setProblemOpen(true)} />}
             <OverflowMenuItem itemText="Sign out" onClick={signOut} />
           </OverflowMenu>
         </>
