@@ -23,7 +23,11 @@
     "rules:sync": "node scripts/sync-design-rules.mjs",
     "rules:check": "node scripts/sync-design-rules.mjs --check",
     "migrate:deploy": "node db/deploy-migrate.mjs",
-    "check:tokens": "node vendor/design-rules/check-tokens.mjs src/theme.scss vendor/design-rules/tokens.json"
+    "check:tokens": "node vendor/design-rules/check-tokens.mjs src/theme.scss vendor/design-rules/tokens.json",
+    "brand:export": "node scripts/brand-pack.mjs export",
+    "brand:apply": "node scripts/brand-pack.mjs apply",
+    "doctor": "node scripts/doctor.mjs",
+    "bootstrap": "node scripts/bootstrap.mjs"
   },
   "dependencies": {
     "@carbon/icons-react": "^11.89.0",

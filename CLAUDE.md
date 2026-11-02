@@ -1,0 +1,70 @@
+# Signal Flow: instructions for Claude Code
+
+A research-to-requirements app (React + Carbon + a Hono API + Postgres). `README.md` has the layout, commands, environment variables
+and sign-in model. `docs/RUNBOOK.md` is how to operate it; `docs/SETUP.md` is how to stand it up in a new environment. This file is
+the working agreement: what to run, what never to do, and the traps that have already cost time.
+
+## Before you call something done
+
+    npm run check:all     # typecheck, API + database tests, design-system rules, token registry
+    npm run e2e           # browser tests on an in-memory API (needs Chrome; CHROME_PATH to point at another)
+
+CI (`.github/workflows/ci.yml`) runs the same on every push and pull request. Check an exit status explicitly: `tail` hides it.
+After a push, confirm `GET /api/v1/health` reports `version` equal to the short commit SHA before saying it is live.
+
+## The design system is enforced, not advisory
+
+- `npm run validate:pages` runs the design-system rules over `src/`. No raw hex, `rgb()`, inline `style`, raw `px` (only `0` and
+  `1px`), `<button>`, `<input>`, `<select>`, `<table>`; only components in `vendor/design-rules/components.json` (no Tabs, Switch,
+  or Table: build tab-like controls from ghost Buttons).
+- Colors and type live only in `src/theme.scss` and `src/tokens.scss`. Everything else uses `var(--at-*)` and the `role()` mixin.
+  `npm run check:tokens` keeps the registry (`vendor/design-rules/tokens.json`) in step with `theme.scss`: change both together.
+- `vendor/design-rules/` is a pinned copy from the design-system-mcp repo. Never edit it; change the rule upstream and run
+  `npm run rules:sync`.
+
+## API and types
+
+`openapi/openapi.yaml` is written first and the tests check every route against it. After editing it run `npm run gen:api`;
+`npm run check:api-types` fails if `src/api/schema.d.ts` is stale. Writes need an owner or editor; reads work as the read-only viewer.
+
+## Database
+
+- A migration is `db/migrations/NNNN_name.sql` plus `NNNN_name.down.sql`. Never edit one that has been applied anywhere.
+- **Write migrations the previous code can run against.** The old deployment serves until the new one is ready, so add in one
+  release and remove or rename in a later one.
+- A production build applies pending migrations (`db/deploy-migrate.mjs`). It refuses `drop table|column|schema|type`, `truncate`
+  and `delete from` unless the file has the line `-- migrate: allow-destructive`; add that only after a person has reviewed it.
+- Applying to production by hand (`node db/migrate.mjs up --yes`) needs the person's explicit yes in the chat first.
+- Update the table counts in `db/test.mjs` when a migration adds or removes a table.
+
+## AI
+
+Every model call goes through the provider seam in `server/ai.ts`. Call the model **before** opening a database transaction, never
+inside one. Model output is schema-checked and grounded (quotes verbatim, figures from the supplied numbers) before it is saved.
+Spend is capped by `AI_MONTHLY_BUDGET_USD`; `AI_ENABLED=false` returns everything to the simulation. If what is sent to a provider
+changes, update `public/privacy.html` and the landing text in the same change.
+
+## Browser-test traps (e2e/)
+
+- Hidden Carbon dialogs keep their buttons in the DOM: click inside `.cds--modal.is-visible`, and wait about 300 ms after one closes.
+- The fixed header can cover a scrolled-to button. Icon-only Carbon buttons have no `aria-label` attribute: use `data-testid`.
+- Headings styled `text-transform: uppercase` read as capitals in `innerText`: match case-insensitively.
+- The theme list deliberately does not repeat project names, quotes or requirement lists.
+- On CI, Chrome needs `--no-sandbox` (the tests add it when `CI` is set).
+
+## React trap
+
+State that starts from a prop (`useState(prop)`) does not follow the prop. Initialise from the data that is already there, and key the
+component by the thing it edits (`key={`${id}:${title}`}`), or the box opens empty when the data was loaded first.
+
+## Never
+
+- Commit secrets or `db/.env.local`, print a secret in chat, or put a company name, email or domain into code (use settings).
+- Change the app name, logo, home page or privacy URLs that a Google OAuth consent screen was verified with, without expecting a
+  re-review.
+- Merge a platform theme, delete data, or run production migrations without the person asking for it.
+
+## Working style
+
+Small commits straight to `main` (solo project; every push deploys), each one passing the checks above. Say what was not tested.
+Platform Insights, Stories and the Design step have long histories in the plan docs; read the README section for the area first.

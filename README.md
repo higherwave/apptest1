@@ -6,6 +6,9 @@ requirements document, and track the resulting stories on a board. Built from th
 
 The earlier Whirl pilot app lives at the git tag `archive/old-react-test`.
 
+**Running this for a company of your own?** Start at `docs/SETUP.md`. Day-to-day operation is in `docs/RUNBOOK.md`; how Claude Code
+should work here is in `CLAUDE.md`.
+
 ## Layout
 
 | Path | What |
@@ -16,6 +19,8 @@ The earlier Whirl pilot app lives at the git tag `archive/old-react-test`.
 | `openapi/openapi.yaml` | The API contract. Written first; tests check the routes against it |
 | `db/` | Migrations, demo seed and their tests (see `db/README.md`) |
 | `scripts/validate-pages.mjs` | Runs the design-system rules over `src/`, from the pinned copy in `vendor/design-rules/` (no other checkout needed) |
+| `brand/brand.json` | The app, company and contact names. The only place a company name is written: the React app imports it, and the static pages in `public/` have `{{appName}}`-style placeholders filled in by the dev server and the build |
+| `docs/` | `SETUP.md` (new environment), `RUNBOOK.md` (operating it) |
 | `vendor/design-rules/` | A pinned copy of the validator and component allowlist from the design-system-mcp repo, with `SOURCE.json` recording where it came from and a hash of each file. Never edit by hand |
 
 ## Commands
@@ -26,6 +31,10 @@ The earlier Whirl pilot app lives at the git tag `archive/old-react-test`.
     npm run validate:pages   # design-system rules over src/ (uses vendor/design-rules; MCP_REPO=/path tries a checkout instead)
     npm run rules:sync       # refresh vendor/design-rules from ../design-system-mcp, or from GitHub when it is not checked out
     npm run rules:check      # is the pinned copy behind upstream? (exits 1 if so)
+    npm run check:tokens     # the token registry matches src/theme.scss
+    npm run doctor [-- --db] # what is set and what is missing in this environment, with the fix for each
+    npm run bootstrap -- --name "Acme" --slug acme --owners a@acme.com --yes   # migrations + workspace + first owners, no demo data
+    npm run brand:export -- <dir> / brand:apply -- <dir> [--yes]               # move a brand pack (names, colours, logo) in or out
     npm run check:all    # typecheck + tests + page validation
 
 ## Migrations on deploy
@@ -56,7 +65,8 @@ The Neon integration adds the database variables (with a custom prefix; the code
 | `BETTER_AUTH_URL` | The address the app is served from, for example `https://apptest1-eta.vercel.app`. Locally, `http://localhost:5198` in `db/.env.local` |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | Optional. Other addresses the app is served from, comma-separated, for example the old `vercel.app` address while moving to your own domain. `BETTER_AUTH_URL` is always trusted |
 | `BETTER_AUTH_SECRET` | A random string of 32 or more characters that signs sign-in cookies (for example `openssl rand -base64 32`). Changing it signs everyone out. Sign-in is on only when all four of the variables above are set |
-| `DEMO_WORKSPACE_SLUG`, `DEV_USER_EMAIL` | Which demo workspace and user the API acts as. Defaults: `higherwave-demo`, `david@demo.signalflow.example` |
+| `WORKSPACE_SLUG` (older name `DEMO_WORKSPACE_SLUG`) | The workspace this deployment serves. Default `higherwave-demo`. Create your own with `npm run bootstrap` |
+| `DEV_USER_EMAIL` | The identity used for the demo token and the read-only viewer. Default `david@demo.signalflow.example`; not needed when everyone signs in |
 
 ## Sign-in and roles
 

@@ -6,6 +6,7 @@ import { Logo } from '../shell/Logo'
 import { SiteFooter } from '../shell/SiteFooter'
 import { signInWithGoogle, signOut } from './authClient'
 import styles from './AuthGate.module.scss'
+import brand from '../../brand/brand.json'
 
 // Where a sign-in screen is shown instead of the app: when the API says the request has no session (401 unauthenticated),
 // or that the signed-in Google account was not invited (403). Anything else, including loading, shows the app.
@@ -24,7 +25,7 @@ function Screen({ title, children }: { title: string; children: ReactNode }) {
         <div className={styles.card}>
           <p className={styles.brand}>
             <Logo />
-            <span>Signal Flow</span>
+            <span>{brand.appName}</span>
           </p>
           <h1 className={styles.title}>{title}</h1>
           {children}
@@ -51,7 +52,7 @@ function SignInScreen() {
   }
   return (
     <Screen title="Sign in">
-      <p className={styles.text}>Signal Flow is invite-only. Sign in with the Google account you were invited with.</p>
+      <p className={styles.text}>{brand.appName} is invite-only. Sign in with the Google account you were invited with.</p>
       <Button kind="primary" size="lg" disabled={busy} onClick={go}>
         {busy ? 'Opening Google…' : 'Continue with Google'}
       </Button>

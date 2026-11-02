@@ -4,13 +4,14 @@ import { useParams } from 'react-router-dom'
 import { friendlyMessage, getDatabaseHealth, getHealth } from '../api/client'
 import { SECTION_TITLES } from '../shell/nav'
 import styles from './Placeholder.module.scss'
+import brand from '../../brand/brand.json'
 
 type Status = { kind: 'idle' } | { kind: 'ok'; text: string } | { kind: 'error'; text: string }
 
 // Stand-in for every screen until its slice is built. Also proves the shell can reach the API.
 export function Placeholder({ title }: { title?: string }) {
   const { section } = useParams()
-  const heading = title ?? (section ? SECTION_TITLES[section] : undefined) ?? 'Signal Flow'
+  const heading = title ?? (section ? SECTION_TITLES[section] : undefined) ?? brand.appName
   const [api, setApi] = useState<Status>({ kind: 'idle' })
   const [db, setDb] = useState<Status>({ kind: 'idle' })
 

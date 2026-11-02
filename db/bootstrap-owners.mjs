@@ -6,7 +6,7 @@
 //   node db/bootstrap-owners.mjs a@example.com b@example.com --yes    does it
 //
 // The connection string comes from db/.env.local or the environment, like migrate.mjs. The workspace is
-// DEMO_WORKSPACE_SLUG (default higherwave-demo).
+// WORKSPACE_SLUG (or DEMO_WORKSPACE_SLUG; default higherwave-demo). A new environment creates its workspace first with init-workspace.mjs.
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
 import { findConnectionString, loadEnvFile } from './migrate.mjs';
@@ -14,7 +14,7 @@ import { findConnectionString, loadEnvFile } from './migrate.mjs';
 // `db` is anything with query(sql, params), so tests can run it on an in-memory database.
 export async function bootstrapOwners(db, slug, emails) {
   const workspace = (await db.query('select id from core.workspaces where slug = $1', [slug])).rows[0];
-  if (!workspace) throw new Error(`No workspace "${slug}". Run the seed first.`);
+  if (!workspace) throw new Error(`No workspace "${slug}". Create it first: node db/init-workspace.mjs --name "Your company" --slug ${slug} --owners you@example.com`);
   const done = [];
   for (const raw of emails) {
     const email = raw.trim().toLowerCase();
@@ -45,7 +45,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     console.error('No connection string found. Put it in db/.env.local (see db/README.md).');
     process.exit(1);
   }
-  const slug = process.env.DEMO_WORKSPACE_SLUG || 'higherwave-demo';
+  const slug = process.env.WORKSPACE_SLUG || process.env.DEMO_WORKSPACE_SLUG || 'higherwave-demo';
   console.log(`Target: ${new URL(url).host}, workspace "${slug}"`);
   console.log(`Owners: ${emails.join(', ')}`);
   if (!yes) {

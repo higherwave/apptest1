@@ -71,7 +71,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
   const cache = new Map<string, { at: number; value: RequestContext }>()
   return async (c, next) => {
     const { env, auth } = deps
-    const slug = env.DEMO_WORKSPACE_SLUG || 'higherwave-demo'
+    const slug = env.WORKSPACE_SLUG || env.DEMO_WORKSPACE_SLUG || 'higherwave-demo'
     const token = env.DEV_TOKEN
     const bearer = c.req.header('authorization')
     const openEditing = env.OPEN_EDITING === 'true'
@@ -121,7 +121,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     }
     const { rows } = await deps.getDb().query(IDENTITY_SQL, [slug, email])
     const row = rows[0]
-    if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Run the demo seed.`)
+    if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Create the workspace with: node db/init-workspace.mjs (or load the demo with the seed).`)
     const value: RequestContext = {
       anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName: row.display_name, workspaceName: row.workspace_name,
     }

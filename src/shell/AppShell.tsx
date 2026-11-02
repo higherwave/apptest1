@@ -11,6 +11,7 @@ import { Logo } from './Logo'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
 import styles from './AppShell.module.scss'
+import brand from '../../brand/brand.json'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
 
@@ -68,7 +69,7 @@ export function AppShell() {
       <header className={styles.appbar}>
         <div className={styles.brand}>
           <Logo />
-          <span className={styles.appName}>Signal Flow</span>
+          <span className={styles.appName}>{brand.appName}</span>
         </div>
 
         <nav className={styles.areas} aria-label="Navigation" data-nav>

@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Privacy Policy – Signal Flow</title>
-  <meta name="description" content="How Signal Flow, a development, testing, and demonstration environment, handles information, including Google Sign-In." />
+  <title>Privacy Policy – {{appName}}</title>
+  <meta name="description" content="How {{appName}}, a development, testing, and demonstration environment, handles information, including Google Sign-In." />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png" />
   <link rel="shortcut icon" href="/favicon.ico" />
@@ -25,29 +25,29 @@
 </head>
 <body>
 <main>
-  <nav><img src="/logo.png" alt="" width="24" height="24" /><a href="/about">Signal Flow</a> · <a href="/projects">Open the app</a></nav>
+  <nav><img src="/logo.png" alt="" width="24" height="24" /><a href="/about">{{appName}}</a> · <a href="/projects">Open the app</a></nav>
   <h1>Privacy Policy</h1>
-  <p class="meta">Signal Flow · Last updated November 2, 2026</p>
+  <p class="meta">{{appName}} · Last updated November 2, 2026</p>
 
   <div class="notice">
-    <p>Welcome to Signal Flow. This website is a development, testing, and demonstration environment used solely to showcase technical features and test functionality, including user authentication via Google Sign-In.</p>
+    <p>Welcome to {{appName}}. This website is a development, testing, and demonstration environment used solely to showcase technical features and test functionality, including user authentication via Google Sign-In.</p>
     <p>Because this is a testing environment, please do not use real personal data, sensitive information, or production credentials when interacting with this site.</p>
   </div>
 
   <h2>Who runs this site</h2>
-  <p>Signal Flow is run by Higherwave (higherwave.org) as a private, invitation-only demonstration of a research-to-requirements tool. It is not a commercial service, and it is shared only with people who have been invited. Questions about this policy can be sent to <a href="mailto:david.garrett@higherwave.org">david.garrett@higherwave.org</a>.</p>
+  <p>{{appName}} is run by {{orgName}} ({{orgDomain}}) as a private, invitation-only demonstration of a research-to-requirements tool. It is not a commercial service, and it is shared only with people who have been invited. Questions about this policy can be sent to <a href="mailto:{{contactEmail}}">{{contactEmail}}</a>.</p>
 
-  <h2>What Signal Flow is, and why it handles information</h2>
-  <p>Signal Flow lets a team plan a research study, upload interview transcripts, review the themes found in them, and turn those themes into requirements and stories. To keep the demonstration limited to invited people, signing in is done with a Google account.</p>
+  <h2>What {{appName}} is, and why it handles information</h2>
+  <p>{{appName}} lets a team plan a research study, upload interview transcripts, review the themes found in them, and turn those themes into requirements and stories. To keep the demonstration limited to invited people, signing in is done with a Google account.</p>
 
   <h2>Information we receive from Google when you sign in</h2>
-  <p>When you choose "Continue with Google", Google shares these basic profile details with Signal Flow:</p>
+  <p>When you choose "Continue with Google", Google shares these basic profile details with {{appName}}:</p>
   <ul>
     <li>your name,</li>
     <li>your email address (and whether Google has verified it), and</li>
     <li>your profile picture address, if you have one.</li>
   </ul>
-  <p>Signal Flow requests only the basic sign-in scopes (openid, email, and profile). It does not request, read, or store anything from your Gmail, Google Drive, Calendar, Contacts, or any other Google service, and it cannot act on your Google account.</p>
+  <p>{{appName}} requests only the basic sign-in scopes (openid, email, and profile). It does not request, read, or store anything from your Gmail, Google Drive, Calendar, Contacts, or any other Google service, and it cannot act on your Google account.</p>
 
   <h2>How we use that information</h2>
   <ul>
@@ -61,28 +61,28 @@
   <p>Anything you type or upload, such as project names, participant details, and transcript text, is stored so the app can show it back to you. This is a testing environment: please use made-up or sample data only. </p>
 
   <h2>AI features</h2>
-  <p>Signal Flow can use an AI service, Anthropic (anthropic.com) through its API, for three jobs. Each is switched on or off separately from the rest of the app, and each is started only by an invited editor or owner, never by a visitor using the read-only demo.</p>
+  <p>{{appName}} can use an AI service, Anthropic (anthropic.com) through its API, for three jobs. Each is switched on or off separately from the rest of the app, and each is started only by an invited editor or owner, never by a visitor using the read-only demo.</p>
   <ul>
     <li><strong>Analysis.</strong> The text of the transcripts in the project being analyzed, together with the study's journey stages and test plan, is sent so the model can find themes.</li>
     <li><strong>Drafting requirements.</strong> To write each step of a requirements document, the app sends the study's description and expected outcomes, the roles of the participants, the title, summary, and suggested opportunity of each theme included in the document, one short quote from a participant for each of those themes, and the steps already written in the same document.</li>
     <li><strong>Matching themes.</strong> To avoid listing the same problem twice across projects, the app sends the title, a short description, and the suggested opportunity of each new theme, together with the titles of the themes already shared across projects. No transcript text is sent for this.</li>
   </ul>
-  <p>Before anything is sent, the app removes email addresses and phone numbers and, for transcripts, replaces speaker names with labels such as P1 and removes participant names it recognizes; file names are not sent. Your name, email address, and profile picture from Google are never sent to an AI service. Per Anthropic's API terms, Anthropic keeps this input and the model's output for 30 days by default for safety and security purposes. Signal Flow has not joined any Anthropic program that shares data for model improvement. When AI is switched off, or its monthly budget or credit is used up, the app uses a simulated keyword version of these steps and nothing is sent to an AI service. Because this is a testing environment, please enter only made-up or sample data.</p>
+  <p>Before anything is sent, the app removes email addresses and phone numbers and, for transcripts, replaces speaker names with labels such as P1 and removes participant names it recognizes; file names are not sent. Your name, email address, and profile picture from Google are never sent to an AI service. Per Anthropic's API terms, Anthropic keeps this input and the model's output for 30 days by default for safety and security purposes. {{appName}} has not joined any Anthropic program that shares data for model improvement. When AI is switched off, or its monthly budget or credit is used up, the app uses a simulated keyword version of these steps and nothing is sent to an AI service. Because this is a testing environment, please enter only made-up or sample data.</p>
 
   <h2>Cookies</h2>
-  <p>Signal Flow sets one first-party cookie, a session cookie (named like <code>better-auth.session_token</code>), that keeps you signed in for up to seven days or until you sign out. It is needed for sign-in to work. We do not use advertising or analytics cookies.</p>
+  <p>{{appName}} sets one first-party cookie, a session cookie (named like <code>better-auth.session_token</code>), that keeps you signed in for up to seven days or until you sign out. It is needed for sign-in to work. We do not use advertising or analytics cookies.</p>
 
   <h2>Where information is stored, and who else handles it</h2>
   <p>The information above is stored in a Postgres database hosted by Neon (in the United States). The site is hosted by Vercel, which may keep ordinary server logs, such as IP addresses and requests, as part of hosting. Google provides the sign-in service, and Anthropic handles transcript text and research summaries when the AI features are on (see above). These providers handle information only to run the service for us. We do not share your information with anyone else, except if the law requires it.</p>
 
   <h2>How long we keep it, and how to have it removed</h2>
-  <p>Because this is a testing environment, we keep information only while the environment exists, and it may be reset or deleted at any time without notice. An owner can remove your access on the Members page, which also ends your session. To have your name, email address, and sign-in record deleted, email <a href="mailto:david.garrett@higherwave.org">david.garrett@higherwave.org</a> and we will remove them. You can also withdraw Signal Flow's access to your Google account at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
+  <p>Because this is a testing environment, we keep information only while the environment exists, and it may be reset or deleted at any time without notice. An owner can remove your access on the Members page, which also ends your session. To have your name, email address, and sign-in record deleted, email <a href="mailto:{{contactEmail}}">{{contactEmail}}</a> and we will remove them. You can also withdraw {{appName}}'s access to your Google account at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</p>
 
   <h2>Google API Services User Data Policy</h2>
-  <p>Signal Flow's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+  <p>{{appName}}'s use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
 
   <h2>Children</h2>
-  <p>Signal Flow is not directed at children, and it is not for people under 18.</p>
+  <p>{{appName}} is not directed at children, and it is not for people under 18.</p>
 
   <h2>Changes to this policy</h2>
   <p>If this policy changes, for example if the app starts using another outside service, this page will be updated and the date above will change.</p>
