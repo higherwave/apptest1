@@ -193,7 +193,7 @@ $frame-max: 44rem;
 }
 
 .reqTitle {
-  @include tokens.role('title-sm');
+  @include tokens.role('label-md'); // the same face and size as a theme's name in Themes across projects
   color: var(--at-ink);
 }
 

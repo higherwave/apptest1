@@ -103,6 +103,8 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           {t.needsReview && <Tag size="sm" type="warm-gray">New · review</Tag>}
                           {order === 'priority' && t.priority && <Tag size="sm" type="purple">#{t.priority.rank}</Tag>}
                           {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
+                        </span>
+                        <span>
                           <Tag size="sm" type="outline" data-testid={`origin-${t.id}`}>{ORIGIN_LABEL[t.origin]}</Tag>
                         </span>
                         <span>
@@ -110,8 +112,8 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                         </span>
                         <span>{t.trend && <Tag size="sm" type="gray">{TREND[t.trend]}</Tag>}</span>
                         <span className={styles.rowCount}>
-                          <span className={styles.count}>
-                            {t.participantCount} of {overview.totalParticipants} participants <span className={styles.muted}>· {plural(t.projectCount, 'project')}</span>
+                          <span className={styles.count} title={`${t.participantCount} of ${overview.totalParticipants} participants in ${plural(t.projectCount, 'project')}`}>
+                            {t.participantCount} of {overview.totalParticipants} <span className={styles.muted}>· {plural(t.projectCount, 'project')}</span>
                           </span>
                           <ProgressBar label={`${t.title}: participants`} hideLabel size="small" value={t.participantCount} max={Math.max(overview.totalParticipants, 1)} />
                         </span>
@@ -247,6 +249,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
             <div className={styles.columns} aria-hidden>
               <span className={styles.label}>Themes</span>
               <span className={styles.label}>Type</span>
+              <span className={styles.label}>Source</span>
               <span className={styles.label}>Status</span>
               <span className={styles.label}>Trend</span>
               <span className={styles.label}>Participants</span>

@@ -99,7 +99,7 @@
 // One grid for the column heads and every row, so the columns line up.
 .columns {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) 7.5rem 9rem 7rem minmax(0, 2fr);
+  grid-template-columns: minmax(0, 1fr) 7.5rem 8.5rem 9rem 6.5rem 8.5rem;
   align-items: center;
   gap: var(--at-space-md);
   inline-size: 100%;
