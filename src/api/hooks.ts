@@ -4,7 +4,7 @@ import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
-  createProject, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
+  createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -26,6 +26,16 @@ export const useAreas = () => useQuery({ queryKey: ['areas'], queryFn: listAreas
 export const useCreateArea = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (body: Parameters<typeof createArea>[0]) => createArea(body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
+}
+export const useAreaProposals = () => useQuery({ queryKey: ['areas', 'proposals'], queryFn: listAreaProposals })
+// Accepting adds an area and files themes under it, so every list that shows either is refreshed.
+export const useAcceptAreaProposal = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { key: string; name?: string }) => acceptAreaProposal(v.key, v.name), onSuccess: () => queryClient.invalidateQueries() })
+}
+export const useDismissAreaProposal = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (key: string) => dismissAreaProposal(key), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
 }
 export const useUpdateArea = () => {
   const queryClient = useQueryClient()

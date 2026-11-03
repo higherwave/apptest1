@@ -114,6 +114,55 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /areas/proposals:
+    get:
+      operationId: listAreaProposals
+      summary: >
+        Suggested new feature areas: groups of current themes that have no area and share a word no area covers, raised by at least three people.
+        Worked out from the words alone (no model call). A group someone dismissed is not listed.
+      responses:
+        '200':
+          description: The suggestions, strongest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AreaProposalList' }
+        '401': { $ref: '#/components/responses/Error' }
+  /areas/proposals/accept:
+    post:
+      operationId: acceptAreaProposal
+      summary: >
+        Owners and editors. Adds the suggested area (under the name given, or the suggested one) and files the group's themes under it.
+        404 when the group has changed or been dismissed since the page loaded.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AcceptAreaProposalRequest' }
+      responses:
+        '201':
+          description: The area and how many themes were filed under it.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AcceptedAreaProposal' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /areas/proposals/dismiss:
+    post:
+      operationId: dismissAreaProposal
+      summary: Owners and editors. Says not now to a suggestion; it is not offered again.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DismissAreaProposalRequest' }
+      responses:
+        '204': { description: Dismissed. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /areas/{id}:
     patch:
       operationId: updateArea
@@ -2659,6 +2708,47 @@ components:
             tasks: { type: integer }
             themes: { type: integer, description: Themes of the current analyses filed under this area. }
         version: { type: integer }
+    AreaProposal:
+      type: object
+      required: [key, name, themes, participants, projects]
+      properties:
+        key: { type: string, description: The word the group shares; the same suggestion has the same key each time. }
+        name: { type: string }
+        themes:
+          type: array
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id: { type: string }
+              title: { type: string }
+        participants: { type: integer }
+        projects: { type: integer }
+    AreaProposalList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AreaProposal' }
+    AcceptAreaProposalRequest:
+      type: object
+      required: [key]
+      properties:
+        key: { type: string }
+        name: { type: [string, 'null'], description: A different name than the one suggested. }
+    AcceptedAreaProposal:
+      type: object
+      required: [areaId, name, filed]
+      properties:
+        areaId: { type: string }
+        name: { type: string }
+        filed: { type: integer }
+    DismissAreaProposalRequest:
+      type: object
+      required: [key]
+      properties:
+        key: { type: string }
     AreaList:
       type: object
       required: [data]

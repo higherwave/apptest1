@@ -162,6 +162,8 @@ export const createAreaSchema = z.object({
 export const updateAreaSchema = createAreaSchema.omit({ force: true })
 export const mergeAreaSchema = z.object({ intoId: z.uuid('Choose the area to merge into.') })
 
+export const acceptProposalSchema = z.object({ key: text(60), name: optionalText(60) })
+export const dismissProposalSchema = z.object({ key: text(60) })
 export const themeAreaSchema = z.object({ areaId: z.uuid().nullable() })
 
 export const designSchema = z.object({

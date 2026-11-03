@@ -11,7 +11,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -24,6 +24,7 @@ import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
+import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
@@ -559,6 +560,27 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json({ data: await listAreas(getDb(), c.get('ctx').workspaceId) })
+  })
+  // Suggested new areas: groups of themes with no area, by the word they share. Reading is open; accepting or dismissing is for editors.
+  app.get('/areas/proposals', withReadContext, async (c) => {
+    c.header('Cache-Control', 'no-store')
+    return c.json({ data: await proposeAreas(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.post('/areas/proposals/accept', withContext, async (c) => {
+    requireEditor(c)
+    const input = parseBody(acceptProposalSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    const done = await acceptProposal(getDb(), c.get('ctx'), input.key, input.name ?? undefined).catch((err) => {
+      if (err instanceof ProposalMissing) throw new ApiError(404, 'not_found', 'That suggestion is no longer there. Reload the page.')
+      return areaErrors(err)
+    })
+    return c.json(done, 201)
+  })
+  app.post('/areas/proposals/dismiss', withContext, async (c) => {
+    requireEditor(c)
+    const input = parseBody(dismissProposalSchema, await readJson(c))
+    await dismissProposal(getDb(), c.get('ctx'), input.key)
+    return c.body(null, 204)
   })
   app.post('/areas', withContext, async (c) => {
     requireEditor(c)

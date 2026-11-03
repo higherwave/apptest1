@@ -174,7 +174,7 @@ plain template from the same figures is used.
 ## Feature areas
 
 One shared list per workspace of what research is about (Scheduling, Reminders, Account setup): `insights.feature_areas`, API under `/api/v1/areas`,
-page at `/insights/areas`. A question to ask or task to observe (`research.tasks.area_id`) and a test item (`research.test_items.area_id`) can name
+page under the **Settings** tab at `/settings/areas` (`/insights/areas` redirects there; Settings has its own row of settings types, Feature areas the only one for now). A question to ask or task to observe (`research.tasks.area_id`) and a test item (`research.test_items.area_id`) can name
 one; follow-ups share their parent's. An area is a label, never a gate: nothing requires one, and a theme with none is matched freeform.
 
 - **Who:** anyone reads the list; an owner or editor adds an area; only an owner renames, merges or retires one. Retired areas keep what uses them
@@ -193,7 +193,11 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
   platform theme of a different known area stands only at 0.85 confidence or more (`applyAreaRule` in `server/ai-matching.ts`), otherwise the theme starts
   its own (model) or stays unplaced (keyword matcher). A platform theme's area is the most common area among the themes filed under it. Either side
   without an area is never held back. See "Platform Themes: matching and merging" for automatic merging and undo.
-- **Not built yet** (see the Build Plan): rollups grouped by area, and proposing new areas from unassigned themes several participants raised.
+- **New areas are proposed** (`server/area-proposals.ts`, migration 0029, `GET /areas/proposals`): current themes with no area are grouped by the word their titles share. A
+  group of at least two themes raised by at least three people that no live area covers (name, other names) becomes a "Suggested areas" card on the Feature areas page. **Add area**
+  creates it and files those themes under it (`POST /areas/proposals/accept`); **Not now** (`/dismiss`) hides it for good, and a dismissed word keeps its themes so
+  their other words do not come back as new suggestions. Words only, no model call, so nothing new is sent to a provider.
+- **Not built yet** (see the Build Plan): rollups grouped by area.
 
 ## Spend alerts
 

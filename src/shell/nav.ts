@@ -19,11 +19,14 @@ export const INSIGHT_SECTIONS = [
   { key: 'themes', label: 'Platform Themes' },
   { key: 'personas', label: 'Personas' },
   { key: 'journey', label: 'Journey' },
-  { key: 'areas', label: 'Feature areas' },
   { key: 'case-studies', label: 'Case studies' },
 ]
+
+// The Settings tab: one section for now. Each is a page under /settings/<key>.
+export const SETTINGS_SECTIONS = [{ key: 'areas', label: 'Feature areas' }]
 
 export const SECTION_TITLES: Record<string, string> = Object.fromEntries([
   ...STEPS.map((s) => [s.key, s.label]),
   ...INSIGHT_SECTIONS.map((s) => [s.key, s.label]),
+  ...SETTINGS_SECTIONS.map((s) => [s.key, s.label]),
 ])

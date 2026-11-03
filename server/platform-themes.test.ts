@@ -428,3 +428,31 @@ test('automatic merging folds the clear pairs, records them as automatic, and fi
   const kinds = await run(0.99, async (pg, ids) => { await pg.query(`update insights.platform_themes set category = 'pain_point' where id = $1`, [ids.keep]); await pg.query(`update insights.platform_themes set category = 'delight' where id = $1`, [ids.merge]) })
   assert.deepEqual([kinds.result.merged, kinds.result.suggested], [0, 1])
 })
+
+test('suggested areas: themes with no area that share a word are offered; accepting adds the area and files them; dismissing hides them', async () => {
+  const { api, pg } = await fixture()
+  await pg.query(`update research.themes set area_id = null`)
+  await pg.query(`update research.themes set title = 'Parking trouble ' || left(id::text, 4)`)
+  const offered = await (await api('/areas/proposals')).json()
+  assert.equal(offered.data.length, 1)
+  const [p] = offered.data
+  assert.equal(p.name, 'Parking')
+  assert.ok(p.participants >= 3 && p.themes.length >= 2)
+  assert.equal((await api('/areas/proposals/dismiss', 'POST', { key: p.key }, { authorization: 'Bearer wrong' })).status, 401)
+  assert.equal((await api('/areas/proposals/accept', 'POST', { key: 'nothing' })).status, 404)
+  const accepted = await api('/areas/proposals/accept', 'POST', { key: p.key })
+  assert.equal(accepted.status, 201)
+  const done = await accepted.json()
+  assert.deepEqual([done.name, done.filed], ['Parking', p.themes.length])
+  assert.equal((await pg.query<any>(`select count(*)::int n from research.themes where area_id = $1`, [done.areaId])).rows[0].n, p.themes.length)
+  assert.deepEqual((await (await api('/areas/proposals')).json()).data, [], 'accepted, so nothing left')
+  assert.equal((await (await api('/areas')).json()).data.some((a: any) => a.name === 'Parking'), true)
+
+  await pg.query(`update research.themes set area_id = null`)
+  await pg.query(`update research.themes set title = 'Scheduling trouble ' || left(id::text, 4)`)
+  await pg.query(`update insights.feature_areas set retired_at = now()`)
+  const second = (await (await api('/areas/proposals')).json()).data
+  assert.ok(second.length >= 1)
+  for (const g of second) assert.equal((await api('/areas/proposals/dismiss', 'POST', { key: g.key })).status, 204)
+  assert.deepEqual((await (await api('/areas/proposals')).json()).data, [])
+})

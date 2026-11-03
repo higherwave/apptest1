@@ -124,6 +124,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/areas/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Suggested new feature areas: groups of current themes that have no area and share a word no area covers, raised by at least three people. Worked out from the words alone (no model call). A group someone dismissed is not listed. */
+        get: operations["listAreaProposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/proposals/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners and editors. Adds the suggested area (under the name given, or the suggested one) and files the group's themes under it. 404 when the group has changed or been dismissed since the page loaded. */
+        post: operations["acceptAreaProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/areas/proposals/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners and editors. Says not now to a suggestion; it is not offered again. */
+        post: operations["dismissAreaProposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/areas/{id}": {
         parameters: {
             query?: never;
@@ -2103,6 +2154,33 @@ export interface components {
             };
             version: number;
         };
+        AreaProposal: {
+            /** @description The word the group shares; the same suggestion has the same key each time. */
+            key: string;
+            name: string;
+            themes: {
+                id: string;
+                title: string;
+            }[];
+            participants: number;
+            projects: number;
+        };
+        AreaProposalList: {
+            data: components["schemas"]["AreaProposal"][];
+        };
+        AcceptAreaProposalRequest: {
+            key: string;
+            /** @description A different name than the one suggested. */
+            name?: string | null;
+        };
+        AcceptedAreaProposal: {
+            areaId: string;
+            name: string;
+            filed: number;
+        };
+        DismissAreaProposalRequest: {
+            key: string;
+        };
         AreaList: {
             data: components["schemas"]["Area"][];
         };
@@ -2391,6 +2469,81 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listAreaProposals: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions, strongest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AreaProposalList"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    acceptAreaProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptAreaProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description The area and how many themes were filed under it. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AcceptedAreaProposal"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    dismissAreaProposal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DismissAreaProposalRequest"];
+            };
+        };
+        responses: {
+            /** @description Dismissed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             422: components["responses"]["Error"];
         };
     };

@@ -34,6 +34,7 @@ export function AppShell() {
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
   const insights = pathname.startsWith('/insights')
+  const settings = pathname.startsWith('/settings')
   // Creating a project shows the same steps, with only Test Plan open: the others need a saved project.
   const creating = pathname === '/projects/new'
   // The server says which steps are open; until it answers, none are shown as locked.
@@ -59,7 +60,8 @@ export function AppShell() {
 
   const areas = [
     { to: '/insights/themes', label: 'Platform Insights', active: insights },
-    { to: '/projects', label: 'Research Projects', active: !insights },
+    { to: '/projects', label: 'Research Projects', active: !insights && !settings },
+    { to: '/settings/areas', label: 'Settings', active: settings },
   ]
   const current = areas.find((a) => a.active) ?? areas[0]
 

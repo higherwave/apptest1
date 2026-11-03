@@ -76,10 +76,11 @@ const when = (iso: string) => new Date(iso).toLocaleDateString(undefined, { mont
 // so a wrong merge costs one click, not a rebuild.
 export function RecentMerges({ curation }: { curation: Curation }) {
   const merges = curation.merges ?? []
-  if (!merges.length) return null
+  if (!merges.length && !curation.canEdit) return null
   return (
     <section className={styles.recent} aria-label="Recent merges" data-testid="recent-merges">
       <h2 className={styles.label}>Recent merges</h2>
+      {!merges.length && <p className={styles.text}>None yet. When two themes say the same thing, the clear pairs are merged here on their own, and you can undo any of them.</p>}
       <ul className={styles.matches}>
         {merges.map((m) => (
           <li key={m.id} className={styles.mergeRow} data-testid={`merge-${m.id}`}>

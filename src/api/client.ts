@@ -74,6 +74,10 @@ export type MemberRole = Member['role']
 // Feature areas: the shared list of what research is about.
 export type Area = components['schemas']['Area']
 export const listAreas = () => request<components['schemas']['AreaList']>('/areas')
+export type AreaProposal = components['schemas']['AreaProposal']
+export const listAreaProposals = () => request<components['schemas']['AreaProposalList']>('/areas/proposals').then((r) => r.data)
+export const acceptAreaProposal = (key: string, name?: string) => request<components['schemas']['AcceptedAreaProposal']>('/areas/proposals/accept', { method: 'POST', body: { key, name: name ?? null } })
+export const dismissAreaProposal = (key: string) => request<null>('/areas/proposals/dismiss', { method: 'POST', body: { key } })
 export const createArea = (body: components['schemas']['CreateAreaRequest']) => request<Area>('/areas', { method: 'POST', body })
 export const updateArea = (id: string, version: number, body: components['schemas']['UpdateAreaRequest']) => request<Area>(`/areas/${id}`, { method: 'PATCH', body, version })
 export const mergeArea = (id: string, intoId: string) => request<Area>(`/areas/${id}/merge`, { method: 'POST', body: { intoId } })

@@ -41,3 +41,32 @@ test('a question is matched to the areas it is about, best first, and to none wh
   assert.deepEqual(top(''), [])
   assert.ok(suggestAreas('booking cancelling moving appointment reminder', AREAS).length <= 3)
 })
+
+import { groupThemes, MIN_PARTICIPANTS } from './area-proposals.js'
+
+const theme = (id: string, title: string, people: string[], projectId = 'p1') => ({ id, title, projectId, people })
+
+test('proposals: a word shared by several themes and several people, that no area covers, becomes a suggested area', () => {
+  const rows = [
+    theme('1', 'Parking is hard to find at the clinic', ['a@p1', 'b@p1']),
+    theme('2', 'Nowhere to park near the entrance', ['c@p1']),
+    theme('3', 'Parking fees are confusing', ['a@p2'], 'p2'),
+    theme('4', 'Forms are too long', ['a@p1', 'b@p1', 'c@p1']),
+  ]
+  const [first, ...rest] = groupThemes(rows, [])
+  assert.equal(rest.length, 0, 'forms is one theme only')
+  assert.equal(first.name, 'Parking')
+  assert.deepEqual(first.themes.map((t) => t.id).sort(), ['1', '2', '3'], 'park and parking meet')
+  assert.deepEqual([first.participants, first.projects], [4, 2])
+  assert.ok(MIN_PARTICIPANTS >= 3)
+})
+
+test('proposals: too few people, an area that already covers it, or a dismissed word offers nothing', () => {
+  const few = [theme('1', 'Parking is hard', ['a@p1']), theme('2', 'Parking fees', ['b@p1'])]
+  assert.deepEqual(groupThemes(few, []), [], 'two people are not enough')
+  const enough = [theme('1', 'Parking is hard', ['a@p1', 'b@p1']), theme('2', 'Parking fees', ['c@p1'])]
+  assert.equal(groupThemes(enough, []).length, 1)
+  assert.deepEqual(groupThemes(enough, [{ name: 'Parking', aliases: [] }]), [], 'an area has that name')
+  assert.deepEqual(groupThemes(enough, [{ name: 'Getting there', aliases: ['Parking'] }]), [], 'or that other name')
+  assert.deepEqual(groupThemes(enough, [], new Set([tokens('Parking')[0]])), [], 'dismissed')
+})

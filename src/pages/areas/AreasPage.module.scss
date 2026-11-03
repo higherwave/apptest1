@@ -1,10 +1,11 @@
 @use '../../tokens' as tokens;
+@use '../insights/body';
 
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  max-width: 60rem;
+  @include body.below-hero;
 }
 
 .add {
@@ -125,4 +126,27 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+.proposals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+}
+
+.proposal {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.proposalActions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--at-space-xs);
 }

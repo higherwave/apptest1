@@ -35,11 +35,11 @@ console.log('Signal Flow schema tests');
 
 await test('migrations apply', async () => { await up(db); });
 
-await test('table counts: 11 core, 11 research, 8 delivery, 10 insights (40)', async () => {
+await test('table counts: 11 core, 11 research, 8 delivery, 11 insights (41)', async () => {
   const { rows } = await db.query(`select table_schema s, count(*)::int n from information_schema.tables
     where table_type = 'BASE TABLE' and table_schema in ('core','research','delivery','insights') group by 1`);
   const got = Object.fromEntries(rows.map((r) => [r.s, r.n]));
-  eq(got.core, 11, 'core'); eq(got.research, 11, 'research'); eq(got.delivery, 8, 'delivery'); eq(got.insights, 10, 'insights');
+  eq(got.core, 11, 'core'); eq(got.research, 11, 'research'); eq(got.delivery, 8, 'delivery'); eq(got.insights, 11, 'insights');
 });
 
 await test('dependency rule holds', async () => {
