@@ -31,6 +31,8 @@ export type PlatformThemeRow = {
   projectCount: number
   status: ThemeStatus
   trend: ThemeTrend
+  /** The share of each project's participants who raised it, oldest project first, for the trend's small line chart. Empty when there is no trend. */
+  trendSeries: number[]
   /** Raised again and again, or by several people, and still without a requirement. */
   opportunity: boolean
   /** The requirements written for it, the same requirement in several projects counted once, with the strongest newest finding among them. */
@@ -119,6 +121,15 @@ export function distinctRequirements(rows: { title: string; projectId: string; r
     merged.set(key, m)
   }
   return [...merged.values()].map((m) => ({ title: m.title, projectCount: m.projects.size, result: m.result })).sort((a, b) => b.projectCount - a.projectCount || a.title.localeCompare(b.title))
+}
+
+// The share of each project's participants who raised a theme, oldest project first (0 where it was not raised): the line the trend is read from.
+function trendSeries(projects: InsightProject[], sources: { projectId: string; participantCount: number }[]): number[] {
+  if (projects.length < 2 || sources.length === 0) return []
+  return projects.map((p) => {
+    const s = sources.find((x) => x.projectId === p.id)
+    return s && p.participants > 0 ? Math.round((s.participantCount / p.participants) * 100) / 100 : 0
+  })
 }
 
 // A theme's trend: where it was raised, share of each project's participants, oldest project first.
@@ -285,7 +296,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     const summary = described.length ? String(described[0].description).trim() : null
     const matches = matchRows.rows.filter((r) => r.platform_theme_id === t.id).slice(0, 12).map((r) => ({ themeTitle: r.theme_title as string, projectName: r.project_name as string, method: r.match_method as 'auto' | 'manual', confidence: (r.confidence ?? null) as number | null, reason: (r.reason ?? null) as string | null }))
     return {
-      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, origin: originOf(Number(originRows.find((o) => o.platform_theme_id === t.id)?.customer_quotes ?? 1), Number(originRows.find((o) => o.platform_theme_id === t.id)?.team_quotes ?? 0)), teamSessions: Number(originRows.find((o) => o.platform_theme_id === t.id)?.team_sessions ?? 0), area: areaOf.get(t.id) ?? null, areaFiledByHand: !!areaOf.get(t.id) && lastAreaAction.get(t.id)?.verb === 'area set' && lastAreaAction.get(t.id)?.areaId === areaOf.get(t.id)!.id, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
+      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, origin: originOf(Number(originRows.find((o) => o.platform_theme_id === t.id)?.customer_quotes ?? 1), Number(originRows.find((o) => o.platform_theme_id === t.id)?.team_quotes ?? 0)), teamSessions: Number(originRows.find((o) => o.platform_theme_id === t.id)?.team_sessions ?? 0), area: areaOf.get(t.id) ?? null, areaFiledByHand: !!areaOf.get(t.id) && lastAreaAction.get(t.id)?.verb === 'area set' && lastAreaAction.get(t.id)?.areaId === areaOf.get(t.id)!.id, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), trendSeries: trendSeries(projects, sources), opportunity, requirements: distinct, sources, summary,
       matches, priority: null, rationale: (t.rationale ?? null) as string | null, aliases: aliasRows.rows.filter((a) => a.platform_theme_id === t.id).map((a) => a.alias as string),
     }
   })

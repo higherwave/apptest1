@@ -1725,7 +1725,7 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, needsReview, area, areaFiledByHand, origin, teamSessions, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
+            required: [id, title, category, needsReview, area, areaFiledByHand, origin, teamSessions, participantCount, projectCount, status, trend, trendSeries, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
             properties:
               aliases: { type: array, items: { type: string }, description: 'Old names, kept when the theme was renamed or another was merged into it.' }
               rationale: { type: [string, 'null'], description: 'Why it ranks where it does, written on request; null until then.' }
@@ -1768,6 +1768,10 @@ components:
                 type: string
                 enum: [not_addressed, in_progress, too_early, worked, needs_attention]
                 description: What became of it. not_addressed means no requirement was written; the rest follow the newest finding on its requirements (needs_attention beats worked beats too_early; in_progress means a requirement with no finding yet).
+              trendSeries:
+                type: array
+                description: The share (0 to 1) of each project's participants who raised it, oldest project first; empty when there is no trend.
+                items: { type: number }
               trend:
                 type: [string, 'null']
                 enum: [new, growing, steady, fading, null]

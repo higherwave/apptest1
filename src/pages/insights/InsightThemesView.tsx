@@ -5,6 +5,7 @@ import type { InsightsThemes } from '../../api/client'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
+import { Sparkline } from './Sparkline'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
 import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
@@ -32,7 +33,7 @@ export type InsightThemesViewProps = {
 type Row = InsightsThemes['themes'][number]
 type Filter = 'all' | 'recurring' | 'opportunities' | 'needs_attention' | 'worked'
 
-const TREND = { new: 'New', growing: '↑ Growing', steady: '→ Steady', fading: '↓ Fading' } as const
+const TREND = { new: 'New', growing: 'Growing', steady: 'Steady', fading: 'Fading' } as const
 const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => number; keep: (t: Row) => boolean }[] = [
   { key: 'all', label: 'All themes', count: (o) => o.themes.length, keep: () => true },
   { key: 'recurring', label: 'Recurring pain points', count: (o) => o.summary.recurring, keep: (t) => t.projectCount >= 2 && t.category !== 'delight' },
@@ -124,7 +125,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                         <span>
                           <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
                         </span>
-                        <span>{t.trend && <Tag size="sm" type="gray">{TREND[t.trend]}</Tag>}</span>
+                        <span>{t.trend && <Sparkline values={t.trendSeries} trend={t.trend} label={`Trend: ${TREND[t.trend]}`} note={`${TREND[t.trend]}: share of each project’s participants, oldest project first: ${t.trendSeries.map((s) => `${Math.round(s * 100)}%`).join(', ')}`} />}</span>
                         <span className={styles.rowCount}>
                           <span className={styles.count} title={`${t.participantCount} of ${overview.totalParticipants} participants in ${plural(t.projectCount, 'project')}`}>
                             {t.participantCount} of {overview.totalParticipants} <span className={styles.muted}>· {plural(t.projectCount, 'project')}</span>
@@ -233,17 +234,15 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
             <div className={styles.search}>
               <Search size="md" labelText="Search themes" placeholder="Search themes" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="theme-search" />
             </div>
-            <div className={styles.toggles}>
-              <div className={styles.order} role="group" aria-label="Order the themes">
-                <span className={styles.label}>Order</span>
-                {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
-                  <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
-                    {label}
-                  </Button>
-                ))}
-              </div>
-              {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
+            <div className={styles.order} role="group" aria-label="Order the themes">
+              <span className={styles.label}>Order</span>
+              {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
+                <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
+                  {label}
+                </Button>
+              ))}
             </div>
+            <div className={styles.groupEnd}>{onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}</div>
           </div>
 
           {rec && (

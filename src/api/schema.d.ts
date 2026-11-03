@@ -1373,6 +1373,8 @@ export interface components {
                  * @enum {string}
                  */
                 status: "not_addressed" | "in_progress" | "too_early" | "worked" | "needs_attention";
+                /** @description The share (0 to 1) of each project's participants who raised it, oldest project first; empty when there is no trend. */
+                trendSeries: number[];
                 /**
                  * @description How its reach changed between projects, null when there is only one project.
                  * @enum {string|null}

@@ -1,0 +1,21 @@
+// The line takes its colour from the trend: green rising, coral falling, quiet otherwise.
+.spark {
+  display: block;
+  inline-size: 4rem;
+  block-size: 1.25rem;
+  overflow: visible;
+  color: var(--at-muted);
+
+  &[data-trend='growing'] { color: var(--at-signature-forest); }
+  &[data-trend='fading'] { color: var(--at-signature-coral); }
+}
+
+.line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dot { fill: currentColor; }
