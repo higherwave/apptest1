@@ -286,7 +286,7 @@ try {
   ok('a project with no transcripts says so', (await text()).includes('No customer transcripts yet'))
   ok('Customer feedback is the open tab, and Team feedback is the other', await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')]; return t.length === 2 && /^Customer feedback/.test(t[0].innerText) && t[0].getAttribute('aria-selected') === 'true' && /^Team feedback/.test(t[1].innerText) && !/test method|Usability Test/i.test(document.querySelector('h1').parentElement.innerText) }))
   await page.click('[data-testid="source-team"]')
-  await waitText('Conversations with your own team')
+  await waitText('Conversations with your team')
   ok('Team feedback says what belongs there and that it never counts toward customer reach', (await text()).includes('never count toward customer reach'))
   await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Zoom sample').click())
   await page.waitForSelector('[data-testid="transcript-0"]')
@@ -303,6 +303,7 @@ try {
   await (await page.$('input[type=file]')).uploadFile(...files)
   await page.waitForSelector('[data-testid="transcript-2"]')
   ok('three uploaded files become three transcripts', await page.evaluate(() => document.querySelector('[data-testid="transcript-0"]').innerText.includes('Session 1')))
+  ok('each transcript shows its meeting tool’s logo, with the name for screen readers', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="transcript-"] img[data-tool]')].every((i) => /\/platforms\/(zoom|meet|teams)\.svg$/.test(i.getAttribute('src')) && /Zoom|Google Meet|Microsoft Teams/.test(i.alt))))
   ok('the button says Save and analyze', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save and analyze')))
   await clickText('Save and analyze')
   await waitText('Analyzing transcripts')
@@ -623,6 +624,7 @@ try {
   // Design: a row per requirement with a prototype link, a picture and design notes.
   const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   await page.goto(`${BASE}/projects/${projectId}/design`, { waitUntil: 'networkidle0' })
+  ok('Decisions from the requirements is a light green box with the description showing; Considered and rejected is collapsed', await page.evaluate(() => { const d = document.querySelector('section[aria-label="Decisions from the requirements"]'); if (!d) return true; const c = getComputedStyle(d).backgroundColor.match(/\d+/g).map(Number); const toggle = [...d.querySelectorAll('button')].find((b) => /Considered and rejected/.test(b.innerText)); return c[1] > c[0] && c[1] > c[2] && d.querySelector('p') && (!toggle || (toggle.getAttribute('aria-expanded') === 'false' && !d.querySelector('#design-decisions'))) }))
   await page.waitForSelector('[data-testid^="design-R"]', { timeout: 8000 })
   ok('with nothing designed yet, the first requirement opens on arrival', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="design-R"]')]; return rows.length > 1 && rows[0].dataset.open === 'true' && !!rows[0].querySelector('[data-frame]') && rows.slice(1).every((r) => r.dataset.open === 'false') }))
   // From the Stories panel, a requirement links to its row in Design, which opens and comes into view; an open question has no such link.

@@ -350,33 +350,32 @@ export function DesignView(props: DesignViewProps) {
         <>
           {hasDecisions && (
             <section className={styles.decisions} aria-label="Decisions from the requirements">
-              <div className={styles.decisionsHead}>
-                <h2 className={styles.label}>Decisions from the requirements</h2>
-                <Button
-                  kind="ghost"
-                  size="sm"
-                  renderIcon={decisionsOpen ? ChevronUp : ChevronDown}
-                  aria-expanded={decisionsOpen}
-                  aria-controls="design-decisions"
-                  onClick={() => setDecisionsOpen((o) => !o)}
-                >
-                  {decisionsOpen ? 'Hide' : `Show${decisions.alternatives.length ? ` (${decisions.alternatives.length} considered and rejected)` : ''}`}
-                </Button>
-              </div>
-              {decisionsOpen && (
-                <div id="design-decisions" className={styles.decisionsBody}>
-                  {decisions.reasoning && <p className={styles.why}>{decisions.reasoning}</p>}
-                  {decisions.alternatives.length > 0 && (
-                    <>
-                      <h3 className={styles.sub}>Considered and rejected</h3>
+              <h2 className={styles.decisionsTitle}>Decisions from the requirements</h2>
+              {decisions.reasoning && <p className={styles.why}>{decisions.reasoning}</p>}
+              {decisions.alternatives.length > 0 && (
+                <>
+                  <div>
+                    <Button
+                      kind="ghost"
+                      size="sm"
+                      renderIcon={decisionsOpen ? ChevronUp : ChevronDown}
+                      aria-expanded={decisionsOpen}
+                      aria-controls="design-decisions"
+                      onClick={() => setDecisionsOpen((o) => !o)}
+                    >
+                      Considered and rejected ({decisions.alternatives.length})
+                    </Button>
+                  </div>
+                  {decisionsOpen && (
+                    <div id="design-decisions" className={styles.decisionsBody}>
                       {decisions.alternatives.map((a) => (
                         <p key={a.title} className={styles.why}>
                           <span className={styles.struck}>{a.title}</span> {a.reason}
                         </p>
                       ))}
-                    </>
+                    </div>
                   )}
-                </div>
+                </>
               )}
             </section>
           )}

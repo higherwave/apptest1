@@ -216,6 +216,22 @@ $narrow: 48rem;
   padding-inline: var(--at-space-xl);
   background: var(--at-canvas);
   border-block-end: 1px solid var(--at-hairline);
+  overflow: hidden;
+
+  // The soft violet-and-blue glow of the page titles, so this bar reads apart from the white bars above and below it.
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block: -1.5rem;
+    inset-inline-start: 10%;
+    inline-size: 56rem;
+    max-inline-size: 80%;
+    background: radial-gradient(ellipse closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) 60%, transparent), color-mix(in srgb, var(--at-glow-blue) 40%, transparent) 55%, transparent);
+    filter: blur(1rem);
+    pointer-events: none;
+  }
+
+  > * { position: relative; }
 
   @media (max-width: $narrow) { inset-inline: 0; }
 }

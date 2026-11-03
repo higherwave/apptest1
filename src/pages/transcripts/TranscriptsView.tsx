@@ -26,9 +26,19 @@ export type TranscriptsViewProps = {
 }
 
 const PLATFORMS = ['zoom', 'meet', 'teams'] as const
-const SOURCES: { key: Source; label: string; blurb: string }[] = [
-  { key: 'customer', label: 'Customer feedback', blurb: 'Sessions with customers: interviews, usability tests, surveys. This is what themes, reach and priority are built on.' },
-  { key: 'team', label: 'Team feedback', blurb: 'Conversations with your own team: CSMs, Support, Sales and others. They are analyzed with the customer sessions and add confirmation that others hear the same things; they never count toward customer reach.' },
+const SOURCES: { key: Source; label: string; title: string; how: string }[] = [
+  {
+    key: 'customer',
+    label: 'Customer feedback',
+    title: 'Sessions with customers',
+    how: 'Pick the tool the session was recorded in, then drop one or several transcript files (each file is one session). Review or edit the text, then choose Save and analyze: this is what themes, reach and priority are built on.',
+  },
+  {
+    key: 'team',
+    label: 'Team feedback',
+    title: 'Conversations with your team',
+    how: 'Add transcripts of CSM, Support, Sales and other internal conversations the same way: pick the tool, then drop the files. They are analyzed with the customer sessions to confirm what others hear too, and never count toward customer reach.',
+  },
 ]
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
 
@@ -69,16 +79,9 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
             <TabPanel key={x.key} className={styles.tabPanel}>
               {source === x.key && (
                 <div className={styles.panel}>
-                  <p className={styles.blurb}>{here.blurb}</p>
       {!readOnly && (
         <section className={styles.add} aria-label="Add a transcript">
-          <InlineNotification
-            kind="info"
-            lowContrast
-            hideCloseButton
-            title="How this page works"
-            subtitle="Pick the tool your sessions were recorded in, then drop one or several transcript files into the box (or click to browse). Each file is treated as one session. Open any of them to check or edit the text, then choose Save and analyze to find the themes."
-          />
+          <InlineNotification kind="info" lowContrast hideCloseButton title={here.title} subtitle={here.how} />
           <div className={styles.tools} role="group" aria-label="Meeting tool">
             {PLATFORMS.map((p) => (
               <Button key={p} kind={tool === p ? 'primary' : 'tertiary'} size="md" aria-pressed={tool === p} onClick={() => setTool(p)}>
@@ -120,7 +123,7 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
           return (
             <div key={t.key} className={styles.item} data-testid={`transcript-${i}`}>
               <div className={styles.line}>
-                {t.platform && <span className={styles.tool} data-tool={t.platform}>{PLATFORM_SHORT[t.platform]}</span>}
+                {t.platform && <img className={styles.tool} data-tool={t.platform} src={`/platforms/${t.platform}.svg`} alt={PLATFORM_LABEL[t.platform]} title={PLATFORM_LABEL[t.platform]} width={28} height={28} />}
                 <span className={styles.name}>{t.name}</span>
                 <span className={styles.meta}>
                   {info ? `${info.lineCount} lines · ${source === 'team' ? plural(people, 'speaker') : plural(people, 'participant')}` : 'Not saved yet'}

@@ -24,6 +24,7 @@
 
 .add :global(.cds--inline-notification) {
   max-inline-size: none;
+  margin-block-end: var(--at-space-sm); // room between the instructions and the tool buttons
 }
 
 .drop {
@@ -83,12 +84,9 @@
 }
 
 .tool {
-  @include tokens.role('meta');
-  padding: var(--at-space-xxs) var(--at-space-sm);
-  border-radius: var(--at-radius-sm);
-  background: var(--at-tint-peach);
-  color: var(--at-ink);
-  font-weight: 500;
+  flex: none;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
 }
 
 .name {
