@@ -1,4 +1,4 @@
-import { Analytics, ChevronDown, Folders, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
+import { Analytics, ChevronDown, Filter, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -60,7 +60,7 @@ export function AppShell() {
 
   const areas = [
     { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
-    { to: '/projects', label: 'Research Projects', active: !insights && !settings, icon: Folders },
+    { to: '/projects', label: 'Product Funnel', active: !insights && !settings, icon: Filter },
     { to: '/settings/areas', label: 'Settings', active: settings, icon: SettingsIcon },
   ]
   const current = areas.find((a) => a.active) ?? areas[0]

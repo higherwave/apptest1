@@ -30,7 +30,7 @@ const cardNames = async () => page.evaluate(() => [...document.querySelectorAll(
 try {
   // 1. A visitor without the token is a read-only viewer.
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Research Projects')
+  await waitText('Product Funnel')
   await waitText('Read-only demo')
   ok('the app bar shows the app’s name and the two areas, and no project bar on the home screen', (await header()).includes('Signal Flow') && (await header()).includes('Platform Insights') && !(await page.$('[data-context]')))
   ok('visitor sees the read-only badge', (await text()).includes('Read-only demo'))
@@ -62,7 +62,7 @@ try {
   await waitText('New test plan')
   await page.waitForSelector('#project-description') // the form shows once the test methods have loaded
   await waitText('Test methods')
-  ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Research Projects'))
+  ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Product Funnel'))
   const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description', '#p-name-0', '#p-phone-0'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), template: document.body.innerText.includes('Starting template'), what: /what are we testing/i.test(document.body.innerText), item: !!document.querySelector('#item-0-description') }))
   ok('one page holds the name, a project description, methods and participants, and no What are we testing? section', plan.fields.every(Boolean) && plan.methods && !plan.template && !plan.what && !plan.item, JSON.stringify(plan))
   ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 9 }))
@@ -147,7 +147,7 @@ try {
   await waitText('All changes saved at')
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('#project-name')
-  ok('the app bar shows the project’s name and status, and the new name after a save', (await header()).includes('Intake v2') && /Draft/.test(await header()) && (await header()).includes('Research Projects'))
+  ok('the app bar shows the project’s name and status, and the new name after a save', (await header()).includes('Intake v2') && /Draft/.test(await header()) && (await header()).includes('Product Funnel'))
   ok('a saved name survives a reload', await page.evaluate(() => document.querySelector('#project-name').value === 'Intake v2'))
 
   // Someone else saves while this page is open: the save is refused, then overwritten on purpose.
@@ -257,7 +257,7 @@ try {
   await page.waitForSelector('#task-3-area')
   ok('the chosen areas are saved with the questions', await page.evaluate(() => ['task-0-area', 'task-1-area', 'task-3-area'].every((id) => document.querySelector('#' + id).value === 'Scheduling') && document.querySelector('#task-2-area').value === ''))
   await page.goto(`${BASE}/settings/areas`, { waitUntil: 'networkidle0' })
-  ok('Settings is a top-level tab, open on this page, with a row of settings types below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Settings sections"] [data-label="Feature areas"]'); return nav.join('|') === 'Platform Insights|Research Projects|Settings|Prototype gallery (opens in a new tab)' && cur === 'Settings' && row?.dataset.current === 'true' }))
+  ok('Settings is a top-level tab, open on this page, with a row of settings types below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Settings sections"] [data-label="Feature areas"]'); return nav.join('|') === 'Platform Insights|Product Funnel|Settings|Prototype gallery (opens in a new tab)' && cur === 'Settings' && row?.dataset.current === 'true' }))
   ok('Feature areas is no longer one of the Platform Insights sections', await page.evaluate(() => !document.querySelector('nav[aria-label="Platform Insights sections"]')))
   await page.goto(`${BASE}/insights/areas`, { waitUntil: 'networkidle0' })
   ok('the old address lands on Settings', await page.evaluate(() => location.pathname === '/settings/areas'))
@@ -759,9 +759,9 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('[data-testid="measure-R1"] a')].find((a) => a.innerText.trim().startsWith('Story')).click())
   await page.waitForFunction(() => location.pathname.endsWith('/stories') && location.search === '?open=R1', { timeout: 8000 })
   ok('a requirement’s Story link opens its card on the Stories board', true)
-  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Research Projects').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Product Funnel').click())
   await page.waitForSelector('[data-status]')
-  ok('on Research Projects, a card counts the requirements with a measurement instead of High priority; analyzed cards have a green bar, a draft a gray one, and every chip is light gray', await page.evaluate(() => {
+  ok('on Product Funnel, a card counts the requirements with a measurement instead of High priority; analyzed cards have a green bar, a draft a gray one, and every chip is light gray', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('[data-status]')]
     const mine = cards.find((c) => c.innerText.startsWith('Intake v2'))
     const draft = cards.find((c) => c.dataset.status === 'draft')
@@ -799,10 +799,10 @@ try {
   await page.waitForSelector('[data-status]')
   // List view: the same projects as rows with the same links, remembered for next time.
   await page.evaluate(() => [...document.querySelectorAll('[aria-label="Show projects as"] button')].find((b) => b.innerText.trim() === 'List').click())
-  await page.waitForSelector('[role="table"][aria-label="Research projects"]')
+  await page.waitForSelector('[role="table"][aria-label="Product funnel"]')
   ok('the List toggle shows a row per project with the counts as links', await page.evaluate(() => { const rows = [...document.querySelectorAll('[role="table"] [role="row"]')].slice(1); const mine = rows.find((r) => r.innerText.startsWith('Intake v2')); return rows.length >= 3 && !!mine && mine.querySelectorAll('a').length === 4 && !document.querySelector('[data-status="analyzed"].cds--tile') && document.querySelector('[aria-label="Show projects as"] button[aria-pressed="true"]').innerText.trim() === 'List' }))
   await page.reload({ waitUntil: 'networkidle0' })
-  await page.waitForSelector('[role="table"][aria-label="Research projects"]')
+  await page.waitForSelector('[role="table"][aria-label="Product funnel"]')
   ok('the choice is remembered', true)
   await page.evaluate(() => [...document.querySelectorAll('[role="table"] [role="row"]')].find((r) => r.innerText.startsWith('Intake v2')).querySelector('a[aria-label$="Measurements of Intake v2"], a[aria-label*="Measurements"]').click())
   await page.waitForFunction(() => location.pathname.endsWith('/measure'), { timeout: 8000 })
@@ -905,7 +905,7 @@ try {
   ok('a theme in a persona opens that theme', true)
   // Group by Feature area: None is the default; grouping makes a section for each area, the themes with none last, and the choice is in the address.
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
-  ok('the menu is a dark bar down the left with Platform Insights, Research Projects, Settings and the Prototype gallery', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const b = r.getBoundingClientRect(); const bg = getComputedStyle(r).backgroundColor.match(/\d+/g).map(Number); return b.left === 0 && b.height >= innerHeight - 2 && b.width < 300 && bg.slice(0, 3).every((v) => v < 90) && [...r.querySelectorAll('a')].map((a) => a.dataset.label).join('|') === 'Platform Insights|Research Projects|Settings|Prototype gallery' }))
+  ok('the menu is a dark bar down the left with Platform Insights, Product Funnel, Settings and the Prototype gallery', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const b = r.getBoundingClientRect(); const bg = getComputedStyle(r).backgroundColor.match(/\d+/g).map(Number); return b.left === 0 && b.height >= innerHeight - 2 && b.width < 300 && bg.slice(0, 3).every((v) => v < 90) && [...r.querySelectorAll('a')].map((a) => a.dataset.label).join('|') === 'Platform Insights|Product Funnel|Settings|Prototype gallery' }))
   ok('the Prototype gallery opens in another tab, safely', await page.evaluate(() => { const a = document.querySelector('aside[aria-label="Main menu"] a[data-label="Prototype gallery"]'); return a.target === '_blank' && /noopener/.test(a.rel) && /^https:\/\/thehigherwave\.com\/?$/.test(a.href) }))
   ok('the open theme says in one line how it was matched, under its title', await page.evaluate(() => { const open = document.querySelector('[data-testid^="platform-theme-"][data-open="true"]'); const line = open?.querySelector('[class*="matchLine"]'); return !!line && /Matched by AI|Set by hand/.test(line.innerText) && line.getBoundingClientRect().top > open.querySelector('[class*="rowTitle"]').getBoundingClientRect().top }))
   ok('the recommendation box in an open theme is a grayish blue', await page.evaluate(() => { const b = document.querySelector('[data-testid^="recommendation-"]'); const c = getComputedStyle(b).backgroundColor.match(/\d+/g).map(Number); return c[2] > c[0] + 5 && c[2] > c[1] }))
@@ -1166,7 +1166,7 @@ try {
     })
     await p2.evaluateOnNewDocument((t) => sessionStorage.setItem('signalflow.editToken', t), TOKEN)
     const banner = () => p2.evaluate(() => { const b = document.querySelector('[data-testid="spend-banner"]'); return b ? b.innerText : null })
-    const load = async () => { await p2.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' }); await p2.waitForFunction(() => document.body.innerText.includes('Research Projects')) }
+    const load = async () => { await p2.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' }); await p2.waitForFunction(() => document.body.innerText.includes('Product Funnel')) }
     await p2.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
     await p2.evaluate(() => localStorage.clear())
     await load()

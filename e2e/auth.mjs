@@ -31,7 +31,7 @@ try {
   await signInAs(null)
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Continue with Google')
-  ok('signed out, with public viewing off, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Research Projects'))
+  ok('signed out, with public viewing off, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Product Funnel'))
 
   // The privacy page is public, even when signing in is required, and the notice is at the foot of the sign-in screen.
   ok('the sign-in screen carries the privacy notice', (await text()).includes('development, testing, and demonstration environment'))
@@ -46,7 +46,7 @@ try {
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Research Projects')
+  await waitText('Product Funnel')
   const visitor = await page.evaluate(() => document.querySelector('header')?.innerText ?? '')
   ok('a visitor can look around: projects load, the header says read-only and offers Sign in', visitor.includes('Read-only demo') && visitor.includes('Sign in') && (await page.$$('[data-status]')).length >= 3)
   ok('a visitor cannot start a project or remove one', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true) && (await page.$$('.cds--overflow-menu')).length === 0)
@@ -65,7 +65,7 @@ try {
   // A signed-in owner: the app, with their name and role and an account menu.
   await signInAs('david@demo.signalflow.example')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Research Projects')
+  await waitText('Product Funnel')
   const header = await page.evaluate(() => document.querySelector('header')?.innerText ?? '')
   ok('an owner sees their role in the header and no token controls', header.toLowerCase().includes('owner') && !header.includes('Editing unlocked') && !header.includes('Unlock editing') && !header.includes('Lock'))
   // AI status is a link in the account menu (a canned live status stands in for the always-simulated test API).
@@ -73,7 +73,7 @@ try {
   const canned = (req) => new URL(req.url()).pathname === '/api/v1/ai/status' ? req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 1, spendLevel: 'ok', month: '2026-11' }) }) : req.continue()
   page.on('request', canned)
   await page.reload({ waitUntil: 'networkidle0' })
-  await waitText('Research Projects')
+  await waitText('Product Funnel')
   ok('the header has no AI status button; it is in the account menu', !(await page.evaluate(() => [...document.querySelectorAll('header button')].some((b) => b.innerText.trim().startsWith('AI status')))))
   await page.click('[aria-label="Account"]')
   await page.waitForFunction(() => [...document.querySelectorAll('[role="menuitem"]')].some((i) => i.innerText.trim() === 'AI status'), { timeout: 5000 })
@@ -85,7 +85,7 @@ try {
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })
-  await waitText('Research Projects')
+  await waitText('Product Funnel')
   await page.click('[aria-label="Account"]')
   await clickText('Members')
   await waitText('Invite')
@@ -110,14 +110,14 @@ try {
   ok('a viewer can see the members but has no invite form or remove buttons', !(await page.$('#invite-email')) && !(await page.$('[data-testid^="member-"] > div:last-child button')))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Research Projects')
+  await waitText('Product Funnel')
   ok('a viewer cannot start a new project', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true))
 
   // A Google account nobody invited.
   await signInAs('stranger@example.com')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('You have not been invited')
-  ok('an uninvited account gets the not-invited screen with its address', (await text()).includes('stranger@example.com') && !(await text()).includes('Research Projects'))
+  ok('an uninvited account gets the not-invited screen with its address', (await text()).includes('stranger@example.com') && !(await text()).includes('Product Funnel'))
 
   // The owner removes the person, who is then locked out.
   await signInAs('david@demo.signalflow.example')
