@@ -926,6 +926,7 @@ try {
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
   ok('the menu is a dark bar down the left with Platform Insights, Product Funnel, Settings and the Prototype gallery', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const b = r.getBoundingClientRect(); const bg = getComputedStyle(r).backgroundColor.match(/\d+/g).map(Number); return b.left === 0 && b.height >= innerHeight - 2 && b.width < 300 && bg.slice(0, 3).every((v) => v < 90) && [...r.querySelectorAll('a')].map((a) => a.dataset.label).join('|') === 'Platform Insights|Product Funnel|Settings|Prototype gallery' }))
   ok('the Prototype gallery opens in another tab, safely', await page.evaluate(() => { const a = document.querySelector('aside[aria-label="Main menu"] a[data-label="Prototype gallery"]'); return a.target === '_blank' && /noopener/.test(a.rel) && /^https:\/\/thehigherwave\.com\/?$/.test(a.href) }))
+  ok('every theme row says where it was heard (Customers, Team or Customers + Team)', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="platform-theme-"]')]; return rows.length > 0 && rows.every((r) => /^(Customers|Team|Customers \+ Team)$/.test(r.querySelector('[data-testid^="origin-"]')?.innerText.trim() ?? '')) }))
   ok('the open theme says in one line how it was matched, under its title', await page.evaluate(() => { const open = document.querySelector('[data-testid^="platform-theme-"][data-open="true"]'); const line = open?.querySelector('[class*="matchLine"]'); return !!line && /Matched by AI|Set by hand/.test(line.innerText) && line.getBoundingClientRect().top > open.querySelector('[class*="rowTitle"]').getBoundingClientRect().top }))
   ok('the recommendation box in an open theme is a grayish blue', await page.evaluate(() => { const b = document.querySelector('[data-testid^="recommendation-"]'); const c = getComputedStyle(b).backgroundColor.match(/\d+/g).map(Number); return c[2] > c[0] + 5 && c[2] > c[1] }))
   const themeCount = await page.evaluate(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length)
@@ -1150,7 +1151,7 @@ try {
   await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 20000 })
   ok('editing a transcript and saving re-analyzes and returns to Themes', await mine().then((p) => p.themes === 9))
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
-  await page.waitForSelector('[data-testid="transcript-2"]')
+  await page.waitForFunction(() => document.querySelector('[data-testid="transcript-2"]') && /Session 2/.test(document.querySelector('[data-testid="transcript-1"]')?.innerText ?? ''), { timeout: 10000 })
   ok('the edited transcript kept its place and gained a line', await page.evaluate(() => document.querySelector('[data-testid="transcript-1"]').innerText.includes('Session 2')))
 
   // Remove them all: the analysis is retired, the project is a draft, and the steps lock again.

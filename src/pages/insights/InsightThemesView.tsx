@@ -8,7 +8,7 @@ import { GroupBy } from './GroupBy'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
 import { MatchList, PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
-import { STATUS } from './labels'
+import { ORIGIN_LABEL, STATUS, teamConversations } from './labels'
 import styles from './InsightThemesView.module.scss'
 
 export type InsightThemesViewProps = {
@@ -103,6 +103,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           {t.needsReview && <Tag size="sm" type="warm-gray">New · review</Tag>}
                           {order === 'priority' && t.priority && <Tag size="sm" type="purple">#{t.priority.rank}</Tag>}
                           {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
+                          <Tag size="sm" type="outline" data-testid={`origin-${t.id}`}>{ORIGIN_LABEL[t.origin]}</Tag>
                         </span>
                         <span>
                           <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
@@ -136,7 +137,9 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                         <section aria-label="Where this comes from">
                           <h3 className={styles.label}>Where this comes from</h3>
                           <p className={styles.text}>
-                            Raised by {t.participantCount} of {overview.totalParticipants} participants across {t.projectCount} of {plural(overview.projects.length, 'project')}.
+                            {t.origin === 'team'
+                              ? `Heard only in ${teamConversations(t.teamSessions)}, so no customer has raised it in a study yet and it does not count toward reach.`
+                              : `Raised by ${t.participantCount} of ${overview.totalParticipants} participants across ${t.projectCount} of ${plural(overview.projects.length, 'project')}.${t.teamSessions > 0 ? ` Also discussed in ${teamConversations(t.teamSessions)}, which confirms it but does not count toward reach.` : ''}`}
                           </p>
                           {t.aliases.length > 0 && <p className={styles.text}>Also known as: {t.aliases.join('; ')}.</p>}
                         </section>

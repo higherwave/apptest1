@@ -40,7 +40,7 @@ export async function getCustomers(db: Queryable, workspaceId: string): Promise<
        join research.utterances u on u.id = tq.utterance_id
        join research.transcript_speakers sp on sp.id = u.speaker_id
        join research.transcripts tr on tr.id = u.transcript_id
-       where s.workspace_id = $1 and sp.participant_id is not null
+       where s.workspace_id = $1 and sp.participant_id is not null and tr.source = 'customer'
        order by tr.created_at, tr.name, u.position`,
       [workspaceId],
     ),

@@ -104,7 +104,7 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
   for (let round = 0; round < 2; round++) {
     for (const t of themes) {
       if (evidence.length >= QUOTES_SHOWN) break
-      const q = (t.quotes ?? []).find((x) => !used.has(x.id) && (round === 1 || !evidence.some((e) => e.speaker === x.speaker)))
+      const q = (t.quotes ?? []).filter((x) => x.source === 'customer').find((x) => !used.has(x.id) && (round === 1 || !evidence.some((e) => e.speaker === x.speaker)))
       if (!q) continue
       used.add(q.id)
       evidence.push({ text: q.text, speaker: q.speaker, session: q.session, themeTitle: t.title })

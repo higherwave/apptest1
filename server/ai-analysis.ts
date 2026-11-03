@@ -13,7 +13,7 @@ import { parseTranscript, scoreTheme, type AnalyzedQuote, type AnalyzedTheme } f
 import type { Usage } from './ai.js'
 import type { Queryable } from './db.js'
 
-export const ANALYSIS_PROMPT_VERSION = 'analysis-v2'
+export const ANALYSIS_PROMPT_VERSION = 'analysis-v3'
 
 // Per-run limits (the plan's third cost layer, for the part that depends on the input and output).
 export const MAX_INPUT_CHARS = 80_000 // about 20,000 tokens of transcript text
@@ -28,7 +28,8 @@ export type ModelReply = { text: string; usage: Usage }
 export type ModelCall = (request: ModelRequest) => Promise<ModelReply>
 
 export type AnalysisInput = {
-  transcripts: { name: string; text: string }[]
+  /** `team` marks an internal conversation (CSMs, Support, Sales); anything else is a session with a customer. */
+  transcripts: { name: string; text: string; source?: 'customer' | 'team' }[]
   participants: { name: string }[]
   /** The project's journey stages in order; the model picks one by number (1 is the first). */
   stages: string[]
@@ -156,6 +157,10 @@ Feature areas: the user message lists the workspace's feature areas, and the que
       "area": "the exact name of the one feature area this theme is about, copied from the list, or null"
 Choose the area the participants were talking about, not the area of the question that happened to prompt it. Use null when no listed area fits: never invent an area, never rename one, never join two. Use the same area for themes about the same feature.`
 
+// Added to the system prompt only when a transcript is a team conversation.
+const TEAM_RULES = `
+Team conversations: some transcripts are marked "team conversation": internal talks with the company's own CSMs, Support, Sales or other staff, not sessions with customers. Treat them as second-hand and secondary. Use them to find and confirm what customers do and struggle with, and the behaviors and usage patterns the team has seen. A team member's opinion, preference or guess is not customer evidence, and a theme must not rest on one. Prefer quotes from customer sessions; quote a team conversation only when it adds something the customer sessions lack or says the same thing from another angle.`
+
 export function buildAnalysisPrompt(input: AnalysisInput): { system: string; user: string; maxTokens: number; version: string; index: ReturnType<typeof indexTranscripts> } {
   const index = indexTranscripts(input)
   const chars = index.lines.reduce((n, l) => n + l.masked.length, 0)
@@ -175,7 +180,7 @@ export function buildAnalysisPrompt(input: AnalysisInput): { system: string; use
     : ''
   const transcripts = input.transcripts.map((_, t) => {
     const body = index.lines.filter((l) => l.t === t).map((l) => `[T${t + 1}.U${l.u + 1}] ${l.speaker.id}: ${l.masked}`)
-    return `## Transcript ${t + 1}\n${body.join('\n')}`
+    return `## Transcript ${t + 1}${input.transcripts[t].source === 'team' ? ' (team conversation)' : ''}\n${body.join('\n')}`
   })
   const user = [
     ...context,
@@ -187,7 +192,8 @@ export function buildAnalysisPrompt(input: AnalysisInput): { system: string; use
   ]
     .filter(Boolean)
     .join('\n\n')
-  return { system: areas.length ? SYSTEM + AREA_RULES : SYSTEM, user, maxTokens: MAX_OUTPUT_TOKENS, version: ANALYSIS_PROMPT_VERSION, index }
+  const hasTeam = input.transcripts.some((t) => t.source === 'team')
+  return { system: SYSTEM + (areas.length ? AREA_RULES : '') + (hasTeam ? TEAM_RULES : ''), user, maxTokens: MAX_OUTPUT_TOKENS, version: ANALYSIS_PROMPT_VERSION, index }
 }
 
 // The reply: parse and validate ------------------------------------------------------------------------------------------
@@ -332,7 +338,7 @@ export async function analyzeWithModel(call: ModelCall, input: AnalysisInput): P
 /** What the model is given about a project, read from the database: its transcripts, participants, journey stages and project description. */
 export async function loadAnalysisInput(db: Queryable, projectId: string): Promise<AnalysisInput> {
   const rows = async (sql: string) => (await db.query(sql, [projectId])).rows
-  const transcripts = (await rows(`select name, raw_text from research.transcripts where project_id = $1 order by position, name`)).map((r) => ({ name: r.name as string, text: r.raw_text as string }))
+  const transcripts = (await rows(`select name, raw_text, source from research.transcripts where project_id = $1 order by position, name`)).map((r) => ({ name: r.name as string, text: r.raw_text as string, source: (r.source as 'customer' | 'team') ?? 'customer' }))
   const participants = (await rows(`select name from research.participants where project_id = $1 order by position`)).map((r) => ({ name: r.name as string }))
   const stages = (await rows(`select name from research.study_stages where study_id = $1 order by position`)).map((r) => r.name as string)
   const study = (await rows(`select what_testing, outcomes from research.studies where project_id = $1`))[0]

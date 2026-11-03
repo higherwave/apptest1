@@ -663,6 +663,36 @@ test('a transcript is a customer session unless it says team; the source is save
   assert.equal((await back.json()).needsAnalysis, false)
 })
 
+test('team conversations are confirmation: themes say where they were heard, and reach counts customers only', async () => {
+  const { app, id, putTranscripts, samples, analyze } = await newStudy()
+  await putTranscripts(samples)
+  assert.equal((await analyze()).status, 201)
+  const themesOf = async () => (await (await app.request(`/api/v1/projects/${id}/themes?include=quotes`)).json()).data as any[]
+  const base = await themesOf()
+  assert.ok(base.length > 0 && base.every((t) => t.origin === 'customer' && t.teamSessions === 0), 'only customer sessions: every theme is from customers')
+  assert.ok(base.every((t) => t.quotes.every((q: any) => q.source === 'customer')))
+  const peopleBefore = Math.max(...base.map((t) => t.totalParticipants))
+
+  // The third session becomes a team conversation: its speaker leaves the count of participants.
+  const listed = (await (await app.request(`/api/v1/projects/${id}/transcripts`)).json()).transcripts
+  assert.equal((await putTranscripts(listed.map((t: any, i: number) => ({ id: t.id, name: t.name, platform: t.platform, rawText: t.rawText, ...(i === 2 ? { source: 'team' } : {}) })))).status, 200)
+  assert.equal((await analyze()).status, 201)
+  const mixed = await themesOf()
+  assert.ok(mixed.length > 0)
+  const total = Math.max(...mixed.map((t) => t.totalParticipants))
+  assert.equal(total, peopleBefore - 1, 'one fewer customer in the denominator')
+  assert.ok(mixed.every((t) => t.participantCount <= total), 'reach never counts the team speaker')
+  assert.ok(mixed.every((t) => (t.origin === 'customer') === (t.teamSessions === 0)), 'origin and team sessions agree')
+  const heardByTeam = mixed.filter((t) => t.origin !== 'customer')
+  assert.ok(heardByTeam.length > 0, 'the team conversation raised at least one theme')
+  assert.ok(heardByTeam.every((t) => t.quotes.some((q: any) => q.source === 'team')))
+  assert.ok(mixed.filter((t) => t.origin === 'customer').every((t) => t.quotes.every((q: any) => q.source === 'customer')))
+  // The same on the cross-project view.
+  const overview = await (await app.request('/api/v1/insights/themes')).json()
+  assert.ok(overview.themes.every((t: any) => ['customer', 'team', 'both'].includes(t.origin) && Number.isInteger(t.teamSessions)))
+  assert.ok(overview.themes.some((t: any) => t.origin !== 'customer' && t.teamSessions >= 1), 'a platform theme says it was also heard from the team')
+})
+
 test('PUT transcripts splits each into speakers and lines, matches participants by name, and keeps the order', async () => {
   const { app, id, putTranscripts, samples } = await newStudy()
   const res = await putTranscripts(samples)

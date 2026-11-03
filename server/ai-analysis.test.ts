@@ -245,7 +245,7 @@ test('a model-shaped analysis is saved by the real run: themes, quotes, the run 
   const expected = JSON.parse(fixture('p1')).themes as { quotes: unknown[] }[]
   assert.equal(result.themes, expected.length)
   const run = (await pglite.query<any>(`select provider, prompt_version, status from core.agent_runs where id = $1`, [result.runId])).rows[0]
-  assert.deepEqual(run, { provider: 'recorded-model', prompt_version: 'analysis-v2', status: 'complete' })
+  assert.deepEqual(run, { provider: 'recorded-model', prompt_version: 'analysis-v3', status: 'complete' })
   assert.equal((await pglite.query<any>(`select count(*)::int n from research.themes where run_id = $1`, [result.runId])).rows[0].n, expected.length)
   assert.equal((await pglite.query<any>(`select count(*)::int n from research.theme_quotes q join research.themes t on t.id = q.theme_id where t.run_id = $1`, [result.runId])).rows[0].n, expected.reduce((n, t) => n + t.quotes.length, 0))
   const spend = (await pglite.query<any>(`select purpose, provider, input_tokens, cost_usd::float8 as cost from core.ai_usage where run_id = $1`, [result.runId])).rows

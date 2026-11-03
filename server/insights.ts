@@ -5,6 +5,7 @@ import { applyAreaRule, MAX_THEMES_PER_CALL, type Placement } from './ai-matchin
 import type { Db, Queryable } from './db.js'
 import { buildCaseStudyPrompt } from './case-briefs.js'
 import { insertMany } from './sql.js'
+import { originOf, type Origin } from './origin.js'
 
 export type Category = 'pain_point' | 'need' | 'expectation' | 'delight'
 export type InsightProject = { id: string; name: string; color: string; participants: number }
@@ -20,6 +21,10 @@ export type PlatformThemeRow = {
   needsReview: boolean
   /** The feature area most of its project themes are filed under, or null when none is (Unassigned). */
   area: { id: string; name: string } | null
+  /** Where it was heard: from customers, from the team, or both. Reach, priority and the counts below are customers only. */
+  origin: Origin
+  /** How many team conversations it came up in. */
+  teamSessions: number
   /** True when a person filed this theme under its area from the table, so they can take it back (the system's own choices are not undone here). */
   areaFiledByHand: boolean
   participantCount: number
@@ -152,14 +157,28 @@ export const CURRENT_THEMES = `
 
 // A person is one participant per project: matched speakers by participant, unmatched ones by lower-cased name,
 // the same key research.theme_stats uses.
+// Reach is customers only: a speaker in a team conversation is not counted.
 const PEOPLE = `
   select s.platform_theme_id, c.project_id, coalesce(sp.participant_id::text, 'sp:' || lower(sp.name)) as person
   from insights.platform_theme_sources s
   join (${CURRENT_THEMES}) c on c.id = s.theme_id
   join research.theme_quotes tq on tq.theme_id = s.theme_id
   join research.utterances u on u.id = tq.utterance_id
+  join research.transcripts tr on tr.id = u.transcript_id and tr.source = 'customer'
   join research.transcript_speakers sp on sp.id = u.speaker_id
   where s.workspace_id = $1`
+
+// Where each theme was heard: how many customer and team quotes, and in how many team conversations (from the theme's project themes).
+const ORIGIN = `
+  select s.platform_theme_id, count(distinct tq.utterance_id) filter (where tr.source = 'customer') as customer_quotes,
+         count(distinct tq.utterance_id) filter (where tr.source = 'team') as team_quotes, count(distinct tr.id) filter (where tr.source = 'team') as team_sessions
+  from insights.platform_theme_sources s
+  join (${CURRENT_THEMES}) c on c.id = s.theme_id
+  join research.theme_quotes tq on tq.theme_id = s.theme_id
+  join research.utterances u on u.id = tq.utterance_id
+  join research.transcripts tr on tr.id = u.transcript_id
+  where s.workspace_id = $1
+  group by s.platform_theme_id`
 
 export async function projectsWithAnalysis(db: Queryable, workspaceId: string): Promise<InsightProject[]> {
   const rows = (
@@ -188,6 +207,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
       )
     ).rows.map((r) => [r.entity_id as string, { verb: r.verb as string, areaId: r.area_id as string | null }]),
   )
+  const originRows = (await db.query(ORIGIN, [workspaceId])).rows
   const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows, matchRows, aliasRows, suggestionRows] = await Promise.all([
     projectsWithAnalysis(db, workspaceId),
     db.query(`select id, title, category, needs_review, rationale from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
@@ -265,7 +285,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     const summary = described.length ? String(described[0].description).trim() : null
     const matches = matchRows.rows.filter((r) => r.platform_theme_id === t.id).slice(0, 12).map((r) => ({ themeTitle: r.theme_title as string, projectName: r.project_name as string, method: r.match_method as 'auto' | 'manual', confidence: (r.confidence ?? null) as number | null, reason: (r.reason ?? null) as string | null }))
     return {
-      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, area: areaOf.get(t.id) ?? null, areaFiledByHand: !!areaOf.get(t.id) && lastAreaAction.get(t.id)?.verb === 'area set' && lastAreaAction.get(t.id)?.areaId === areaOf.get(t.id)!.id, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
+      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, origin: originOf(Number(originRows.find((o) => o.platform_theme_id === t.id)?.customer_quotes ?? 1), Number(originRows.find((o) => o.platform_theme_id === t.id)?.team_quotes ?? 0)), teamSessions: Number(originRows.find((o) => o.platform_theme_id === t.id)?.team_sessions ?? 0), area: areaOf.get(t.id) ?? null, areaFiledByHand: !!areaOf.get(t.id) && lastAreaAction.get(t.id)?.verb === 'area set' && lastAreaAction.get(t.id)?.areaId === areaOf.get(t.id)!.id, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
       matches, priority: null, rationale: (t.rationale ?? null) as string | null, aliases: aliasRows.rows.filter((a) => a.platform_theme_id === t.id).map((a) => a.alias as string),
     }
   })
@@ -394,7 +414,7 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
        join research.theme_quotes tq on tq.theme_id = s.theme_id
        join research.utterances u on u.id = tq.utterance_id
        join research.transcript_speakers sp on sp.id = u.speaker_id
-       join research.transcripts tr on tr.id = u.transcript_id
+       join research.transcripts tr on tr.id = u.transcript_id and tr.source = 'customer'
        where ct.workspace_id = $1
        order by tr.created_at, tr.name, u.position`,
       [workspaceId],

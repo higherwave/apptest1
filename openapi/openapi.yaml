@@ -1725,7 +1725,7 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, needsReview, area, areaFiledByHand, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
+            required: [id, title, category, needsReview, area, areaFiledByHand, origin, teamSessions, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
             properties:
               aliases: { type: array, items: { type: string }, description: 'Old names, kept when the theme was renamed or another was merged into it.' }
               rationale: { type: [string, 'null'], description: 'Why it ranks where it does, written on request; null until then.' }
@@ -1759,6 +1759,8 @@ components:
                 properties:
                   id: { type: string, format: uuid }
                   name: { type: string }
+              origin: { type: string, enum: [customer, team, both], description: Where it was heard; participantCount and projectCount count customers only. }
+              teamSessions: { type: integer, description: How many team conversations it came up in. }
               areaFiledByHand: { type: boolean, description: 'True when a person filed the theme under its area from the table, so Undo is offered. The analysis''s own choices are not undone there.' }
               participantCount: { type: integer }
               projectCount: { type: integer }
@@ -2372,17 +2374,18 @@ components:
         text: { type: string }
     Quote:
       type: object
-      required: [id, speaker, participant, session, timestamp, text]
+      required: [id, speaker, participant, session, source, timestamp, text]
       properties:
         id: { type: string }
         speaker: { type: string }
+        source: { type: string, enum: [customer, team], description: Said in a session with a customer or in a conversation with the team. }
         participant: { type: [string, 'null'], description: The matched participant's name. }
         session: { type: string, description: The transcript's name without its extension. }
         timestamp: { type: [string, 'null'] }
         text: { type: string }
     Theme:
       type: object
-      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, edited, overrideVersion, participantCount, totalParticipants, mentionCount, score, area]
+      required: [id, title, originalTitle, category, stagePosition, suggestedStagePosition, severity, description, opportunity, priority, suggestedPriority, effort, suggestedEffort, effortNote, edited, overrideVersion, participantCount, totalParticipants, mentionCount, origin, teamSessions, score, area]
       properties:
         id: { type: string }
         title: { type: string, description: The person's name for the theme if they renamed it, otherwise the analysis's. }
@@ -2402,7 +2405,9 @@ components:
         overrideVersion: { type: integer }
         participantCount: { type: integer }
         totalParticipants: { type: integer }
-        mentionCount: { type: integer }
+        mentionCount: { type: integer, description: Customer quotes only. }
+        origin: { type: string, enum: [customer, team, both], description: 'Where it was heard. Reach, priority and the counts above are customers only; team conversations are confirmation.' }
+        teamSessions: { type: integer, description: How many team conversations it came up in. }
         score: { type: [number, 'null'] }
         area:
           type: [object, 'null']

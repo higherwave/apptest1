@@ -5,6 +5,7 @@ import { useState } from 'react'
 import type { ProjectDetail, Theme, ThemeCategory, ThemePatch } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { CategoryBadge } from './CategoryBadge'
+import { ORIGIN_LABEL, teamConversations } from '../insights/labels'
 import { CATEGORIES, CATEGORY_LABEL, LEVEL_LABEL, participantsLabel, type Level } from './themeEdits'
 import styles from './ThemesView.module.scss'
 
@@ -76,7 +77,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                     <p className={styles.cardTitle}>{t.title}</p>
                     <p className={styles.cardArea} data-testid={`theme-area-${t.id}`}>{t.area ? t.area.name : 'No area'}</p>
                     <p className={styles.cardMeta}>
-                      {participantsLabel(t)} · {LEVEL_LABEL[t.priority as Level]} priority
+                      {participantsLabel(t)} · {LEVEL_LABEL[t.priority as Level]} priority · <span data-testid={`theme-origin-${t.id}`}>{ORIGIN_LABEL[t.origin]}</span>
                     </p>
                   </ClickableTile>
                 </li>
@@ -122,6 +123,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                   {selected.description && <p className={styles.text}>{selected.description}</p>}
                   <p className={styles.facts}>
                     {participantsLabel(selected)} · {selected.mentionCount} {selected.mentionCount === 1 ? 'mention' : 'mentions'}
+                    {selected.teamSessions > 0 && ` · also in ${teamConversations(selected.teamSessions)}`}
                   </p>
                   {selected.opportunity && (
                     <>
@@ -153,6 +155,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                       <li key={q.id} className={styles.quoteCard}>
                         <blockquote className={styles.quote}>“{q.text}”</blockquote>
                         <p className={styles.cite}>
+                          {q.source === 'team' && 'Team conversation · '}
                           {q.speaker} · {q.session}
                           {q.timestamp ? ` · ${q.timestamp}` : ''}
                         </p>

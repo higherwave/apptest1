@@ -1,3 +1,4 @@
+import { originOf, type Origin } from './origin.js'
 import { assertAreasUsable } from './areas.js'
 import type { Db, Queryable } from './db.js'
 import { ApiError } from './errors.js'
@@ -6,7 +7,7 @@ import { insertMany } from './sql.js'
 import type { Actor } from './versioning.js'
 import type { ThemePatchInput } from './schemas.js'
 
-export type Quote = { id: string; speaker: string; participant: string | null; session: string; timestamp: string | null; text: string }
+export type Quote = { id: string; speaker: string; participant: string | null; session: string; /** Whether it was said in a customer session or a team conversation. */ source: 'customer' | 'team'; timestamp: string | null; text: string }
 export type Theme = {
   id: string
   title: string
@@ -29,6 +30,10 @@ export type Theme = {
   participantCount: number
   totalParticipants: number
   mentionCount: number
+  /** Where it was heard: from customers, from the team, or both. Reach and priority count customers only. */
+  origin: Origin
+  /** How many team conversations it came up in. */
+  teamSessions: number
   score: number | null
   /** The feature area the theme is about (the analysis's choice, or a person's), or none. */
   area: { id: string; name: string } | null
@@ -48,7 +53,7 @@ const THEME_SQL = `
          t.suggested_priority, t.suggested_effort, t.effort_note, t.score,
          o.title as o_title, o.stage_position as o_stage, o.priority as o_priority, o.effort as o_effort,
          coalesce(o.version, 0) as override_version,
-         st.participant_count::int as participant_count, st.total_participants::int as total_participants, st.mention_count::int as mention_count,
+         st.participant_count::int as participant_count, st.total_participants::int as total_participants, st.mention_count::int as mention_count, st.team_mention_count::int as team_mention_count, st.team_session_count::int as team_session_count,
          fa.id as area_id, fa.name as area_name
   from research.themes t
   left join insights.feature_areas fa on fa.id = t.area_id
@@ -78,6 +83,8 @@ function toTheme(r: Record<string, any>): Theme {
     participantCount: r.participant_count,
     totalParticipants: r.total_participants,
     mentionCount: r.mention_count,
+    origin: originOf(r.mention_count, r.team_mention_count),
+    teamSessions: r.team_session_count ?? 0,
     score: r.score === null ? null : Number(r.score),
     area: r.area_id ? { id: r.area_id, name: r.area_name } : null,
   }
@@ -87,7 +94,7 @@ async function withQuotes(db: Queryable, themes: Theme[]): Promise<Theme[]> {
   if (!themes.length) return themes
   const rows = (
     await db.query(
-      `select tq.theme_id, u.id, sp.name as speaker, pa.name as participant, tr.name as session, u.timestamp_label as ts, u.text
+      `select tq.theme_id, u.id, sp.name as speaker, pa.name as participant, tr.name as session, tr.source as source, u.timestamp_label as ts, u.text
        from research.theme_quotes tq
        join research.utterances u on u.id = tq.utterance_id
        join research.transcript_speakers sp on sp.id = u.speaker_id
@@ -100,7 +107,7 @@ async function withQuotes(db: Queryable, themes: Theme[]): Promise<Theme[]> {
   ).rows
   return themes.map((t) => ({
     ...t,
-    quotes: rows.filter((q) => q.theme_id === t.id).map((q) => ({ id: q.id, speaker: q.speaker, participant: q.participant ?? null, session: String(q.session).replace(/\.\w+$/, ''), timestamp: q.ts || null, text: q.text })),
+    quotes: rows.filter((q) => q.theme_id === t.id).map((q) => ({ id: q.id, speaker: q.speaker, participant: q.participant ?? null, session: String(q.session).replace(/\.\w+$/, ''), source: q.source ?? 'customer', timestamp: q.ts || null, text: q.text })),
   }))
 }
 

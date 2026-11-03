@@ -1357,6 +1357,13 @@ export interface components {
                     id: string;
                     name: string;
                 } | null;
+                /**
+                 * @description Where it was heard; participantCount and projectCount count customers only.
+                 * @enum {string}
+                 */
+                origin: "customer" | "team" | "both";
+                /** @description How many team conversations it came up in. */
+                teamSessions: number;
                 /** @description True when a person filed the theme under its area from the table, so Undo is offered. The analysis's own choices are not undone there. */
                 areaFiledByHand: boolean;
                 participantCount: number;
@@ -1840,6 +1847,11 @@ export interface components {
         Quote: {
             id: string;
             speaker: string;
+            /**
+             * @description Said in a session with a customer or in a conversation with the team.
+             * @enum {string}
+             */
+            source: "customer" | "team";
             /** @description The matched participant's name. */
             participant: string | null;
             /** @description The transcript's name without its extension. */
@@ -1875,7 +1887,15 @@ export interface components {
             overrideVersion: number;
             participantCount: number;
             totalParticipants: number;
+            /** @description Customer quotes only. */
             mentionCount: number;
+            /**
+             * @description Where it was heard. Reach, priority and the counts above are customers only; team conversations are confirmation.
+             * @enum {string}
+             */
+            origin: "customer" | "team" | "both";
+            /** @description How many team conversations it came up in. */
+            teamSessions: number;
             score: number | null;
             /** @description The feature area the theme is about, as the analysis filed it or a person corrected it. Null when none fits. */
             area: {
