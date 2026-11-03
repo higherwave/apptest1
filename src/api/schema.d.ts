@@ -1426,6 +1426,12 @@ export interface components {
                     title: string;
                     /** @enum {string} */
                     category: "pain_point" | "need" | "expectation" | "delight";
+                    /** @description Its feature area, or null (Unassigned). */
+                    area: {
+                        /** Format: uuid */
+                        id: string;
+                        name: string;
+                    } | null;
                     participantCount: number;
                     /** @enum {string} */
                     status: "not_addressed" | "in_progress" | "too_early" | "worked" | "needs_attention";
@@ -1560,6 +1566,12 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 title: string;
+                /** @description Its feature area, or null (Unassigned). */
+                area: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                } | null;
             }[];
             /** @description A few of the words behind the themes it was based on (up to two, from different people). */
             quotes: {
@@ -1585,6 +1597,12 @@ export interface components {
             problem: {
                 title: string;
                 category: string;
+                /** @description The feature area of the project theme, or null (Unassigned). */
+                area: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                } | null;
                 participantCount: number;
                 totalParticipants: number;
                 description: string | null;

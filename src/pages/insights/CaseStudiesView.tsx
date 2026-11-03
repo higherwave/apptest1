@@ -2,6 +2,9 @@ import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Tag, TextArea } from '@carbon/react'
 import { useState } from 'react'
 import type { CaseBrief, CaseStudy } from '../../api/client'
+import { groupByArea } from './areaGroups'
+import { GroupBy, type Grouping } from './GroupBy'
+import groupStyles from './GroupBy.module.scss'
 import { InsightsHeader } from './InsightsHeader'
 import styles from './CaseStudiesView.module.scss'
 
@@ -13,6 +16,9 @@ export type CaseStudiesViewProps = {
   /** Puts text on the clipboard; false when the browser would not. */
   onCopy: (text: string) => Promise<boolean>
   onOpenTheme: (id: string) => void
+  /** How the themes in each row are divided: one list, or under each feature area. */
+  groupBy?: Grouping
+  onGroupBy?: (g: Grouping) => void
 }
 
 // "Sep 2026" from a YYYY-MM-DD date; the day is not meaningful.
@@ -68,7 +74,12 @@ function Row({ id, name, outcome, prompt, open, onToggle, onCopy, children }: { 
 }
 
 // A project's brief opened: the problem, what people said, what was decided and designed across the top, then what happened across the full width.
-function BriefBody({ brief }: { brief: CaseBrief }) {
+function BriefBody({ brief, groupBy }: { brief: CaseBrief; groupBy: Grouping }) {
+  const problemRow = (t: CaseBrief['problem'][number]) => (
+    <p key={t.title} className={styles.item2}>
+      {t.title} <span className={styles.small}>· {t.participantCount} of {t.totalParticipants} participants</span>
+    </p>
+  )
   return (
     <>
       <div className={styles.briefGrid}>
@@ -76,11 +87,14 @@ function BriefBody({ brief }: { brief: CaseBrief }) {
           <h4 className={styles.label}>The problem</h4>
           <p className={styles.small}>{brief.template ?? 'Research study'} · {plural(brief.sessions, 'session')} · {plural(brief.participants, 'participant')}</p>
           {brief.problem.length === 0 && <p className={styles.small}>No themes yet. Analyze the project’s transcripts first.</p>}
-          {brief.problem.map((t) => (
-            <p key={t.title} className={styles.item2}>
-              {t.title} <span className={styles.small}>· {t.participantCount} of {t.totalParticipants} participants</span>
-            </p>
-          ))}
+          {groupBy === 'area'
+            ? groupByArea(brief.problem).map((g) => (
+                <section key={g.key} aria-label={`${g.name} themes`}>
+                  <h5 className={groupStyles.areaLabel}>{g.name}</h5>
+                  {g.items.map(problemRow)}
+                </section>
+              ))
+            : brief.problem.map(problemRow)}
         </section>
         <section aria-label="What people said" className={styles.briefSection}>
           <h4 className={styles.label}>What people said</h4>
@@ -143,7 +157,12 @@ function BriefBody({ brief }: { brief: CaseBrief }) {
 }
 
 // A case study written by hand, opened: what the team did, what it was based on and some of the words, then the outcome across the full width.
-function StudyBody({ study, onOpenTheme }: { study: CaseStudy; onOpenTheme: CaseStudiesViewProps['onOpenTheme'] }) {
+function StudyBody({ study, onOpenTheme, groupBy }: { study: CaseStudy; onOpenTheme: CaseStudiesViewProps['onOpenTheme']; groupBy: Grouping }) {
+  const chip = (t: CaseStudy['themes'][number]) => (
+    <Button key={t.id} kind="tertiary" size="sm" onClick={() => onOpenTheme(t.id)}>
+      {t.title}
+    </Button>
+  )
   return (
     <>
       <div className={styles.briefGrid}>
@@ -157,13 +176,16 @@ function StudyBody({ study, onOpenTheme }: { study: CaseStudy; onOpenTheme: Case
             Based on
             {study.opportunities > 0 && <Tag size="sm" type="purple">{plural(study.opportunities, 'opportunity', 'opportunities')} still open</Tag>}
           </h4>
-          <div className={styles.themes}>
-            {study.themes.map((t) => (
-              <Button key={t.id} kind="tertiary" size="sm" onClick={() => onOpenTheme(t.id)}>
-                {t.title}
-              </Button>
-            ))}
-          </div>
+          {groupBy === 'area' ? (
+            groupByArea(study.themes).map((g) => (
+              <section key={g.key} aria-label={`${g.name} themes`}>
+                <h5 className={groupStyles.areaLabel}>{g.name}</h5>
+                <div className={styles.themes}>{g.items.map(chip)}</div>
+              </section>
+            ))
+          ) : (
+            <div className={styles.themes}>{study.themes.map(chip)}</div>
+          )}
         </section>
         <section aria-label="What people said" className={styles.briefSection}>
           <h4 className={styles.label}>What people said</h4>
@@ -185,7 +207,7 @@ function StudyBody({ study, onOpenTheme }: { study: CaseStudy; onOpenTheme: Case
 }
 
 // Presentational: a row for each analysed project and for each case study written by hand. Each row opens to the same layout.
-export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpenTheme }: CaseStudiesViewProps) {
+export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpenTheme, groupBy = 'none', onGroupBy }: CaseStudiesViewProps) {
   const [opened, setOpened] = useState<Set<string>>(new Set())
   const [started, setStarted] = useState(false)
   // The first row opens, so the page does not start as a closed list.
@@ -205,19 +227,22 @@ export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpe
         <>
           <div className={styles.listTools}>
             <p className={styles.small}>Open a row to see the case on one page. Copy its prompt to have an AI tool build the presentation.</p>
-            <Button kind="ghost" size="sm" onClick={() => setOpened(all.every((id) => opened.has(id)) ? new Set() : new Set(all))}>
-              {all.every((id) => opened.has(id)) ? 'Collapse all' : 'Expand all'}
-            </Button>
+            <div className={styles.tools}>
+              {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
+              <Button kind="ghost" size="sm" onClick={() => setOpened(all.every((id) => opened.has(id)) ? new Set() : new Set(all))}>
+                {all.every((id) => opened.has(id)) ? 'Collapse all' : 'Expand all'}
+              </Button>
+            </div>
           </div>
           <ul className={styles.list} aria-label="Case studies">
             {briefs.map((b) => (
               <Row key={b.projectId} id={`p-${b.projectId}`} name={b.projectName} outcome={b.outcome} prompt={b.prompt} open={opened.has(`p-${b.projectId}`)} onToggle={() => toggle(`p-${b.projectId}`)} onCopy={onCopy}>
-                <BriefBody brief={b} />
+                <BriefBody brief={b} groupBy={groupBy} />
               </Row>
             ))}
             {cases.map((c) => (
               <Row key={c.id} id={`c-${c.id}`} name={c.title} outcome={c.outcome} prompt={c.prompt} open={opened.has(`c-${c.id}`)} onToggle={() => toggle(`c-${c.id}`)} onCopy={onCopy}>
-                <StudyBody study={c} onOpenTheme={onOpenTheme} />
+                <StudyBody study={c} onOpenTheme={onOpenTheme} groupBy={groupBy} />
               </Row>
             ))}
           </ul>

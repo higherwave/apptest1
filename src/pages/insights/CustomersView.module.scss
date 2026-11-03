@@ -170,3 +170,11 @@
   min-block-size: 0;
   padding: 0 var(--at-space-xs);
 }
+
+.tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--at-space-xs) var(--at-space-md);
+}

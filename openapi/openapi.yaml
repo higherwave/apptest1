@@ -1842,11 +1842,18 @@ components:
                 description: What most of them raised, widest first (up to five).
                 items:
                   type: object
-                  required: [id, title, category, participantCount, status, opportunity]
+                  required: [id, title, category, area, participantCount, status, opportunity]
                   properties:
                     id: { type: string, format: uuid }
                     title: { type: string }
                     category: { type: string, enum: [pain_point, need, expectation, delight] }
+                    area:
+                      type: [object, 'null']
+                      description: Its feature area, or null (Unassigned).
+                      required: [id, name]
+                      properties:
+                        id: { type: string, format: uuid }
+                        name: { type: string }
                     participantCount: { type: integer }
                     status: { type: string, enum: [not_addressed, in_progress, too_early, worked, needs_attention] }
                     opportunity: { type: boolean }
@@ -1993,10 +2000,17 @@ components:
           type: array
           items:
             type: object
-            required: [id, title]
+            required: [id, title, area]
             properties:
               id: { type: string, format: uuid }
               title: { type: string }
+              area:
+                type: [object, 'null']
+                description: Its feature area, or null (Unassigned).
+                required: [id, name]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
         quotes:
           type: array
           description: A few of the words behind the themes it was based on (up to two, from different people).
@@ -2024,10 +2038,17 @@ components:
           description: The strongest themes of the current analysis (up to five).
           items:
             type: object
-            required: [title, category, participantCount, totalParticipants, description]
+            required: [title, category, area, participantCount, totalParticipants, description]
             properties:
               title: { type: string }
               category: { type: string }
+              area:
+                type: [object, 'null']
+                description: The feature area of the project theme, or null (Unassigned).
+                required: [id, name]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
               participantCount: { type: integer }
               totalParticipants: { type: integer }
               description: { type: [string, 'null'] }

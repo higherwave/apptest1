@@ -13,7 +13,7 @@ export type CustomerGroup = {
   /** The full roles inside the group, as the test plans wrote them. */
   roles: string[]
   /** What most of them raised, widest first. */
-  themes: { id: string; title: string; category: Category; participantCount: number; status: ThemeStatus; opportunity: boolean }[]
+  themes: { id: string; title: string; category: Category; area: { id: string; name: string } | null; participantCount: number; status: ThemeStatus; opportunity: boolean }[]
   quotes: CustomerQuote[]
   opportunities: number
 }
@@ -79,7 +79,7 @@ export async function getCustomers(db: Queryable, workspaceId: string): Promise<
     }
     const themes = [...raised].map(([id, set]) => {
       const t = themeById.get(id)!
-      return { id, title: t.title, category: t.category, participantCount: set.size, status: t.status, opportunity: t.opportunity }
+      return { id, title: t.title, category: t.category, area: t.area, participantCount: set.size, status: t.status, opportunity: t.opportunity }
     }).sort((a, b) => b.participantCount - a.participantCount || a.title.localeCompare(b.title))
     // Words about a problem first, from different people, then anything else.
     const byPerson = new Set<string>()

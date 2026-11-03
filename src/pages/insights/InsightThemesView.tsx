@@ -4,6 +4,7 @@ import { useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
 import { CategoryBadge } from '../themes/CategoryBadge'
+import { GroupBy } from './GroupBy'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
 import { MatchList, PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
@@ -198,16 +199,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
               </Button>
             ))}
           </div>
-          {onGroupBy && (
-            <div className={styles.order} role="group" aria-label="Group the themes">
-              <span className={styles.label}>Group by</span>
-              {([['none', 'None'], ['area', 'Feature area']] as const).map(([key, label]) => (
-                <Button key={key} kind={groupBy === key ? 'primary' : 'ghost'} size="sm" aria-pressed={groupBy === key} data-testid={`group-${key}`} onClick={() => onGroupBy(key)}>
-                  {label}
-                </Button>
-              ))}
-            </div>
-          )}
+          {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
           </div>
 
           {rec && (

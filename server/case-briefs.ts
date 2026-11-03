@@ -14,7 +14,7 @@ export type CaseBrief = {
   template: string | null
   sessions: number
   participants: number
-  problem: { title: string; category: string; participantCount: number; totalParticipants: number; description: string | null }[]
+  problem: { title: string; category: string; area: { id: string; name: string } | null; participantCount: number; totalParticipants: number; description: string | null }[]
   evidence: BriefQuote[]
   decisions: { reasoning: string | null; requirements: { key: string; title: string; priority: string }[]; alternatives: { title: string; reason: string }[] } | null
   designs: { key: string; title: string; prototypeUrl: string | null; notes: string | null }[]
@@ -120,7 +120,7 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
   }
   const brief: Omit<CaseBrief, 'prompt' | 'outcome'> = {
     projectId, projectName: project.name, template: project.template ?? null, sessions: project.sessions, participants: project.participants,
-    problem: themes.map((t) => ({ title: t.title, category: t.category, participantCount: t.participantCount, totalParticipants: t.totalParticipants, description: t.description })),
+    problem: themes.map((t) => ({ title: t.title, category: t.category, area: t.area ?? null, participantCount: t.participantCount, totalParticipants: t.totalParticipants, description: t.description })),
     evidence,
     decisions: design
       ? { reasoning: design.decisions.reasoning, requirements: design.items.map((i) => ({ key: i.key, title: i.title, priority: i.priority })), alternatives: design.decisions.alternatives }

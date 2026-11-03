@@ -3,6 +3,9 @@ import { Button, InlineNotification, Loading, Tag } from '@carbon/react'
 import { useState } from 'react'
 import type { Customers } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
+import { groupByArea } from './areaGroups'
+import { GroupBy, type Grouping } from './GroupBy'
+import groupStyles from './GroupBy.module.scss'
 import { InsightsHeader } from './InsightsHeader'
 import { STATUS } from './labels'
 import styles from './CustomersView.module.scss'
@@ -13,12 +16,28 @@ export type CustomersViewProps = {
   errorText?: string
   onOpenTheme: (id: string) => void
   onOpenTranscripts: (projectId: string) => void
+  /** How what each group struggles with is divided: one list, or under each feature area. */
+  groupBy?: Grouping
+  onGroupBy?: (g: Grouping) => void
 }
 
 type Group = Customers['groups'][number]
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
-function Body({ group, onOpenTheme, onOpenTranscripts }: { group: Group; onOpenTheme: CustomersViewProps['onOpenTheme']; onOpenTranscripts: CustomersViewProps['onOpenTranscripts'] }) {
+function Body({ group, onOpenTheme, onOpenTranscripts, groupBy }: { group: Group; onOpenTheme: CustomersViewProps['onOpenTheme']; onOpenTranscripts: CustomersViewProps['onOpenTranscripts']; groupBy: Grouping }) {
+  const themeRow = (t: Group['themes'][number]) => (
+    <div key={t.id} className={styles.theme}>
+      <Button kind="ghost" size="sm" className={styles.themeLink} onClick={() => onOpenTheme(t.id)}>
+        {t.title}
+      </Button>
+      <div className={styles.tags}>
+        <CategoryBadge category={t.category} />
+        {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
+        <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
+        <span className={styles.count}>{t.participantCount} of {group.participantCount}</span>
+      </div>
+    </div>
+  )
   return (
     <div id={`customer-body-${group.key}`} className={styles.body}>
       <p className={styles.roles}>
@@ -28,19 +47,14 @@ function Body({ group, onOpenTheme, onOpenTranscripts }: { group: Group; onOpenT
         <div className={styles.cell}>
           <h4 className={styles.colHead}>What they struggle with</h4>
           <p className={styles.muted}>Most-raised first, and what became of each</p>
-          {group.themes.map((t) => (
-            <div key={t.id} className={styles.theme}>
-              <Button kind="ghost" size="sm" className={styles.themeLink} onClick={() => onOpenTheme(t.id)}>
-                {t.title}
-              </Button>
-              <div className={styles.tags}>
-                <CategoryBadge category={t.category} />
-                {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
-                <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
-                <span className={styles.count}>{t.participantCount} of {group.participantCount}</span>
-              </div>
-            </div>
-          ))}
+          {groupBy === 'area'
+            ? groupByArea(group.themes).map((g) => (
+                <section key={g.key} aria-label={`${g.name} themes`} data-testid={`persona-area-${g.name}`}>
+                  <h5 className={groupStyles.areaLabel}>{g.name}</h5>
+                  {g.items.map(themeRow)}
+                </section>
+              ))
+            : group.themes.map(themeRow)}
         </div>
         <div className={styles.cell}>
           <h4 className={styles.colHead}>In their words</h4>
@@ -63,7 +77,7 @@ function Body({ group, onOpenTheme, onOpenTranscripts }: { group: Group; onOpenT
 }
 
 // Presentational: who the customers are, grouped by role, each with what they struggle with and what they said.
-export function CustomersView({ state, customers, errorText, onOpenTheme, onOpenTranscripts }: CustomersViewProps) {
+export function CustomersView({ state, customers, errorText, onOpenTheme, onOpenTranscripts, groupBy = 'none', onGroupBy }: CustomersViewProps) {
   const [opened, setOpened] = useState<Set<string>>(new Set())
   const groups = customers?.groups ?? []
   const toggle = (key: string) => setOpened((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n })
@@ -86,9 +100,12 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
             <p className={styles.muted}>
               {plural(groups.length, 'group')} · {plural(customers.totalParticipants, 'participant')}
             </p>
-            <Button kind="ghost" size="sm" onClick={() => setOpened(opened.size === groups.length ? new Set() : new Set(groups.map((g) => g.key)))}>
-              {opened.size === groups.length ? 'Collapse all' : 'Expand all'}
-            </Button>
+            <div className={styles.tools}>
+              {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
+              <Button kind="ghost" size="sm" onClick={() => setOpened(opened.size === groups.length ? new Set() : new Set(groups.map((g) => g.key)))}>
+                {opened.size === groups.length ? 'Collapse all' : 'Expand all'}
+              </Button>
+            </div>
           </div>
           <ul className={styles.list} aria-label="Personas">
             {groups.map((g) => {
@@ -108,7 +125,7 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
                       </span>
                     </Button>
                   </h3>
-                  {open && <Body group={g} onOpenTheme={onOpenTheme} onOpenTranscripts={onOpenTranscripts} />}
+                  {open && <Body group={g} onOpenTheme={onOpenTheme} onOpenTranscripts={onOpenTranscripts} groupBy={groupBy} />}
                 </li>
               )
             })}

@@ -206,6 +206,17 @@ try {
   const pause = (ms) => new Promise((r) => setTimeout(r, ms))
   const areaValue = (id) => page.$eval(`#${id}`, (el) => el.value)
   const optionTexts = () => page.evaluate(() => [...document.querySelectorAll('[role="option"]')].map((o) => o.innerText.trim()))
+  // The list narrows a keystroke behind the box, so wait until it stops changing (two samples in a row agree) before reading it.
+  const settledOptions = async () => {
+    let last = JSON.stringify(await optionTexts())
+    for (let i = 0; i < 20; i++) {
+      await pause(200)
+      const now = JSON.stringify(await optionTexts())
+      if (now === last) return JSON.parse(now)
+      last = now
+    }
+    return JSON.parse(last)
+  }
   const chooseOption = (text) => page.evaluate((t) => [...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.trim() === t).click(), text)
   const typeInArea = async (id, text) => {
     await page.$eval(`#${id}`, (el) => el.scrollIntoView({ block: 'center' }))
@@ -215,23 +226,21 @@ try {
   }
   ok('there is no New area button or dialog on a question', await page.evaluate(() => !document.querySelector('[data-testid$="-area-new"]') && ![...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'New area')))
   await typeInArea('task-0-area', 'Scheduling')
-  await page.waitForFunction(() => [...document.querySelectorAll('[role="option"]')].some((o) => o.innerText.trim().startsWith('Add ')), { timeout: 5000 }) // the list narrows as the text is typed
-  ok('typing a name that is not on the list offers to add it', (await optionTexts()).includes('Add “Scheduling” as a new area'))
+  const seen = await settledOptions()
+  ok('typing a name that is not on the list offers to add it', seen.includes('Add “Scheduling” as a new area'), JSON.stringify({ seen, value: await areaValue('task-0-area') }))
   await chooseOption('Add “Scheduling” as a new area')
   await page.waitForFunction(() => document.querySelector('#task-0-area')?.value === 'Scheduling', { timeout: 8000 })
   ok('choosing it adds the area to the list and files the question under it', (await areaValue('task-0-area')) === 'Scheduling')
   await pause(400)
   await typeInArea('task-1-area', 'Appointment scheduling')
-  await page.waitForFunction(() => [...document.querySelectorAll('[role="option"]')].some((o) => o.innerText.trim().startsWith('Add ')), { timeout: 5000 }) // the list narrows as the text is typed
-  const similar = await optionTexts()
+  const similar = await settledOptions()
   ok('a look-alike is listed first, with the add option after it: a duplicate is easy to avoid and never forced', similar[0] === 'Scheduling' && similar.at(-1) === 'Add “Appointment scheduling” as a new area')
   await chooseOption('Scheduling')
   await page.waitForFunction(() => document.querySelector('#task-1-area')?.value === 'Scheduling', { timeout: 8000 })
   ok('choosing the existing area files the question under it', (await areaValue('task-1-area')) === 'Scheduling')
   await pause(400)
   await typeInArea('task-2-area', 'Schedule')
-  await pause(500)
-  const same = await optionTexts()
+  const same = await settledOptions()
   ok('the same name with another ending is not offered as new: only the existing area is', same.includes('Scheduling') && !same.some((t) => t.startsWith('Add ')))
   await page.keyboard.press('Escape')
   await page.$eval('#task-2-area', (el) => { el.value = '' })
@@ -874,6 +883,13 @@ try {
   const customers = await (await fetch(`${API}/api/v1/insights/customers`)).json()
   ok('Personas lists each group once, the largest first, with the first one open', await page.evaluate((groups) => { const rows = [...document.querySelectorAll('[data-testid^="customer-"]')]; return rows.length === groups.length && rows.every((r, i) => r.innerText.includes(groups[i].name) && r.innerText.includes(`${groups[i].participantCount} participant`)) && rows[0].dataset.open === 'true' && rows.slice(1).every((r) => r.dataset.open === 'false') }, customers.groups))
   ok('an open group shows what they struggle with and what they said', await page.evaluate(() => { const r = document.querySelector('[data-testid^="customer-"][data-open="true"]'); return /What they struggle with/i.test(r.innerText) && /In their words/i.test(r.innerText) && r.querySelectorAll('blockquote').length >= 1 }))
+  // Rolled up by feature area: None is the default; Feature area puts what each group struggles with under area headings, and is in the address.
+  ok('Personas starts ungrouped', await page.evaluate(() => document.querySelector('[data-testid="group-none"]').getAttribute('aria-pressed') === 'true' && !document.querySelector('[data-testid^="persona-area-"]')))
+  await page.click('[data-testid="group-area"]')
+  await page.waitForSelector('[data-testid^="persona-area-"]', { timeout: 5000 })
+  ok('Feature area groups what a persona struggles with under area headings, and it is in the address', await page.evaluate(() => location.search.includes('group=area') && [...document.querySelectorAll('[data-testid^="persona-area-"]')].every((s) => s.querySelector('h5') && s.querySelector('[class*="theme"]'))))
+  await page.click('[data-testid="group-none"]')
+  await page.waitForFunction(() => !document.querySelector('[data-testid^="persona-area-"]'), { timeout: 5000 })
   await page.evaluate(() => document.querySelector('[data-testid^="customer-"][data-open="true"] button[class*="themeLink"]').click())
   await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 })
   ok('a theme in a persona opens that theme', true)
@@ -971,6 +987,12 @@ try {
   ok('each row has the name, a line on how it turned out, the chevron, and a Copy prompt button with a tooltip', await page.evaluate((all) => { const rows = [...document.querySelectorAll('[data-testid^="case-row-"]')]; return all.every((x, i) => { const head = rows[i].querySelector('h3'); const copy = [...rows[i].querySelectorAll('button')].find((b) => b.innerText.trim() === 'Copy prompt'); return head.innerText.includes(x.name) && head.innerText.includes(x.outcome) && !!head.querySelector('svg') && !!copy && /AI tool such as Claude Design/.test(copy.title) && !head.contains(copy) }) }, [...briefs.map((b) => ({ name: b.projectName, outcome: b.outcome })), ...cases.map((c) => ({ name: c.title, outcome: c.outcome }))]))
   ok('the first row opens with the problem, what people said, decided and designed, and What happened across the full width in a darker box', await page.evaluate(() => { const r = document.querySelector('[data-testid^="case-row-"][data-open="true"]'); const sec = (n) => r.querySelector(`section[aria-label="${n}"]`); const happened = sec('What happened'); const grid = sec('The problem').parentElement.getBoundingClientRect(); const h = happened.getBoundingClientRect(); const bg = (e) => getComputedStyle(e).backgroundColor; return ['The problem', 'What people said', 'What we decided', 'What we designed'].every((n) => !!sec(n)) && h.width >= grid.width - 2 && bg(happened) !== bg(r.querySelector('[id^="case-body-"]')) && r.querySelectorAll('blockquote').length >= 1 && !r.querySelector('button[class*="copy"]') }))
   ok('only projects where something worked are case studies, and What happened carries no Worked badge', await page.evaluate((n) => { const rows = [...document.querySelectorAll('[data-testid^="case-row-p-"]')]; const happened = document.querySelector('[data-testid^="case-row-p-"] section[aria-label="What happened"]'); return rows.length === n && n >= 1 && !!happened && !/worked/i.test(happened.innerText.replace(/Nothing/gi, '')) && !happened.querySelector('[class*="tag"]') }, briefs.length))
+  await page.click('[data-testid="group-area"]')
+  await page.waitForSelector('[data-testid="case-row-p-' + (await page.evaluate(() => document.querySelector('[data-testid^="case-row-"]').dataset.testid.replace('case-row-p-', ''))) + '"] section[aria-label$=" themes"]', { timeout: 5000 }).catch(() => {})
+  ok('on Case Studies, Feature area puts the themes of an open row under area headings, and it is in the address', await page.evaluate(() => location.search.includes('group=area') && !!document.querySelector('[data-testid^="case-row-"][data-open="true"] section[aria-label$=" themes"] h5')))
+  await page.click('[data-testid="group-none"]')
+  await page.waitForFunction(() => !location.search.includes('group=area') && !document.querySelector('section[aria-label$=" themes"] h5'), { timeout: 5000 })
+  await new Promise((r) => setTimeout(r, 400))
   await page.evaluate(() => { window.__copied = null; Object.defineProperty(navigator, 'clipboard', { value: { writeText: (t) => { window.__copied = t; return Promise.resolve() } }, configurable: true }) })
   await page.evaluate(() => [...document.querySelector('[data-testid^="case-row-"]').querySelectorAll('button')].find((b) => b.innerText.trim() === 'Copy prompt').click())
   await page.waitForFunction(() => window.__copied !== null, { timeout: 5000 })

@@ -217,3 +217,5 @@ Neon Free and Vercel Hobby stop at their limits instead of billing. When the dat
 ## Right panel
 
 A panel that slides in from the right edge and leaves the page visible keeps people in context. It is a design-system pattern (`signal-flow-right-panel` in the design-system-mcp registry, found with `search_patterns`): build it with `RightPanel`, a passive Carbon Modal laid out at the right edge. The linter rule `no-hand-rolled-side-panel` refuses a hand-positioned fixed element on that edge (vendor/design-rules, synced from the rules repo).
+
+- Personas and Case studies share the Group by control (`GroupBy.tsx`, `?group=area`): the themes inside each open row are grouped by feature area.

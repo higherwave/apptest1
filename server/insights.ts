@@ -92,7 +92,7 @@ export type CaseStudy = {
   /** First day of the month it happened, as written in the seed (YYYY-MM-DD). */
   date: string | null
   color: string
-  themes: { id: string; title: string }[]
+  themes: { id: string; title: string; area: { id: string; name: string } | null }[]
   /** A few of the words behind the themes it was based on (up to two, from different people). */
   quotes: { id: string; text: string; speaker: string; session: string }[]
   /** Themes it was based on that are still opportunities. */
@@ -402,8 +402,9 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
     getThemesOverview(db, workspaceId),
   ])
   const opportunity = new Set(overview.themes.filter((t) => t.opportunity).map((t) => t.id))
+  const areaOf = new Map(overview.themes.map((t) => [t.id, t.area]))
   return cases.rows.map((c) => {
-    const themes = links.rows.filter((l) => l.case_study_id === c.id).map((l) => ({ id: l.id as string, title: l.title as string }))
+    const themes = links.rows.filter((l) => l.case_study_id === c.id).map((l) => ({ id: l.id as string, title: l.title as string, area: areaOf.get(l.id as string) ?? null }))
     // Words about a problem first, then anything, from different people.
     const mine = said.rows.filter((r) => r.case_study_id === c.id)
     const quotes: CaseStudy['quotes'] = []

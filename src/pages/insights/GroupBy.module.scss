@@ -1,0 +1,20 @@
+@use '../../tokens' as tokens;
+
+.group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.label {
+  @include tokens.role('eyebrow');
+  color: var(--at-muted);
+}
+
+.areaLabel {
+  @include tokens.role('eyebrow');
+  margin: var(--at-space-sm) 0 0;
+  color: var(--at-muted);
+  font-weight: 400;
+}
