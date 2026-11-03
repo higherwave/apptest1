@@ -288,10 +288,10 @@
   border-radius: var(--at-radius-sm);
 }
 
-// -- Form fields: white, outlined on all sides, 4px corners ----------------
+// -- Form fields: white, outlined on all sides, same as the buttons -------
 // Carbon's fields are gray-filled with only a bottom border. Here the fill is solid white (so a field stays crisp on the
-// grey page behind it) and the same strong border (--cds-border-strong, the colour Carbon draws under its fields) runs
-// round the whole field, with 4px (0.25rem) corners.
+// grey page behind it) and the border and corners are the buttons' own: the light hairline all round, the strong border on
+// hover (as a button gets), and rounded.md corners. The focus ring is Carbon's, in ink, so a focused field is never subtle.
 .cds--text-input,
 .cds--text-area,
 .cds--select-input,
@@ -301,7 +301,7 @@
 .cds--list-box,
 .cds--list-box__field {
   background: var(--at-canvas);
-  border-radius: 0.25rem;
+  border-radius: var(--at-radius-md);
 }
 
 .cds--text-input,
@@ -309,12 +309,11 @@
 .cds--select-input,
 .cds--search-input,
 .cds--number input[type='number'],
-.cds--date-picker__input {
-  border: 1px solid var(--cds-border-strong);
-}
-
+.cds--date-picker__input,
 .cds--list-box {
-  border: 1px solid var(--cds-border-strong);
+  border: 1px solid var(--at-hairline);
+
+  &:hover:not(:focus):not(:disabled):not([readonly]) { border-color: var(--at-border-strong); }
 }
 
 // The list box paints its own bottom rule and fill; the outer box carries the outline now.
@@ -323,7 +322,7 @@
 }
 
 .cds--list-box__menu {
-  border-radius: 0 0 0.25rem 0.25rem;
+  border-radius: 0 0 var(--at-radius-md) var(--at-radius-md);
 }
 
 // Read-only and disabled fields stay quiet: a hairline, no emphasis.
