@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, InlineNotification, Loading, ProgressBar, Tag } from '@carbon/react'
+import { Button, InlineNotification, Loading, ProgressBar, Search, Tag } from '@carbon/react'
 import { useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
@@ -41,6 +41,20 @@ const FILTERS: { key: Filter; label: string; count: (o: InsightsThemes) => numbe
   { key: 'worked', label: 'Worked', count: (o) => o.summary.worked, keep: (t) => t.status === 'worked' },
 ]
 
+// One line on how a theme was filed: by the model (with how sure it was) or by hand, and across how many projects. The full list is under "How themes were matched".
+function matchLine(t: Row): string | null {
+  if (!t.matches.length) return null
+  const sure = t.matches.filter((m) => m.method === 'auto' && m.confidence !== null).map((m) => Math.round((m.confidence as number) * 100))
+  const hand = t.matches.some((m) => m.method === 'manual')
+  const ai = t.matches.some((m) => m.method === 'auto')
+  const parts = [
+    ai ? `Matched by AI${sure.length ? ` · ${Math.min(...sure) === Math.max(...sure) ? `${sure[0]}%` : `${Math.min(...sure)}–${Math.max(...sure)}%`} sure` : ''}` : null,
+    hand ? (ai ? 'some set by hand' : 'Set by hand') : null,
+    `in ${plural(t.projectCount, 'project')}`,
+  ].filter(Boolean)
+  return parts.join(' · ')
+}
+
 const NO_CURATION: Curation = { canEdit: false, busy: false, onRationale: () => {} }
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
@@ -52,7 +66,11 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   const [recId, setRecId] = useState<string | null>(null)
   const rec = overview?.recommendations.find((r) => r.id === recId) ?? null
   const byCount = overview ? overview.themes.filter(FILTERS.find((f) => f.key === filter)!.keep) : []
-  const narrowed = rec ? byCount.filter((t) => rec.themes.some((x) => x.id === t.id)) : byCount
+  const byRec = rec ? byCount.filter((t) => rec.themes.some((x) => x.id === t.id)) : byCount
+  // Search looks only at the theme's own words: its title, its summary and its other names (not quotes, project names or requirements).
+  const [query, setQuery] = useState('')
+  const needle = query.trim().toLowerCase()
+  const narrowed = needle ? byRec.filter((t) => [t.title, t.summary ?? '', ...t.aliases].some((text) => text.toLowerCase().includes(needle))) : byRec
   // Reach is the server's order; Suggested priority follows the rank (delights, which are not ranked, last).
   const [order, setOrder] = useState<'reach' | 'priority'>('reach')
   const shown = order === 'priority' ? [...narrowed].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)) : narrowed
@@ -76,7 +94,10 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                   <li key={t.id} className={styles.item} data-testid={`platform-theme-${t.id}`} data-open={open}>
                     <Button kind="ghost" size="md" className={styles.headButton} renderIcon={open ? ChevronUp : ChevronDown} aria-expanded={open} aria-controls={`theme-body-${t.id}`} onClick={() => onToggle(t.id)}>
                       <span className={styles.columns}>
-                        <span className={styles.rowTitle}>{t.title}</span>
+                        <span className={styles.rowHead}>
+                          <span className={styles.rowTitle}>{t.title}</span>
+                          {open && matchLine(t) && <span className={styles.matchLine}>{matchLine(t)}</span>}
+                        </span>
                         <span className={styles.chips}>
                           <CategoryBadge category={t.category} />
                           {t.needsReview && <Tag size="sm" type="warm-gray">New · review</Tag>}
@@ -191,15 +212,20 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
 
 
           <div className={styles.controls}>
-          <div className={styles.order} role="group" aria-label="Order the themes">
-            <span className={styles.label}>Order</span>
-            {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
-              <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
-                {label}
-              </Button>
-            ))}
-          </div>
-          {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
+            <div className={styles.search}>
+              <Search size="md" labelText="Search themes" placeholder="Search themes" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="theme-search" />
+            </div>
+            <div className={styles.toggles}>
+              <div className={styles.order} role="group" aria-label="Order the themes">
+                <span className={styles.label}>Order</span>
+                {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
+                  <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
+                    {label}
+                  </Button>
+                ))}
+              </div>
+              {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
+            </div>
           </div>
 
           {rec && (
@@ -213,6 +239,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
             </p>
           )}
 
+          {shown.length === 0 && <p className={styles.empty} role="status">No theme matches {needle ? `“${query.trim()}”` : 'that'}. Search looks at a theme’s title, summary and other names.</p>}
           <section className={styles.table} aria-labelledby="themes-heading">
             <div className={styles.columns} aria-hidden>
               <span className={styles.label}>Themes</span>

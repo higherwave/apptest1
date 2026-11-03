@@ -2,13 +2,13 @@
 
 // The project's steps as a horizontal strip under the app bar.
 .strip {
-  background: var(--at-surface-hover); // just a shade darker than the page, so the strip reads as its own band
+  background: var(--at-surface-slate); // a grayish-blue band, so the strip reads as its own area
   border-block-end: 1px solid var(--at-hairline);
 }
 
 .groups {
   display: flex;
-  padding: var(--at-space-sm) var(--at-space-lg) 0;
+  padding: var(--at-space-sm) var(--at-space-xl) 0 calc(var(--at-space-xl) - var(--at-space-xxs)); // the first label lines up with the page title below
   overflow-x: auto;
 }
 
@@ -63,7 +63,7 @@
   white-space: nowrap;
   @include tokens.role('body-md');
 
-  &:hover { background: var(--at-surface-strong); }
+  &:hover { background: var(--at-canvas); }
 
   &:focus-visible {
     outline: 0.125rem solid var(--at-ink);

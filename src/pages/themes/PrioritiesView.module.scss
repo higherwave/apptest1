@@ -95,7 +95,7 @@
 }
 
 .panelTitle {
-  @include tokens.role('title-md');
+  @include tokens.role('panel-title');
   margin: 0;
   color: var(--at-ink);
 }

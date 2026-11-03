@@ -19,7 +19,7 @@ should work here is in `CLAUDE.md`.
 | `openapi/openapi.yaml` | The API contract. Written first; tests check the routes against it |
 | `db/` | Migrations, demo seed and their tests (see `db/README.md`) |
 | `scripts/validate-pages.mjs` | Runs the design-system rules over `src/`, from the pinned copy in `vendor/design-rules/` (no other checkout needed) |
-| `brand/brand.json` | The app, company and contact names. The only place a company name is written: the React app imports it, and the static pages in `public/` have `{{appName}}`-style placeholders filled in by the dev server and the build |
+| `brand/brand.json` | The app, company and contact names, and `galleryUrl` (where the menu's Prototype gallery link opens, in another tab; leave it out and the link is not shown). The only place a company name is written: the React app imports it, and the static pages in `public/` have `{{appName}}`-style placeholders filled in by the dev server and the build |
 | `docs/` | `SETUP.md` (new environment), `RUNBOOK.md` (operating it) |
 | `vendor/design-rules/` | A pinned copy of the validator and component allowlist from the design-system-mcp repo, with `SOURCE.json` recording where it came from and a hash of each file. Never edit by hand |
 
@@ -219,3 +219,7 @@ Neon Free and Vercel Hobby stop at their limits instead of billing. When the dat
 A panel that slides in from the right edge and leaves the page visible keeps people in context. It is a design-system pattern (`signal-flow-right-panel` in the design-system-mcp registry, found with `search_patterns`): build it with `RightPanel`, a passive Carbon Modal laid out at the right edge. The linter rule `no-hand-rolled-side-panel` refuses a hand-positioned fixed element on that edge (vendor/design-rules, synced from the rules repo).
 
 - Personas and Case studies share the Group by control (`GroupBy.tsx`, `?group=area`): the themes inside each open row are grouped by feature area.
+
+## The shell
+
+A dark rail down the left (`src/shell/AppShell.tsx`: the app's name, then Platform Insights, Research Projects, Settings and the Prototype gallery, which opens `galleryUrl` from `brand/brand.json` in another tab), a slim bar across the top (the account and editing state), and inside a project a project-name bar and the step strip (`--at-surface-slate`, a grayish blue shared with the open recommendation box on Platform Themes). Their left edges line up with the page title below. On narrow screens the rail is replaced by a menu in the top bar. Panel headings use the `panel-title` type role everywhere (Themes, Priorities, Stories), section headings inside a panel use `eyebrow`, and body text `body-md`.

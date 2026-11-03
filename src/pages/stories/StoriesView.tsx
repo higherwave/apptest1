@@ -205,6 +205,8 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
     setRows(saved)
   }
   const focusRow = useRef<number | null>(null)
+  // A criterion reads as plain text; clicking it (editors only) opens it for editing until the box loses focus.
+  const [editing, setEditing] = useState<number | null>(null)
   const commit = (next: ChecklistInput[]) => {
     const kept = next.filter((r) => r.text.trim()).map((r) => ({ ...r, text: r.text.trim() }))
     if (JSON.stringify(kept) !== JSON.stringify(saved)) onChecklist(kept)
@@ -263,23 +265,48 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
       <ul className={styles.list}>
         {rows.map((r, i) => (
           <li key={r.id ?? `new-${i}`} className={styles.item}>
-            <TextArea
-              id={`criterion-${i}`}
-              labelText={`Criterion ${i + 1}`}
-              hideLabel
-              rows={2}
-              placeholder="Describe what must be true"
-              readOnly={!canEdit}
-              value={r.text}
-              ref={(el: HTMLTextAreaElement | null) => {
-                if (el && focusRow.current === i) {
-                  focusRow.current = null
-                  el.focus()
-                }
-              }}
-              onChange={(e) => edit(i, { text: e.target.value })}
-              onBlur={() => commit(rows)}
-            />
+            {canEdit && (editing === i || !r.text.trim()) ? (
+              <TextArea
+                id={`criterion-${i}`}
+                labelText={`Criterion ${i + 1}`}
+                hideLabel
+                rows={2}
+                placeholder="Describe what must be true"
+                value={r.text}
+                ref={(el: HTMLTextAreaElement | null) => {
+                  if (el && focusRow.current === i) {
+                    focusRow.current = null
+                    el.focus()
+                  }
+                }}
+                onChange={(e) => edit(i, { text: e.target.value })}
+                onBlur={() => {
+                  setEditing(null)
+                  // A blank row is never kept.
+                  const kept = rows.filter((x) => x.text.trim())
+                  if (kept.length !== rows.length) setRows(kept)
+                  commit(rows)
+                }}
+              />
+            ) : canEdit ? (
+              <Button
+                kind="ghost"
+                size="md"
+                className={styles.criterionText}
+                id={`criterion-${i}`}
+                title="Click to edit"
+                onClick={() => {
+                  focusRow.current = i
+                  setEditing(i)
+                }}
+              >
+                {r.text}
+              </Button>
+            ) : (
+              <p id={`criterion-${i}`} className={styles.criterionRead}>
+                {r.text}
+              </p>
+            )}
             {canEdit && (
               <Button
                 kind="ghost"
@@ -291,6 +318,7 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
                 disabled={busy}
                 onClick={() => {
                   const next = rows.filter((_, j) => j !== i)
+                  setEditing(null)
                   setRows(next)
                   commit(next)
                 }}
@@ -307,6 +335,7 @@ function Editable({ detail, canEdit, busy, onChecklist, onMove }: Pick<StoriesVi
           disabled={busy || rows.some((r) => !r.text.trim())}
           onClick={() => {
             focusRow.current = rows.length
+            setEditing(rows.length)
             setRows([...rows, { kind: 'criterion', text: '', met: false }])
           }}
         >

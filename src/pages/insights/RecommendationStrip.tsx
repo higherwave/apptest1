@@ -27,7 +27,15 @@ export function RecommendationStrip({ recs, selectedId, onSelect }: { recs: Rec[
     const cards = [...el.children] as HTMLElement[]
     const left = el.scrollLeft
     const right = left + el.clientWidth
-    const showing = cards.map((c, i) => ({ i, whole: c.offsetLeft >= left - 1 && c.offsetLeft + c.offsetWidth <= right + 1 })).filter((c) => c.whole)
+    // A card's place along the track, measured from the track itself (offsetLeft is from the nearest positioned ancestor, which is not the track).
+    const origin = el.getBoundingClientRect().left
+    const showing = cards
+      .map((c, i) => {
+        const box = c.getBoundingClientRect()
+        const start = box.left - origin + left
+        return { i, whole: start >= left - 1 && start + box.width <= right + 1 }
+      })
+      .filter((c) => c.whole)
     setView({
       first: showing.length ? showing[0].i + 1 : 1,
       last: showing.length ? showing[showing.length - 1].i + 1 : cards.length,

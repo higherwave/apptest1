@@ -23,7 +23,16 @@
   border-block-end: 1px solid var(--at-hairline);
 
   :global(.cds--btn__icon) { display: none; }
-  > span { display: flex; flex-direction: column; align-items: flex-start; text-align: start; }
+  justify-content: flex-start;
+}
+
+.choiceText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
+  text-align: start;
 }
 
 .name {

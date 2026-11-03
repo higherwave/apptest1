@@ -1,4 +1,4 @@
-import { ChevronDown } from '@carbon/icons-react'
+import { Analytics, ChevronDown, Folders, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -59,16 +59,18 @@ export function AppShell() {
   })
 
   const areas = [
-    { to: '/insights/themes', label: 'Platform Insights', active: insights },
-    { to: '/projects', label: 'Research Projects', active: !insights && !settings },
-    { to: '/settings/areas', label: 'Settings', active: settings },
+    { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
+    { to: '/projects', label: 'Research Projects', active: !insights && !settings, icon: Folders },
+    { to: '/settings/areas', label: 'Settings', active: settings, icon: SettingsIcon },
   ]
   const current = areas.find((a) => a.active) ?? areas[0]
+  // The prototype gallery lives elsewhere: it opens in its own tab. Its address is a brand setting; with none, the link is not shown.
+  const gallery = brand.galleryUrl as string | undefined
 
   return (
     <div className={styles.shell} ref={shell}>
       <SpendBanner onHeight={onBanner} />
-      <header className={styles.appbar}>
+      <aside className={styles.rail} aria-label="Main menu">
         <div className={styles.brand}>
           <Logo />
           <span className={styles.appName}>{brand.appName}</span>
@@ -77,11 +79,25 @@ export function AppShell() {
         <nav className={styles.areas} aria-label="Navigation" data-nav>
           {areas.map((a) => (
             <a key={a.to} href={a.to} data-label={a.label} aria-current={a.active ? 'page' : undefined} className={cx(styles.area, a.active && styles.areaActive)} onClick={go(a.to)}>
+              <a.icon size={20} aria-hidden />
               {a.label}
             </a>
           ))}
+          {gallery && (
+            <a href={gallery} data-label="Prototype gallery" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
+              <Launch size={20} aria-hidden />
+              Prototype gallery
+              <span className={styles.srOnly}> (opens in a new tab)</span>
+            </a>
+          )}
         </nav>
+      </aside>
 
+      <header className={styles.topbar}>
+        <div className={styles.narrowBrand}>
+          <Logo />
+          <span className={styles.appName}>{brand.appName}</span>
+        </div>
         <div className={styles.menu} data-menu>
           <Button kind="ghost" size="sm" className={styles.menuButton} renderIcon={ChevronDown} aria-haspopup="true" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
             {current.label}
@@ -93,10 +109,14 @@ export function AppShell() {
                   {a.label}
                 </a>
               ))}
+              {gallery && (
+                <a href={gallery} role="menuitem" target="_blank" rel="noopener noreferrer" className={styles.menuItem}>
+                  Prototype gallery
+                </a>
+              )}
             </div>
           )}
         </div>
-
         <div className={styles.access}>
           <AccessBar />
         </div>

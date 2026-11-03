@@ -42,7 +42,9 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
             <TextInput id={`task-${i}`} labelText={`Question to ask or task to observe ${i + 1}`} hideLabel readOnly={readOnly} value={task.prompt} onChange={(e) => setTask(i, { prompt: e.target.value })} />
             {!readOnly && <Button kind="ghost" size="md" hasIconOnly renderIcon={TrashCan} iconDescription={`Remove question or task ${i + 1}`} onClick={() => onChange(tasks.filter((_, j) => j !== i))} />}
           </div>
-          <AreaPicker id={`task-${i}-area`} label="Feature area" value={task.areaId} about={task.prompt} readOnly={readOnly} onChange={(areaId) => setTask(i, { areaId })} />
+          <div className={readOnly ? undefined : styles.underInput}>
+            <AreaPicker id={`task-${i}-area`} label="Feature area" value={task.areaId} about={task.prompt} readOnly={readOnly} onChange={(areaId) => setTask(i, { areaId })} />
+          </div>
           {task.followUps.map((followUp, j) => (
             <div key={j} className={styles.followUp}>
               <TextInput

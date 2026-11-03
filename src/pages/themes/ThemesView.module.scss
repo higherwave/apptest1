@@ -125,7 +125,7 @@
 // The name reads as a heading until it is used: no border at rest, a hairline on hover, the strong border when focused.
 .name {
   :global(.cds--text-area) {
-    @include tokens.role('display-sm');
+    @include tokens.role('panel-title');
     min-block-size: 0;
     padding-inline: var(--at-space-xs);
     border-color: transparent;

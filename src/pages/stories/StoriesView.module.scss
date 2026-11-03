@@ -280,7 +280,7 @@ $column-min: 0;
 }
 
 .summary {
-  @include tokens.role('label-md');
+  @include tokens.role('body-md');
   margin: 0;
   padding-block-end: var(--at-space-md);
   border-block-end: 1px solid var(--at-hairline);
@@ -301,13 +301,13 @@ $column-min: 0;
 }
 
 .factLabel {
-  @include tokens.role('label-md');
+  @include tokens.role('body-md');
   color: var(--at-muted);
   font-weight: 400;
 }
 
 .factValue {
-  @include tokens.role('label-md');
+  @include tokens.role('body-md');
   color: var(--at-ink);
 }
 
@@ -408,4 +408,29 @@ $column-min: 0;
 .jira {
   align-self: center;
   color: var(--at-link);
+}
+
+// An acceptance criterion at rest: plain text in the panel's body size. For editors it is a click target that opens the box.
+.criterionText {
+  flex: 1 1 auto;
+  inline-size: 100%;
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: var(--at-space-xs);
+  justify-content: flex-start;
+  text-align: start;
+  white-space: normal;
+  @include tokens.role('body-md');
+  color: var(--at-body);
+  font-weight: 400;
+  cursor: text;
+}
+
+.criterionRead {
+  @include tokens.role('body-md');
+  flex: 1 1 auto;
+  margin: 0;
+  padding: var(--at-space-xs);
+  color: var(--at-body);
 }

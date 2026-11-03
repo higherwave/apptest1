@@ -24,7 +24,7 @@ const clickText = async (t, tag = 'button') => {
 // Hidden dialogs keep their buttons in the page, so a dialog's own button is looked up inside the open one.
 const clickInOpenDialog = async (t) => page.evaluate((t) => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === t).click(), t)
 const retype = async (sel, value) => { await page.$eval(sel, (el) => el.select()); await page.keyboard.type(value) }
-const header = () => page.evaluate(() => [...document.querySelectorAll('header, [data-context]')].map((e) => e.innerText).join(' '))
+const header = () => page.evaluate(() => [...document.querySelectorAll('header, aside, [data-context]')].map((e) => e.innerText).join(' '))
 const cardNames = async () => page.evaluate(() => [...document.querySelectorAll('[data-status]')].map((c) => c.innerText.split('\n')[0]))
 
 try {
@@ -257,7 +257,7 @@ try {
   await page.waitForSelector('#task-3-area')
   ok('the chosen areas are saved with the questions', await page.evaluate(() => ['task-0-area', 'task-1-area', 'task-3-area'].every((id) => document.querySelector('#' + id).value === 'Scheduling') && document.querySelector('#task-2-area').value === ''))
   await page.goto(`${BASE}/settings/areas`, { waitUntil: 'networkidle0' })
-  ok('Settings is a top-level tab, open on this page, with a row of settings types below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Settings sections"] [data-label="Feature areas"]'); return nav.join('|') === 'Platform Insights|Research Projects|Settings' && cur === 'Settings' && row?.dataset.current === 'true' }))
+  ok('Settings is a top-level tab, open on this page, with a row of settings types below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Settings sections"] [data-label="Feature areas"]'); return nav.join('|') === 'Platform Insights|Research Projects|Settings|Prototype gallery (opens in a new tab)' && cur === 'Settings' && row?.dataset.current === 'true' }))
   ok('Feature areas is no longer one of the Platform Insights sections', await page.evaluate(() => !document.querySelector('nav[aria-label="Platform Insights sections"]')))
   await page.goto(`${BASE}/insights/areas`, { waitUntil: 'networkidle0' })
   ok('the old address lands on Settings', await page.evaluate(() => location.pathname === '/settings/areas'))
@@ -576,6 +576,16 @@ try {
   await page.keyboard.press('Tab') // leaving the field saves it
   await new Promise((r) => setTimeout(r, 800))
   ok('adding a criterion saves it', (await (await fetch(`${API}/api/v1/stories/${(await storyOf(thirdKey)).id}`)).json()).checklist.some((c) => c.text === 'Works with a screen reader'))
+  await page.waitForFunction(() => [...document.querySelectorAll('[id^="criterion-"]')].some((e) => e.tagName === 'BUTTON' && e.innerText.includes('Works with a screen reader')), { timeout: 5000 })
+  ok('a saved criterion reads as plain text, not a box', await page.evaluate(() => { const e = [...document.querySelectorAll('[id^="criterion-"]')].find((x) => x.innerText.includes('Works with a screen reader')); return !!e && e.tagName !== 'TEXTAREA' }))
+  const critId = await page.evaluate(() => [...document.querySelectorAll('[id^="criterion-"]')].find((x) => x.innerText.includes('Works with a screen reader')).id)
+  await page.$eval(`#${critId}`, (el) => el.scrollIntoView({ block: 'center' }))
+  await page.click(`#${critId}`)
+  await page.waitForFunction((id) => document.querySelector(`#${id}`)?.tagName === 'TEXTAREA' && document.activeElement?.id === id, { timeout: 4000 }, critId)
+  ok('clicking it opens it for editing', true)
+  await page.keyboard.press('Tab')
+  await page.waitForFunction((id) => document.querySelector(`#${id}`)?.tagName !== 'TEXTAREA', { timeout: 4000 }, critId)
+  ok('and leaving it puts it back to text', true)
   ok('the panel follows the selected card', await page.evaluate((k) => document.querySelector('aside[aria-label="Story details"] h2')?.innerText.startsWith(k), thirdKey))
   await page.type('#story-search', thirdKey)
   await new Promise((r) => setTimeout(r, 300))
@@ -895,6 +905,22 @@ try {
   ok('a theme in a persona opens that theme', true)
   // Group by Feature area: None is the default; grouping makes a section for each area, the themes with none last, and the choice is in the address.
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
+  ok('the menu is a dark bar down the left with Platform Insights, Research Projects, Settings and the Prototype gallery', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const b = r.getBoundingClientRect(); const bg = getComputedStyle(r).backgroundColor.match(/\d+/g).map(Number); return b.left === 0 && b.height >= innerHeight - 2 && b.width < 300 && bg.slice(0, 3).every((v) => v < 90) && [...r.querySelectorAll('a')].map((a) => a.dataset.label).join('|') === 'Platform Insights|Research Projects|Settings|Prototype gallery' }))
+  ok('the Prototype gallery opens in another tab, safely', await page.evaluate(() => { const a = document.querySelector('aside[aria-label="Main menu"] a[data-label="Prototype gallery"]'); return a.target === '_blank' && /noopener/.test(a.rel) && /^https:\/\/thehigherwave\.com\/?$/.test(a.href) }))
+  ok('the open theme says in one line how it was matched, under its title', await page.evaluate(() => { const open = document.querySelector('[data-testid^="platform-theme-"][data-open="true"]'); const line = open?.querySelector('[class*="matchLine"]'); return !!line && /Matched by AI|Set by hand/.test(line.innerText) && line.getBoundingClientRect().top > open.querySelector('[class*="rowTitle"]').getBoundingClientRect().top }))
+  ok('the recommendation box in an open theme is a grayish blue', await page.evaluate(() => { const b = document.querySelector('[data-testid^="recommendation-"]'); const c = getComputedStyle(b).backgroundColor.match(/\d+/g).map(Number); return c[2] > c[0] + 5 && c[2] > c[1] }))
+  const themeCount = await page.evaluate(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length)
+  const word = await page.evaluate(() => document.querySelector('[data-testid^="platform-theme-"] [class*="rowTitle"]').innerText.split(/\s+/).find((w) => w.length > 4))
+  await page.type('[data-testid="theme-search"], #search-themes, input[placeholder="Search themes"]', word)
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length < n, { timeout: 5000 }, themeCount)
+  ok('searching narrows the themes to those with the word in their own text', await page.evaluate((w) => [...document.querySelectorAll('[data-testid^="platform-theme-"] [class*="rowTitle"]')].length >= 1, word))
+  await page.type('input[placeholder="Search themes"]', ' zzzqqq')
+  await page.waitForFunction(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length === 0 && /No theme matches/.test(document.body.innerText), { timeout: 5000 })
+  ok('a search with no match says so', true)
+  await page.click('input[placeholder="Search themes"]', { clickCount: 3 })
+  await page.keyboard.press('Backspace')
+  await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, themeCount)
+  ok('clearing the search brings every theme back', true)
   ok('Group by starts on None', await page.evaluate(() => document.querySelector('[data-testid="group-none"]').getAttribute('aria-pressed') === 'true' && !document.querySelector('[data-testid^="area-group-"]')))
   await page.click('[data-testid="group-area"]')
   await page.waitForSelector('[data-testid^="area-group-"]', { timeout: 5000 })
@@ -904,7 +930,7 @@ try {
   ok('the grouping is in the address', await page.evaluate(() => location.search.includes('group=area')))
   await page.click(`[data-testid="area-head-${groups[0]}"]`)
   ok('a section can be collapsed', await page.evaluate((g) => document.querySelector(`[data-testid="area-head-${g}"]`).getAttribute('aria-expanded') === 'false' && document.querySelectorAll(`[data-testid="area-group-${g}"] [data-testid^="platform-theme-"]`).length === 0, groups[0]))
-  ok('Order is at the left of the table and Group by at the right, on one row', await page.evaluate(() => { const o = document.querySelector('[aria-label="Order the themes"]').getBoundingClientRect(); const g = document.querySelector('[aria-label="Group the themes"]').getBoundingClientRect(); return Math.abs(o.top - g.top) < 8 && o.left < g.left && g.right > innerWidth / 2 }))
+  ok('Search is at the left; Order and Group by sit together at the right on one row', await page.evaluate(() => { const q = document.querySelector('input[placeholder="Search themes"]').getBoundingClientRect(); const o = document.querySelector('[aria-label="Order the themes"]').getBoundingClientRect(); const g = document.querySelector('[aria-label="Group the themes"]').getBoundingClientRect(); return Math.abs(o.top - g.top) < 8 && o.left > q.right && g.left > o.left && g.right > innerWidth * 0.7 }))
   // A theme with no area is filed from a panel that slides in from the right and closes when an area is chosen. Clear the areas first so there is one to file.
   {
     const auth = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }

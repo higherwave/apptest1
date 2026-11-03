@@ -46,3 +46,8 @@
   margin: 0;
   color: var(--at-muted);
 }
+
+// Whatever sits under a question lines up with the question's box, not with the delete button beside it (a medium icon button and the gap).
+.underInput {
+  padding-inline-end: calc(3rem + var(--at-space-xs));
+}
