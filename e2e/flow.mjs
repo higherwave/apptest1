@@ -874,7 +874,7 @@ try {
     const bg = (el) => getComputedStyle(el).backgroundColor
     return detail.firstElementChild === b && r.width > d.width - 80 && r.bottom <= next.top + 1 && bg(b) !== 'rgba(0, 0, 0, 0)' && bg(b) !== bg(detail)
   }, second.id))
-  ok('How themes were matched lists each different match once', await page.evaluate((id) => { const lines = [...document.querySelectorAll(`#theme-body-${id} section[aria-label="How themes were matched"] li`)].map((l) => l.innerText); return new Set(lines).size === lines.length }, second.id))
+  ok('the open theme has no How themes were matched section; the match line carries a hover note with the details', await page.evaluate((id) => { const r = document.querySelector(`[data-testid="platform-theme-${id}"]`); return !/How themes were matched/i.test(r.innerText) && !!r.querySelector('[class*="matchLine"]')?.title }, second.id))
   ok('the recommendation names the recommendation(s) the theme belongs to', await page.evaluate((t, recs) => { const body = document.querySelector(`#theme-body-${t.id}`).innerText; return recs.filter((r) => r.themes.some((x) => x.id === t.id)).every((r) => body.includes(r.title)) }, second, insights.recommendations))
   ok('the choice is in the address, so it can be shared', await page.evaluate((id) => location.search === `?theme=${id}`, second.id))
   ok('a theme row shows what became of it and how its reach is moving', await page.evaluate((rows) => rows.every((t) => { const r = document.querySelector(`[data-testid="platform-theme-${t.id}"]`).innerText; const label = { not_addressed: 'Not addressed', in_progress: 'In progress', too_early: 'Too early to tell', worked: 'Worked', needs_attention: 'Needs attention' }[t.status]; return r.includes(label) && (!t.opportunity || r.includes('Opportunity')) }), insights.themes))
@@ -903,7 +903,6 @@ try {
     await page.evaluate((id) => { const r = document.querySelector(`[data-testid="platform-theme-${id}"]`); if (r.dataset.open !== 'true') r.querySelector('button').click() }, first)
     await page.waitForSelector(`[data-testid="priority-${first}"]`, { timeout: 5000 })
     ok('an open theme shows its suggested priority with a rank and score', await page.evaluate((id) => /Suggested priority/i.test(document.querySelector(`[data-testid="priority-${id}"]`).innerText) && /#1\b/.test(document.querySelector(`[data-testid="priority-${id}"]`).innerText), first))
-    ok('and how each project theme was matched', await page.evaluate((id) => /How themes were matched/i.test(document.querySelector(`[data-testid="platform-theme-${id}"]`).innerText), first))
     ok('an open theme has no Tidy this theme tools', await page.evaluate((id) => !document.querySelector(`[data-testid="tools-${id}"]`), first))
     await page.click('[data-testid="order-reach"]')
   }

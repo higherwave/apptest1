@@ -153,7 +153,7 @@ transaction opens. At the budget or credit ceiling the keyword matcher places wh
 Migration 0021. A platform theme can be **renamed** (`PATCH /insights/themes/{id}`) or **merged** into another
 (`POST /insights/themes/{id}/merge`: tags, recommendations and case studies move across, the old name becomes an *alias*, the merged
 theme is deleted, and the audit log records it). Aliases are shown to the matcher ("also called"). Every model match stores its one-line
-reason and confidence (`platform_theme_sources.reason`); the open theme shows them under "How themes were matched".
+reason and confidence (`platform_theme_sources.reason`); the open theme shows a one-line summary under its title (matched by AI, how sure, in how many projects), and hovering it lists each project theme filed there with the model's reason. The API's `matches` keeps the detail.
 
 **There is no duplicates panel and no "Tidy this theme" tool on the screen** (removed Nov 2). Instead, duplicates are handled on their own:
 after an analysis that started new platform themes, `autoMergeDuplicates` (`server/platform-themes.ts`; prompt `theme-dedupe-v2`,

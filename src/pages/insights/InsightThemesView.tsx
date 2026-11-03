@@ -7,7 +7,7 @@ import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
-import { MatchList, PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
+import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
 import { ORIGIN_LABEL, STATUS, teamConversations } from './labels'
 import styles from './InsightThemesView.module.scss'
 
@@ -55,6 +55,20 @@ function matchLine(t: Row): string | null {
   return parts.join(' · ')
 }
 
+// What the one-line summary leaves out, as a hover note: the project theme filed here and the model's reason, once for each different match.
+function matchDetail(t: Row): string {
+  const seen = new Set<string>()
+  const lines: string[] = []
+  for (const m of t.matches) {
+    const line = `${m.themeTitle}${m.method === 'manual' ? ' (set by hand)' : m.confidence !== null ? ` (${Math.round(m.confidence * 100)}%)` : ''}${m.reason ? `: ${m.reason}` : ''}`
+    if (!seen.has(line)) {
+      seen.add(line)
+      lines.push(line)
+    }
+  }
+  return lines.join('\n')
+}
+
 const NO_CURATION: Curation = { canEdit: false, busy: false, onRationale: () => {} }
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
@@ -96,7 +110,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                       <span className={styles.columns}>
                         <span className={styles.rowHead}>
                           <span className={styles.rowTitle}>{t.title}</span>
-                          {open && matchLine(t) && <span className={styles.matchLine}>{matchLine(t)}</span>}
+                          {open && matchLine(t) && <span className={styles.matchLine} title={matchDetail(t)}>{matchLine(t)}</span>}
                         </span>
                         <span className={styles.chips}>
                           <CategoryBadge category={t.category} />
@@ -183,7 +197,6 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           <h3 className={styles.label}>Theme summary</h3>
                           <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>
                         </section>
-                        <MatchList theme={t} />
                       </div>
                     )}
                   </li>
