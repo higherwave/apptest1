@@ -83,6 +83,8 @@ export function AreasPage() {
         title="Feature areas"
         description="What research is about, in one shared set of words. A question to ask or a task to observe names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement."
       />
+      <div className={styles.layout} data-split={(canAdd && (proposals.data?.length ?? 0) > 0)}>
+        <div className={styles.list}>
       {canAdd && (
         <div className={styles.add}>
           <div className={styles.addRow}>
@@ -113,32 +115,6 @@ export function AreasPage() {
           )}
           {heard.error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={heard.error} />}
         </div>
-      )}
-      {canAdd && (proposals.data?.length ?? 0) > 0 && (
-        <section className={styles.proposals} aria-label="Suggested areas" data-testid="area-proposals">
-          <h2 className={styles.retiredHead}>Suggested areas</h2>
-          <p className={styles.definition}>Themes with no area keep coming back around these words. Add one and its themes are filed under it for everyone.</p>
-          {proposals.data!.map((p) => (
-            <div key={p.key} className={styles.proposal} data-testid={`area-proposal-${p.name}`}>
-              <div>
-                <p className={styles.name}>{p.name}</p>
-                <p className={styles.definition}>
-                  {p.themes.length} themes · {p.participants} participants · {p.projects} {p.projects === 1 ? 'project' : 'projects'}
-                </p>
-                <p className={styles.definition}>{p.themes.slice(0, 4).map((t) => t.title).join(' · ')}{p.themes.length > 4 ? ` · and ${p.themes.length - 4} more` : ''}</p>
-              </div>
-              <div className={styles.proposalActions}>
-                <Button kind="primary" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => accept.mutate({ key: p.key })}>
-                  Add area
-                </Button>
-                <Button kind="ghost" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => dismiss.mutate(p.key)}>
-                  Not now
-                </Button>
-              </div>
-            </div>
-          ))}
-          {accept.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={friendlyMessage(accept.error)} />}
-        </section>
       )}
       {areas.isPending && <Loading small withOverlay={false} description="Loading the feature areas" />}
       {areas.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Could not load the areas" subtitle={friendlyMessage(areas.error)} />}
@@ -194,6 +170,35 @@ export function AreasPage() {
           </p>
         </section>
       )}
+
+        </div>
+      {canAdd && (proposals.data?.length ?? 0) > 0 && (
+        <section className={styles.proposals} aria-label="Suggested areas" data-testid="area-proposals">
+          <h2 className={styles.retiredHead}>Suggested areas</h2>
+          <p className={styles.definition}>Themes with no area keep coming back around these words. Add one and its themes are filed under it for everyone.</p>
+          {proposals.data!.map((p) => (
+            <div key={p.key} className={styles.proposal} data-testid={`area-proposal-${p.name}`}>
+              <div>
+                <p className={styles.name}>{p.name}</p>
+                <p className={styles.definition}>
+                  {p.themes.length} themes · {p.participants} participants · {p.projects} {p.projects === 1 ? 'project' : 'projects'}
+                </p>
+                <p className={styles.definition}>{p.themes.slice(0, 4).map((t) => t.title).join(' · ')}{p.themes.length > 4 ? ` · and ${p.themes.length - 4} more` : ''}</p>
+              </div>
+              <div className={styles.proposalActions}>
+                <Button kind="primary" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => accept.mutate({ key: p.key })}>
+                  Add area
+                </Button>
+                <Button kind="ghost" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => dismiss.mutate(p.key)}>
+                  Not now
+                </Button>
+              </div>
+            </div>
+          ))}
+          {accept.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={friendlyMessage(accept.error)} />}
+        </section>
+      )}
+      </div>
 
       <Modal
         open={action?.kind === 'edit'}
