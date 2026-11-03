@@ -130,3 +130,22 @@
   margin: 0;
   color: var(--at-muted);
 }
+
+// The body of a tab: a line on what belongs here, then the same add box and list on both.
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  padding-block-start: var(--at-space-lg);
+}
+
+.blurb {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// Carbon pads a tab panel; the page already spaces its sections.
+.tabPanel {
+  padding: 0;
+}

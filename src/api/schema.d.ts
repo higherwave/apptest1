@@ -1904,6 +1904,11 @@ export interface components {
                 name: string;
                 /** @enum {string|null} */
                 platform: "zoom" | "meet" | "teams" | null;
+                /**
+                 * @description A session with a customer
+                 * @enum {string}
+                 */
+                source: "customer" | "team";
                 rawText: string;
                 lineCount: number;
                 speakers: {
@@ -1925,6 +1930,11 @@ export interface components {
                 name: string;
                 /** @enum {string|null} */
                 platform?: "zoom" | "meet" | "teams" | null;
+                /**
+                 * @description Defaults to customer.
+                 * @enum {string|null}
+                 */
+                source?: "customer" | "team" | null;
                 rawText: string;
             }[];
         };

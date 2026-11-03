@@ -66,6 +66,7 @@ export const saveTranscriptsSchema = z.object({
         id: z.uuid().nullish().transform((v) => v ?? null),
         name: text(200).min(1, 'Enter a name.'),
         platform: z.enum(PLATFORMS).nullish().transform((v) => v ?? null),
+        source: z.enum(['customer', 'team']).nullish().transform((v) => v ?? 'customer'),
         rawText: z.string().min(1, 'Paste or upload the transcript text.').max(500_000, 'This transcript is too long (500,000 characters at most).'),
       }),
     )

@@ -2444,11 +2444,12 @@ components:
           type: array
           items:
             type: object
-            required: [id, name, platform, rawText, lineCount, speakers]
+            required: [id, name, platform, source, rawText, lineCount, speakers]
             properties:
               id: { type: string }
               name: { type: string }
               platform: { type: [string, 'null'], enum: [zoom, meet, teams] }
+              source: { type: string, enum: [customer, team], description: A session with a customer, or a conversation with the team (CSMs, Support, Sales). Both feed the same themes; team input is confirmation and never counts toward customer reach. }
               rawText: { type: string }
               lineCount: { type: integer }
               speakers:
@@ -2476,6 +2477,7 @@ components:
               id: { type: [string, 'null'] }
               name: { type: string }
               platform: { type: [string, 'null'], enum: [zoom, meet, teams] }
+              source: { type: [string, 'null'], enum: [customer, team], description: Defaults to customer. }
               rawText: { type: string }
     AnalysisRunResult:
       type: object

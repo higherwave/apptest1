@@ -28,7 +28,7 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
   const project = (await db.query(`select version from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])).rows[0]
   if (!project) throw new ProjectNotFound()
   if (project.version !== expected) throw new VersionConflict(project.version as number)
-  const transcripts = (await db.query(`select id, name, raw_text, content_hash from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
+  const transcripts = (await db.query(`select id, name, raw_text, content_hash, source from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
   if (!transcripts.length) throw new NoTranscripts()
   const participants = (await db.query(`select name from research.participants where project_id = $1 order by position`, [projectId])).rows as { name: string }[]
 
@@ -38,7 +38,7 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
     await db.query(
       `insert into core.agent_runs (id, workspace_id, project_id, kind, status, input_hash, provider, prompt_version, created_by, updated_by)
        values ($1, $2, $3, 'analysis', 'running', $4, $5, $6, $7, $7)`,
-      [runId, ctx.workspaceId, projectId, transcriptsKey(transcripts as { name: string; content_hash: string }[]), ai.provider.name, ai.provider.live ? ANALYSIS_PROMPT_VERSION : 'keyword-v1', ctx.userId],
+      [runId, ctx.workspaceId, projectId, transcriptsKey(transcripts as { name: string; content_hash: string; source?: string }[]), ai.provider.name, ai.provider.live ? ANALYSIS_PROMPT_VERSION : 'keyword-v1', ctx.userId],
     )
   } catch (err) {
     if ((err as { code?: string }).code === '23505') throw new ApiError(409, 'run_in_progress', 'An analysis is already running for this project.')

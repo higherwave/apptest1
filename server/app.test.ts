@@ -643,6 +643,26 @@ test('a new project has no transcripts and needs no analysis', async () => {
   assert.deepEqual([body.transcripts.length, body.hasAnalysis, body.needsAnalysis, body.analyzedAt], [0, false, false, null])
 })
 
+test('a transcript is a customer session unless it says team; the source is saved, listed, and changing it makes the analysis out of date', async () => {
+  const { app, id, putTranscripts, samples, analyze } = await newStudy()
+  assert.equal((await putTranscripts(samples)).status, 200)
+  const first = await (await app.request(`/api/v1/projects/${id}/transcripts`)).json()
+  assert.deepEqual(first.transcripts.map((t: any) => t.source), ['customer', 'customer', 'customer'], 'no source given: customer')
+  assert.equal((await analyze()).status, 201)
+  assert.equal((await (await app.request(`/api/v1/projects/${id}/transcripts`)).json()).needsAnalysis, false)
+  // The first one becomes a team conversation: the analysis read it as a customer session, so it is out of date.
+  const withTeam = first.transcripts.map((t: any, i: number) => ({ id: t.id, name: t.name, platform: t.platform, rawText: t.rawText, ...(i === 0 ? { source: 'team' } : {}) }))
+  const res = await putTranscripts(withTeam)
+  assert.equal(res.status, 200)
+  const body = await expectSpec(res, '/projects/{id}/transcripts', 'put')
+  assert.deepEqual(body.transcripts.map((t: any) => t.source), ['team', 'customer', 'customer'])
+  assert.equal(body.needsAnalysis, true)
+  assert.equal((await putTranscripts(withTeam.map((t: any) => ({ ...t, source: 'neither' })))).status, 422, 'only customer or team')
+  // Putting it back makes the old analysis current again: customer transcripts keep the key they always had.
+  const back = await putTranscripts(withTeam.map((t: any) => ({ ...t, source: 'customer' })))
+  assert.equal((await back.json()).needsAnalysis, false)
+})
+
 test('PUT transcripts splits each into speakers and lines, matches participants by name, and keeps the order', async () => {
   const { app, id, putTranscripts, samples } = await newStudy()
   const res = await putTranscripts(samples)

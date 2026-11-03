@@ -1,11 +1,11 @@
 import { Close } from '@carbon/icons-react'
-import { Button, Dropdown, FileUploaderDropContainer, InlineNotification, Loading, TextArea, TextInput } from '@carbon/react'
+import { Button, Dropdown, FileUploaderDropContainer, InlineNotification, Loading, Tab, TabList, TabPanel, TabPanels, Tabs, TextArea, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import type { ProjectDetail, TranscriptList } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { SaveAlerts, type SaveBarProps } from '../project/SaveBar'
 import { AnalysisProgress } from './AnalysisProgress'
-import type { Platform, TranscriptErrors, TranscriptItem } from './form'
+import type { Platform, Source, TranscriptErrors, TranscriptItem } from './form'
 import { ACCEPTED_FILES, PLATFORM_DROP, PLATFORM_FILES, PLATFORM_LABEL, PLATFORM_SHORT } from './platformHelp'
 import styles from './TranscriptsView.module.scss'
 
@@ -21,11 +21,15 @@ export type TranscriptsViewProps = {
   save: SaveBarProps
   progress: { open: boolean; steps: string[]; current: number }
   onChange: (items: TranscriptItem[]) => void
-  onAddFiles: (files: File[], platform: Platform) => void
-  onAddSample: (platform: Platform) => void
+  onAddFiles: (files: File[], platform: Platform, source: Source) => void
+  onAddSample: (platform: Platform, source: Source) => void
 }
 
 const PLATFORMS = ['zoom', 'meet', 'teams'] as const
+const SOURCES: { key: Source; label: string; blurb: string }[] = [
+  { key: 'customer', label: 'Customer feedback', blurb: 'Sessions with customers: interviews, usability tests, surveys. This is what themes, reach and priority are built on.' },
+  { key: 'team', label: 'Team feedback', blurb: 'Conversations with your own team: CSMs, Support, Sales and others. They are analyzed with the customer sessions and add confirmation that others hear the same things; they never count toward customer reach.' },
+]
 const plural = (n: number, one: string) => `${n} ${one}${n === 1 ? '' : 's'}`
 
 const PLATFORM_ITEMS: { key: Platform | null; label: string }[] = [{ key: null, label: 'Not specified' }, ...(['zoom', 'meet', 'teams'] as const).map((key) => ({ key, label: PLATFORM_LABEL[key] }))]
@@ -34,6 +38,7 @@ const PLATFORM_ITEMS: { key: Platform | null; label: string }[] = [{ key: null, 
 export function TranscriptsView({ state, project, items, saved, errors, errorText, notice, save, progress, onChange, onAddFiles, onAddSample }: TranscriptsViewProps) {
   const [tool, setTool] = useState<Platform>('zoom')
   const [open, setOpen] = useState<Set<string>>(new Set())
+  const [source, setSource] = useState<Source>('customer') // Customer feedback is the default tab
 
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading transcripts" />
   if (state === 'error' || !project) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Transcripts" subtitle={errorText} />
@@ -41,14 +46,30 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
   const readOnly = !save.canEdit
   const patch = (i: number, change: Partial<TranscriptItem>) => onChange(items.map((t, j) => (j === i ? { ...t, ...change } : t)))
   const toggle = (key: string) => setOpen((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n })
-  const methods = project.study.methods.join(', ') || 'Research study'
+  const customerCount = items.filter((t) => t.source === 'customer').length
+  const teamCount = items.length - customerCount
+  const here = SOURCES.find((x) => x.key === source)!
 
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Transcripts" description={`${methods} · ${plural(project.participants.length, 'participant')} · ${plural(items.length, 'transcript')}`} save={save} />
+      <ProjectHeader title="Transcripts" description={`Customer sessions and team conversations, analyzed together · ${plural(project.participants.length, 'participant')} · ${customerCount} customer, ${teamCount} team`} save={save} />
       <SaveAlerts {...save} />
       {notice && <InlineNotification kind="info" lowContrast hideCloseButton title="Analysis" subtitle={notice} />}
 
+      <Tabs selectedIndex={SOURCES.findIndex((x) => x.key === source)} onChange={({ selectedIndex }) => setSource(SOURCES[selectedIndex].key)}>
+        <TabList aria-label="Where the feedback came from">
+          {SOURCES.map((x) => (
+            <Tab key={x.key} data-testid={`source-${x.key}`}>
+              {x.label} · {x.key === 'team' ? teamCount : customerCount}
+            </Tab>
+          ))}
+        </TabList>
+        <TabPanels>
+          {SOURCES.map((x) => (
+            <TabPanel key={x.key} className={styles.tabPanel}>
+              {source === x.key && (
+                <div className={styles.panel}>
+                  <p className={styles.blurb}>{here.blurb}</p>
       {!readOnly && (
         <section className={styles.add} aria-label="Add a transcript">
           <InlineNotification
@@ -76,13 +97,13 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
                   <span className={styles.dropTypes}>{PLATFORM_LABEL[tool]} usually exports {PLATFORM_FILES[tool].join(' or ')}. Also accepts {ACCEPTED_FILES.filter((f) => !PLATFORM_FILES[tool].includes(f)).join(', ')}.</span>
                 </span>
               ) as unknown as string}
-              onAddFiles={(_, { addedFiles }) => onAddFiles(addedFiles, tool)}
+              onAddFiles={(_, { addedFiles }) => onAddFiles(addedFiles, tool, source)}
             />
           </div>
           <div className={styles.samples}>
             <span className={styles.samplesLabel}>No file handy?</span>
             {PLATFORMS.map((p) => (
-              <Button key={p} kind="tertiary" size="md" onClick={() => onAddSample(p)}>
+              <Button key={p} kind="tertiary" size="md" onClick={() => onAddSample(p, source)}>
                 {PLATFORM_SHORT[p]} sample
               </Button>
             ))}
@@ -91,8 +112,9 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
       )}
 
       <section className={styles.list} aria-label="Transcripts">
-        {items.length === 0 && <p className={styles.empty}>No transcripts yet. Add one above to analyze this project.</p>}
+        {!items.some((t) => t.source === source) && <p className={styles.empty}>No {source === 'team' ? 'team' : 'customer'} transcripts yet.{readOnly ? '' : ' Add one above.'}</p>}
         {items.map((t, i) => {
+          if (t.source !== source) return null
           const info = saved?.transcripts.find((s) => s.id === t.id)
           const people = info ? info.speakers.filter((s) => s.role !== 'moderator').length : 0
           return (
@@ -101,7 +123,7 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
                 {t.platform && <span className={styles.tool} data-tool={t.platform}>{PLATFORM_SHORT[t.platform]}</span>}
                 <span className={styles.name}>{t.name}</span>
                 <span className={styles.meta}>
-                  {info ? `${info.lineCount} lines · ${plural(people, 'participant')}` : 'Not saved yet'}
+                  {info ? `${info.lineCount} lines · ${source === 'team' ? plural(people, 'speaker') : plural(people, 'participant')}` : 'Not saved yet'}
                 </span>
                 <Button kind="ghost" size="sm" onClick={() => toggle(t.key)}>
                   {open.has(t.key) ? 'Hide text' : readOnly ? 'View text' : 'Edit text'}
@@ -131,6 +153,13 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
           )
         })}
       </section>
+
+                </div>
+              )}
+            </TabPanel>
+          ))}
+        </TabPanels>
+      </Tabs>
 
       <AnalysisProgress open={progress.open} steps={progress.steps} current={progress.current} />
     </div>

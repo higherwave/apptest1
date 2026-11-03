@@ -10,6 +10,8 @@ export type TranscriptRow = {
   id: string
   name: string
   platform: 'zoom' | 'meet' | 'teams' | null
+  /** A session with a customer, or a conversation with the team. */
+  source: 'customer' | 'team'
   rawText: string
   lineCount: number
   speakers: { name: string; role: 'participant' | 'moderator'; participant: string | null }[]
@@ -17,8 +19,9 @@ export type TranscriptRow = {
 export type TranscriptList = { transcripts: TranscriptRow[]; hasAnalysis: boolean; needsAnalysis: boolean; analyzedAt: string | null }
 
 // The analysis is identified by the transcripts it read: their names and content hashes, in order.
-export const transcriptsKey = (rows: { name: string; content_hash: string }[]) =>
-  createHash('sha256').update(rows.map((r) => `${r.name}:${r.content_hash}`).join('|')).digest('hex')
+// A team transcript adds a marker, so changing the source makes the analysis out of date while analyses of customer transcripts keep their key.
+export const transcriptsKey = (rows: { name: string; content_hash: string; source?: string }[]) =>
+  createHash('sha256').update(rows.map((r) => `${r.name}:${r.content_hash}${r.source === 'team' ? ':team' : ''}`).join('|')).digest('hex')
 
 export async function currentAnalysisRun(db: Queryable, projectId: string) {
   return (
@@ -32,7 +35,7 @@ export async function currentAnalysisRun(db: Queryable, projectId: string) {
 }
 
 export async function listTranscripts(db: Queryable, projectId: string): Promise<TranscriptList> {
-  const rows = (await db.query(`select id, name, platform, raw_text, content_hash from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
+  const rows = (await db.query(`select id, name, platform, source, raw_text, content_hash from research.transcripts where project_id = $1 order by position, name`, [projectId])).rows
   const speakers = (
     await db.query(
       `select s.transcript_id, s.name, s.role, p.name as participant,
@@ -51,12 +54,13 @@ export async function listTranscripts(db: Queryable, projectId: string): Promise
       id: r.id,
       name: r.name,
       platform: r.platform ?? null,
+      source: r.source ?? 'customer',
       rawText: r.raw_text,
       lineCount: lines.find((l) => l.transcript_id === r.id)?.n ?? 0,
       speakers: speakers.filter((s) => s.transcript_id === r.id).map((s) => ({ name: s.name, role: s.role, participant: s.participant ?? null })),
     })),
     hasAnalysis: !!run,
-    needsAnalysis: rows.length > 0 && (!run || run.input_hash !== transcriptsKey(rows as { name: string; content_hash: string }[])),
+    needsAnalysis: rows.length > 0 && (!run || run.input_hash !== transcriptsKey(rows as { name: string; content_hash: string; source?: string }[])),
     analyzedAt: run?.finished_at ? new Date(run.finished_at).toISOString() : null,
   }
 }
@@ -93,7 +97,7 @@ export class UnknownTranscript extends Error {}
 export async function saveTranscripts(db: Db, ctx: Actor, projectId: string, expected: number, input: SaveTranscriptsInput): Promise<void> {
   await db.transaction(async (tx) => {
     await claimVersion(tx, ctx, projectId, expected)
-    const existing = new Map((await tx.query(`select id, name, platform, content_hash from research.transcripts where project_id = $1`, [projectId])).rows.map((r) => [r.id as string, r]))
+    const existing = new Map((await tx.query(`select id, name, platform, source, content_hash from research.transcripts where project_id = $1`, [projectId])).rows.map((r) => [r.id as string, r]))
     const participants = (await tx.query(`select id, name from research.participants where project_id = $1`, [projectId])).rows as { id: string; name: string }[]
     const keep = new Set<string>()
 
@@ -104,7 +108,7 @@ export async function saveTranscripts(db: Db, ctx: Actor, projectId: string, exp
         if (!row) throw new UnknownTranscript(t.id)
         keep.add(t.id)
         const changed = row.content_hash !== hash
-        await tx.query(`update research.transcripts set name = $2, platform = $3, position = $4, content_hash = $5, raw_text = $6, updated_by = $7 where id = $1`, [t.id, t.name, t.platform, position, hash, t.rawText, ctx.userId])
+        await tx.query(`update research.transcripts set name = $2, platform = $3, position = $4, content_hash = $5, raw_text = $6, updated_by = $7, source = $8 where id = $1`, [t.id, t.name, t.platform, position, hash, t.rawText, ctx.userId, t.source])
         if (changed) {
           await tx.query(`delete from research.transcript_speakers where transcript_id = $1`, [t.id]) // cascades to its lines
           if ((await writeParsed(tx, ctx, projectId, t.id, t.rawText, participants)) === 0) throw noSpeakerLines(position)
@@ -112,8 +116,8 @@ export async function saveTranscripts(db: Db, ctx: Actor, projectId: string, exp
       } else {
         const id = (
           await tx.query(
-            `insert into research.transcripts (workspace_id, project_id, position, name, platform, raw_text, content_hash, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $8) returning id`,
-            [ctx.workspaceId, projectId, position, t.name, t.platform, t.rawText, hash, ctx.userId],
+            `insert into research.transcripts (workspace_id, project_id, position, name, platform, raw_text, content_hash, created_by, updated_by, source) values ($1, $2, $3, $4, $5, $6, $7, $8, $8, $9) returning id`,
+            [ctx.workspaceId, projectId, position, t.name, t.platform, t.rawText, hash, ctx.userId, t.source],
           )
         ).rows[0].id as string
         if ((await writeParsed(tx, ctx, projectId, id, t.rawText, participants)) === 0) throw noSpeakerLines(position)

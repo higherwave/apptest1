@@ -125,11 +125,11 @@ export function TranscriptsPage() {
         },
       }}
       onChange={setItems}
-      onAddFiles={async (files, platform) => {
-        const added = await Promise.all(files.map(async (f) => fileToItem(f.name, await f.text(), platform)))
+      onAddFiles={async (files, platform, source) => {
+        const added = await Promise.all(files.map(async (f) => fileToItem(f.name, await f.text(), platform, source)))
         setItems((cur) => [...(cur ?? []), ...added])
       }}
-      onAddSample={(platform) => setItems((cur) => [...(cur ?? []), fileToItem(SAMPLE_TRANSCRIPTS[platform].name, SAMPLE_TRANSCRIPTS[platform].text, platform)])}
+      onAddSample={(platform, source) => setItems((cur) => [...(cur ?? []), fileToItem(SAMPLE_TRANSCRIPTS[platform].name, SAMPLE_TRANSCRIPTS[platform].text, platform, source)])}
     />
   )
 }
