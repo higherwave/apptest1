@@ -1,5 +1,5 @@
 // Run with: npm run test:api   (tsx + Node's test runner; uses an in-memory Postgres, no Neon compute)
-import { distinctRequirements } from './insights.js'
+import { distinctRequirements, priorityScore } from './insights.js'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -691,6 +691,12 @@ test('team conversations are confirmation: themes say where they were heard, and
   const overview = await (await app.request('/api/v1/insights/themes')).json()
   assert.ok(overview.themes.every((t: any) => ['customer', 'team', 'both'].includes(t.origin) && Number.isInteger(t.teamSessions)))
   assert.ok(overview.themes.some((t: any) => t.origin !== 'customer' && t.teamSessions >= 1), 'a platform theme says it was also heard from the team')
+  assert.ok(overview.themes.filter((t: any) => t.origin === 'team').every((t: any) => t.priority === null), 'a theme only the team raised is never ranked')
+  const weights = { participantCount: 6, projectCount: 2, status: 'not_addressed' as const, opportunity: false }
+  const plain = priorityScore(weights, 12, 3)
+  assert.ok(priorityScore({ ...weights, teamSessions: 1 }, 12, 3) > plain, 'a team conversation adds some weight')
+  assert.ok(priorityScore({ ...weights, teamSessions: 9 }, 12, 3) <= Math.ceil(plain * 1.1) + 1)
+  assert.equal(priorityScore({ ...weights, participantCount: 0, projectCount: 0, teamSessions: 5 }, 12, 3), 0, 'no customer reach, no score, whatever the team said')
 })
 
 test('PUT transcripts splits each into speakers and lines, matches participants by name, and keeps the order', async () => {

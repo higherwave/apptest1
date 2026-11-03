@@ -166,7 +166,7 @@ owners and editors) brings the theme back under its old id with everything as it
 and a merge whose target theme has since been merged away or deleted leaves the list with it.
 
 The overview ranks problems and needs (`priority.rank`, `priority.score`: 60% share of participants plus 40% share of projects, times
-0.1 for worked up to 1.1 for needs attention, times 1.15 for an opportunity; delights are not ranked). The **Suggested priority** order
+0.1 for worked up to 1.1 for needs attention, times 1.15 for an opportunity, and up to 10% more when the team heard it too: 5% for each team conversation it came up in, so confirmation adds some weight but never makes a theme rank; delights are not ranked, and a theme only the team raised is never ranked). The **Suggested priority** order
 sorts by it. `server/ai-rationale.ts` (prompt `rank-rationale-v1`) writes one or two sentences for each of the top eight
 (`POST /insights/roadmap/rationale`); every "N of M participants/projects" it writes must be a figure it was given, and without a model a
 plain template from the same figures is used.
@@ -232,4 +232,5 @@ Transcripts have a source (migration 0030 `research.transcripts.source`: `custom
 
 - **Reach and priority are customers only** (migration 0031 replaces the view `research.theme_stats`): `participantCount`, `totalParticipants` and `mentionCount` count customer transcripts; `team_mention_count` and `team_session_count` count the team's. The platform overview, personas, case-study quotes and case briefs follow (a team speaker is never a persona or a case-study quote).
 - **Origin is derived, never hand-tagged** (`server/origin.ts`): a theme is `customer`, `team` or `both` from the transcripts behind its quotes, with `teamSessions`. Every Platform Themes row shows it as a quiet outline tag (Customers, Team, Customers + Team); the open row says "Also discussed in N team conversations, which confirms it but does not count toward reach", or for a team-only theme that it does not count yet. Project Themes cards and quotes carry it too (a team quote says "Team conversation").
+- **Internal feedback never stands alone** (David, Nov 3): a theme with no customer reach is not ranked and is never an opportunity; team conversations only add nuance and a small bounded weight (`TEAM_WEIGHT_EACH` 5%, `TEAM_WEIGHT_CAP` 10% in `server/insights.ts`) to a theme customers raised.
 - **The analysis is told** (prompt `analysis-v3`): each transcript is labeled `(team conversation)` when it is one, and a rule says team input is second-hand, may confirm and show behaviors and usage patterns, and is never an opinion-only basis for a theme. `public/privacy.html` says each transcript is labeled. A team transcript adds `:team` to the analysis key, so changing a source makes the analysis out of date while existing analyses keep their key.

@@ -291,8 +291,9 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
   })
   // Suggested roadmap order: how widely it was raised (people and projects), weighed by what became of it. Delights are not ranked.
   const totalPeople = projects.reduce((n, p) => n + p.participants, 0)
+  // A theme only the team has raised is never ranked: internal feedback confirms what customers say, it does not stand alone.
   const scored = themes
-    .filter((t) => t.category !== 'delight')
+    .filter((t) => t.category !== 'delight' && t.origin !== 'team')
     .map((t) => ({ t, score: priorityScore(t, totalPeople, projects.length) }))
     .sort((a, b) => b.score - a.score || b.t.participantCount - a.t.participantCount || a.t.title.localeCompare(b.t.title))
   scored.forEach((x, i) => (x.t.priority = { rank: i + 1, score: x.score }))
@@ -319,11 +320,15 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
 }
 
 const STATUS_WEIGHT: Record<ThemeStatus, number> = { not_addressed: 1, needs_attention: 1.1, in_progress: 0.5, too_early: 0.4, worked: 0.1 }
-/** 0 to about 130: reach (60% people, 40% projects) times what became of it, with a bump for opportunities. */
-export function priorityScore(t: Pick<PlatformThemeRow, 'participantCount' | 'projectCount' | 'status' | 'opportunity'>, totalPeople: number, totalProjects: number): number {
+/** Each team conversation that raised a customer theme adds this much weight, up to the cap: confirmation, never the reason a theme ranks. */
+export const TEAM_WEIGHT_EACH = 0.05
+export const TEAM_WEIGHT_CAP = 0.1
+
+/** 0 to about 145: reach (60% people, 40% projects) times what became of it, with a bump for opportunities and a small one (at most 10%) when the team heard it too. */
+export function priorityScore(t: Pick<PlatformThemeRow, 'participantCount' | 'projectCount' | 'status' | 'opportunity'> & { teamSessions?: number }, totalPeople: number, totalProjects: number): number {
   const people = totalPeople ? Math.min(1, t.participantCount / totalPeople) : 0
   const projects = totalProjects ? Math.min(1, t.projectCount / totalProjects) : 0
-  return Math.round(100 * (0.6 * people + 0.4 * projects) * STATUS_WEIGHT[t.status] * (t.opportunity ? 1.15 : 1))
+  return Math.round(100 * (0.6 * people + 0.4 * projects) * STATUS_WEIGHT[t.status] * (t.opportunity ? 1.15 : 1) * (1 + Math.min(TEAM_WEIGHT_CAP, TEAM_WEIGHT_EACH * (t.teamSessions ?? 0))))
 }
 
 const MAX_QUOTES = 5
