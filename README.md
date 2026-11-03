@@ -197,7 +197,10 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
   group of at least two themes raised by at least three people that no live area covers (name, other names) becomes a "Suggested areas" card on the Feature areas page. **Add area**
   creates it and files those themes under it (`POST /areas/proposals/accept`); **Not now** (`/dismiss`) hides it for good, and a dismissed word keeps its themes so
   their other words do not come back as new suggestions. Words only, no model call, so nothing new is sent to a provider.
-- **Not built yet** (see the Build Plan): rollups grouped by area.
+- **Rollups group by area** (Platform Themes): a **Group by** control (None, the default, or Feature area; `?group=area` in the address) divides the table into a section
+  for each area, ordered by the current Order, with **Unassigned** last; sections collapse. A platform theme's area is the most common area among its project themes
+  (`area` on `GET /insights/themes`). The table never rearranges areas: only a theme with no area gets a Feature area picker in its open row
+  (`PUT /insights/themes/{id}/area`, 409 `already_assigned` otherwise), which files it and its project themes. Areas come from the analysis and matching.
 
 ## Spend alerts
 

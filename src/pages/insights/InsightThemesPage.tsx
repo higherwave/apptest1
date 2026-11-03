@@ -30,6 +30,13 @@ export function InsightThemesPage() {
       state={state}
       overview={overview.data}
       openId={openId}
+      groupBy={params.get('group') === 'area' ? 'area' : 'none'}
+      onGroupBy={(g) => {
+        const next = new URLSearchParams(params)
+        if (g === 'area') next.set('group', 'area')
+        else next.delete('group')
+        setParams(next, { replace: true })
+      }}
       errorText={overview.isError ? friendlyMessage(overview.error) : undefined}
       curation={{
         canEdit: me.data?.role === 'owner' || me.data?.role === 'editor',
@@ -38,6 +45,7 @@ export function InsightThemesPage() {
         onRationale: run(() => tidy.rationale.mutate()),
         merges: merges.data,
         onUndo: (id) => run(() => tidy.undo.mutate(id))(),
+        onAssignArea: (themeId, areaId) => run(() => tidy.assignArea.mutate({ themeId, areaId }))(),
       }}
       canReview={me.data?.role === 'owner' || me.data?.role === 'editor'}
       reviewing={reviewed.isPending}
@@ -46,7 +54,7 @@ export function InsightThemesPage() {
         if (id === openId) setClosed(true)
         else {
           setClosed(false)
-          setParams({ theme: id }, { replace: true })
+          setParams((prev) => { const next = new URLSearchParams(prev); next.set('theme', id); return next }, { replace: true })
         }
       }}
     />

@@ -6,6 +6,7 @@ import { similarThemes, type DedupeInput } from './ai-dedupe.js'
 import { templateRationale, type RankedTheme, type Rationale } from './ai-rationale.js'
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
+import { assertAreasUsable } from './areas.js'
 import { getThemesOverview, platformAreas } from './insights.js'
 
 export class PlatformThemeMissing extends Error {}
@@ -16,6 +17,8 @@ export class DuplicateTitle extends Error {
 }
 export class SameTheme extends Error {}
 export class MergeHistoryMissing extends Error {}
+/** The theme already has a feature area; the table only fills in the ones with none. */
+export class AlreadyAssigned extends Error {}
 
 const FREE = { inputTokens: 0, outputTokens: 0, costUsd: 0 }
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -290,4 +293,23 @@ export async function writeRankRationales(db: Db, ai: Ai, workspaceId: string): 
     for (const r of value) await tx.query(`update insights.platform_themes set rationale = $1, rationale_at = now() where id = $2 and workspace_id = $3`, [r.text, r.themeId, workspaceId])
   })
   return { written: value.length, ...(fallback ? { fallback } : {}) }
+}
+
+/**
+ * Files a platform theme that has no feature area under one (editors). It sets the area on the project themes behind it that have none;
+ * a theme that already has an area is left as it is (AlreadyAssigned), because areas are meant to come from the analysis, not be rearranged by hand.
+ */
+export async function assignThemeArea(db: Db, ctx: RequestContext, platformThemeId: string, areaId: string): Promise<{ filed: number }> {
+  return db.transaction(async (tx) => {
+    const found = (await tx.query(`select id from insights.platform_themes where id = $1 and workspace_id = $2 for update`, [platformThemeId, ctx.workspaceId])).rows[0]
+    if (!found) throw new PlatformThemeMissing()
+    await assertAreasUsable(tx, ctx.workspaceId, [areaId])
+    if ((await platformAreas(tx, ctx.workspaceId)).has(platformThemeId)) throw new AlreadyAssigned()
+    const done = await tx.query(
+      `update research.themes set area_id = $2, updated_by = $3 where area_id is null and id in (select theme_id from insights.platform_theme_sources where platform_theme_id = $1) returning id`,
+      [platformThemeId, areaId, ctx.userId],
+    )
+    await tx.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'insights.platform_themes', $3, 'area set', null, $4)`, [ctx.workspaceId, ctx.userId, platformThemeId, JSON.stringify({ areaId, themes: done.rows.length })])
+    return { filed: done.rows.length }
+  })
 }

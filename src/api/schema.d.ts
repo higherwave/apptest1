@@ -811,6 +811,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/insights/themes/{id}/area": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners and editors. Files a platform theme that has no feature area under one, by setting it on the project themes behind it that have none. 409 `already_assigned` when the theme already has an area: areas come from the analysis, and are not rearranged here. */
+        put: operations["assignPlatformThemeArea"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/merges": {
         parameters: {
             query?: never;
@@ -1333,6 +1350,12 @@ export interface components {
                 category: "pain_point" | "need" | "expectation" | "delight";
                 /** @description True for a platform theme the model started that nobody has marked reviewed yet. */
                 needsReview: boolean;
+                /** @description The feature area most of its project themes are filed under; null when there is none (shown as Unassigned). */
+                area: {
+                    /** Format: uuid */
+                    id: string;
+                    name: string;
+                } | null;
                 participantCount: number;
                 projectCount: number;
                 /**
@@ -3819,6 +3842,42 @@ export interface operations {
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    assignPlatformThemeArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    areaId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description How many project themes were filed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        filed: number;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     listMerges: {

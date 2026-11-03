@@ -18,6 +18,8 @@ export type PlatformThemeRow = {
   category: Category
   /** True for a platform theme the model started and nobody has looked at yet. */
   needsReview: boolean
+  /** The feature area most of its project themes are filed under, or null when none is (Unassigned). */
+  area: { id: string; name: string } | null
   participantCount: number
   projectCount: number
   status: ThemeStatus
@@ -173,6 +175,7 @@ export async function projectsWithAnalysis(db: Queryable, workspaceId: string): 
 
 // Themes across every analysed project, the recommendations drawn from them, and the numbers behind both.
 export async function getThemesOverview(db: Queryable, workspaceId: string): Promise<ThemesOverview> {
+  const areaOf = await platformAreaRefs(db, workspaceId)
   const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows, matchRows, aliasRows, suggestionRows] = await Promise.all([
     projectsWithAnalysis(db, workspaceId),
     db.query(`select id, title, category, needs_review, rationale from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
@@ -250,7 +253,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     const summary = described.length ? String(described[0].description).trim() : null
     const matches = matchRows.rows.filter((r) => r.platform_theme_id === t.id).slice(0, 12).map((r) => ({ themeTitle: r.theme_title as string, projectName: r.project_name as string, method: r.match_method as 'auto' | 'manual', confidence: (r.confidence ?? null) as number | null, reason: (r.reason ?? null) as string | null }))
     return {
-      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
+      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, area: areaOf.get(t.id) ?? null, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
       matches, priority: null, rationale: (t.rationale ?? null) as string | null, aliases: aliasRows.rows.filter((a) => a.platform_theme_id === t.id).map((a) => a.alias as string),
     }
   })
@@ -420,15 +423,18 @@ type PlatformRow = { id: string; title: string; category: string; aliases: strin
 
 /** The feature area most of each platform theme's project themes are filed under (a tie goes to the name that sorts first), by platform theme id. */
 export async function platformAreas(db: Queryable, workspaceId: string): Promise<Map<string, string>> {
+  return new Map([...(await platformAreaRefs(db, workspaceId))].map(([id, a]) => [id, a.name]))
+}
+export async function platformAreaRefs(db: Queryable, workspaceId: string): Promise<Map<string, { id: string; name: string }>> {
   const rows = (
     await db.query(
-      `select distinct on (s.platform_theme_id) s.platform_theme_id as id, a.name
+      `select distinct on (s.platform_theme_id) s.platform_theme_id as id, a.id as area_id, a.name
          from insights.platform_theme_sources s join research.themes th on th.id = s.theme_id join insights.feature_areas a on a.id = th.area_id
-        where s.workspace_id = $1 group by s.platform_theme_id, a.name order by s.platform_theme_id, count(*) desc, a.name`,
+        where s.workspace_id = $1 group by s.platform_theme_id, a.id, a.name order by s.platform_theme_id, count(*) desc, a.name`,
       [workspaceId],
     )
   ).rows
-  return new Map(rows.map((r) => [r.id as string, r.name as string]))
+  return new Map(rows.map((r) => [r.id as string, { id: r.area_id as string, name: r.name as string }]))
 }
 
 // The keyword list is keyed by a theme's original title, so a renamed or merged theme keeps its keywords through its old names.

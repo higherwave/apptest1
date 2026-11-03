@@ -15,6 +15,8 @@ export type Curation = {
   /** Recent merges, newest first, and taking one back. Without them the panel is not shown. */
   merges?: MergeRecord[]
   onUndo?: (id: string) => void
+  /** Files a theme that has no area under one. Themes that already have an area are not changed from the table. */
+  onAssignArea?: (themeId: string, areaId: string) => void
 }
 
 // The suggested rank, its figures, and the written reason; editors can have the reasons written.

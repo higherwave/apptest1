@@ -198,6 +198,7 @@ export const mergePlatformTheme = (id: string, intoId: string) => request<compon
 export const findMergeSuggestions = () => request<{ added: number; fallback?: 'budget' | 'credit' }>('/insights/merge-suggestions/run', { method: 'POST' })
 export const acceptMergeSuggestion = (id: string) => request<components['schemas']['PlatformThemeRef']>(`/insights/merge-suggestions/${id}/accept`, { method: 'POST' })
 export const dismissMergeSuggestion = (id: string) => request<null>(`/insights/merge-suggestions/${id}/dismiss`, { method: 'POST' })
+export const assignPlatformThemeArea = (id: string, areaId: string) => request<{ filed: number }>(`/insights/themes/${id}/area`, { method: 'PUT', body: { areaId } })
 export const listMerges = () => request<components['schemas']['MergeList']>('/insights/merges').then((r) => r.data)
 export const undoMerge = (id: string) => request<components['schemas']['PlatformThemeRef']>(`/insights/merges/${id}/undo`, { method: 'POST' })
 export const writeRankRationales = () => request<{ written: number; fallback?: 'budget' | 'credit' }>('/insights/roadmap/rationale', { method: 'POST' })

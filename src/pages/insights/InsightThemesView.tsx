@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, ProgressBar, Tag } from '@carbon/react'
 import { useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
+import { AreaPicker } from '../areas/AreaPicker'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
@@ -22,6 +23,9 @@ export type InsightThemesViewProps = {
   onReviewed?: (id: string) => void
   /** Rename, merge, duplicate suggestions and the rank rationale. */
   curation?: Curation
+  /** How the table is divided: one list, or a section for each feature area. */
+  groupBy?: 'none' | 'area'
+  onGroupBy?: (g: 'none' | 'area') => void
 }
 
 type Row = InsightsThemes['themes'][number]
@@ -41,7 +45,7 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 
 // Presentational: what the team should do (recommendations), then every theme seen across projects as a row that opens to say where it
 // comes from, what it means and what to do about it. Scanning the rows is the point; the evidence lives in each project.
-export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed, curation }: InsightThemesViewProps) {
+export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed, curation, groupBy = 'none', onGroupBy }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter>('all')
   // A recommendation picked on the strip narrows the table to the themes it covers.
   const [recId, setRecId] = useState<string | null>(null)
@@ -51,63 +55,19 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   // Reach is the server's order; Suggested priority follows the rank (delights, which are not ranked, last).
   const [order, setOrder] = useState<'reach' | 'priority'>('reach')
   const shown = order === 'priority' ? [...narrowed].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)) : narrowed
-  return (
-    <div className={styles.page}>
-      <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
-      {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
-      {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
-      {state === 'ready' && overview && (
-        <>
-          <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
-
-          <div className={styles.group}>
-            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
-
-            <section className={styles.cards} aria-label="What the themes add up to">
-              {FILTERS.map((f) => {
-                const n = f.count(overview)
-                return (
-                  <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(f.key)}>
-                    <span className={styles.cardNum}>{n}</span>
-                    <span>{f.label}</span>
-                  </Button>
-                )
-              })}
-            </section>
-          </div>
-
-
-          <div className={styles.order} role="group" aria-label="Order the themes">
-            <span className={styles.label}>Order</span>
-            {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
-              <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
-                {label}
-              </Button>
-            ))}
-          </div>
-
-          {rec && (
-            <p className={styles.picked} role="status">
-              <span>
-                Showing {plural(shown.length, 'theme')} for: <strong>{rec.title}</strong>
-              </span>
-              <Button kind="ghost" size="sm" onClick={() => setRecId(null)}>
-                Clear
-              </Button>
-            </p>
-          )}
-
-          <section className={styles.table} aria-labelledby="themes-heading">
-            <div className={styles.columns} aria-hidden>
-              <span className={styles.label}>Themes</span>
-              <span className={styles.label}>Type</span>
-              <span className={styles.label}>Status</span>
-              <span className={styles.label}>Trend</span>
-              <span className={styles.label}>Participants</span>
-            </div>
-            <ul className={styles.list} aria-label="Themes across projects">
-              {shown.map((t) => {
+  // Grouped by feature area: sections in the order their strongest theme appears in the current order, the themes with no area last.
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
+  const sections = (() => {
+    const by = new Map<string, { key: string; name: string; rows: Row[] }>()
+    for (const t of shown) {
+      const key = t.area?.id ?? 'unassigned'
+      const sec = by.get(key) ?? { key, name: t.area?.name ?? 'Unassigned', rows: [] }
+      sec.rows.push(t)
+      by.set(key, sec)
+    }
+    return [...by.values()].sort((a, b) => Number(a.key === 'unassigned') - Number(b.key === 'unassigned'))
+  })()
+  const renderRow = (t: Row, overview: InsightsThemes) => {
                 const open = t.id === openId
                 const recs = overview.recommendations.filter((r) => r.themes.some((x) => x.id === t.id))
                 return (
@@ -168,6 +128,13 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                             )}
                           </section>
                         )}
+                        {!t.area && curation?.canEdit && curation.onAssignArea && (
+                          <section aria-label="Feature area" data-testid={`assign-area-${t.id}`}>
+                            <h3 className={styles.label}>Feature area</h3>
+                            <p className={styles.text}>No area yet. Choosing one files this theme, and the project themes behind it, under it.</p>
+                            <AreaPicker id={`assign-area-${t.id}`} label="Feature area" value={null} readOnly={curation.busy} onChange={(areaId) => areaId && curation.onAssignArea!(t.id, areaId)} />
+                          </section>
+                        )}
                         <PriorityNote theme={t} curation={curation ?? NO_CURATION} />
                         <section aria-label="Theme summary">
                           <h3 className={styles.label}>Theme summary</h3>
@@ -178,8 +145,94 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                     )}
                   </li>
                 )
+  }
+  return (
+    <div className={styles.page}>
+      <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
+      {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
+      {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
+      {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
+      {state === 'ready' && overview && (
+        <>
+          <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
+
+          <div className={styles.group}>
+            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+
+            <section className={styles.cards} aria-label="What the themes add up to">
+              {FILTERS.map((f) => {
+                const n = f.count(overview)
+                return (
+                  <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(f.key)}>
+                    <span className={styles.cardNum}>{n}</span>
+                    <span>{f.label}</span>
+                  </Button>
+                )
               })}
-            </ul>
+            </section>
+          </div>
+
+
+          <div className={styles.order} role="group" aria-label="Order the themes">
+            <span className={styles.label}>Order</span>
+            {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
+              <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
+                {label}
+              </Button>
+            ))}
+          </div>
+          {onGroupBy && (
+            <div className={styles.order} role="group" aria-label="Group the themes">
+              <span className={styles.label}>Group by</span>
+              {([['none', 'None'], ['area', 'Feature area']] as const).map(([key, label]) => (
+                <Button key={key} kind={groupBy === key ? 'primary' : 'ghost'} size="sm" aria-pressed={groupBy === key} data-testid={`group-${key}`} onClick={() => onGroupBy(key)}>
+                  {label}
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {rec && (
+            <p className={styles.picked} role="status">
+              <span>
+                Showing {plural(shown.length, 'theme')} for: <strong>{rec.title}</strong>
+              </span>
+              <Button kind="ghost" size="sm" onClick={() => setRecId(null)}>
+                Clear
+              </Button>
+            </p>
+          )}
+
+          <section className={styles.table} aria-labelledby="themes-heading">
+            <div className={styles.columns} aria-hidden>
+              <span className={styles.label}>Themes</span>
+              <span className={styles.label}>Type</span>
+              <span className={styles.label}>Status</span>
+              <span className={styles.label}>Trend</span>
+              <span className={styles.label}>Participants</span>
+            </div>
+            {groupBy === 'area' ? (
+              sections.map((sec) => {
+                const collapsedNow = collapsed.has(sec.key)
+                return (
+                  <section key={sec.key} className={styles.areaGroup} aria-label={`${sec.name} themes`} data-testid={`area-group-${sec.name}`}>
+                    <Button kind="ghost" size="md" className={styles.areaHead} renderIcon={collapsedNow ? ChevronDown : ChevronUp} aria-expanded={!collapsedNow} data-testid={`area-head-${sec.name}`} onClick={() => setCollapsed((c) => { const n = new Set(c); if (n.has(sec.key)) n.delete(sec.key); else n.add(sec.key); return n })}>
+                      <span className={styles.areaName}>{sec.name}</span>
+                      <span className={styles.muted}>{plural(sec.rows.length, 'theme')}</span>
+                    </Button>
+                    {!collapsedNow && (
+                      <ul className={styles.list} aria-label={`${sec.name} themes`}>
+                        {sec.rows.map((t) => renderRow(t, overview))}
+                      </ul>
+                    )}
+                  </section>
+                )
+              })
+            ) : (
+              <ul className={styles.list} aria-label="Themes across projects">
+                {shown.map((t) => renderRow(t, overview))}
+              </ul>
+            )}
           </section>
           <RecentMerges curation={curation ?? NO_CURATION} />
         </>

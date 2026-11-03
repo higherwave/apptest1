@@ -456,3 +456,25 @@ test('suggested areas: themes with no area that share a word are offered; accept
   for (const g of second) assert.equal((await api('/areas/proposals/dismiss', 'POST', { key: g.key })).status, 204)
   assert.deepEqual((await (await api('/areas/proposals')).json()).data, [])
 })
+
+test('a platform theme carries the area most of its project themes are filed under; one with none can be filed, one with an area cannot be moved', async () => {
+  const { api, pg, overview } = await fixture()
+  await pg.query(`update research.themes set area_id = null`)
+  const area = (await pg.query<any>(`insert into insights.feature_areas (workspace_id, name) select workspace_id, 'Wayfinding' from insights.platform_themes limit 1 returning id`)).rows[0].id as string
+  const themes = (await overview()).themes
+  assert.ok(themes.every((t: any) => t.area === null), 'no area anywhere: every theme is unassigned')
+  const target = themes[0]
+  const put = (id: string, areaId: string) => api(`/insights/themes/${id}/area`, 'PUT', { areaId })
+  const filed = await put(target.id, area)
+  assert.equal(filed.status, 200)
+  assert.ok((await filed.json()).filed >= 1)
+  const after = (await overview()).themes
+  assert.deepEqual(after.find((t: any) => t.id === target.id).area, { id: area, name: 'Wayfinding' })
+  assert.equal(after.filter((t: any) => t.area).length, 1, 'only that theme moved')
+  const again = await put(target.id, area)
+  assert.equal(again.status, 409)
+  assert.equal((await again.json()).error.code, 'already_assigned')
+  assert.equal((await put(themes[1].id, '00000000-0000-4000-8000-000000000000')).status, 422, 'an area that does not exist')
+  assert.equal((await put('00000000-0000-4000-8000-000000000000', area)).status, 404)
+  assert.equal((await api(`/insights/themes/${themes[1].id}/area`, 'PUT', { areaId: area }, { authorization: 'Bearer wrong' })).status, 401)
+})

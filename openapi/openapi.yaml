@@ -1071,6 +1071,38 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /insights/themes/{id}/area:
+    put:
+      operationId: assignPlatformThemeArea
+      summary: >
+        Owners and editors. Files a platform theme that has no feature area under one, by setting it on the project themes behind it that have none.
+        409 `already_assigned` when the theme already has an area: areas come from the analysis, and are not rearranged here.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [areaId]
+              properties:
+                areaId: { type: string, format: uuid }
+      responses:
+        '200':
+          description: How many project themes were filed.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [filed]
+                properties:
+                  filed: { type: integer }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /insights/merges:
     get:
       operationId: listMerges
@@ -1672,7 +1704,7 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, needsReview, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
+            required: [id, title, category, needsReview, area, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
             properties:
               aliases: { type: array, items: { type: string }, description: 'Old names, kept when the theme was renamed or another was merged into it.' }
               rationale: { type: [string, 'null'], description: 'Why it ranks where it does, written on request; null until then.' }
@@ -1699,6 +1731,13 @@ components:
               title: { type: string }
               category: { type: string, enum: [pain_point, need, expectation, delight] }
               needsReview: { type: boolean, description: 'True for a platform theme the model started that nobody has marked reviewed yet.' }
+              area:
+                type: [object, 'null']
+                description: The feature area most of its project themes are filed under; null when there is none (shown as Unassigned).
+                required: [id, name]
+                properties:
+                  id: { type: string, format: uuid }
+                  name: { type: string }
               participantCount: { type: integer }
               projectCount: { type: integer }
               status:

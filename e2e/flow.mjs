@@ -877,6 +877,20 @@ try {
   await page.evaluate(() => document.querySelector('[data-testid^="customer-"][data-open="true"] button[class*="themeLink"]').click())
   await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 })
   ok('a theme in a persona opens that theme', true)
+  // Group by Feature area: None is the default; grouping makes a section for each area, the themes with none last, and the choice is in the address.
+  await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
+  ok('Group by starts on None', await page.evaluate(() => document.querySelector('[data-testid="group-none"]').getAttribute('aria-pressed') === 'true' && !document.querySelector('[data-testid^="area-group-"]')))
+  await page.click('[data-testid="group-area"]')
+  await page.waitForSelector('[data-testid^="area-group-"]', { timeout: 5000 })
+  const groups = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="area-group-"]')].map((e) => e.dataset.testid.replace('area-group-', '')))
+  const every = await page.evaluate(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length)
+  ok('Feature area makes a section for each area, Unassigned last, and every theme is in one', groups.length >= 1 && (groups.includes('Unassigned') ? groups[groups.length - 1] === 'Unassigned' : true) && every === insights.themes.length)
+  ok('the grouping is in the address', await page.evaluate(() => location.search.includes('group=area')))
+  await page.click(`[data-testid="area-head-${groups[0]}"]`)
+  ok('a section can be collapsed', await page.evaluate((g) => document.querySelector(`[data-testid="area-head-${g}"]`).getAttribute('aria-expanded') === 'false' && document.querySelectorAll(`[data-testid="area-group-${g}"] [data-testid^="platform-theme-"]`).length === 0, groups[0]))
+  await page.click('[data-testid="group-none"]')
+  await page.waitForFunction(() => !document.querySelector('[data-testid^="area-group-"]'), { timeout: 5000 })
+  ok('None brings back the single list', true)
   // A merge is listed with Undo, and undoing it brings the theme back.
   {
     const auth = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }
