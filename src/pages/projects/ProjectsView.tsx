@@ -50,7 +50,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
   return (
     <div className={styles.page}>
-      <PageHero title="Product Funnel" description="Plan a study, analyze transcripts, and turn themes into requirements.">
+      <PageHero title="Product Funnel Projects" description="Plan a study, analyze transcripts, and turn themes into requirements.">
         <Button kind="primary" disabled={readOnly} onClick={onNew}>
           New project
         </Button>

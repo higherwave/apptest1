@@ -760,6 +760,8 @@ try {
   await page.waitForFunction(() => location.pathname.endsWith('/stories') && location.search === '?open=R1', { timeout: 8000 })
   ok('a requirement’s Story link opens its card on the Stories board', true)
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Product Funnel').click())
+  await page.waitForFunction(() => document.querySelector('h1')?.innerText === 'Product Funnel Projects', { timeout: 8000 })
+  ok('the menu says Product Funnel and its page is titled Product Funnel Projects', true)
   await page.waitForSelector('[data-status]')
   ok('on Product Funnel, a card counts the requirements with a measurement instead of High priority; analyzed cards have a green bar, a draft a gray one, and every chip is light gray', await page.evaluate(() => {
     const cards = [...document.querySelectorAll('[data-status]')]
