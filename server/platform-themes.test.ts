@@ -478,3 +478,28 @@ test('a platform theme carries the area most of its project themes are filed und
   assert.equal((await put('00000000-0000-4000-8000-000000000000', area)).status, 404)
   assert.equal((await api(`/insights/themes/${themes[1].id}/area`, 'PUT', { areaId: area }, { authorization: 'Bearer wrong' })).status, 401)
 })
+
+test('a person can take back filing a theme under an area; an area the analysis chose is not undone from the table', async () => {
+  const { api, pg, overview } = await fixture()
+  await pg.query(`update research.themes set area_id = null`)
+  const area = (await pg.query<any>(`insert into insights.feature_areas (workspace_id, name) select workspace_id, 'Wayfinding' from insights.platform_themes limit 1 returning id`)).rows[0].id as string
+  const [target, other] = (await overview()).themes
+  assert.equal((await api(`/insights/themes/${target.id}/area`, 'PUT', { areaId: area })).status, 200)
+  const filed = (await overview()).themes.find((t: any) => t.id === target.id)
+  assert.deepEqual([filed.area.id, filed.areaFiledByHand], [area, true])
+  const undone = await api(`/insights/themes/${target.id}/area`, 'DELETE')
+  assert.equal(undone.status, 200)
+  assert.ok((await undone.json()).cleared >= 1)
+  const back = (await overview()).themes.find((t: any) => t.id === target.id)
+  assert.deepEqual([back.area, back.areaFiledByHand], [null, false], 'unassigned again')
+  assert.equal((await pg.query<any>(`select count(*)::int n from research.themes where area_id is not null`)).rows[0].n, 0)
+  const twice = await api(`/insights/themes/${target.id}/area`, 'DELETE')
+  assert.equal(twice.status, 409)
+  assert.equal((await twice.json()).error.code, 'not_filed_by_hand')
+  assert.equal((await api(`/insights/themes/${target.id}/area`, 'PUT', { areaId: area })).status, 200, 'it can be filed again')
+  // An area the analysis chose (no filing from the table) cannot be taken back here.
+  await pg.query(`update research.themes set area_id = $1 where id in (select theme_id from insights.platform_theme_sources where platform_theme_id = $2)`, [area, other.id])
+  assert.equal((await api(`/insights/themes/${other.id}/area`, 'DELETE')).status, 409)
+  assert.equal((await api(`/insights/themes/00000000-0000-4000-8000-000000000000/area`, 'DELETE')).status, 404)
+  assert.equal((await api(`/insights/themes/${target.id}/area`, 'DELETE', undefined, { authorization: 'Bearer wrong' })).status, 401)
+})

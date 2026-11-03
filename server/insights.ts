@@ -20,6 +20,8 @@ export type PlatformThemeRow = {
   needsReview: boolean
   /** The feature area most of its project themes are filed under, or null when none is (Unassigned). */
   area: { id: string; name: string } | null
+  /** True when a person filed this theme under its area from the table, so they can take it back (the system's own choices are not undone here). */
+  areaFiledByHand: boolean
   participantCount: number
   projectCount: number
   status: ThemeStatus
@@ -176,6 +178,16 @@ export async function projectsWithAnalysis(db: Queryable, workspaceId: string): 
 // Themes across every analysed project, the recommendations drawn from them, and the numbers behind both.
 export async function getThemesOverview(db: Queryable, workspaceId: string): Promise<ThemesOverview> {
   const areaOf = await platformAreaRefs(db, workspaceId)
+  // The latest thing done to each theme's area by a person, from the audit log: filed ('area set') or taken back ('area cleared').
+  const lastAreaAction = new Map(
+    (
+      await db.query(
+        `select distinct on (entity_id) entity_id, verb, after->>'areaId' as area_id from core.audit_log
+          where workspace_id = $1 and entity = 'insights.platform_themes' and verb in ('area set', 'area cleared') order by entity_id, created_at desc, id desc`,
+        [workspaceId],
+      )
+    ).rows.map((r) => [r.entity_id as string, { verb: r.verb as string, areaId: r.area_id as string | null }]),
+  )
   const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows, matchRows, aliasRows, suggestionRows] = await Promise.all([
     projectsWithAnalysis(db, workspaceId),
     db.query(`select id, title, category, needs_review, rationale from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
@@ -253,7 +265,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     const summary = described.length ? String(described[0].description).trim() : null
     const matches = matchRows.rows.filter((r) => r.platform_theme_id === t.id).slice(0, 12).map((r) => ({ themeTitle: r.theme_title as string, projectName: r.project_name as string, method: r.match_method as 'auto' | 'manual', confidence: (r.confidence ?? null) as number | null, reason: (r.reason ?? null) as string | null }))
     return {
-      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, area: areaOf.get(t.id) ?? null, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
+      id: t.id, title: t.title, category: t.category, needsReview: t.needs_review, area: areaOf.get(t.id) ?? null, areaFiledByHand: !!areaOf.get(t.id) && lastAreaAction.get(t.id)?.verb === 'area set' && lastAreaAction.get(t.id)?.areaId === areaOf.get(t.id)!.id, participantCount: c.participants, projectCount: c.projects, status, trend: trendOf(projects, sources), opportunity, requirements: distinct, sources, summary,
       matches, priority: null, rationale: (t.rationale ?? null) as string | null, aliases: aliasRows.rows.filter((a) => a.platform_theme_id === t.id).map((a) => a.alias as string),
     }
   })

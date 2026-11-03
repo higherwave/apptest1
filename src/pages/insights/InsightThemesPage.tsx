@@ -45,6 +45,7 @@ export function InsightThemesPage() {
         onRationale: run(() => tidy.rationale.mutate()),
         merges: merges.data,
         onUndo: (id) => run(() => tidy.undo.mutate(id))(),
+        onClearArea: (themeId) => run(() => tidy.clearArea.mutate(themeId))(),
         onAssignArea: (themeId, areaId) => run(() => tidy.assignArea.mutate({ themeId, areaId }))(),
       }}
       canReview={me.data?.role === 'owner' || me.data?.role === 'editor'}

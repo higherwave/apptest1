@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
+  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -169,6 +169,7 @@ export const useThemeCuration = () => {
     accept: useMutation({ mutationFn: (id: string) => acceptMergeSuggestion(id), onSuccess: refresh }),
     dismiss: useMutation({ mutationFn: (id: string) => dismissMergeSuggestion(id), onSuccess: refresh }),
     assignArea: useMutation({ mutationFn: (v: { themeId: string; areaId: string }) => assignPlatformThemeArea(v.themeId, v.areaId), onSuccess: () => queryClient.invalidateQueries() }),
+    clearArea: useMutation({ mutationFn: (id: string) => clearPlatformThemeArea(id), onSuccess: () => queryClient.invalidateQueries() }),
     undo: useMutation({ mutationFn: (id: string) => undoMerge(id), onSuccess: refresh }),
     rationale: useMutation({ mutationFn: () => writeRankRationales(), onSuccess: refresh }),
   }

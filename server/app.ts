@@ -31,7 +31,7 @@ import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
-import { acceptSuggestion, AlreadyAssigned, assignThemeArea, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
+import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null }
@@ -748,10 +748,18 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof PlatformThemeMissing) throw new ApiError(404, 'not_found', 'No such platform theme.')
     if (err instanceof DuplicateTitle) throw new ApiError(409, 'duplicate_title', `${err.message} Merge the two themes instead.`, 'title')
     if (err instanceof SameTheme) throw new ApiError(422, 'validation_failed', 'Choose a different theme to merge into.', 'intoId')
+    if (err instanceof NotFiledByHand) throw new ApiError(409, 'not_filed_by_hand', 'This theme’s area was not filed by hand, so there is nothing to take back here.')
     if (err instanceof AlreadyAssigned) throw new ApiError(409, 'already_assigned', 'This theme already has a feature area.')
     if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That feature area does not exist or has been retired. Choose another.', 'areaId')
     throw err
   }
+  // Takes back a person's filing of a theme under an area.
+  app.delete('/insights/themes/:id/area', withContext, async (c) => {
+    requireEditor(c)
+    const id = themeId(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await clearThemeArea(getDb(), c.get('ctx'), id).catch(themeErrors))
+  })
   // Fills in the area of a theme that has none (the Group by Feature area table). A theme that has one is not changed here.
   app.put('/insights/themes/:id/area', withContext, async (c) => {
     requireEditor(c)

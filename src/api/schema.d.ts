@@ -822,7 +822,8 @@ export interface paths {
         /** Owners and editors. Files a platform theme that has no feature area under one, by setting it on the project themes behind it that have none. 409 `already_assigned` when the theme already has an area: areas come from the analysis, and are not rearranged here. */
         put: operations["assignPlatformThemeArea"];
         post?: never;
-        delete?: never;
+        /** Owners and editors. Takes back a person's filing of a theme under a feature area: the project themes that carry that area go back to none. 409 `not_filed_by_hand` when the area did not come from a person filing it here (the analysis's own choices are not undone). */
+        delete: operations["clearPlatformThemeArea"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1356,6 +1357,8 @@ export interface components {
                     id: string;
                     name: string;
                 } | null;
+                /** @description True when a person filed the theme under its area from the table, so Undo is offered. The analysis's own choices are not undone there. */
+                areaFiledByHand: boolean;
                 participantCount: number;
                 projectCount: number;
                 /**
@@ -3878,6 +3881,34 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    clearPlatformThemeArea: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many project themes were taken out of the area. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        cleared: number;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     listMerges: {

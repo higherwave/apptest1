@@ -199,7 +199,7 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
   their other words do not come back as new suggestions. Words only, no model call, so nothing new is sent to a provider.
 - **Rollups group by area** (Platform Themes): a **Group by** control (None, the default, or Feature area; `?group=area` in the address) divides the table into a section
   for each area, ordered by the current Order, with **Unassigned** last; sections collapse. A platform theme's area is the most common area among its project themes
-  (`area` on `GET /insights/themes`). The table never rearranges areas: only a theme with no area gets an **Add to Feature Area** button in its open row, which opens a panel sliding in from the right (`AssignAreaPanel`: search, one tap on an area files the theme and closes the panel)
+  (`area` on `GET /insights/themes`). The table never rearranges areas: only a theme with no area gets an **Add to Feature Area** button in its open row, which opens a panel sliding in from the right (`AssignAreaPanel` on the shared `src/components/RightPanel.tsx`: search, or type a new name and choose Add; one tap files the theme and closes the panel). A filing a person made can be taken back: the open row says so and offers **Undo** (`DELETE /insights/themes/{id}/area`, from the audit log; an area the analysis chose is not undone here, 409 `not_filed_by_hand`)
   (`PUT /insights/themes/{id}/area`, 409 `already_assigned` otherwise), which files it and its project themes. Areas come from the analysis and matching.
 
 ## Spend alerts
@@ -213,3 +213,7 @@ owners also get a banner above the app bar at each level. Dismissing it hides th
 
 Neon Free and Vercel Hobby stop at their limits instead of billing. When the database is paused the API returns
 `503 db_unavailable` and the app shows a message. Do not add pings or cron jobs that query the database.
+
+## Right panel
+
+A panel that slides in from the right edge and leaves the page visible keeps people in context. It is a design-system pattern (`signal-flow-right-panel` in the design-system-mcp registry, found with `search_patterns`): build it with `RightPanel`, a passive Carbon Modal laid out at the right edge. The linter rule `no-hand-rolled-side-panel` refuses a hand-positioned fixed element on that edge (vendor/design-rules, synced from the rules repo).

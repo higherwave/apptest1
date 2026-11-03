@@ -129,6 +129,19 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                             )}
                           </section>
                         )}
+                        {t.area && (
+                          <section aria-label="Feature area" data-testid={`area-${t.id}`}>
+                            <h3 className={styles.label}>Feature area</h3>
+                            <p className={styles.text}>
+                              {t.areaFiledByHand ? <>Filed under <strong>{t.area.name}</strong> by a person.</> : <>Filed under <strong>{t.area.name}</strong>.</>}
+                            </p>
+                            {t.areaFiledByHand && curation?.canEdit && curation.onClearArea && (
+                              <Button kind="tertiary" size="sm" disabled={curation.busy} data-testid={`area-undo-${t.id}`} onClick={() => curation.onClearArea!(t.id)}>
+                                Undo: take it out of {t.area.name}
+                              </Button>
+                            )}
+                          </section>
+                        )}
                         {!t.area && curation?.canEdit && curation.onAssignArea && (
                           <section aria-label="Feature area" data-testid={`assign-area-${t.id}`}>
                             <h3 className={styles.label}>Feature area</h3>

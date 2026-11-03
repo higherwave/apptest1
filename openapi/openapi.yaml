@@ -1072,6 +1072,27 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /insights/themes/{id}/area:
+    delete:
+      operationId: clearPlatformThemeArea
+      summary: >
+        Owners and editors. Takes back a person's filing of a theme under a feature area: the project themes that carry that area go back to none.
+        409 `not_filed_by_hand` when the area did not come from a person filing it here (the analysis's own choices are not undone).
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: How many project themes were taken out of the area.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cleared]
+                properties:
+                  cleared: { type: integer }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
     put:
       operationId: assignPlatformThemeArea
       summary: >
@@ -1704,7 +1725,7 @@ components:
           description: Ranked by reach, widest first (most projects, then most participants).
           items:
             type: object
-            required: [id, title, category, needsReview, area, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
+            required: [id, title, category, needsReview, area, areaFiledByHand, participantCount, projectCount, status, trend, opportunity, requirements, sources, summary, matches, priority, rationale, aliases]
             properties:
               aliases: { type: array, items: { type: string }, description: 'Old names, kept when the theme was renamed or another was merged into it.' }
               rationale: { type: [string, 'null'], description: 'Why it ranks where it does, written on request; null until then.' }
@@ -1738,6 +1759,7 @@ components:
                 properties:
                   id: { type: string, format: uuid }
                   name: { type: string }
+              areaFiledByHand: { type: boolean, description: 'True when a person filed the theme under its area from the table, so Undo is offered. The analysis''s own choices are not undone there.' }
               participantCount: { type: integer }
               projectCount: { type: integer }
               status:

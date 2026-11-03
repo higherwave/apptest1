@@ -19,6 +19,8 @@ export class SameTheme extends Error {}
 export class MergeHistoryMissing extends Error {}
 /** The theme already has a feature area; the table only fills in the ones with none. */
 export class AlreadyAssigned extends Error {}
+/** There is no area a person filed this theme under, so there is nothing to take back. */
+export class NotFiledByHand extends Error {}
 
 const FREE = { inputTokens: 0, outputTokens: 0, costUsd: 0 }
 const clean = (s: string) => s.replace(/\s+/g, ' ').trim()
@@ -311,5 +313,29 @@ export async function assignThemeArea(db: Db, ctx: RequestContext, platformTheme
     )
     await tx.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'insights.platform_themes', $3, 'area set', null, $4)`, [ctx.workspaceId, ctx.userId, platformThemeId, JSON.stringify({ areaId, themes: done.rows.length })])
     return { filed: done.rows.length }
+  })
+}
+
+/**
+ * Takes back a person's filing of a theme under a feature area (editors): the project themes behind it that carry that area go back to
+ * none, and the theme is Unassigned again. Only a filing a person made can be taken back (NotFiledByHand); an area the analysis chose is not undone here.
+ */
+export async function clearThemeArea(db: Db, ctx: RequestContext, platformThemeId: string): Promise<{ cleared: number }> {
+  return db.transaction(async (tx) => {
+    const found = (await tx.query(`select id from insights.platform_themes where id = $1 and workspace_id = $2 for update`, [platformThemeId, ctx.workspaceId])).rows[0]
+    if (!found) throw new PlatformThemeMissing()
+    const last = (
+      await tx.query(
+        `select verb, after->>'areaId' as area_id from core.audit_log where workspace_id = $1 and entity = 'insights.platform_themes' and entity_id = $2 and verb in ('area set', 'area cleared') order by created_at desc, id desc limit 1`,
+        [ctx.workspaceId, platformThemeId],
+      )
+    ).rows[0]
+    if (!last || last.verb !== 'area set' || !last.area_id) throw new NotFiledByHand()
+    const done = await tx.query(
+      `update research.themes set area_id = null, updated_by = $3 where area_id = $2 and id in (select theme_id from insights.platform_theme_sources where platform_theme_id = $1) returning id`,
+      [platformThemeId, last.area_id, ctx.userId],
+    )
+    await tx.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'insights.platform_themes', $3, 'area cleared', $4, null)`, [ctx.workspaceId, ctx.userId, platformThemeId, JSON.stringify({ areaId: last.area_id, themes: done.rows.length })])
+    return { cleared: done.rows.length }
   })
 }
