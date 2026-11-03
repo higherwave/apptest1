@@ -1,0 +1,66 @@
+@use '../../tokens' as tokens;
+
+// Carbon's modal, laid out as a panel on the right edge of the screen that slides in.
+.panel {
+  :global(.cds--modal-container) {
+    position: fixed;
+    inset-block: 0;
+    inset-inline-end: 0;
+    inset-inline-start: auto;
+    inline-size: min(28rem, 100vw);
+    max-inline-size: 100vw;
+    block-size: 100%;
+    max-block-size: 100%;
+    transform: translateX(100%);
+    transition: transform 240ms ease;
+  }
+
+  &:global(.is-visible) :global(.cds--modal-container) { transform: translateX(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    :global(.cds--modal-container) { transition: none; }
+  }
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.choice {
+  inline-size: 100%;
+  max-inline-size: none;
+  min-block-size: 0;
+  height: auto;
+  padding-block: var(--at-space-xs);
+  border-block-end: 1px solid var(--at-hairline);
+
+  :global(.cds--btn__icon) { display: none; }
+  > span { display: flex; flex-direction: column; align-items: flex-start; text-align: start; }
+}
+
+.name {
+  @include tokens.role('body-md');
+  color: var(--at-body);
+  font-weight: 600;
+}
+
+.definition {
+  @include tokens.role('caption');
+  color: var(--at-muted);
+}
+
+.empty {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}

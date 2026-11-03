@@ -888,6 +888,38 @@ try {
   ok('the grouping is in the address', await page.evaluate(() => location.search.includes('group=area')))
   await page.click(`[data-testid="area-head-${groups[0]}"]`)
   ok('a section can be collapsed', await page.evaluate((g) => document.querySelector(`[data-testid="area-head-${g}"]`).getAttribute('aria-expanded') === 'false' && document.querySelectorAll(`[data-testid="area-group-${g}"] [data-testid^="platform-theme-"]`).length === 0, groups[0]))
+  ok('Order is at the left of the table and Group by at the right, on one row', await page.evaluate(() => { const o = document.querySelector('[aria-label="Order the themes"]').getBoundingClientRect(); const g = document.querySelector('[aria-label="Group the themes"]').getBoundingClientRect(); return Math.abs(o.top - g.top) < 8 && o.left < g.left && g.right > innerWidth / 2 }))
+  // A theme with no area is filed from a panel that slides in from the right and closes when an area is chosen. Clear the areas first so there is one to file.
+  {
+    const auth = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }
+    for (const pr of await apiProjects()) {
+      const ts = (await (await fetch(`${API}/api/v1/projects/${pr.id}/themes`, { headers: auth })).json()).data ?? []
+      for (const t of ts) await fetch(`${API}/api/v1/themes/${t.id}/area`, { method: 'PUT', headers: auth, body: JSON.stringify({ areaId: null }) })
+    }
+    await page.goto(`${BASE}/insights/themes?group=area`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector('[data-testid="area-group-Unassigned"]', { timeout: 8000 })
+  }
+  {
+    // The first theme of the table is open until another is picked; open the first unassigned one if it is not.
+    if (!(await page.$('[data-testid^="open-assign-"]'))) {
+      await page.evaluate(() => document.querySelector('[data-testid="area-group-Unassigned"] li button').scrollIntoView({ block: 'center' }))
+      await page.click('[data-testid="area-group-Unassigned"] li button')
+    }
+    const opener = await page.$('[data-testid^="open-assign-"]')
+    ok('an unassigned theme offers Add to Feature Area', !!opener)
+    if (opener) {
+      await opener.evaluate((el) => el.scrollIntoView({ block: 'center' }))
+      await opener.click()
+      await page.waitForSelector('.cds--modal.is-visible [data-testid="assign-area-panel"]', { timeout: 5000 })
+      await new Promise((r) => setTimeout(r, 400))
+      ok('Add to Feature Area opens a panel on the right edge listing the areas', await page.evaluate(() => { const c = document.querySelector('.cds--modal.is-visible .cds--modal-container').getBoundingClientRect(); return c.right >= innerWidth - 2 && c.left > innerWidth / 2 && !!document.querySelector('.cds--modal.is-visible [data-testid^="choose-area-"]') }))
+      await page.click('.cds--modal.is-visible [data-testid^="choose-area-"]')
+      await page.waitForFunction(() => !document.querySelector('.cds--modal.is-visible'), { timeout: 5000 })
+      ok('choosing an area closes the panel', true)
+      await new Promise((r) => setTimeout(r, 400))
+    }
+  }
+  await page.$eval('[data-testid="group-none"]', (el) => el.scrollIntoView({ block: 'center' }))
   await page.click('[data-testid="group-none"]')
   await page.waitForFunction(() => !document.querySelector('[data-testid^="area-group-"]'), { timeout: 5000 })
   ok('None brings back the single list', true)

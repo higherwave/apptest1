@@ -2,7 +2,7 @@ import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, ProgressBar, Tag } from '@carbon/react'
 import { useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
-import { AreaPicker } from '../areas/AreaPicker'
+import { AssignAreaPanel } from '../areas/AssignAreaPanel'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
@@ -56,6 +56,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   const [order, setOrder] = useState<'reach' | 'priority'>('reach')
   const shown = order === 'priority' ? [...narrowed].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)) : narrowed
   // Grouped by feature area: sections in the order their strongest theme appears in the current order, the themes with no area last.
+  const [assigning, setAssigning] = useState<Row | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const sections = (() => {
     const by = new Map<string, { key: string; name: string; rows: Row[] }>()
@@ -131,8 +132,10 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                         {!t.area && curation?.canEdit && curation.onAssignArea && (
                           <section aria-label="Feature area" data-testid={`assign-area-${t.id}`}>
                             <h3 className={styles.label}>Feature area</h3>
-                            <p className={styles.text}>No area yet. Choosing one files this theme, and the project themes behind it, under it.</p>
-                            <AreaPicker id={`assign-area-${t.id}`} label="Feature area" value={null} readOnly={curation.busy} onChange={(areaId) => areaId && curation.onAssignArea!(t.id, areaId)} />
+                            <p className={styles.text}>No area yet. Adding it to one files this theme, and the project themes behind it, under that area.</p>
+                            <Button kind="tertiary" size="sm" disabled={curation.busy} data-testid={`open-assign-${t.id}`} onClick={() => setAssigning(t)}>
+                              Add to Feature Area
+                            </Button>
                           </section>
                         )}
                         <PriorityNote theme={t} curation={curation ?? NO_CURATION} />
@@ -173,6 +176,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
           </div>
 
 
+          <div className={styles.controls}>
           <div className={styles.order} role="group" aria-label="Order the themes">
             <span className={styles.label}>Order</span>
             {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
@@ -191,6 +195,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
               ))}
             </div>
           )}
+          </div>
 
           {rec && (
             <p className={styles.picked} role="status">
@@ -237,6 +242,15 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
           <RecentMerges curation={curation ?? NO_CURATION} />
         </>
       )}
+      <AssignAreaPanel
+        open={!!assigning}
+        themeTitle={assigning?.title ?? ''}
+        onClose={() => setAssigning(null)}
+        onChoose={(areaId) => {
+          if (assigning) curation?.onAssignArea?.(assigning.id, areaId)
+          setAssigning(null)
+        }}
+      />
     </div>
   )
 }

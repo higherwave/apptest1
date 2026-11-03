@@ -206,6 +206,14 @@
   .rowCount { flex: 1 1 100%; }
 }
 
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-xs) var(--at-space-md);
+}
+
 .order {
   display: flex;
   flex-wrap: wrap;
