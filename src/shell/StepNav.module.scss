@@ -118,8 +118,3 @@
   flex: none;
   fill: currentColor;
 }
-
-// On the wide pages (Journey Map, Stories) the strip follows the page's wider column.
-:global([data-wide='true']) .groups {
-  max-inline-size: calc(100rem + 2 * var(--at-space-xl));
-}

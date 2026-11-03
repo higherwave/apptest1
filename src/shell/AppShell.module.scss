@@ -7,7 +7,7 @@ $rail-width: 14.5rem;
 $context-height: 2.75rem;
 $narrow: 48rem;
 $column-width: 75rem; // every project step shares this width, centered
-$column-wide: 100rem; // the Journey Map and Stories
+$column-wide: 100rem; // the content of the Journey Map and Stories; the project bar and the step strip stay at $column-width
 
 .stage {
   display: flex;
@@ -260,7 +260,7 @@ $column-wide: 100rem; // the Journey Map and Stories
   margin-inline: auto;
 }
 
-// The project-name bar's contents sit in the same column, so the name lines up with the page title below.
+// The project-name bar's contents sit in the same column, so the name lines up with the page title below (on every page, the wide ones included).
 .contextInner {
   display: flex;
   align-items: center;
@@ -270,7 +270,4 @@ $column-wide: 100rem; // the Journey Map and Stories
   margin-inline: auto;
 }
 
-.shell[data-wide='true'] {
-  .column,
-  .contextInner { max-inline-size: $column-wide; }
-}
+.shell[data-wide='true'] .column { max-inline-size: $column-wide; }

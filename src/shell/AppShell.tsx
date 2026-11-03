@@ -33,7 +33,7 @@ export function AppShell() {
 
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
-  // Every project step shares one centered column; the Journey Map and Stories need the room, so theirs is wider (the strip and the project bar follow).
+  // Every project step shares one centered column; the Journey Map and Stories need the room, so theirs is wider (the project bar and the step strip stay at the shared width everywhere).
   const wide = project?.[2] === 'journey' || project?.[2] === 'stories'
   const insights = pathname.startsWith('/insights')
   const settings = pathname.startsWith('/settings')

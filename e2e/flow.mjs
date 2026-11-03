@@ -306,6 +306,7 @@ try {
   ok('three uploaded files become three transcripts', await page.evaluate(() => document.querySelector('[data-testid="transcript-0"]').innerText.includes('Session 1')))
   ok('each transcript shows its meeting tool’s logo, with the name for screen readers', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="transcript-"] img[data-tool]')].every((i) => /\/platforms\/(zoom|meet|teams)\.svg$/.test(i.getAttribute('src')) && /Zoom|Google Meet|Microsoft Teams/.test(i.alt))))
   ok('the button says Save and analyze', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save and analyze')))
+  const stripLeft = await page.evaluate(() => Math.round(document.querySelector('nav[aria-label="Project steps"] p').getBoundingClientRect().left))
   ok('the project bar, the step strip and the page title share one left edge, and the page sits in the shared centered column', await page.evaluate(() => { const left = (el) => Math.round(el.getBoundingClientRect().left); const name = document.querySelector('[class*="projectName"]'); const label = document.querySelector('nav[aria-label="Project steps"] p'); const h1 = document.querySelector('h1'); const col = document.querySelector('[data-testid="page-column"]'); return !!name && Math.abs(left(name) - left(h1)) <= 2 && Math.abs(left(label) + 4 - left(h1)) <= 6 && col.getBoundingClientRect().width <= 75 * 16 + 1 }))
   await clickText('Save and analyze')
   await waitText('Analyzing transcripts')
@@ -623,6 +624,7 @@ try {
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="card-"]')
 
+  ok('on Stories, which has a wider column, the step strip and the project bar sit where they do on every other page', await page.evaluate((x) => { const left = (el) => Math.round(el.getBoundingClientRect().left); const label = document.querySelector('nav[aria-label="Project steps"] p'); return left(label) === x && left(document.querySelector('[class*="projectName"]')) - left(label) >= 2 && left(document.querySelector('[class*="projectName"]')) - left(label) <= 6 }, stripLeft))
   ok('the footer text is 14px, the same as a case study card’s description', await page.evaluate(() => { const ps = [...document.querySelectorAll('footer p')].filter((p) => !p.querySelector('img')); return ps.length >= 3 && ps.every((p) => getComputedStyle(p).fontSize === '14px') }))
   // Design: a row per requirement with a prototype link, a picture and design notes.
   const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
