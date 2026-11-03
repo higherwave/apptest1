@@ -2,7 +2,7 @@
 
 // The project's steps as a horizontal strip under the app bar.
 .strip {
-  background: var(--at-surface-slate); // a grayish-blue band, so the strip reads as its own area
+  background: var(--at-canvas); // white, like the bars above it; the hairline below separates it from the page
   border-block-end: 1px solid var(--at-hairline);
 }
 
@@ -63,7 +63,7 @@
   white-space: nowrap;
   @include tokens.role('body-md');
 
-  &:hover { background: var(--at-canvas); }
+  &:hover { background: var(--at-surface-hover-strong); }
 
   &:focus-visible {
     outline: 0.125rem solid var(--at-ink);
