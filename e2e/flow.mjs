@@ -19,6 +19,7 @@ const waitText = (t, timeout = 8000) => page.waitForFunction((x) => document.bod
 const clickText = async (t, tag = 'button') => {
   const handle = await page.evaluateHandle((t, tag) => [...document.querySelectorAll(tag)].find((el) => el.innerText.trim() === t || el.textContent.trim() === t), t, tag)
   if (!handle.asElement()) throw new Error(`no <${tag}> with text "${t}"`)
+  await handle.asElement().evaluate((el) => el.scrollIntoView({ block: 'center' })) // the fixed bars would cover a button scrolled to the edge
   await handle.asElement().click()
 }
 // Hidden dialogs keep their buttons in the page, so a dialog's own button is looked up inside the open one.
@@ -305,6 +306,7 @@ try {
   ok('three uploaded files become three transcripts', await page.evaluate(() => document.querySelector('[data-testid="transcript-0"]').innerText.includes('Session 1')))
   ok('each transcript shows its meeting tool’s logo, with the name for screen readers', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="transcript-"] img[data-tool]')].every((i) => /\/platforms\/(zoom|meet|teams)\.svg$/.test(i.getAttribute('src')) && /Zoom|Google Meet|Microsoft Teams/.test(i.alt))))
   ok('the button says Save and analyze', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save and analyze')))
+  ok('the project bar, the step strip and the page title share one left edge, and the page sits in the shared centered column', await page.evaluate(() => { const left = (el) => Math.round(el.getBoundingClientRect().left); const name = document.querySelector('[class*="projectName"]'); const label = document.querySelector('nav[aria-label="Project steps"] p'); const h1 = document.querySelector('h1'); const col = document.querySelector('[data-testid="page-column"]'); return !!name && Math.abs(left(name) - left(h1)) <= 2 && Math.abs(left(label) + 4 - left(h1)) <= 6 && col.getBoundingClientRect().width <= 75 * 16 + 1 }))
   await clickText('Save and analyze')
   await waitText('Analyzing transcripts')
   ok('a progress dialog shows the analysis steps', (await text()).includes('Clustering statements'))
@@ -448,6 +450,7 @@ try {
   ok('Reset to suggestion puts it back', back.priority === 'medium' && back.effort === 1 && back.overrideVersion >= 0)
   await choose('importance', 'Low')
   await waitText('Edited')
+  for (let n = 0; n < 40 && !(await apiThemes()).some((t) => t.edited); n++) await new Promise((r) => setTimeout(r, 150)) // the edit is saved on the server, so Reset all cannot run ahead of it
   await clickText('Reset all')
   await page.waitForFunction(() => !document.body.innerText.includes('Edited'), { timeout: 8000 })
   ok('Reset all clears every importance and effort edit', (await apiThemes()).every((t) => !t.edited))
@@ -1154,7 +1157,7 @@ try {
   ok('editing a transcript and saving re-analyzes and returns to Themes', await mine().then((p) => p.themes === 9))
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
   await page.waitForFunction(() => document.querySelector('[data-testid="transcript-2"]') && /Session 2/.test(document.querySelector('[data-testid="transcript-1"]')?.innerText ?? ''), { timeout: 10000 })
-  ok('the edited transcript kept its place and gained a line', await page.evaluate(() => document.querySelector('[data-testid="transcript-1"]').innerText.includes('Session 2')))
+  ok('the edited transcript kept its place and gained a line', await page.waitForFunction(() => document.querySelector('[data-testid="transcript-1"]')?.innerText.includes('Session 2'), { timeout: 10000 }).then(() => true, () => false))
 
   // Remove them all: the analysis is retired, the project is a draft, and the steps lock again.
   for (let i = 0; i < 3; i++) await page.evaluate(() => [...document.querySelector('[data-testid="transcript-0"]').querySelectorAll('button')].at(-1).click())

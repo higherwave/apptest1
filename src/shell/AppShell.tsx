@@ -33,6 +33,8 @@ export function AppShell() {
 
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
+  // Every project step shares one centered column; the Journey Map and Stories need the room, so theirs is wider (the strip and the project bar follow).
+  const wide = project?.[2] === 'journey' || project?.[2] === 'stories'
   const insights = pathname.startsWith('/insights')
   const settings = pathname.startsWith('/settings')
   // Creating a project shows the same steps, with only Test Plan open: the others need a saved project.
@@ -68,7 +70,7 @@ export function AppShell() {
   const gallery = brand.galleryUrl as string | undefined
 
   return (
-    <div className={styles.shell} ref={shell}>
+    <div className={styles.shell} ref={shell} data-wide={wide}>
       <SpendBanner onHeight={onBanner} />
       <aside className={styles.rail} aria-label="Main menu">
         <div className={styles.brand}>
@@ -124,19 +126,27 @@ export function AppShell() {
 
       {hasPanel && (
         <div className={styles.context} data-context>
-          <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
-          {projectDetail.data && !creating && (
-            <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>
-              {projectDetail.data.status === 'analyzed' ? 'Analyzed' : 'Draft'}
-            </Tag>
-          )}
+          <div className={styles.contextInner}>
+            <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
+            {projectDetail.data && !creating && (
+              <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>
+                {projectDetail.data.status === 'analyzed' ? 'Analyzed' : 'Draft'}
+              </Tag>
+            )}
+          </div>
         </div>
       )}
 
       <div className={styles.stage} data-project={hasPanel}>
         {hasPanel && <StepNav items={stepItems} onGo={navigate} />}
         <main className={styles.content}>
-          <Outlet />
+          {hasPanel ? (
+            <div className={styles.column} data-testid="page-column">
+              <Outlet />
+            </div>
+          ) : (
+            <Outlet />
+          )}
           <SiteFooter />
         </main>
       </div>

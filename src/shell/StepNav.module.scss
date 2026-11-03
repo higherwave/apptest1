@@ -6,8 +6,12 @@
   border-block-end: 1px solid var(--at-hairline);
 }
 
+// The same column as the page below: 75rem of content between the side padding.
 .groups {
   display: flex;
+  box-sizing: border-box;
+  max-inline-size: calc(75rem + 2 * var(--at-space-xl));
+  margin-inline: auto;
   padding: var(--at-space-sm) var(--at-space-xl) 0 calc(var(--at-space-xl) - var(--at-space-xxs)); // the first label lines up with the page title below
   overflow-x: auto;
 }
@@ -113,4 +117,9 @@
 .lock {
   flex: none;
   fill: currentColor;
+}
+
+// On the wide pages (Journey Map, Stories) the strip follows the page's wider column.
+:global([data-wide='true']) .groups {
+  max-inline-size: calc(100rem + 2 * var(--at-space-xl));
 }
