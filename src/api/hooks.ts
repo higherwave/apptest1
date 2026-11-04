@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getBoard, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   changeMemberRole, inviteMember, listMembers, removeMember,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
@@ -110,6 +110,11 @@ export const useSpec = (id: string | undefined) => useQuery({ queryKey: ['spec',
 // The Stories board. A move shows at once (the card is placed where it was dropped) and the API's answer
 // replaces the guess; if the API refuses, the board is read again.
 export const useBoard = (projectId: string | undefined) => useQuery({ queryKey: ['board', projectId], queryFn: () => getBoard(projectId!), enabled: !!projectId, retry: false })
+export const useTickets = (projectId: string | undefined) => useQuery({ queryKey: ['tickets', projectId], queryFn: () => listTickets(projectId!), enabled: !!projectId })
+export const useCreateTicket = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { storyId: string; input: import('./client').CreateTicketInput }) => createTicket(v.storyId, v.input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tickets', projectId] }) })
+}
 export const useStory = (id: string | null) => useQuery({ queryKey: ['story', id], queryFn: () => getStory(id!), enabled: !!id })
 
 export function useMoveStory(projectId: string) {

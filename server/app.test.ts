@@ -2338,3 +2338,43 @@ test('case studies are the projects where something worked and nothing needs att
   // A project that never published has no results at all.
   assert.match((await expectSpec(await app.request(`/api/v1/projects/${((await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.name === 'Clinic booking, round 2')).id}/case-study-brief`), '/projects/{id}/case-study-brief')).outcome, /themes? from \d+ sessions?\. No requirements published yet\./)
 })
+
+test('Jira hand-off (simulated): editors make one ticket per requirement, the key follows the project, the record says who and when, an open question is refused', async () => {
+  const { alex, sam, send, story, p1 } = await boardFixture()
+  const form = (over: Record<string, unknown> = {}) => ({ project: 'PLAT · Platform', issueType: 'Story', summary: 'Show availability across providers', description: 'As a patient, I want ...', priority: 'High', assignee: 'Unassigned', labels: 'scheduling', points: null, ...over })
+  const r1 = await story('R1')
+  assert.equal((await send(sam, 'POST', `/stories/${r1.id}/tickets`, form())).status, 403, 'a viewer cannot')
+  assert.equal((await send(alex, 'POST', `/stories/${r1.id}/tickets`, form({ project: 'nonsense' }))).status, 422, 'the project must be a code and a name')
+  assert.equal((await send(alex, 'POST', `/stories/${r1.id}/tickets`, form({ summary: '  ' }))).status, 422, 'a summary is required')
+  const first = await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')
+  assert.deepEqual([first.jiraKey, first.storyKey, first.simulated, first.createdBy.name], ['PLAT-215', 'R1', true, 'Alex Rivera'])
+  const again = await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')
+  assert.equal(again.error.code, 'already_sent', 'a story is sent once')
+  const r2 = await story('R2')
+  const second = await send(alex, 'POST', `/stories/${r2.id}/tickets`, form({ summary: 'Another', points: '5' }))
+  assert.equal((await second.json()).jiraKey, 'PLAT-216', 'the project’s sequence continues')
+  const other = await send(alex, 'POST', `/stories/${(await story('R3')).id}/tickets`, form({ project: 'CSX · Customer Success' }))
+  assert.equal((await other.json()).jiraKey, 'CSX-215', 'each project counts on its own')
+  const q = await story('Q1')
+  assert.equal((await expectSpec(await send(alex, 'POST', `/stories/${q.id}/tickets`, form()), '/stories/{id}/tickets', 'post')).error.code, 'not_a_requirement')
+  const list = await expectSpec(await sam.request(`/api/v1/projects/${p1}/tickets`, { headers: { authorization: 'Bearer s3cret' } }), '/projects/{id}/tickets')
+  assert.deepEqual(list.data.map((t: any) => t.jiraKey), ['CSX-215', 'PLAT-216', 'PLAT-215'], 'newest first, readable by a viewer')
+  assert.equal(list.data[2].description, 'As a patient, I want ...', 'what was sent is kept')
+})
+
+test('Update board never removes a story that was sent to Jira: it is kept and noted, and its ticket stays', async () => {
+  const { id, get, call, stories, include, sync, pg } = await publishedRound2()
+  const spec = await get(id)
+  const idle = spec.themes.filter((t: any) => t.included && t.effort <= 2)[0]
+  const card = (await pg.query<any>(`select s.id from delivery.stories s where s.spec_id = $1 and s.kind = 'requirement' and s.theme_id = (select id from research.themes where title = $2 and project_id = (select project_id from delivery.specs where id = $1) order by created_at desc limit 1) limit 1`, [id, idle.title])).rows[0]
+  // A story nobody touched would be removed; one with a ticket is worked on.
+  await pg.query(`delete from delivery.story_checklist where story_id = $1`, [card.id])
+  const sent = await call('POST', `/stories/${card.id}/tickets`, { project: 'PLAT · Platform', issueType: 'Story', summary: 'Sent', description: '', priority: 'Medium', assignee: 'Unassigned', labels: '', points: null })
+  assert.equal(sent.status, 201)
+  await include(idle.id, false)
+  const preview = await sync(false)
+  assert.deepEqual([preview.remove.length, preview.flag.length], [0, 1], 'kept and noted, not removed')
+  await sync(true)
+  assert.ok((await stories()).some((s) => s.title === idle.title), 'the story is still on the board')
+  assert.equal((await pg.query<any>(`select count(*)::int n from delivery.story_tickets where story_id = $1`, [card.id])).rows[0].n, 1, 'and its ticket still points at it')
+})

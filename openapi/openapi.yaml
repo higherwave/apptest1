@@ -978,6 +978,23 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/tickets:
+    get:
+      operationId: listTickets
+      summary: >
+        The Jira tickets made from this project's requirements, newest first (the Sent to Jira list): what was sent, who sent it and
+        when. The Jira connection is simulated for now, so each carries `simulated: true`. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The tickets.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TicketList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/themes:
     get:
       operationId: getInsightsThemes
@@ -1338,6 +1355,33 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /stories/{id}/tickets:
+    post:
+      operationId: createTicket
+      summary: >
+        Owners and editors. Makes the (simulated) Jira ticket for a requirement from what was chosen in the Create ticket dialog, and
+        keeps it as the record. The key follows the project's own sequence (PLAT-215, PLAT-216 ...). 409 `already_sent` when the story
+        already has one; 422 `not_a_requirement` for an open question.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTicketRequest' }
+      responses:
+        '201':
+          description: The ticket.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Ticket' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /stories/{id}/move:
     post:
@@ -2896,6 +2940,49 @@ components:
         role: { type: string, enum: [owner, editor, viewer] }
         status: { type: string, enum: [active, invited], description: 'Invited until their first sign-in.' }
         avatarUrl: { type: string, nullable: true }
+    Ticket:
+      type: object
+      required: [id, storyId, storyKey, jiraKey, project, issueType, summary, description, priority, assignee, labels, points, simulated, createdBy, createdAt]
+      properties:
+        id: { type: string }
+        storyId: { type: [string, 'null'], description: The story it was made from; null if a later board update removed that story. }
+        storyKey: { type: string, description: R1, R2 ... as it was when sent. }
+        jiraKey: { type: string, description: 'For example PLAT-215.' }
+        project: { type: string, description: 'The Jira project, as "PLAT · Platform".' }
+        issueType: { type: string, enum: [Story, Task, Epic] }
+        summary: { type: string }
+        description: { type: string }
+        priority: { type: string, enum: [High, Medium, Low] }
+        assignee: { type: string }
+        labels: { type: string }
+        points: { type: [string, 'null'] }
+        simulated: { type: boolean, description: 'True while the Jira connection is simulated: the key was made here, not by Jira.' }
+        createdBy:
+          type: [object, 'null']
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
+        createdAt: { type: string, format: date-time }
+    TicketList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Ticket' }
+    CreateTicketRequest:
+      type: object
+      required: [project, issueType, summary, priority]
+      properties:
+        project: { type: string, description: 'Code and name, for example "PLAT · Platform".' }
+        issueType: { type: string, enum: [Story, Task, Epic] }
+        summary: { type: string, maxLength: 255 }
+        description: { type: string, maxLength: 20000 }
+        priority: { type: string, enum: [High, Medium, Low] }
+        assignee: { type: string, maxLength: 80 }
+        labels: { type: string, maxLength: 200 }
+        points: { type: [string, 'null'], maxLength: 6 }
     MemberList:
       type: object
       required: [data]

@@ -340,7 +340,7 @@ export function WriterView(p: WriterViewProps) {
             <BoardChanges title="Removed (nobody had touched them)" items={p.boardPlan.remove} />
             <BoardChanges title="Kept, with a note (they have been worked on)" items={p.boardPlan.flag} />
             <BoardChanges title="Note removed" items={p.boardPlan.clear} />
-            <p className={styles.para}>Stories that have been moved, edited or given criteria are never removed.</p>
+            <p className={styles.para}>Stories that have been moved, edited, given criteria or sent to Jira are never removed.</p>
           </>
         )}
         {p.boardError && <InlineNotification kind="error" lowContrast hideCloseButton title="Board not updated" subtitle={p.boardError} />}

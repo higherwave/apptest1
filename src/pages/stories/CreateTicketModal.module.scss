@@ -1,0 +1,13 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-md);
+
+  @media (max-width: 40rem) { grid-template-columns: 1fr; }
+}

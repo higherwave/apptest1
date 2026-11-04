@@ -167,6 +167,18 @@ export const acceptProposalSchema = z.object({ key: text(60), name: optionalText
 export const dismissProposalSchema = z.object({ key: text(60) })
 export const themeAreaSchema = z.object({ areaId: z.uuid().nullable() })
 
+// A simulated Jira ticket made from a requirement. Everything is what a person chose in the Create ticket dialog.
+export const createTicketSchema = z.object({
+  project: text(80).regex(/^[A-Z][A-Z0-9]{1,9} · .{1,60}$/, 'Choose a project.'),
+  issueType: z.enum(['Story', 'Task', 'Epic']),
+  summary: text(255).min(1, 'A summary is required.'),
+  description: text(20000).default(''),
+  priority: z.enum(['High', 'Medium', 'Low']),
+  assignee: text(80).min(1).default('Unassigned'),
+  labels: text(200).default(''),
+  points: optionalText(6),
+})
+
 export const designSchema = z.object({
   prototypeUrl: text(2000)
     .refine((v) => v === '' || /^https?:\/\/[^\s]+$/i.test(v), 'Enter a link that starts with http:// or https://.')

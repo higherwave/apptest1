@@ -492,7 +492,7 @@ async function storiesForSync(db: Queryable, specId: string): Promise<SyncStory[
   return (
     await db.query(
       `select s.id, s.key, s.kind, s.theme_id, s.title, s.requirement_id, s.sync_note,
-              (s.status <> 'todo' or s.version > 1 or exists (select 1 from delivery.story_checklist c where c.story_id = s.id)) as touched
+              (s.status <> 'todo' or s.version > 1 or exists (select 1 from delivery.story_checklist c where c.story_id = s.id) or exists (select 1 from delivery.story_tickets t where t.story_id = s.id)) as touched
        from delivery.stories s where s.spec_id = $1 order by s.position, s.key`,
       [specId],
     )

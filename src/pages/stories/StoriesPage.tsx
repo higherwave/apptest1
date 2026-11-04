@@ -1,114 +1,79 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ApiRequestError, friendlyMessage, type BoardStory, type ChecklistInput, type Priority, type StoryStatus } from '../../api/client'
-import { useBoard, useMe, useMoveStory, useProject, useSaveChecklist, useStory, useUndoMove } from '../../api/hooks'
-import { STATUS_LABEL } from './labels'
+import { ApiRequestError, friendlyMessage, type BoardStory, type CreateTicketInput } from '../../api/client'
+import { useBoard, useCreateTicket, useMe, useProject, useStory, useTickets } from '../../api/hooks'
 import { StoriesView } from './StoriesView'
 
-// Container: binds the board to the view, holds the filters and the open card, and sends moves and edits.
+// Container: binds the board, the story picked and the tickets to the view, and makes tickets. The tab and the story are in the address
+// (?tab=sent, ?open=R6), so a link opens the right one; the Design step's Story link arrives with ?open.
 export function StoriesPage() {
   const { projectId = '' } = useParams()
   const navigate = useNavigate()
-  const [params] = useSearchParams()
+  const [params, setParams] = useSearchParams()
   const project = useProject(projectId)
   const board = useBoard(projectId)
+  const tickets = useTickets(projectId)
   const me = useMe()
-  const move = useMoveStory(projectId)
-  const undo = useUndoMove(projectId)
-  const checklist = useSaveChecklist(projectId)
+  const create = useCreateTicket(projectId)
   const [pickedId, setPickedId] = useState<string | null>(null)
-  // The panel always shows a card: the one picked, or else the first in To Do (so it is never empty on arrival).
-  const firstId = useMemo(() => {
-    const all = board.data?.stories ?? []
-    return ([...all].filter((s) => s.status === 'todo').sort((a, b) => a.position - b.position)[0] ?? all[0])?.id ?? null
-  }, [board.data])
-  const openId = pickedId && board.data?.stories.some((s) => s.id === pickedId) ? pickedId : firstId
-  const detail = useStory(openId)
-  // Arriving from a requirement's Story link on the Design step: that card is selected, listed even past the first few, and brought into view, once.
-  const arrivedAt = useRef<string | null>(null)
+  const [createError, setCreateError] = useState<string | undefined>()
+
+  const stories = board.data?.stories ?? []
+  const sentIds = new Set((tickets.data?.data ?? []).map((t) => t.storyId))
+  // Arriving with ?open=R6: that story is selected. Otherwise the first requirement still to prepare, so the page is never empty.
   const wanted = params.get('open')
-  const target = wanted ? board.data?.stories.find((s) => s.key === wanted) : undefined
+  const target = wanted ? stories.find((s) => s.key === wanted) : undefined
+  const firstId = useMemo(() => {
+    const todo = stories.filter((s) => s.kind === 'requirement' && !sentIds.has(s.id)).sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))[0]
+    return (todo ?? stories[0])?.id ?? null
+  }, [board.data, tickets.data]) // eslint-disable-line react-hooks/exhaustive-deps
+  const [seen, setSeen] = useState<string | null>(null)
   useEffect(() => {
-    if (target && arrivedAt.current !== target.key) setPickedId(target.id)
-  }, [target])
-  useEffect(() => {
-    if (!target || arrivedAt.current === target.key || openId !== target.id) return
-    arrivedAt.current = target.key
-    const card = document.querySelector<HTMLElement>(`[data-testid="card-${target.key}"]`)
-    if (!card) return
-    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    card.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'center' })
-    card.querySelector<HTMLElement>('button')?.focus({ preventScroll: true })
-  }, [target, openId, board.data])
-  const [savedAt, setSavedAt] = useState<string | undefined>()
-  const markSaved = () => setSavedAt(new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))
-  const [search, setSearch] = useState('')
-  const [priority, setPriority] = useState<Priority | 'all'>('all')
-  const [error, setError] = useState<string | undefined>()
-  const [announcement, setAnnouncement] = useState('')
-  const [moving, setMoving] = useState<Set<string>>(new Set())
-
-  const stories = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return (board.data?.stories ?? []).filter(
-      (s) => (priority === 'all' || s.priority === priority) && (!q || `${s.key} ${s.title} ${s.ownerTeam ?? ''}`.toLowerCase().includes(q)),
-    )
-  }, [board.data, search, priority])
-
-  const fail = (err: unknown) => setError(friendlyMessage(err))
-  const onMove = (story: BoardStory, status: StoryStatus, beforeId: string | null) => {
-    if (moving.has(story.id)) return
-    setError(undefined)
-    setMoving((m) => new Set(m).add(story.id))
-    move.mutate(
-      { story, status, beforeId },
-      {
-        onError: fail,
-        onSuccess: () => {
-          markSaved()
-          setAnnouncement(`${story.key} moved to ${STATUS_LABEL[status]}`)
-        },
-        onSettled: () => setMoving((m) => { const n = new Set(m); n.delete(story.id); return n }),
-      },
-    )
-  }
+    if (target && seen !== target.key) {
+      setSeen(target.key)
+      setPickedId(target.id)
+    }
+  }, [target, seen])
+  const openId = pickedId && stories.some((s) => s.id === pickedId) ? pickedId : firstId
+  const detail = useStory(openId)
 
   const noBoard = board.error instanceof ApiRequestError && board.error.code === 'no_board'
   const state = noBoard ? 'empty' : board.isError ? 'error' : board.isPending ? 'loading' : 'ready'
+  const tab = params.get('tab') === 'sent' ? 'sent' : 'prepare'
 
   return (
     <StoriesView
       state={state}
       project={project.data}
-      board={board.data}
       stories={stories}
-      canEdit={me.data?.role === 'owner' || me.data?.role === 'editor'}
-      moving={moving}
-      search={search}
-      priority={priority}
+      tickets={tickets.data?.data ?? []}
+      tab={tab}
       openId={openId}
       detail={openId ? detail.data : undefined}
-      detailBusy={checklist.isPending}
-      undoing={undo.isPending}
-      saving={moving.size > 0 || checklist.isPending || undo.isPending}
-      savedAt={savedAt}
-      errorText={board.isError && !noBoard ? friendlyMessage(board.error) : error}
-      announcement={announcement}
-      onSearch={setSearch}
-      onPriority={setPriority}
-      onOpen={setPickedId}
-      onMove={onMove}
-      onUndo={() => {
-        setError(undefined)
-        if (board.data) undo.mutate(board.data.specId, { onError: fail, onSuccess: markSaved })
+      canEdit={me.data?.role === 'owner' || me.data?.role === 'editor'}
+      errorText={board.isError && !noBoard ? friendlyMessage(board.error) : tickets.isError ? friendlyMessage(tickets.error) : undefined}
+      creating={create.isPending}
+      createError={createError}
+      linkTo={(story) => `${window.location.origin}/projects/${projectId}/stories?open=${encodeURIComponent(story.key)}`}
+      onTab={(next) => {
+        const p = new URLSearchParams(params)
+        if (next === 'sent') p.set('tab', 'sent')
+        else p.delete('tab')
+        setParams(p, { replace: true })
       }}
-      onChecklist={(items: ChecklistInput[]) => {
-        if (!detail.data) return
-        setError(undefined)
-        checklist.mutate({ id: detail.data.id, version: detail.data.version, items }, { onError: fail, onSuccess: markSaved })
+      onOpen={setPickedId}
+      onCreate={async (storyId: string, input: CreateTicketInput) => {
+        setCreateError(undefined)
+        try {
+          await create.mutateAsync({ storyId, input })
+          return true
+        } catch (err) {
+          setCreateError(friendlyMessage(err))
+          return false
+        }
       }}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
-      onViewDesign={(story) => navigate(`/projects/${projectId}/design?open=${encodeURIComponent(story.key)}`)}
+      onViewDesign={(story: BoardStory) => navigate(`/projects/${projectId}/design?open=${encodeURIComponent(story.key)}`)}
     />
   )
 }

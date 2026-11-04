@@ -11,10 +11,11 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
+import { AlreadySent, createTicket, listTickets, NoStory, NotTicketable } from './tickets.js'
 import {
   approveStep, draftWaitingStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
@@ -538,6 +539,15 @@ export function createApp(options: AppOptions = {}) {
   })
 
 
+  // The Jira hand-off (simulated): the tickets made from a project's stories, and making one.
+  app.get('/projects/:id/tickets', withReadContext, async (c) => {
+    const id = projectId(c)
+    const ctx = c.get('ctx')
+    if (!(await getProjectDetail(getDb(), ctx.workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ data: await listTickets(getDb(), ctx.workspaceId, id) })
+  })
+
   // Experience categories ---------------------------------------------------------------------------------------------
   // The shared list of what research is about. Anyone reads it; an editor adds a category (after a duplicate check) and edits one; only an
   // owner merges and retires, which change a lot of existing work at once. An area is a label on a question, task or test item, never a requirement.
@@ -891,6 +901,22 @@ export function createApp(options: AppOptions = {}) {
   app.post('/stories/:id/move', withContext, (c) => storyAction(c, moveStorySchema, (id, v, input) => moveStory(getDb(), c.get('ctx'), id, v, { status: input.status, beforeId: input.beforeId })))
   app.patch('/stories/:id', withContext, (c) => storyAction(c, patchStorySchema, (id, v, input) => patchStory(getDb(), c.get('ctx'), id, v, input)))
   app.put('/stories/:id/checklist', withContext, (c) => storyAction(c, checklistSchema, (id, v, input) => saveChecklist(getDb(), c.get('ctx'), id, v, input.items)))
+
+  // Makes the simulated Jira ticket for one requirement. Once: a story that has a ticket cannot be sent again.
+  app.post('/stories/:id/tickets', withContext, async (c) => {
+    requireEditor(c)
+    const id = storyId(c)
+    const input = parseBody(createTicketSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    try {
+      return c.json(await createTicket(getDb(), c.get('ctx'), id, input), 201)
+    } catch (err) {
+      if (err instanceof NoStory) throw new ApiError(404, 'not_found', 'No such story.')
+      if (err instanceof NotTicketable) throw new ApiError(422, 'not_a_requirement', 'An open question is a decision to make, not a ticket. Decide it first.')
+      if (err instanceof AlreadySent) throw new ApiError(409, 'already_sent', `This story was already sent as ${err.jiraKey}.`)
+      throw err
+    }
+  })
 
   app.post('/specs/:id/undo', withContext, async (c) => {
     requireEditor(c)

@@ -742,6 +742,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Jira tickets made from this project's requirements, newest first (the Sent to Jira list): what was sent, who sent it and when. The Jira connection is simulated for now, so each carries `simulated: true`. Open to read as the viewer. */
+        get: operations["listTickets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/themes": {
         parameters: {
             query?: never;
@@ -1032,6 +1049,23 @@ export interface paths {
         head?: never;
         /** Changes a card's owner team or priority. If-Match is the card's version. Needs the token. */
         patch: operations["updateStory"];
+        trace?: never;
+    };
+    "/stories/{id}/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners and editors. Makes the (simulated) Jira ticket for a requirement from what was chosen in the Create ticket dialog, and keeps it as the record. The key follows the project's own sequence (PLAT-215, PLAT-216 ...). 409 `already_sent` when the story already has one; 422 `not_a_requirement` for an open question. */
+        post: operations["createTicket"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/stories/{id}/move": {
@@ -2298,6 +2332,50 @@ export interface components {
              */
             status: "active" | "invited";
             avatarUrl: string | null;
+        };
+        Ticket: {
+            id: string;
+            /** @description The story it was made from; null if a later board update removed that story. */
+            storyId: string | null;
+            /** @description R1 */
+            storyKey: string;
+            /** @description For example PLAT-215. */
+            jiraKey: string;
+            /** @description The Jira project, as "PLAT · Platform". */
+            project: string;
+            /** @enum {string} */
+            issueType: "Story" | "Task" | "Epic";
+            summary: string;
+            description: string;
+            /** @enum {string} */
+            priority: "High" | "Medium" | "Low";
+            assignee: string;
+            labels: string;
+            points: string | null;
+            /** @description True while the Jira connection is simulated: the key was made here, not by Jira. */
+            simulated: boolean;
+            createdBy: {
+                id: string;
+                name: string;
+            } | null;
+            /** Format: date-time */
+            createdAt: string;
+        };
+        TicketList: {
+            data: components["schemas"]["Ticket"][];
+        };
+        CreateTicketRequest: {
+            /** @description Code and name, for example "PLAT · Platform". */
+            project: string;
+            /** @enum {string} */
+            issueType: "Story" | "Task" | "Epic";
+            summary: string;
+            description?: string;
+            /** @enum {string} */
+            priority: "High" | "Medium" | "Low";
+            assignee?: string;
+            labels?: string;
+            points?: string | null;
         };
         MemberList: {
             data: components["schemas"]["Member"][];
@@ -3760,6 +3838,31 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    listTickets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tickets. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TicketList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     getInsightsThemes: {
         parameters: {
             query?: never;
@@ -4285,6 +4388,39 @@ export interface operations {
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createTicket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTicketRequest"];
+            };
+        };
+        responses: {
+            /** @description The ticket. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ticket"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
