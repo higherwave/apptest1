@@ -1,4 +1,4 @@
-import { InlineNotification, ProgressBar, Tag } from '@carbon/react'
+import { ProgressBar, Tag } from '@carbon/react'
 import { useAiStatus, useMe } from '../../api/hooks'
 import { SettingsHeader } from './SettingsHeader'
 import styles from './AppStatusPage.module.scss'
@@ -6,8 +6,8 @@ import styles from './AppStatusPage.module.scss'
 const PURPOSE_LABEL: Record<string, string> = { analysis: 'Transcript analysis', spec_step: 'Requirements drafting', theme_match: 'Theme matching' }
 const SPEND_LABEL = { half: '50% reached', high: '80% reached', reached: 'Budget reached' } as const
 
-// How the app is running: this month's AI spend against its budget, and the recent problems the AI steps ran into. Owners only
-// (the same people the server shows these to).
+// How the app is running: this month's AI spend against its budget, and the recent problems the AI steps ran into. Owners only: the
+// Settings gate sends everyone else away, and the server sends these figures to owners alone.
 export function AppStatusPage() {
   const me = useMe()
   const ai = useAiStatus()
@@ -16,7 +16,6 @@ export function AppStatusPage() {
   return (
     <div className={styles.page}>
       <SettingsHeader />
-      {me.isSuccess && !owner && <InlineNotification kind="info" lowContrast hideCloseButton title="App status is for owners" subtitle="Ask an owner of this workspace if something looks wrong." />}
       {owner && ai.isSuccess && (
         <>
           <section className={styles.card} aria-label="AI mode">

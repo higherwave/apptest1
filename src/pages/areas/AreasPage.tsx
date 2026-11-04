@@ -18,8 +18,8 @@ const used = (a: Area) => {
   return parts.length ? parts.join(', ') : 'Not used yet'
 }
 
-// The shared list of experience categories. Everyone reads it, an editor adds one (the duplicate check is in the dialog), and an owner edits,
-// merges and retires. Connected: it owns the dialogs' state.
+// The shared list of experience categories. Everyone who can open Settings reads it, an editor adds one (the duplicate check is in the dialog) and
+// edits one, and only an owner merges and retires (those change a lot of existing work at once). Connected: it owns the dialogs' state.
 export function AreasPage() {
   const areas = useAreas()
   const me = useMe()
@@ -158,11 +158,11 @@ export function AreasPage() {
                   {used(a)}
                 </div>
                 <div role="cell" className={styles.actions}>
-                  {isOwner && (
+                  {canAdd && (
                     <OverflowMenu iconDescription={`Actions for ${a.name}`} flipped size="sm">
                       <OverflowMenuItem itemText="Edit" onClick={() => open('edit', a)} />
-                      <OverflowMenuItem itemText="Merge into another category" disabled={live.length < 2} onClick={() => open('merge', a)} />
-                      <OverflowMenuItem itemText="Retire" isDelete onClick={() => open('retire', a)} />
+                      {isOwner && <OverflowMenuItem itemText="Merge into another category" disabled={live.length < 2} onClick={() => open('merge', a)} />}
+                      {isOwner && <OverflowMenuItem itemText="Retire" isDelete onClick={() => open('retire', a)} />}
                     </OverflowMenu>
                   )}
                 </div>

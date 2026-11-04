@@ -83,10 +83,11 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     const mode = aiMode(ai)
-    // Owners and editors also see what recently went wrong with model calls (visitors never do).
-    const found = !ctx.anonymous && (ctx.role === 'owner' || ctx.role === 'editor') ? await recentAiProblems(getDb(), ctx.workspaceId).catch(() => []) : []
+    // Only owners see how the AI is running (what recently went wrong, and the spend against the budget): it is the App Status tab in Settings.
+    const owner = !ctx.anonymous && ctx.role === 'owner'
+    const found = owner ? await recentAiProblems(getDb(), ctx.workspaceId).catch(() => []) : []
     const lastProblem = found.length ? { problems: found } : {}
-    if (ctx.anonymous || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false', ...lastProblem })
+    if (!owner || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false', ...lastProblem })
     const budgetUsd = monthlyBudgetUsd(env)
     const spentUsd = await spentThisMonthUsd(getDb(), ctx.workspaceId)
     // spendLevel is what the alerts follow: half (50%), high (80%) or reached (100%) of the month's budget. month says which month it counts.
@@ -138,6 +139,7 @@ export function createApp(options: AppOptions = {}) {
   }
 
   app.get('/members', withContext, async (c) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can see the members.')
     c.header('Cache-Control', 'private, no-store')
     return c.json({ data: await listMembers(getDb(), c.get('ctx').workspaceId) })
   })
@@ -537,11 +539,11 @@ export function createApp(options: AppOptions = {}) {
 
 
   // Experience categories ---------------------------------------------------------------------------------------------
-  // The shared list of what research is about. Anyone reads it; an editor adds an area (after a duplicate check); an owner edits, merges
-  // and retires. An area is a label on a question, task or test item, never a requirement.
+  // The shared list of what research is about. Anyone reads it; an editor adds a category (after a duplicate check) and edits one; only an
+  // owner merges and retires, which change a lot of existing work at once. An area is a label on a question, task or test item, never a requirement.
 
   const requireAreaOwner = (c: Context) => {
-    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change the experience categories.')
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can merge or retire an experience category.')
   }
   const areaId = (c: Context) => {
     const id = c.req.param('id') ?? ''
@@ -589,7 +591,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json(await createArea(getDb(), c.get('ctx'), input).catch(areaErrors), 201)
   })
   app.patch('/areas/:id', withContext, async (c) => {
-    requireAreaOwner(c)
+    requireEditor(c)
     const id = areaId(c)
     const expected = expectedVersion(c)
     const input = parseBody(updateAreaSchema, await readJson(c))

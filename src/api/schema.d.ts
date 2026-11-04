@@ -28,7 +28,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether AI runs are live or simulated (the header indicator). The token holder also gets this month's spend and the budget when live. Open to read as the viewer. */
+        /** Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and the budget when live, and what recently went wrong (the App Status tab in Settings); nobody else does. */
         get: operations["getAiStatus"];
         put?: never;
         post?: never;
@@ -113,7 +113,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The workspace's feature areas: the shared list of what research is about (Scheduling, Reminders), with how many questions and tasks use each. Active ones first, then retired ones. */
+        /** The workspace's experience categories: the shared list of what research is about (Scheduling, Reminders), with how many questions and tasks use each. Active ones first, then retired ones. */
         get: operations["listAreas"];
         put?: never;
         /** Adds an area (owner or editor). 409 `duplicate_area` when the name is, or is an alias of, an existing area (use it; `existing` says which); 409 `similar_area` when it only resembles one (`similar` lists them), unless `force` is true. */
@@ -131,7 +131,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Suggested new feature areas: groups of current themes that have no area and share a word no area covers, raised by at least three people. Worked out from the words alone (no model call). A group someone dismissed is not listed. */
+        /** Suggested new experience categories: groups of current themes that have no area and share a word no area covers, raised by at least three people. Worked out from the words alone (no model call). A group someone dismissed is not listed. */
         get: operations["listAreaProposals"];
         put?: never;
         post?: never;
@@ -188,7 +188,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Owners only. Changes the name, definition and aliases; a changed name stays as an alias. If-Match is the area's version. */
+        /** Owners and editors. Changes the name, definition and aliases; a changed name stays as an alias. If-Match is the area's version. */
         patch: operations["updateArea"];
         trace?: never;
     };
@@ -233,7 +233,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Everyone invited to the workspace, owners first. `invited` means they have not signed in yet. */
+        /** Owners only (403 otherwise). Everyone invited to the workspace, owners first. `invited` means they have not signed in yet. */
         get: operations["listMembers"];
         put?: never;
         /** Owners only. Invites an email address with a role. They sign in with that address; their first sign-in links the invitation to their account. 409 `already_member` if they are already in. */
@@ -409,7 +409,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Files a theme under a feature area, or under none (`areaId` null). The analysis chooses an area for each theme; this is the person's correction. 422 `unknown_area` for an area that does not exist or is retired. Needs an owner or editor. */
+        /** Files a theme under an experience category, or under none (`areaId` null). The analysis chooses an area for each theme; this is the person's correction. 422 `unknown_area` for an area that does not exist or is retired. Needs an owner or editor. */
         put: operations["setThemeArea"];
         post?: never;
         delete?: never;
@@ -819,10 +819,10 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Owners and editors. Files a platform theme that has no feature area under one, by setting it on the project themes behind it that have none. 409 `already_assigned` when the theme already has an area: areas come from the analysis, and are not rearranged here. */
+        /** Owners and editors. Files a platform theme that has no experience category under one, by setting it on the project themes behind it that have none. 409 `already_assigned` when the theme already has an area: areas come from the analysis, and are not rearranged here. */
         put: operations["assignPlatformThemeArea"];
         post?: never;
-        /** Owners and editors. Takes back a person's filing of a theme under a feature area: the project themes that carry that area go back to none. 409 `not_filed_by_hand` when the area did not come from a person filing it here (the analysis's own choices are not undone). */
+        /** Owners and editors. Takes back a person's filing of a theme under an experience category: the project themes that carry that area go back to none. 409 `not_filed_by_hand` when the area did not come from a person filing it here (the analysis's own choices are not undone). */
         delete: operations["clearPlatformThemeArea"];
         options?: never;
         head?: never;
@@ -1204,7 +1204,7 @@ export interface components {
             tasks: {
                 id: string;
                 prompt: string;
-                /** @description The feature area this question or task is about. Follow-ups share their parent's. */
+                /** @description The experience category this question or task is about. Follow-ups share their parent's. */
                 areaId: string | null;
                 followUps: {
                     id: string;
@@ -1351,7 +1351,7 @@ export interface components {
                 category: "pain_point" | "need" | "expectation" | "delight";
                 /** @description True for a platform theme the model started that nobody has marked reviewed yet. */
                 needsReview: boolean;
-                /** @description The feature area most of its project themes are filed under; null when there is none (shown as Unassigned). */
+                /** @description The experience category most of its project themes are filed under; null when there is none (shown as Unassigned). */
                 area: {
                     /** Format: uuid */
                     id: string;
@@ -1435,7 +1435,7 @@ export interface components {
                     title: string;
                     /** @enum {string} */
                     category: "pain_point" | "need" | "expectation" | "delight";
-                    /** @description Its feature area, or null (Unassigned). */
+                    /** @description Its experience category, or null (Unassigned). */
                     area: {
                         /** Format: uuid */
                         id: string;
@@ -1575,7 +1575,7 @@ export interface components {
                 /** Format: uuid */
                 id: string;
                 title: string;
-                /** @description Its feature area, or null (Unassigned). */
+                /** @description Its experience category, or null (Unassigned). */
                 area: {
                     /** Format: uuid */
                     id: string;
@@ -1606,7 +1606,7 @@ export interface components {
             problem: {
                 title: string;
                 category: string;
-                /** @description The feature area of the project theme, or null (Unassigned). */
+                /** @description The experience category of the project theme, or null (Unassigned). */
                 area: {
                     /** Format: uuid */
                     id: string;
@@ -1899,7 +1899,7 @@ export interface components {
             /** @description How many team conversations it came up in. */
             teamSessions: number;
             score: number | null;
-            /** @description The feature area the theme is about, as the analysis filed it or a person corrected it. Null when none fits. */
+            /** @description The experience category the theme is about, as the analysis filed it or a person corrected it. Null when none fits. */
             area: {
                 id: string;
                 name: string;
@@ -1973,7 +1973,7 @@ export interface components {
         SaveTasksRequest: {
             tasks: {
                 prompt: string;
-                /** @description A live feature area of this workspace */
+                /** @description A live experience category of this workspace */
                 areaId?: string | null;
                 followUps?: string[];
             }[];

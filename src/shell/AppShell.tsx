@@ -2,7 +2,7 @@ import { Analytics, ChevronDown, Filter, Launch, Settings as SettingsIcon } from
 import { Button, Tag } from '@carbon/react'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useProject, useProjectStage } from '../api/hooks'
+import { useMe, useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import { AiBadge } from '../auth/AiBadge'
 import type { StepKey } from '../api/client'
@@ -61,10 +61,13 @@ export function AppShell() {
     }
   })
 
+  // Settings is for owners and editors; a viewer does not see it in the menu at all.
+  const me = useMe()
+  const canSettings = me.data?.role === 'owner' || me.data?.role === 'editor'
   const areas = [
     { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
     { to: '/projects', label: 'Product Funnel', active: !insights && !settings, icon: Filter },
-    { to: '/settings/categories', label: 'Settings', active: settings, icon: SettingsIcon },
+    ...(canSettings ? [{ to: '/settings/categories', label: 'Settings', active: settings, icon: SettingsIcon }] : []),
   ]
   const current = areas.find((a) => a.active) ?? areas[0]
   // The prototype gallery lives elsewhere: it opens in its own tab. Its address is a brand setting; with none, the link is not shown.

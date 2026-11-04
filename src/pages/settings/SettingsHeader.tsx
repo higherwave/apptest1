@@ -5,13 +5,13 @@ import { SETTINGS_SECTIONS } from '../../shell/nav'
 import { PageHero } from '../../shell/PageHero'
 import styles from '../insights/InsightsHeader.module.scss'
 
-// The title above every Settings screen, with the switch between the kinds of settings. App Status is for owners and Members for
-// people who are signed in, so the others do not see a tab that is not theirs.
+// The title above every Settings screen, with the switch between the kinds of settings. Editors see Experience Categories only; the
+// App Status and Members tabs are for owners.
 export function SettingsHeader() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const me = useMe()
-  const sections = SETTINGS_SECTIONS.filter((s) => (s.key === 'status' ? me.data?.role === 'owner' : s.key === 'members' ? me.data?.via === 'session' : true))
+  const sections = SETTINGS_SECTIONS.filter((s) => s.key === 'categories' || me.data?.role === 'owner')
   const current = sections.findIndex((s) => pathname === `/settings/${s.key}`)
   return (
     <PageHero title="Settings" description="How this workspace is set up: its experience categories, how the app is running, and who can use it" glow="left">

@@ -22,8 +22,8 @@ paths:
     get:
       operationId: getAiStatus
       summary: >
-        Whether AI runs are live or simulated (the header indicator). The token holder also gets this month's spend
-        and the budget when live. Open to read as the viewer.
+        Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and
+        the budget when live, and what recently went wrong (the App Status tab in Settings); nobody else does.
       responses:
         '200':
           description: The AI mode.
@@ -166,7 +166,7 @@ paths:
   /areas/{id}:
     patch:
       operationId: updateArea
-      summary: Owners only. Changes the name, definition and aliases; a changed name stays as an alias. If-Match is the area's version.
+      summary: Owners and editors. Changes the name, definition and aliases; a changed name stays as an alias. If-Match is the area's version.
       parameters:
         - { $ref: '#/components/parameters/Id' }
         - { $ref: '#/components/parameters/IfMatch' }
@@ -228,7 +228,7 @@ paths:
   /members:
     get:
       operationId: listMembers
-      summary: Everyone invited to the workspace, owners first. `invited` means they have not signed in yet.
+      summary: Owners only (403 otherwise). Everyone invited to the workspace, owners first. `invited` means they have not signed in yet.
       responses:
         '200':
           description: The members.

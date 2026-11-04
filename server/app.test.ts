@@ -2027,10 +2027,14 @@ test('experience categories: editors add them with a duplicate check, owners cur
   const usage = Object.fromEntries(list.data.map((a: any) => [a.name, a.usage]))
   assert.deepEqual([usage.Scheduling, usage.Reminders], [{ tasks: 1, themes: 0 }, { tasks: 1, themes: 0 }])
 
-  // Owners curate: rename keeps the old name as an alias; editors cannot; a stale version conflicts; If-Match is required.
+  // Owners and editors edit: a rename keeps the old name as an alias; a stale version conflicts; If-Match is required. Only owners merge and retire.
   const renamed = await expectSpec(await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments', definition: 'Booking and moving appointments', aliases: ['Booking'] }, scheduling.version), '/areas/{id}', 'patch')
   assert.deepEqual([renamed.name, renamed.aliases.sort()], ['Appointments', ['Booking', 'Scheduling']])
-  assert.equal((await send(editor, 'PATCH', `/areas/${scheduling.id}`, { name: 'Nope' }, renamed.version)).status, 403)
+  const edited = await expectSpec(await send(editor, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments', definition: 'Booking, moving and cancelling appointments', aliases: ['Booking'] }, renamed.version), '/areas/{id}', 'patch')
+  assert.equal(edited.definition, 'Booking, moving and cancelling appointments', 'an editor edits a category')
+  assert.equal((await send(viewer, 'PATCH', `/areas/${scheduling.id}`, { name: 'Nope' }, edited.version)).status, 403)
+  assert.equal((await send(editor, 'POST', `/areas/${reminders.id}/merge`, { intoId: scheduling.id })).status, 403, 'merging is for owners')
+  assert.equal((await send(editor, 'POST', `/areas/${reminders.id}/retire`)).status, 403, 'retiring is for owners')
   assert.equal((await expectSpec(await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments again' }, scheduling.version), '/areas/{id}', 'patch')).error.code, 'version_conflict')
   assert.equal((await send(owner, 'PATCH', `/areas/${scheduling.id}`, { name: 'Appointments' })).status, 428)
   assert.equal((await expectSpec(await send(owner, 'PATCH', `/areas/${reminders.id}`, { name: 'appointments' }, reminders.version), '/areas/{id}', 'patch')).error.code, 'duplicate_area', 'a rename cannot collide')

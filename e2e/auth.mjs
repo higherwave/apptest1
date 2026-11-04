@@ -123,9 +123,15 @@ try {
 
   // The invited person signs in: linked, read-only, and no invite form.
   await signInAs('e2e.person@example.com')
-  await page.goto(`${BASE}/members`, { waitUntil: 'networkidle0' })
-  await waitText('Members')
-  ok('a viewer can see the members but has no invite form or remove buttons', !(await page.$('#invite-email')) && !(await page.$('[data-testid^="member-"] > div:last-child button')))
+  await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+  await waitText('Product Funnel')
+  ok('a viewer does not see Settings in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Settings'))))
+  for (const path of ['/settings/categories', '/settings/members', '/members']) {
+    await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
+    await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
+  }
+  ok('a viewer who types a Settings address is sent back to the projects', true)
+  ok('the server refuses a viewer the member list and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Product Funnel')

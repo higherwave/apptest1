@@ -98,7 +98,8 @@ test('roles: a viewer reads but cannot write; an editor can write but cannot man
   assert.equal((await app.request('/api/v1/projects', { headers: viewer })).status, 200)
   assert.equal((await app.request('/api/v1/projects', { method: 'POST', headers: { ...viewer, ...json }, body: newProject('By a viewer') })).status, 403)
   assert.equal((await app.request('/api/v1/projects', { method: 'POST', headers: { ...editor, ...json }, body: newProject('By an editor') })).status, 201)
-  assert.equal((await app.request('/api/v1/members', { headers: editor })).status, 200)
+  assert.equal((await app.request('/api/v1/members', { headers: editor })).status, 403, 'the member list is for owners')
+  assert.equal((await app.request('/api/v1/members', { headers: viewer })).status, 403)
   const res = await app.request('/api/v1/members', { method: 'POST', headers: { ...editor, ...json }, body: JSON.stringify({ email: 'x@y.test', role: 'viewer' }) })
   assert.equal(res.status, 403)
   assert.equal((await res.json()).error.code, 'forbidden')
@@ -263,4 +264,18 @@ test('the sign-in picture is reported by /me, and a changed one is picked up at 
   assert.equal(rows[0].avatar_url, 'https://photos.example/pia-2.jpg')
   const token = await appFor({ DEV_TOKEN: 'sesame' })
   assert.equal((await (await token.request('/api/v1/me', { headers: { authorization: 'Bearer sesame' } })).json()).avatarUrl, null)
+})
+
+test('AI status: everyone sees the mode; only an owner sees what went wrong with it', async () => {
+  await invite('olga@invited.test', 'owner')
+  await invite('edna@invited.test', 'editor')
+  const app = await appFor()
+  const ws = (await pglite.query<any>(`select id from core.workspaces where slug = 'higherwave-demo'`)).rows[0].id
+  await pglite.query(`insert into core.ai_problems (workspace_id, purpose, code, message) values ($1, 'analysis', 'ai_output_unusable', 'The reply could not be used.')`, [ws])
+  const status = async (email: string) => (await app.request('/api/v1/ai/status', { headers: who(email) })).json()
+  const owner = await status('olga@invited.test')
+  assert.equal(owner.problems?.[0]?.code, 'ai_output_unusable', 'an owner sees the problems')
+  const editor = await status('edna@invited.test')
+  assert.ok(['live', 'simulated'].includes(editor.mode), 'an editor still sees the mode')
+  assert.ok(!('problems' in editor) && !('spentUsd' in editor) && !('budgetUsd' in editor), 'but not the problems or the spend')
 })

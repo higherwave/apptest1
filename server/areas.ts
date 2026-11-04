@@ -1,5 +1,5 @@
-// Experience categories: the workspace's shared list of what research is about. An editor adds an area (after a duplicate check); an owner
-// edits, merges and retires them. The matching words are in shared/areas.ts so the screens and the API agree about what a duplicate is.
+// Experience categories: the workspace's shared list of what research is about. An editor adds an area (after a duplicate check) and edits one; an
+// owner also merges and retires them. The matching words are in shared/areas.ts so the screens and the API agree about what a duplicate is.
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
 import { similarAreas, type AreaLike } from '../shared/areas.js'
@@ -91,7 +91,7 @@ export async function createArea(db: Db, ctx: RequestContext, input: { name: str
   })
 }
 
-/** Changes the name, definition and aliases (owners). The old name stays as an alias, so it is still recognised. */
+/** Changes the name, definition and aliases (owners and editors). The old name stays as an alias, so it is still recognised. */
 export async function updateArea(db: Db, ctx: RequestContext, id: string, expected: number, input: { name: string; definition: string | null; aliases: string[] }): Promise<Area> {
   const name = clean(input.name)
   return db.transaction(async (tx) => {
