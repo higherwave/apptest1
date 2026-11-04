@@ -10,6 +10,13 @@ const ROLES: { key: MemberRole; label: string; help: string }[] = [
   { key: 'viewer', label: 'Viewer', help: 'Look, but not change anything' },
 ]
 const roleOf = (key: MemberRole) => ROLES.find((r) => r.key === key)!
+// A role in the open list: its name, with what it allows beneath. The closed dropdown shows the name alone.
+const roleItem = (r: (typeof ROLES)[number]) => (
+  <span className={styles.roleItem}>
+    <span className={styles.roleName}>{r.label}</span>
+    <span className={styles.roleHelp}>{r.help}</span>
+  </span>
+)
 
 export type MembersViewProps = {
   state: 'loading' | 'error' | 'ready'
@@ -63,8 +70,10 @@ export function MembersView(p: MembersViewProps) {
             titleText="Role"
             label="Role"
             size="lg"
+            className={styles.roleDropdown}
             items={ROLES}
             itemToString={(r) => r?.label ?? ''}
+            itemToElement={roleItem}
             selectedItem={roleOf(p.role)}
             onChange={({ selectedItem }) => selectedItem && p.onRole(selectedItem.key)}
           />
@@ -73,6 +82,7 @@ export function MembersView(p: MembersViewProps) {
           </Button>
         </section>
       )}
+      {!p.isOwner && (
       <p className={styles.roles}>
         {ROLES.map((r) => (
           <span key={r.key}>
@@ -80,6 +90,7 @@ export function MembersView(p: MembersViewProps) {
           </span>
         ))}
       </p>
+      )}
 
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading members" />}
       {p.state === 'ready' && (
@@ -108,8 +119,10 @@ export function MembersView(p: MembersViewProps) {
                       hideLabel
                       label="Role"
                       size="sm"
+                      className={styles.roleDropdown}
                       items={ROLES}
                       itemToString={(r) => r?.label ?? ''}
+                      itemToElement={roleItem}
                       selectedItem={roleOf(m.role)}
                       onChange={({ selectedItem }) => selectedItem && selectedItem.key !== m.role && p.onChangeRole(m, selectedItem.key)}
                     />

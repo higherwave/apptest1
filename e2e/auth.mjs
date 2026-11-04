@@ -116,6 +116,7 @@ try {
   ok('inviting adds the person as invited, with the chosen role', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.role === 'editor' && m.status === 'invited'))
   await page.click('[data-testid="member-e2e.person@example.com"] [id^="role-"]')
   await page.waitForSelector('[role=option]', { visible: true })
+  ok('each role in the list says what it allows, and the explanation is no longer printed above the table', await page.evaluate(() => { const o = [...document.querySelectorAll('[role=option]')].map((x) => x.innerText); return o.length === 3 && /Everything, including inviting/.test(o[0]) && /Create and change projects/.test(o[1]) && /Look, but not change anything/.test(o[2]) && ![...document.querySelectorAll('p')].some((p) => p.innerText.startsWith('Owner:')) }))
   await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.includes('Viewer')).click())
   await new Promise((r) => setTimeout(r, 800))
   ok('changing the role saves it', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.role === 'viewer'))

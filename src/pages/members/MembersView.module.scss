@@ -29,6 +29,7 @@
 
 .tableWrap {
   overflow-x: auto;
+  @media (min-width: 48rem) { overflow: visible; } // a role list that opens under the last row must not be cut off by the table
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
   background: var(--at-canvas); // a white table on the gray page, with a white header row
@@ -86,4 +87,38 @@
   overflow: hidden;
   clip: rect(0 0 0 0);
   white-space: nowrap;
+}
+
+// The role lists: each entry is a name with what it allows beneath it, so the lists are as wide as that needs and each entry is two lines tall.
+.roleDropdown {
+  // Anchored to the right edge of the control so a list wider than the control opens leftward, not off the screen; all three roles show without scrolling.
+  :global(.cds--list-box__menu) {
+    min-inline-size: 26rem;
+    inset-inline: auto 0;
+    max-block-size: none;
+  }
+  :global(.cds--list-box__menu-item),
+  :global(.cds--list-box__menu-item__option) {
+    block-size: auto;
+    min-block-size: 0;
+    white-space: normal;
+  }
+  :global(.cds--list-box__menu-item__option) { padding-block: var(--at-space-xs); }
+}
+
+.roleItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  text-align: start;
+}
+
+.roleName {
+  @include tokens.role('label-md');
+  color: var(--at-ink);
+}
+
+.roleHelp {
+  @include tokens.role('meta');
+  color: var(--at-muted);
 }
