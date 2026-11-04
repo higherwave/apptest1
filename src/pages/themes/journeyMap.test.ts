@@ -1,7 +1,7 @@
 // npm run test:api also runs these.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sentimentTop, stageOpportunity, stagePainPoints, stageSentiment, strongestFirst } from './journeyMap.js'
+import { sentimentTop, stageBackstage, stageOpportunity, stagePainPoints, stageSentiment, strongestFirst } from './journeyMap.js'
 
 const t = (title: string, over: Record<string, unknown> = {}) =>
   ({ title, category: 'pain_point', priority: 'medium', participantCount: 1, severity: -0.5, opportunity: `Fix ${title}`, ...over }) as never
@@ -30,4 +30,13 @@ test('sentiment is the mean severity, ignoring themes without one', () => {
 
 test('the chart puts positive high, negative low and zero in the middle, clamped to the box', () => {
   assert.deepEqual([sentimentTop(0), sentimentTop(1), sentimentTop(-1), sentimentTop(5)], [50, 10, 90, 10])
+})
+
+test('backstage (simulated): inferred from the stage name and its themes, strongest match first, at most three, none for an empty stage', () => {
+  assert.deepEqual(stageBackstage('Find a provider', []), [])
+  const booking = stageBackstage('Book a time', [t('Provider availability is hard to see', { description: 'No calendar of open slots' })]) as { text: string }[]
+  assert.equal(booking[0].text, 'Scheduling team')
+  assert.ok(booking.length <= 3 && new Set(booking.map((b) => b.text)).size === booking.length)
+  assert.equal(stageBackstage('Confirm & pay', [t('Fees surprise people')])[0].text, 'Billing and insurance team')
+  assert.deepEqual(stageBackstage('Stage', [t('Zzz', { description: 'qqq' })]), [{ kind: 'Team', text: 'Operations team' }])
 })

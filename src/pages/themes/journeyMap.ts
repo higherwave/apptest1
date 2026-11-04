@@ -27,3 +27,29 @@ export function stageSentiment(themes: Theme[]): number | null {
 
 // Where a sentiment sits in the chart, as a percentage from the top: positive high, negative low, zero in the middle.
 export const sentimentTop = (sentiment: number): number => 50 - Math.max(-1, Math.min(1, sentiment)) * 40
+
+// The Backstage row is a simulation: nothing in the research says who or what works behind a stage, so each one is inferred from the words in
+// the stage's name and its themes (a team, a system or a process per hit, strongest match first). It shows what a blueprint would look like.
+export type Backstage = { kind: 'Team' | 'System' | 'Process'; text: string }
+
+const BACKSTAGE: { words: RegExp; items: Backstage[] }[] = [
+  { words: /schedul|book|appointment|availab|slot|calendar|reschedul/i, items: [{ kind: 'Team', text: 'Scheduling team' }, { kind: 'System', text: 'Booking and calendar system' }] },
+  { words: /remind|notif|message|text|email|call|reach/i, items: [{ kind: 'System', text: 'Messaging service' }, { kind: 'Team', text: 'Patient communications' }] },
+  { words: /pay|bill|fee|insur|invoice|cost|price|confirm/i, items: [{ kind: 'Team', text: 'Billing and insurance team' }, { kind: 'System', text: 'Payments platform' }] },
+  { words: /check.?in|arriv|front desk|wait|intake|form|prepare/i, items: [{ kind: 'Team', text: 'Front desk staff' }, { kind: 'Process', text: 'Intake and check-in workflow' }] },
+  { words: /follow|visit|care|record|chart|note|result/i, items: [{ kind: 'System', text: 'Patient records (EHR)' }, { kind: 'Team', text: 'Care team' }] },
+  { words: /report|dashboard|score|data|analytic|metric|health/i, items: [{ kind: 'System', text: 'Reporting and analytics' }, { kind: 'Team', text: 'Operations analytics' }] },
+  { words: /handoff|hand.?off|support|success|renew|account|customer|context/i, items: [{ kind: 'Team', text: 'Support and success' }, { kind: 'System', text: 'CRM and case history' }] },
+]
+
+// Up to three backstage entries for a stage; none for a stage with no themes (nothing to infer from). A stage whose words match nothing falls back to operations.
+export function stageBackstage(stageName: string, themes: Theme[]): Backstage[] {
+  if (themes.length === 0) return []
+  const text = [stageName, ...themes.flatMap((t) => [t.title, t.description ?? ''])].join(' ')
+  const scored = BACKSTAGE.map((b, order) => ({ b, order, hits: (text.match(new RegExp(b.words.source, 'gi')) ?? []).length }))
+    .filter((x) => x.hits > 0)
+    .sort((a, b) => b.hits - a.hits || a.order - b.order)
+  const out: Backstage[] = []
+  for (const { b } of scored) for (const item of b.items) if (out.length < 3 && !out.some((o) => o.text === item.text)) out.push(item)
+  return out.length ? out : [{ kind: 'Team', text: 'Operations team' }]
+}

@@ -2,7 +2,7 @@ import { Button, InlineNotification, Loading, OverflowMenu, OverflowMenuItem } f
 import { useState } from 'react'
 import type { ProjectDetail, Theme, ThemePatch } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
-import { sentimentTop, stageOpportunity, stagePainPoints, stageSentiment } from './journeyMap'
+import { sentimentTop, stageBackstage, stageOpportunity, stagePainPoints, stageSentiment } from './journeyMap'
 import { CATEGORY_LABEL, LEVEL_LABEL, type Level } from './themeEdits'
 import styles from './JourneyView.module.scss'
 
@@ -163,6 +163,27 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
                   )
                 })}
               </div>
+            </div>
+
+            <div className={cx(styles.row, styles.backstageRow)} data-testid="backstage-row">
+              <div className={styles.rowLabel}>
+                Backstage
+                <span className={styles.simulated}>Simulated</span>
+              </div>
+              {stages.map((stage) => {
+                const items = stageBackstage(stage.name, themes.filter((t) => stageOf(t) === stage.position))
+                return (
+                  <div key={stage.position} className={styles.cell}>
+                    {items.length === 0 && <p className={styles.none}>Nothing to infer</p>}
+                    {items.map((item) => (
+                      <div key={item.text} className={styles.backstageItem}>
+                        <span className={styles.backstageKind}>{item.kind}</span>
+                        <p className={styles.backstageText}>{item.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })}
             </div>
 
             <div className={styles.row}>

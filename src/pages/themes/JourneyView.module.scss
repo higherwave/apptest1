@@ -230,6 +230,38 @@ $stage-min: 13rem;
   font-weight: 400;
 }
 
+.backstageRow {
+  background: var(--at-surface-slate);
+}
+
+// The row says it is a simulation, under its label.
+.simulated {
+  @include tokens.role('meta');
+  display: block;
+  margin-block-start: var(--at-space-xxs);
+  color: var(--at-muted);
+  text-transform: none;
+}
+
+.backstageItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-xs);
+}
+
+.backstageKind {
+  @include tokens.role('eyebrow');
+  color: var(--at-muted);
+}
+
+.backstageText {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 400;
+}
+
 .cell .none {
   padding: var(--at-space-xs);
 }
