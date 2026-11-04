@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" role="img" aria-label="Signal Flow">
+  <rect x="1" y="1" width="46" height="46" rx="11" fill="#fff" stroke="#d9dce3"/>
+  <g stroke-width="4" stroke-linecap="round">
+    <path d="M10 20V28" stroke="#1d5bd6"/>
+    <path d="M17 14V34" stroke="#1d5bd6"/>
+    <path d="M24 9V39" stroke="#2b2e36"/>
+    <path d="M31 15V33" stroke="#f5b400"/>
+    <path d="M38 20V28" stroke="#f5b400"/>
+  </g>
+</svg>

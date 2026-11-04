@@ -79,14 +79,6 @@ $column-wide: 100rem; // the content of the Journey Map and Stories; the project
   gap: var(--at-space-sm);
   min-inline-size: 0;
   padding: var(--at-space-xs) var(--at-space-xs) 0;
-
-  img {
-    box-sizing: content-box;
-    padding: var(--at-space-xxs);
-    border: 1px solid var(--at-hairline);
-    border-radius: var(--at-radius-md);
-    background: var(--at-canvas);
-  } // the mark sits in a bordered white square
 }
 
 .narrowBrand {
