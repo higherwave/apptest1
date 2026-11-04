@@ -189,6 +189,7 @@
   grid-template-columns: 1fr auto 1fr; // search at the left, Order in the middle, Group by at the right
   align-items: center;
   gap: var(--at-space-xs) var(--at-space-md);
+  margin-block-start: var(--at-space-sm); // a little air between the count cards above and this toolbar
 
   @media (max-width: 64rem) { grid-template-columns: 1fr; }
 }
