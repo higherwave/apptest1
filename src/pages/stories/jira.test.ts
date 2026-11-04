@@ -1,7 +1,7 @@
 // npm run test:api also runs these.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { labelFrom, readiness, ticketBody } from './jira.js'
+import { labelFrom, pickTab, readiness, ticketBody } from './jira.js'
 
 const story = (over: Record<string, unknown> = {}) =>
   ({ summary: 'As a CSM, I want the timeline in the middle.', whyItMatters: 'Everyone loves it.', nextStep: 'Agree the layout.', theme: { title: 'The timeline saves time', participantCount: 3, totalParticipants: 4 }, checklist: [{ kind: 'criterion', text: 'It stays central' }, { kind: 'task', text: 'Observe a CSM' }, { kind: 'criterion', text: 'Panels sit beside it' }], ...over }) as never
@@ -21,4 +21,13 @@ test('readiness says what is still thin, and a label is made from the theme', ()
   assert.deepEqual(readiness(story({ summary: '', checklist: [], nextStep: ' ' })).map((r) => r.ok), [false, false, true, false])
   assert.equal(labelFrom('The customer timeline saves real time'), 'the-customer-timeline-saves-real-time')
   assert.equal(labelFrom(undefined), '')
+})
+
+test('the tab that opens: the chosen one, else Sent to Jira once nothing is left to prepare, else Prepare for Jira', () => {
+  assert.equal(pickTab(null, 3, 2), 'prepare')
+  assert.equal(pickTab(null, 0, 5), 'sent', 'everything sent: the record is what to look at')
+  assert.equal(pickTab(null, 0, 0), 'prepare', 'nothing sent and nothing to prepare is still Prepare')
+  assert.equal(pickTab('prepare', 0, 5), 'prepare', 'a tab chosen in the address wins')
+  assert.equal(pickTab('sent', 4, 0), 'sent')
+  assert.equal(pickTab('nonsense', 0, 5), 'sent')
 })

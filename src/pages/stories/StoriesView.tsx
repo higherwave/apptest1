@@ -1,136 +1,272 @@
-import { Button, InlineNotification, Loading, Tab, TabList, TabPanel, TabPanels, Tabs, Tag } from '@carbon/react'
-import { useState } from 'react'
-import type { BoardStory, CreateTicketInput, ProjectDetail, StoryDetail, Ticket } from '../../api/client'
-import { ProjectHeader } from '../project/ProjectHeader'
-import { CreateTicketModal } from './CreateTicketModal'
-import { priorityLabel, readiness, storyMarkdown, ticketBody } from './jira'
-import styles from './StoriesView.module.scss'
+import {
+  Button,
+  InlineNotification,
+  Loading,
+  Tab,
+  TabList,
+  TabPanel,
+  TabPanels,
+  Tabs,
+  Tag,
+} from "@carbon/react";
+import { useState } from "react";
+import type {
+  BoardStory,
+  CreateTicketInput,
+  ProjectDetail,
+  StoryDetail,
+  Ticket,
+} from "../../api/client";
+import { ProjectHeader } from "../project/ProjectHeader";
+import { CreateTicketModal } from "./CreateTicketModal";
+import { priorityLabel, readiness, storyMarkdown } from "./jira";
+import styles from "./StoriesView.module.scss";
 
 export type StoriesViewProps = {
-  state: 'loading' | 'error' | 'empty' | 'ready'
-  project?: ProjectDetail
-  stories: BoardStory[]
-  tickets: Ticket[]
-  tab: 'prepare' | 'sent'
-  openId: string | null
-  detail?: StoryDetail
-  canEdit: boolean
-  errorText?: string
-  creating: boolean
-  createError?: string
+  state: "loading" | "error" | "empty" | "ready";
+  project?: ProjectDetail;
+  stories: BoardStory[];
+  tickets: Ticket[];
+  tab: "prepare" | "sent";
+  openId: string | null;
+  detail?: StoryDetail;
+  canEdit: boolean;
+  errorText?: string;
+  creating: boolean;
+  createError?: string;
+  /** The ticket just made, to confirm it: the story has left Prepare for Jira, so this says where it went. */
+  justSent: { jiraKey: string; storyKey: string } | null;
+  /** A story key to mark in the Sent to Jira list (arriving from a link to a story that has been sent). */
+  highlightKey: string | null;
   /** The address of a story in this tool, which goes into the ticket as its evidence link. */
-  linkTo: (story: { key: string }) => string
-  onTab: (tab: 'prepare' | 'sent') => void
-  onOpen: (id: string) => void
+  linkTo: (story: { key: string }) => string;
+  onTab: (tab: "prepare" | "sent") => void;
+  onOpen: (id: string) => void;
+  onDismissSent: () => void;
   /** Resolves true when the ticket was made (the dialog then closes). */
-  onCreate: (storyId: string, input: CreateTicketInput) => Promise<boolean>
-  onGoRequirements: () => void
+  onCreate: (storyId: string, input: CreateTicketInput) => Promise<boolean>;
+  onGoRequirements: () => void;
   /** Opens the Design step with this requirement's row open. */
-  onViewDesign: (story: BoardStory) => void
-}
+  onViewDesign: (story: BoardStory) => void;
+};
 
-const byKey = (a: BoardStory, b: BoardStory) => a.key.localeCompare(b.key, undefined, { numeric: true })
-const when = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+const byKey = (a: BoardStory, b: BoardStory) =>
+  a.key.localeCompare(b.key, undefined, { numeric: true });
+const when = (iso: string) =>
+  new Date(iso).toLocaleString([], {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-// Presentational: the Stories step as a hand-off to Jira. Prepare for Jira lists the requirements to the left, shows the selected one in
-// full (read-only: the document is the source) and a Jira preview with what is still thin; Sent to Jira is the record of what was created.
-// The only editing is in the Create ticket dialog.
+// Presentational: the Stories step as a hand-off to Jira. Prepare for Jira lists the requirements still to send (and the open questions) to the left and
+// shows the selected one in full, read-only (the document is the source), with its evidence and, at the bottom, what is still thin and the buttons.
+// A requirement that has been sent leaves that list and is in Sent to Jira, the record. The only editing is in the Create ticket dialog.
 export function StoriesView(props: StoriesViewProps) {
-  const { state, stories, tickets, tab, openId, errorText } = props
-  const sentBy = new Map(tickets.filter((t) => t.storyId).map((t) => [t.storyId as string, t]))
-  const requirements = stories.filter((s) => s.kind === 'requirement').sort(byKey)
-  const toPrepare = requirements.filter((s) => !sentBy.has(s.id))
-  const sent = requirements.filter((s) => sentBy.has(s.id))
-  const questions = stories.filter((s) => s.kind === 'open_question').sort(byKey)
-  const opened = stories.find((s) => s.id === openId)
+  const { state, stories, tickets, tab, openId, errorText, justSent } = props;
+  const sentIds = new Set(tickets.map((t) => t.storyId));
+  const requirements = stories
+    .filter((s) => s.kind === "requirement")
+    .sort(byKey);
+  const toPrepare = requirements.filter((s) => !sentIds.has(s.id));
+  const questions = stories
+    .filter((s) => s.kind === "open_question")
+    .sort(byKey);
+  const opened = [...toPrepare, ...questions].find((s) => s.id === openId);
+  const allSent = toPrepare.length === 0 && tickets.length > 0;
 
   return (
     <div className={styles.page}>
       <ProjectHeader
         title="Stories"
         description={
-          state === 'ready'
-            ? `${plural(requirements.length, 'requirement')} from the requirements document: ${toPrepare.length} to prepare, ${sent.length} sent to Jira.`
-            : 'Each requirement from the published document, prepared for Jira.'
+          state === "ready"
+            ? `${plural(requirements.length, "requirement")} from the requirements document: ${toPrepare.length} to prepare, ${tickets.length} sent to Jira.`
+            : "Each requirement from the published document, prepared for Jira."
         }
       />
-      {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading small withOverlay={false} description="Loading the stories" />}
-      {state === 'error' && !errorText && <p className={styles.empty}>The stories could not be loaded.</p>}
-      {state === 'empty' && (
+      {errorText && (
+        <InlineNotification
+          kind="error"
+          lowContrast
+          hideCloseButton
+          title="Something went wrong"
+          subtitle={errorText}
+        />
+      )}
+      {state === "loading" && (
+        <Loading small withOverlay={false} description="Loading the stories" />
+      )}
+      {state === "error" && !errorText && (
+        <p className={styles.empty}>The stories could not be loaded.</p>
+      )}
+      {state === "empty" && (
         <div className={styles.emptyState}>
-          <p className={styles.empty}>Publish a requirements document and its requirements appear here, ready for Jira.</p>
+          <p className={styles.empty}>
+            Publish a requirements document and its requirements appear here,
+            ready for Jira.
+          </p>
           <Button kind="primary" size="md" onClick={props.onGoRequirements}>
             Go to Requirements
           </Button>
         </div>
       )}
-      {state === 'ready' && (
-        <Tabs selectedIndex={tab === 'sent' ? 1 : 0} onChange={({ selectedIndex }) => props.onTab(selectedIndex === 1 ? 'sent' : 'prepare')}>
+      {state === "ready" && (
+        <Tabs
+          selectedIndex={tab === "sent" ? 1 : 0}
+          onChange={({ selectedIndex }) =>
+            props.onTab(selectedIndex === 1 ? "sent" : "prepare")
+          }
+        >
           <TabList aria-label="Stories">
-            <Tab data-testid="tab-prepare">Prepare for Jira · {toPrepare.length}</Tab>
+            <Tab data-testid="tab-prepare">
+              Prepare for Jira · {toPrepare.length}
+            </Tab>
             <Tab data-testid="tab-sent">Sent to Jira · {tickets.length}</Tab>
           </TabList>
           <TabPanels>
             <TabPanel className={styles.tabPanel}>
-              {tab === 'prepare' && (
-                <div className={styles.workspace}>
-                  <nav className={styles.list} aria-label="Requirements">
-                    <Group title="To prepare" stories={toPrepare} openId={openId} sentBy={sentBy} onOpen={props.onOpen} />
-                    <Group title="Needs a decision" stories={questions} openId={openId} sentBy={sentBy} onOpen={props.onOpen} />
-                    <Group title="Sent to Jira" stories={sent} openId={openId} sentBy={sentBy} onOpen={props.onOpen} />
-                  </nav>
-                  {opened ? (
-                    <Selected story={opened} ticket={sentBy.get(opened.id)} {...props} />
-                  ) : (
-                    <p className={styles.empty}>Choose a requirement.</p>
+              {tab === "prepare" && (
+                <div className={styles.prepare}>
+                  {justSent && (
+                    <div className={styles.confirm}>
+                      <InlineNotification
+                        kind="success"
+                        lowContrast
+                        title={`${justSent.jiraKey} created`}
+                        subtitle={`${justSent.storyKey} is now in Sent to Jira.`}
+                        data-testid="ticket-confirmation"
+                        onCloseButtonClick={props.onDismissSent}
+                      />
+                      <Button
+                        kind="ghost"
+                        size="sm"
+                        onClick={() => props.onTab("sent")}
+                      >
+                        View in Sent to Jira
+                      </Button>
+                    </div>
                   )}
+                  {allSent && (
+                    <InlineNotification
+                      kind="info"
+                      lowContrast
+                      hideCloseButton
+                      title="Every requirement has been sent to Jira"
+                      subtitle="New ones appear here after the next published document."
+                      data-testid="all-sent"
+                    />
+                  )}
+                  <div className={styles.workspace}>
+                    <nav className={styles.list} aria-label="Requirements">
+                      <Group
+                        title="To prepare"
+                        stories={toPrepare}
+                        openId={openId}
+                        onOpen={props.onOpen}
+                      />
+                      <Group
+                        title="Needs a decision"
+                        stories={questions}
+                        openId={openId}
+                        onOpen={props.onOpen}
+                      />
+                      {toPrepare.length === 0 && questions.length === 0 && (
+                        <p className={styles.listEmpty}>Nothing to prepare.</p>
+                      )}
+                    </nav>
+                    {opened ? (
+                      <Selected key={opened.id} story={opened} {...props} />
+                    ) : (
+                      <p className={styles.empty}>
+                        {allSent
+                          ? "Nothing left to prepare. The record is in Sent to Jira."
+                          : "Choose a requirement."}
+                      </p>
+                    )}
+                  </div>
                 </div>
               )}
             </TabPanel>
-            <TabPanel className={styles.tabPanel}>{tab === 'sent' && <SentList tickets={tickets} onOpen={props.onOpen} onTab={props.onTab} />}</TabPanel>
+            <TabPanel className={styles.tabPanel}>
+              {tab === "sent" && (
+                <SentList tickets={tickets} highlightKey={props.highlightKey} />
+              )}
+            </TabPanel>
           </TabPanels>
         </Tabs>
       )}
     </div>
-  )
+  );
 }
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
-
-function Group({ title, stories, openId, sentBy, onOpen }: { title: string; stories: BoardStory[]; openId: string | null; sentBy: Map<string, Ticket>; onOpen: (id: string) => void }) {
-  if (stories.length === 0) return null
+function Group({
+  title,
+  stories,
+  openId,
+  onOpen,
+}: {
+  title: string;
+  stories: BoardStory[];
+  openId: string | null;
+  onOpen: (id: string) => void;
+}) {
+  if (stories.length === 0) return null;
   return (
     <section className={styles.group} aria-label={title}>
       <h2 className={styles.groupHead}>{title}</h2>
       {stories.map((s) => (
-        <Button key={s.id} kind="ghost" size="md" className={styles.item} data-testid={`story-${s.key}`} aria-current={s.id === openId ? 'true' : undefined} onClick={() => onOpen(s.id)}>
+        <Button
+          key={s.id}
+          kind="ghost"
+          size="md"
+          className={styles.item}
+          data-testid={`story-${s.key}`}
+          aria-current={s.id === openId ? "true" : undefined}
+          onClick={() => onOpen(s.id)}
+        >
           <span className={styles.itemText}>
             <strong>{s.key}</strong> {s.title}
           </span>
-          {sentBy.get(s.id) && <span className={styles.itemKey}>{sentBy.get(s.id)!.jiraKey}</span>}
         </Button>
       ))}
     </section>
-  )
+  );
 }
 
-type SelectedProps = StoriesViewProps & { story: BoardStory; ticket?: Ticket }
+type SelectedProps = StoriesViewProps & { story: BoardStory };
 
-// The selected story: all of it, read-only, then the Jira preview and the button that opens the dialog.
-function Selected({ story, detail, ticket, canEdit, creating, createError, linkTo, onTab, onCreate, onViewDesign }: SelectedProps) {
-  const [modal, setModal] = useState(false)
-  const [copied, setCopied] = useState(false)
-  const question = story.kind === 'open_question'
-  const link = linkTo(story)
-  const checks = detail ? readiness(detail) : []
-  const criteria = detail?.checklist.filter((c) => c.kind === 'criterion') ?? []
-  const tasks = detail?.checklist.filter((c) => c.kind === 'task') ?? []
+// The selected story, all of it and read-only, then its evidence, and a strip at the bottom (it stays in view on a long story) with what is
+// still thin, Create Jira ticket and Copy as Markdown. An open question has the decision note in place of the ticket button.
+function Selected({
+  story,
+  detail,
+  canEdit,
+  creating,
+  createError,
+  linkTo,
+  onCreate,
+  onViewDesign,
+}: SelectedProps) {
+  const [modal, setModal] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const question = story.kind === "open_question";
+  const link = linkTo(story);
+  const checks = detail ? readiness(detail) : [];
+  const criteria =
+    detail?.checklist.filter((c) => c.kind === "criterion") ?? [];
+  const tasks = detail?.checklist.filter((c) => c.kind === "task") ?? [];
   return (
     <>
-      <article className={styles.detail} aria-label={`${story.key} ${story.title}`} data-testid="story-detail">
+      <article
+        className={styles.detail}
+        aria-label={`${story.key} ${story.title}`}
+        data-testid="story-detail"
+      >
         <p className={styles.kicker}>
-          {story.key} · {story.theme?.title ?? 'No theme'}
+          {story.key} · {story.theme?.title ?? "No theme"}
         </p>
         <h2 className={styles.title}>{story.title}</h2>
         <div className={styles.tags}>
@@ -143,21 +279,26 @@ function Selected({ story, detail, ticket, canEdit, creating, createError, linkT
               {priorityLabel(story.priority)} priority
             </Tag>
           )}
-          {story.theme && (
-            <Tag size="md" type="outline">
-              Raised by {story.theme.participantCount} of {story.theme.totalParticipants} participants
-            </Tag>
-          )}
           {!question && (
             <Button kind="ghost" size="sm" onClick={() => onViewDesign(story)}>
               Design →
             </Button>
           )}
         </div>
-        {!detail && <Loading small withOverlay={false} description="Loading the story" />}
+        {!detail && (
+          <Loading small withOverlay={false} description="Loading the story" />
+        )}
         {detail && (
           <>
-            {detail.syncNote && <InlineNotification kind="warning" lowContrast hideCloseButton title="Out of step with the document" subtitle={detail.syncNote} />}
+            {detail.syncNote && (
+              <InlineNotification
+                kind="warning"
+                lowContrast
+                hideCloseButton
+                title="Out of step with the document"
+                subtitle={detail.syncNote}
+              />
+            )}
             {detail.summary && (
               <section className={styles.block} aria-label="Story">
                 <h3 className={styles.blockHead}>Story</h3>
@@ -200,75 +341,76 @@ function Selected({ story, detail, ticket, canEdit, creating, createError, linkT
                 </section>
               )}
             </div>
+            <section
+              className={styles.block}
+              aria-label="Evidence"
+              data-testid="evidence"
+            >
+              <h3 className={styles.blockHead}>Evidence</h3>
+              {story.theme ? (
+                <p className={styles.text}>
+                  Raised by {story.theme.participantCount} of{" "}
+                  {story.theme.totalParticipants} participants ·{" "}
+                  {story.theme.title}
+                </p>
+              ) : (
+                <p className={styles.muted}>No theme behind it.</p>
+              )}
+              {!question && (
+                <p className={styles.link}>Link in the ticket: {link}</p>
+              )}
+            </section>
           </>
         )}
-      </article>
 
-      <aside className={styles.side} aria-label="Jira">
-        {question ? (
-          <>
-            <h3 className={styles.blockHead}>Needs a decision</h3>
-            <p className={styles.text}>An open question is a decision to make, not a ticket. Once it is decided, the answer belongs in the requirements document.</p>
-          </>
-        ) : (
-          <>
-            <h3 className={styles.blockHead}>Jira preview</h3>
-            {detail ? (
-              <div className={styles.preview}>
-                <p className={styles.previewMeta}>
-                  {ticket ? ticket.issueType : 'Story'} · {priorityLabel(ticket?.priority ?? story.priority)}
-                </p>
-                <p className={styles.previewTitle}>{ticket ? ticket.summary : story.title}</p>
-                <p className={styles.previewBody}>{ticket ? ticket.description : ticketBody(detail, link)}</p>
-              </div>
-            ) : (
-              <Loading small withOverlay={false} description="Loading the preview" />
-            )}
-            {!ticket && detail && (
-              <>
-                <h3 className={styles.blockHead}>Readiness</h3>
-                <ul className={styles.checks}>
-                  {checks.map((c) => (
-                    <li key={c.label} data-ok={c.ok}>
-                      <span aria-hidden>{c.ok ? '✓' : '○'}</span> {c.label}
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-            {ticket ? (
-              <div className={styles.done} data-testid="ticket-done">
-                <p className={styles.doneText}>Ticket {ticket.jiraKey} created</p>
-                <p className={styles.muted}>
-                  {ticket.createdBy?.name ?? 'Someone'} · {when(ticket.createdAt)}
-                </p>
-                <Button kind="ghost" size="sm" onClick={() => onTab('sent')}>
-                  View in Sent to Jira
-                </Button>
-              </div>
-            ) : (
-              <Button kind="primary" size="md" className={styles.create} disabled={!canEdit || !detail} data-testid="create-ticket" onClick={() => setModal(true)}>
+        <div className={styles.actions} data-testid="story-actions">
+          {question ? (
+            <p className={styles.actionNote}>
+              An open question is a decision to make, not a ticket. Once it is
+              decided, the answer belongs in the requirements document.
+            </p>
+          ) : (
+            detail && (
+              <ul className={styles.checks} aria-label="Readiness">
+                {checks.map((c) => (
+                  <li key={c.label} data-ok={c.ok}>
+                    <span aria-hidden>{c.ok ? "✓" : "○"}</span> {c.label}
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+          <div className={styles.buttons}>
+            {!question && (
+              <Button
+                kind="primary"
+                size="md"
+                disabled={!canEdit || !detail}
+                data-testid="create-ticket"
+                onClick={() => setModal(true)}
+              >
                 Create Jira ticket
               </Button>
             )}
-          </>
-        )}
-        <Button
-          kind="ghost"
-          size="sm"
-          disabled={!detail}
-          onClick={() => {
-            if (!detail) return
-            void navigator.clipboard?.writeText(storyMarkdown(detail, link)).catch(() => undefined)
-            setCopied(true)
-            window.setTimeout(() => setCopied(false), 1500)
-          }}
-        >
-          {copied ? 'Copied' : 'Copy as Markdown'}
-        </Button>
-      </aside>
-
-      {detail && !question && !ticket && (
+            <Button
+              kind="ghost"
+              size="md"
+              disabled={!detail}
+              onClick={() => {
+                if (!detail) return;
+                void navigator.clipboard
+                  ?.writeText(storyMarkdown(detail, link))
+                  .catch(() => undefined);
+                setCopied(true);
+                window.setTimeout(() => setCopied(false), 1500);
+              }}
+            >
+              {copied ? "Copied" : "Copy as Markdown"}
+            </Button>
+          </div>
+        </div>
+      </article>
+      {detail && !question && (
         <CreateTicketModal
           story={detail}
           link={link}
@@ -276,32 +418,67 @@ function Selected({ story, detail, ticket, canEdit, creating, createError, linkT
           pending={creating}
           errorText={createError}
           onClose={() => setModal(false)}
-          onCreate={(input) => void onCreate(story.id, input).then((made) => made && setModal(false))}
+          onCreate={(input) =>
+            void onCreate(story.id, input).then(
+              (made) => made && setModal(false),
+            )
+          }
         />
       )}
     </>
-  )
+  );
 }
 
-// The record: what was sent, to which project, by whom and when. A story's own key opens it again on Prepare for Jira.
-function SentList({ tickets, onOpen, onTab }: { tickets: Ticket[]; onOpen: (id: string) => void; onTab: (tab: 'prepare' | 'sent') => void }) {
+// The record: what was sent, to which project, by whom and when.
+function SentList({
+  tickets,
+  highlightKey,
+}: {
+  tickets: Ticket[];
+  highlightKey: string | null;
+}) {
   return (
     <div className={styles.sent}>
-      <p className={styles.muted}>Stories sent to Jira from this tool. The Jira connection is simulated for now: the keys are made here and nothing reached Jira.</p>
+      <p className={styles.muted}>
+        Stories sent to Jira from this tool. The Jira connection is simulated
+        for now: the keys are made here and nothing reached Jira.
+      </p>
       {tickets.length === 0 ? (
-        <p className={styles.emptyBox}>Nothing sent yet. Open a requirement on Prepare for Jira and choose Create Jira ticket.</p>
+        <p className={styles.emptyBox}>
+          Nothing sent yet. Open a requirement on Prepare for Jira and choose
+          Create Jira ticket.
+        </p>
       ) : (
         <div className={styles.tableWrap}>
-          <div className={styles.table} role="table" aria-label="Tickets sent to Jira" data-testid="sent-table">
+          <div
+            className={styles.table}
+            role="table"
+            aria-label="Tickets sent to Jira"
+            data-testid="sent-table"
+          >
             <div className={styles.row} role="row">
-              {['Jira key', 'Summary', 'Story', 'Priority', 'Assignee', 'Created by', 'Created'].map((h) => (
+              {[
+                "Jira key",
+                "Summary",
+                "Story",
+                "Priority",
+                "Assignee",
+                "Created by",
+                "Created",
+              ].map((h) => (
                 <div key={h} className={styles.head} role="columnheader">
                   {h}
                 </div>
               ))}
             </div>
             {tickets.map((t) => (
-              <div key={t.id} className={styles.row} role="row" data-testid={`ticket-${t.jiraKey}`}>
+              <div
+                key={t.id}
+                className={styles.row}
+                role="row"
+                data-testid={`ticket-${t.jiraKey}`}
+                data-highlight={t.storyKey === highlightKey}
+              >
                 <div role="cell" className={styles.jiraKey}>
                   {t.jiraKey}
                 </div>
@@ -309,29 +486,14 @@ function SentList({ tickets, onOpen, onTab }: { tickets: Ticket[]; onOpen: (id: 
                   <p className={styles.summary}>{t.summary}</p>
                   <p className={styles.meta}>
                     {t.issueType} · {t.project}
-                    {t.labels ? ` · ${t.labels}` : ''}
-                    {t.points ? ` · ${t.points} pts` : ''}
+                    {t.labels ? ` · ${t.labels}` : ""}
+                    {t.points ? ` · ${t.points} pts` : ""}
                   </p>
                 </div>
-                <div role="cell">
-                  {t.storyId ? (
-                    <Button
-                      kind="ghost"
-                      size="sm"
-                      onClick={() => {
-                        onOpen(t.storyId!)
-                        onTab('prepare')
-                      }}
-                    >
-                      {t.storyKey}
-                    </Button>
-                  ) : (
-                    <span>{t.storyKey}</span>
-                  )}
-                </div>
+                <div role="cell">{t.storyKey}</div>
                 <div role="cell">{t.priority}</div>
                 <div role="cell">{t.assignee}</div>
-                <div role="cell">{t.createdBy?.name ?? 'Someone'}</div>
+                <div role="cell">{t.createdBy?.name ?? "Someone"}</div>
                 <div role="cell" className={styles.when}>
                   {when(t.createdAt)}
                 </div>
@@ -341,5 +503,5 @@ function SentList({ tickets, onOpen, onTab }: { tickets: Ticket[]; onOpen: (id: 
         </div>
       )}
     </div>
-  )
+  );
 }

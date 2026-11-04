@@ -556,12 +556,12 @@ try {
   ok('Prepare for Jira lists every requirement to prepare, and the open questions apart under Needs a decision', await page.evaluate((b) => { const req = b.stories.filter((s) => s.kind === 'requirement'); const q = b.stories.filter((s) => s.kind === 'open_question'); const group = (label) => document.querySelector(`section[aria-label="${label}"]`); return !!group('To prepare') && group('To prepare').querySelectorAll('[data-testid^="story-"]').length === req.length && !!group('Needs a decision') && group('Needs a decision').querySelectorAll('[data-testid^="story-"]').length === q.length }, board0))
   ok('the first requirement is open in full, read-only: no text box or Move control anywhere in the story', await page.evaluate((k) => { const d = document.querySelector('[data-testid="story-detail"]'); return d.querySelector('p').innerText.startsWith(k) && !d.querySelector('textarea, input, select, [aria-label^="Move "]') && /acceptance criteria/i.test(d.innerText) }, firstReq))
   ok('there is no way to add a new story: the stories come from the document', !(await text()).includes('New story') && !(await text()).includes('Add criterion'))
-  ok('the Jira preview and the Readiness list sit beside the story', await page.evaluate(() => { const s = document.querySelector('aside[aria-label="Jira"]'); return /Jira preview/i.test(s.innerText) && /Readiness/i.test(s.innerText) && /Story statement/.test(s.innerText) && !!s.querySelector('[data-testid="create-ticket"]') }))
+  ok('there is no right panel: the story has an Evidence block, and at the bottom the Readiness checks, Create Jira ticket and Copy as Markdown', await page.evaluate(() => { const d = document.querySelector('[data-testid="story-detail"]'); const a = d.querySelector('[data-testid="story-actions"]'); const ev = d.querySelector('[data-testid="evidence"]'); return !document.querySelector('aside[aria-label="Jira"]') && !!ev && /(raised by|no theme behind it)/i.test(ev.innerText) && /Link in the ticket: http/.test(ev.innerText) && /Story statement/.test(a.innerText) && !!a.querySelector('[data-testid="create-ticket"]') && /Copy as Markdown/.test(a.innerText) && !!(ev.compareDocumentPosition(a) & Node.DOCUMENT_POSITION_FOLLOWING) }))
   ok('there is no Kanban board: no columns, drag, Move menu or Undo', await page.evaluate(() => !/in progress|in review/i.test(document.body.innerText) && !document.querySelector('[draggable="true"], [aria-label^="Move "]') && ![...document.querySelectorAll('button')].some((b) => /^Undo/.test(b.innerText.trim()))))
   await page.click('[data-testid^="story-Q"]')
   await page.waitForFunction(() => document.querySelector('[data-testid="story-detail"] p')?.innerText.startsWith('Q'), { timeout: 8000 })
-  ok('an open question says it needs a decision and has no Create button', await page.evaluate(() => { const s = document.querySelector('aside[aria-label="Jira"]'); return /decision to make, not a ticket/i.test(s.innerText) && !s.querySelector('[data-testid="create-ticket"]') }))
-  await page.click(`[data-testid="story-${firstReq}"]`)
+  ok('an open question says it needs a decision and has no Create button', await page.evaluate(() => { const s = document.querySelector('[data-testid="story-actions"]'); return /decision to make, not a ticket/i.test(s.innerText) && !s.querySelector('[data-testid="create-ticket"]') }))
+  await page.evaluate((k) => { const el = document.querySelector(`[data-testid="story-${k}"]`); el.scrollIntoView({ block: 'center' }); el.click() }, firstReq)
   await page.waitForFunction((k) => document.querySelector('[data-testid="story-detail"] p')?.innerText.startsWith(k), { timeout: 8000 }, firstReq)
   await page.click('[data-testid="create-ticket"]')
   await page.waitForSelector('.cds--modal.is-visible #ticket-summary', { timeout: 5000 })
@@ -572,11 +572,11 @@ try {
   await page.keyboard.type('Prefill the booking form (edited in the dialog)')
   await page.type('.cds--modal.is-visible #ticket-points', '5')
   await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Create ticket').click())
-  await page.waitForSelector('[data-testid="ticket-done"]', { timeout: 8000 })
+  await page.waitForSelector('[data-testid="ticket-confirmation"]', { timeout: 8000 })
   const made = (await apiTickets())[0]
   ok('creating records the ticket with what was edited in the dialog, who made it and when', made.jiraKey === 'PLAT-215' && made.storyKey === firstReq && made.summary === 'Prefill the booking form (edited in the dialog)' && made.points === '5' && made.simulated === true && !!made.createdBy?.name && !!made.createdAt, JSON.stringify(made).slice(0, 200))
-  ok('the story now says Ticket PLAT-215 created, and moves to the Sent to Jira group', await page.evaluate((k) => /Ticket PLAT-215 created/.test(document.querySelector('[data-testid="ticket-done"]').innerText) && !!document.querySelector(`section[aria-label="Sent to Jira"] [data-testid="story-${k}"]`) && !document.querySelector(`section[aria-label="To prepare"] [data-testid="story-${k}"]`), firstReq))
-  ok('a story with a ticket cannot be sent again', !(await page.$('[data-testid="create-ticket"]')))
+  ok('the story has left Prepare for Jira, a confirmation says PLAT-215 was created, and the next story is open', await page.evaluate((k) => !document.querySelector(`[data-testid="story-${k}"]`) && /PLAT-215 created/.test(document.querySelector('[data-testid="ticket-confirmation"]').innerText) && !!document.querySelector('[data-testid="story-detail"]') && !document.querySelector('[data-testid="story-detail"] p').innerText.startsWith(k), firstReq))
+  ok('there is no longer a Sent to Jira group in the list', await page.evaluate(() => !document.querySelector('section[aria-label="Sent to Jira"]')))
   await page.click('[data-testid="tab-sent"]')
   await page.waitForSelector('[data-testid="ticket-PLAT-215"]', { timeout: 5000 })
   ok('Sent to Jira lists the ticket with its key, summary, story, priority, assignee, who created it and when', await page.evaluate((k) => { const r = document.querySelector('[data-testid="ticket-PLAT-215"]').innerText; return /PLAT-215/.test(r) && /edited in the dialog/.test(r) && r.includes(k) && /5 pts/.test(r) && /Unassigned/.test(r) && /\d:\d\d/.test(r) }, firstReq))
@@ -586,6 +586,7 @@ try {
   ok('the record is kept, and the tab is in the address', true)
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="story-"]')
+  ok('with stories still to prepare, the page opens on Prepare for Jira', await page.evaluate(() => document.querySelector('[data-testid="tab-prepare"]').getAttribute('aria-selected') === 'true'))
 
 
   ok('on Stories, which has a wider column, the step strip and the project bar sit where they do on every other page', await page.evaluate((x) => { const left = (el) => Math.round(el.getBoundingClientRect().left); const label = document.querySelector('nav[aria-label="Project steps"] p'); return left(label) === x && left(document.querySelector('[class*="projectName"]')) - left(label) >= 2 && left(document.querySelector('[class*="projectName"]')) - left(label) <= 6 }, stripLeft))
@@ -616,6 +617,21 @@ try {
   await page.click('[data-testid="story-Q1"]')
   await page.waitForFunction(() => document.querySelector('[data-testid="story-detail"] p')?.innerText.startsWith('Q1'), { timeout: 8000 })
   ok('an open question has no Design link', await page.evaluate(() => ![...document.querySelectorAll('[data-testid="story-detail"] button')].some((b) => b.innerText.trim() === 'Design →')))
+  // Send every remaining requirement (through the API, as an owner): with nothing left to prepare, the page opens on Sent to Jira.
+  for (const st of (await apiBoard()).stories.filter((x) => x.kind === 'requirement')) {
+    if ((await apiTickets()).some((t) => t.storyId === st.id)) continue
+    const r = await fetch(`${API}/api/v1/stories/${st.id}/tickets`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ project: 'PLAT · Platform', issueType: 'Story', summary: st.title, description: '', priority: 'Medium', assignee: 'Unassigned', labels: '', points: null }) })
+    if (r.status !== 201) throw new Error(`could not send ${st.key}: ${r.status}`)
+  }
+  await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="tab-sent"]')
+  ok('once every requirement is sent, the page opens on Sent to Jira', await page.evaluate(() => document.querySelector('[data-testid="tab-sent"]').getAttribute('aria-selected') === 'true' && !!document.querySelector('[data-testid="sent-table"]')))
+  await page.click('[data-testid="tab-prepare"]')
+  await page.waitForSelector('[data-testid="all-sent"]', { timeout: 5000 })
+  ok('Prepare for Jira says everything was sent, and still lists the open questions under Needs a decision', await page.evaluate(() => /every requirement has been sent/i.test(document.querySelector('[data-testid="all-sent"]').innerText) && !document.querySelector('section[aria-label="To prepare"]') && !!document.querySelector('section[aria-label="Needs a decision"] [data-testid^="story-Q"]')))
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="all-sent"]', { timeout: 8000 })
+  ok('a tab chosen by hand stays chosen, since it is in the address', await page.evaluate(() => document.querySelector('[data-testid="tab-prepare"]').getAttribute('aria-selected') === 'true' && location.search.includes('tab=prepare')))
   await navTo('Design')
   await page.waitForSelector('[data-testid^="design-"]')
   ok('the Design step lists one row per requirement, none for open questions', (await page.$$('[data-testid^="design-"]')).length === preview.requirements && !(await page.$('[data-testid="design-Q1"]')))
@@ -1046,7 +1062,7 @@ try {
   await page.goto(`${BASE}/insights/onboarding`, { waitUntil: 'networkidle0' })
   ok('and its old address leads to the journey', await page.evaluate(() => location.pathname === '/insights/journey'))
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
-  await page.waitForSelector('[data-testid^="story-"]')
+  await page.waitForSelector('[data-testid="tab-sent"]')
 
   // Requirements opens the one document directly. A published document can be reopened: edit, approve, change themes, update the board.
   await navTo('Requirements')

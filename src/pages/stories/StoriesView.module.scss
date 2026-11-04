@@ -23,20 +23,31 @@
   padding: var(--at-space-lg) 0 0;
 }
 
-// Requirements at the left, the selected story in the middle, the Jira preview at the right.
+// What to prepare, with its confirmation and notes above, then requirements at the left and the selected story to the right of them.
+.prepare {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.confirm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
 .workspace {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr) 20rem;
+  grid-template-columns: 17rem minmax(0, 1fr);
   gap: var(--at-space-md);
   align-items: start;
 
-  @media (max-width: 72rem) { grid-template-columns: 15rem minmax(0, 1fr); }
   @media (max-width: 48rem) { grid-template-columns: 1fr; }
 }
 
 .list,
-.detail,
-.side {
+.detail {
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
   background: var(--at-canvas);
@@ -84,11 +95,6 @@
   flex: 1;
   min-inline-size: 0;
   white-space: normal;
-}
-
-.itemKey {
-  @include tokens.role('meta');
-  color: var(--at-link);
 }
 
 .detail {
@@ -166,49 +172,26 @@
   @media (max-width: 56rem) { grid-template-columns: 1fr; }
 }
 
-.side {
+// The bottom of the story: what is still thin, and the buttons. It stays at the bottom of the screen while the story is longer than the screen.
+.actions {
+  position: sticky;
+  inset-block-end: 0;
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
   gap: var(--at-space-sm);
-  padding: var(--at-space-md);
-
-  @media (max-width: 72rem) { grid-column: 1 / -1; }
-}
-
-.preview {
-  inline-size: 100%;
-  padding: var(--at-space-sm) var(--at-space-md);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
+  margin: var(--at-space-sm) calc(var(--at-space-lg) * -1) calc(var(--at-space-lg) * -1);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-block-start: 1px solid var(--at-hairline);
+  border-end-start-radius: var(--at-radius-lg);
+  border-end-end-radius: var(--at-radius-lg);
   background: var(--at-canvas);
-}
-
-.previewMeta {
-  @include tokens.role('meta');
-  margin: 0;
-  color: var(--at-muted);
-}
-
-.previewTitle {
-  @include tokens.role('label-md');
-  margin: var(--at-space-xxs) 0 var(--at-space-xs);
-  color: var(--at-ink);
-}
-
-.previewBody {
-  @include tokens.role('body-md');
-  margin: 0;
-  color: var(--at-body);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere; // the evidence link is long
 }
 
 .checks {
   @include tokens.role('body-md');
   display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xxs);
+  flex-wrap: wrap;
+  gap: var(--at-space-xxs) var(--at-space-lg);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -217,22 +200,31 @@
   li[data-ok='false'] { color: var(--at-muted); }
 }
 
-.create {
-  inline-size: 100%;
-  max-inline-size: none;
-}
-
-.done {
-  inline-size: 100%;
-  padding: var(--at-space-sm) var(--at-space-md);
-  border-radius: var(--at-radius-md);
-  background: var(--at-tint-mint);
-}
-
-.doneText {
-  @include tokens.role('label-md');
+.actionNote {
+  @include tokens.role('body-md');
   margin: 0;
-  color: var(--at-ink);
+  color: var(--at-body);
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.link {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+  overflow-wrap: anywhere;
+}
+
+.listEmpty {
+  @include tokens.role('body-md');
+  margin: 0;
+  padding: var(--at-space-md);
+  color: var(--at-muted);
 }
 
 // Sent to Jira: a white table, in the page's own grid (the design rules keep raw tables out).
@@ -272,6 +264,7 @@
   border-block-start: 1px solid var(--at-hairline);
 
   &:first-child { border-block-start: none; }
+  &[data-highlight='true'] { background: var(--at-surface-slate); }
 }
 
 .head {

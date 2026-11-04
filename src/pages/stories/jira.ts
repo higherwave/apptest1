@@ -40,3 +40,10 @@ export function readiness(story: Pick<StoryDetail, 'summary' | 'checklist' | 'ne
     { ok: !!story.nextStep?.trim(), label: 'Next step defined' },
   ]
 }
+
+// Which tab opens: the one chosen in the address, else Sent to Jira once every requirement has been sent (nothing is left to prepare),
+// else Prepare for Jira.
+export function pickTab(param: string | null, toPrepare: number, sent: number): 'prepare' | 'sent' {
+  if (param === 'sent' || param === 'prepare') return param
+  return toPrepare === 0 && sent > 0 ? 'sent' : 'prepare'
+}
