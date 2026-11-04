@@ -1,7 +1,8 @@
 // Everything under the hero on a Platform Insights screen: the width of the hero's contents, centered.
 @mixin below-hero {
   // (not the loading spinner: stretched to this width it would fill the screen)
-  > :not(header):not([class*='cds--loading']) {
+  // (nor a dialog: its overlay has to cover the whole screen, not the width of the content)
+  > :not(header):not([class*='cds--loading']):not([class*='cds--modal']) {
     inline-size: 100%;
     max-inline-size: 75rem;
     margin-inline: auto;

@@ -142,6 +142,8 @@ try {
   await waitText('e2e.person@example.com')
   await page.click('[data-testid="member-e2e.person@example.com"] > div:last-child button')
   await waitText('They lose access right away')
+  await new Promise((r) => setTimeout(r, 400))
+  ok('the remove dialog darkens the whole window, not just the width of the page', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible'); const r = m.getBoundingClientRect(); return Math.abs(r.width - window.innerWidth) < 2 && r.left < 2 }))
   await clickInOpenDialog('Remove')
   await page.waitForFunction(() => !document.body.innerText.includes('e2e.person@example.com') || document.querySelector('.cds--modal.is-visible') === null, { timeout: 8000 })
   await new Promise((r) => setTimeout(r, 600))
