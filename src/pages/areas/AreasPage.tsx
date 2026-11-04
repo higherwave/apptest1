@@ -5,6 +5,9 @@ import { useAcceptAreaProposal, useAreaProposals, useAreas, useCreateArea, useDi
 import { SettingsHeader } from '../settings/SettingsHeader'
 import styles from './AreasPage.module.scss'
 
+// The distinct theme titles behind a suggestion (the same theme is often raised in several projects).
+const titles = (p: { themes: { title: string }[] }) => [...new Set(p.themes.map((t) => t.title))]
+
 type Action = { kind: 'edit' | 'merge' | 'retire'; area: Area } | null
 
 const used = (a: Area) => {
@@ -81,7 +84,7 @@ export function AreasPage() {
   return (
     <div className={styles.page}>
       <SettingsHeader />
-      <p className={styles.intro}>What research is about, in one shared set of words. A question to ask or a task to observe names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement.</p>
+      <p className={styles.intro}>What research is about, in one shared set of words. A question to ask or a task to observe names its category, so what people say is described the same way across studies and duplicates are caught early. A category is a label, never a requirement.</p>
       <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setTab(selectedIndex)}>
         <TabList aria-label="Experience categories views">
           <Tab data-testid="tab-current">Current Categories</Tab>
@@ -194,7 +197,7 @@ export function AreasPage() {
                 <p className={styles.definition}>
                   {p.themes.length} themes · {p.participants} participants · {p.projects} {p.projects === 1 ? 'project' : 'projects'}
                 </p>
-                <p className={styles.definition}>{p.themes.slice(0, 4).map((t) => t.title).join(' · ')}{p.themes.length > 4 ? ` · and ${p.themes.length - 4} more` : ''}</p>
+                <p className={styles.definition}>{titles(p).slice(0, 4).join(' · ')}{titles(p).length > 4 ? ` · and ${titles(p).length - 4} more` : ''}</p>
               </div>
               <div className={styles.proposalActions}>
                 <Button kind="primary" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => accept.mutate({ key: p.key })}>
