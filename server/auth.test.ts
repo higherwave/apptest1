@@ -251,3 +251,16 @@ test('finishBuild makes the landing page the root file and the app app.html', as
   for (const path of ['/projects', '/sign-in', '/members', '/projects/abc/themes']) assert.ok(catchAll.test(path), path)
   for (const path of ['/landing.html', '/landing-icon.png', '/landing-motion.js', '/privacy.html', '/about.html', '/logo.png', '/favicon.ico', '/robots.txt', '/assets/index-abc.js', '/app.html']) assert.ok(!catchAll.test(path), path)
 })
+
+test('the sign-in picture is reported by /me, and a changed one is picked up at the next sign-in', async () => {
+  await invite('pia@invited.test', 'viewer')
+  const app = await appFor()
+  const meOf = async (image?: string) => (await app.request('/api/v1/me', { headers: who('pia@invited.test', 'g-pia', { name: 'Pia', image }) })).json()
+  assert.equal((await meOf('https://photos.example/pia-1.jpg')).avatarUrl, 'https://photos.example/pia-1.jpg')
+  assert.equal((await meOf('https://photos.example/pia-2.jpg')).avatarUrl, 'https://photos.example/pia-2.jpg')
+  assert.equal((await meOf()).avatarUrl, 'https://photos.example/pia-2.jpg', 'no picture from the provider keeps the last one')
+  const { rows } = await pglite.query<any>(`select avatar_url from core.users where lower(email) = 'pia@invited.test'`)
+  assert.equal(rows[0].avatar_url, 'https://photos.example/pia-2.jpg')
+  const token = await appFor({ DEV_TOKEN: 'sesame' })
+  assert.equal((await (await token.request('/api/v1/me', { headers: { authorization: 'Bearer sesame' } })).json()).avatarUrl, null)
+})

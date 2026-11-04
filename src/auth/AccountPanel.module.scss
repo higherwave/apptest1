@@ -1,0 +1,50 @@
+@use '../tokens' as tokens;
+
+// The picture button in the header: no box of its own, just the circle.
+.trigger {
+  padding: var(--at-space-xxs);
+  min-inline-size: 0;
+  border-radius: var(--at-radius-full);
+}
+
+.panel {
+  inline-size: 20rem;
+  max-inline-size: calc(100vw - 2rem);
+  padding: var(--at-space-md);
+  background: var(--at-canvas);
+}
+
+.who {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-lg) var(--at-space-md);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-slate);
+  text-align: center;
+}
+
+.name {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.email {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+  overflow-wrap: anywhere;
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  margin-block-start: var(--at-space-sm);
+}
+
+.link {
+  inline-size: 100%;
+  max-inline-size: none;
+}

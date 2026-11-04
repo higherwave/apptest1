@@ -248,6 +248,11 @@ $column-wide: 100rem; // the content of the Journey Map and Stories; the project
   color: var(--at-ink);
 }
 
+.aiBadge {
+  display: flex;
+  align-items: center;
+}
+
 .access {
   margin-inline-start: auto;
 }

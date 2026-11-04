@@ -4,6 +4,7 @@ import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
+import { AiBadge } from '../auth/AiBadge'
 import type { StepKey } from '../api/client'
 import { STEPS } from './nav'
 import { StepNav, type StepItem } from './StepNav'
@@ -118,6 +119,9 @@ export function AppShell() {
               )}
             </div>
           )}
+        </div>
+        <div className={styles.aiBadge}>
+          <AiBadge />
         </div>
         <div className={styles.access}>
           <AccessBar />

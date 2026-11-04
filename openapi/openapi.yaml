@@ -2751,11 +2751,12 @@ components:
               detail: { type: [string, 'null'], description: 'What was wrong with the reply, or what the app did instead. Never research text.' }
     Me:
       type: object
-      required: [userId, email, displayName, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso]
+      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso]
       properties:
         userId: { type: string }
         email: { type: string }
         displayName: { type: string }
+        avatarUrl: { type: [string, 'null'], description: 'The picture from the sign-in provider (Google, or the company sign-in), shown in the header. Null when there is none.' }
         workspaceId: { type: string }
         workspaceName: { type: string }
         role: { type: string, enum: [owner, editor, viewer] }

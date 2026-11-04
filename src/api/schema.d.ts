@@ -2185,6 +2185,8 @@ export interface components {
             userId: string;
             email: string;
             displayName: string;
+            /** @description The picture from the sign-in provider (Google, or the company sign-in), shown in the header. Null when there is none. */
+            avatarUrl: string | null;
             workspaceId: string;
             workspaceName: string;
             /** @enum {string} */

@@ -1,0 +1,30 @@
+@use '../tokens' as tokens;
+
+.avatar {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--at-radius-full);
+  background: var(--at-surface-strong);
+  color: var(--at-ink);
+}
+
+.small {
+  inline-size: 2rem;
+  block-size: 2rem;
+  @include tokens.role('meta');
+}
+
+.large {
+  inline-size: 6rem;
+  block-size: 6rem;
+  @include tokens.role('title-sm');
+}
+
+.picture {
+  inline-size: 100%;
+  block-size: 100%;
+  object-fit: cover;
+}

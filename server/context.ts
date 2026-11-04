@@ -13,6 +13,8 @@ export type RequestContext = {
   role: 'owner' | 'editor' | 'viewer'
   email: string
   displayName: string
+  /** The picture from the sign-in provider, when there is one. */
+  avatarUrl: string | null
   workspaceName: string
   /** How this request was let in: a signed-in session, the access token, open editing, or the read-only demo viewer. */
   via: 'session' | 'token' | 'open' | 'anonymous'
@@ -25,7 +27,7 @@ declare module 'hono' {
 }
 
 const IDENTITY_SQL = `
-  select u.id as user_id, u.email, u.display_name, w.id as workspace_id, w.name as workspace_name, m.role
+  select u.id as user_id, u.email, u.display_name, u.avatar_url, w.id as workspace_id, w.name as workspace_name, m.role
   from core.workspaces w
   join core.memberships m on m.workspace_id = w.id
   join core.users u on u.id = m.user_id
@@ -46,7 +48,7 @@ const IDENTITY_SQL = `
 export type Access = 'strict' | 'read'
 
 const MEMBER_SQL = `
-  select u.id as user_id, u.email, u.display_name, u.auth_subject, w.id as workspace_id, w.name as workspace_name, m.role
+  select u.id as user_id, u.email, u.display_name, u.avatar_url, u.auth_subject, w.id as workspace_id, w.name as workspace_name, m.role
   from core.workspaces w
   join core.memberships m on m.workspace_id = w.id
   join core.users u on u.id = m.user_id
@@ -68,12 +70,18 @@ async function memberFor(db: Db, slug: string, who: AuthUser, policy: SsoPolicy)
   }
   if (!row) throw new ApiError(403, 'not_invited', `${who.email} has not been invited to this workspace.`)
   let displayName: string = row.display_name
+  let avatarUrl: string | null = row.avatar_url ?? null
   if (!row.auth_subject) {
     displayName = who.name || row.display_name
+    avatarUrl = who.image ?? avatarUrl
     await db.query(`update core.users set auth_subject = $2, display_name = $3, avatar_url = coalesce($4, avatar_url) where id = $1 and auth_subject is null`, [row.user_id, who.id, displayName, who.image])
+  } else if (who.image && who.image !== avatarUrl) {
+    // A picture changed at the provider shows up at the next sign-in.
+    avatarUrl = who.image
+    await db.query(`update core.users set avatar_url = $2 where id = $1`, [row.user_id, who.image])
   }
   return {
-    anonymous: false, via: 'session', userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName, workspaceName: row.workspace_name,
+    anonymous: false, via: 'session', userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName, avatarUrl, workspaceName: row.workspace_name,
   }
 }
 
@@ -134,7 +142,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     const row = rows[0]
     if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Create the workspace with: node db/init-workspace.mjs (or load the demo with the seed).`)
     const value: RequestContext = {
-      anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName: row.display_name, workspaceName: row.workspace_name,
+      anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,
     }
     cache.set(key, { at: Date.now(), value })
     c.set('ctx', { ...value, anonymous, via, role: anonymous ? 'viewer' : value.role })

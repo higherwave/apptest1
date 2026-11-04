@@ -224,6 +224,8 @@ A panel that slides in from the right edge and leaves the page visible keeps peo
 
 A dark rail down the left (`src/shell/AppShell.tsx`: the app's name, then Platform Insights, Product Funnel, Settings and the Prototype gallery, which opens `galleryUrl` from `brand/brand.json` in another tab), a slim bar across the top (the account and editing state), and inside a project a project-name bar and the step strip (`--at-surface-slate`, a grayish blue shared with the open recommendation box on Platform Themes). Their left edges line up with the page title below. On narrow screens the rail is replaced by a menu in the top bar. Panel headings use the `panel-title` type role everywhere (Themes, Priorities, Stories), section headings inside a panel use `eyebrow`, and body text `body-md`.
 
+The top bar carries the **AI: live / simulated** badge at its left and, at its right, the signed-in person's picture (`src/auth/AccountPanel.tsx`). The picture comes from the sign-in provider, is kept in `core.users.avatar_url`, refreshed at the next sign-in when it changes, and reported as `avatarUrl` by `GET /me`; without one, initials stand in. Clicking it opens a panel (Carbon `Popover`) with a larger picture, name, email, role, Members, AI status (owners) and Sign out.
+
 Form fields share the buttons' look: white fill, the light hairline border all round (the strong border on hover), and `rounded.md` corners, set once in `src/theme.scss` (Form fields). The focus ring stays Carbon's, in ink.
 
 ## Customer and team feedback

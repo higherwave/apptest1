@@ -103,7 +103,7 @@ export function createApp(options: AppOptions = {}) {
     const ctx = c.get('ctx')
     c.header('Cache-Control', 'private, no-store')
     return c.json({
-      userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
+      userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, avatarUrl: ctx.avatarUrl, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
       signInAvailable: !!auth,
       rolesManagedBySso: ssoPolicy(env).managedByGroups,
     })

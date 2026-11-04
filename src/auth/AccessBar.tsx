@@ -1,11 +1,11 @@
-import { Button, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, ProgressBar, Tag, TextInput } from '@carbon/react'
+import { Button, InlineNotification, Modal, ProgressBar, Tag, TextInput } from '@carbon/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { friendlyMessage, getMe } from '../api/client'
 import { useAiStatus, useMe, useSignInOptions } from '../api/hooks'
 import { setToken } from '../api/token'
-import { signInWith, signOut } from './authClient'
+import { AccountPanel } from './AccountPanel'
+import { signInWith } from './authClient'
 import styles from './AccessBar.module.scss'
 
 // The "Editing unlocked" badge and the Lock button are hidden unless VITE_SHOW_ACCESS_CONTROLS=true, so a shared demo looks
@@ -19,7 +19,6 @@ export function AccessBar() {
   const me = useMe()
   const signInOptions = useSignInOptions()
   const ai = useAiStatus()
-  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [open, setOpen] = useState(false)
   const [problemOpen, setProblemOpen] = useState(false)
@@ -74,11 +73,6 @@ export function AccessBar() {
           {editing ? 'Editing unlocked' : 'Read-only demo'}
         </Tag>
       ) : null}
-      {ai.data && (
-        <Tag size="sm" type={ai.data.mode === 'live' ? 'blue' : 'gray'}>
-          {ai.data.mode === 'live' ? 'AI: live' : 'AI: simulated'}
-        </Tag>
-      )}
       {tokenControls &&
         (editing ? (
           showAccess && (
@@ -97,17 +91,14 @@ export function AccessBar() {
         </Button>
       )}
       {signedIn && me.data && (
-        <>
-          <span className={styles.who}>{me.data.displayName}</span>
-          <Tag size="sm" type="gray">
-            {me.data.role}
-          </Tag>
-          <OverflowMenu iconDescription="Account" align="bottom-end" flipped size="sm" aria-label="Account">
-            <OverflowMenuItem itemText="Members" onClick={() => navigate('/members')} />
-            {showStatus && <OverflowMenuItem itemText={statusLabel} onClick={() => setProblemOpen(true)} />}
-            <OverflowMenuItem itemText="Sign out" onClick={signOut} />
-          </OverflowMenu>
-        </>
+        <AccountPanel
+          name={me.data.displayName}
+          email={me.data.email}
+          role={me.data.role}
+          avatarUrl={me.data.avatarUrl}
+          statusLabel={showStatus ? statusLabel : undefined}
+          onStatus={() => setProblemOpen(true)}
+        />
       )}
 
       <Modal open={problemOpen} passiveModal size="md" modalHeading="AI status" onRequestClose={() => setProblemOpen(false)}>
