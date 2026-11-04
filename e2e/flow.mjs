@@ -426,6 +426,7 @@ try {
   ok('the Journey Map shows all 9 themes without any being pinned', (await page.evaluate(() => document.querySelectorAll('article').length)) === 9)
   ok('the map has Themes, Pain points, Sentiment and Opportunity rows', await page.evaluate(() => ['THEMES', 'PAIN POINTS', 'SENTIMENT', 'OPPORTUNITY'].every((l) => [...document.querySelectorAll('div')].some((d) => d.children.length === 0 && d.innerText.trim().toUpperCase() === l))))
   ok('the map has a Backstage row, marked Simulated, with a team, system or process under each stage that has themes', await page.evaluate(() => { const row = document.querySelector('[data-testid="backstage-row"]'); const cells = row ? [...row.children].slice(1) : []; return !!row && /simulated/i.test(row.children[0].innerText) && cells.length > 0 && cells.some((c) => /\b(Team|System|Process)\b/i.test(c.innerText)) }))
+  ok('the rows run Themes, Pain points, Opportunity, Sentiment, then Backstage last', await page.evaluate(() => { const map = document.querySelector('[data-testid="backstage-row"]').parentElement; const labels = [...map.children].slice(1).map((r) => r.children[0].innerText.trim().split('\n')[0].toUpperCase()); return labels.join('|') === 'THEMES|PAIN POINTS|OPPORTUNITY|SENTIMENT|BACKSTAGE' }))
   ok('pain points list each pain-point theme with its participants and importance', await page.evaluate(() => /\d of \d participants · (High|Medium|Low)/.test(document.body.innerText)))
   ok('each stage has an opportunity, or says no themes are mapped', await page.evaluate(() => document.querySelectorAll('[class*="opportunity"], [class*="none"]').length >= 5))
   ok('sentiment draws a point for each stage that has themes', await page.evaluate(() => document.querySelectorAll('[class*="point"]').length >= 1 && !!document.querySelector('[role="img"][aria-label^="Sentiment by stage"]')))
@@ -751,6 +752,7 @@ try {
   await navTo('Measure')
   await page.waitForSelector('[data-testid^="measure-"]', { timeout: 8000 })
   ok('Measure lists one folded row per requirement, all "Not measured", with a count of each result', await page.evaluate((n) => { const rows = [...document.querySelectorAll('[data-testid^="measure-"]')]; const sum = document.querySelector('section[aria-label="Results so far"]').innerText; return rows.length === n && rows.every((r) => r.dataset.open === 'false' && /Not measured/.test(r.innerText)) && /Not measured yet/.test(sum) }, preview.requirements))
+  ok('Measure has the same count cards as Platform Themes, with All measurements first and chosen', await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="Results so far"] button')]; return b.length === 5 && b[0].innerText.includes('All measurements') && b[0].getAttribute('aria-pressed') === 'true' && getComputedStyle(b[1]).borderRadius === getComputedStyle(b[0]).borderRadius }))
   await page.click('[data-testid="measure-R1"] h3 button')
   await page.waitForSelector('#measure-metric-R1', { visible: true })
   ok('both columns have a description under their heading', await page.evaluate(() => { const t = document.querySelector('[data-testid="measure-R1"]').innerText; return t.includes('Record expectations, source data, and metrics') && t.includes('Record what you see after launch') }))
@@ -899,6 +901,14 @@ try {
   ok('picking an open row closes it', await page.evaluate((id) => !document.querySelector(`#theme-body-${id}`), second.id))
   const cardCount = await page.evaluate(() => document.querySelectorAll('section[aria-label="What the themes add up to"] button').length)
   ok('five counts sit above the list, All themes first and chosen', cardCount === 5 && await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')]; return b[0].innerText.includes('All themes') && b[0].getAttribute('aria-pressed') === 'true' }))
+  const zeroCard = await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((x) => x.disabled); if (!b) return null; b.setAttribute('data-zero', 'true'); return true })
+  if (zeroCard) {
+    const look = () => page.evaluate(() => { const c = getComputedStyle(document.querySelector('[data-zero="true"]')); return `${c.borderTopWidth} ${c.borderTopColor} ${c.backgroundColor}` })
+    const before = await look()
+    await page.hover('[data-zero="true"]')
+    const after = await look()
+    ok('a count of zero keeps its border and does not react to the pointer', before === after && !/^0px|rgba\(0, 0, 0, 0\) rgba/.test(before) && !before.includes('0px'), before + ' / ' + after)
+  }
   ok('the recommendations come first, then the counts, then the themes table', await page.evaluate(() => { const top = (e) => e.getBoundingClientRect().top; return top(document.querySelector('section[aria-labelledby="recs-heading"]')) < top(document.querySelector('section[aria-label="What the themes add up to"]')) && top(document.querySelector('section[aria-label="What the themes add up to"]')) < top(document.querySelector('section[aria-labelledby="themes-heading"]')) }))
   if (insights.summary.opportunities > 0) {
     await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('Opportunities')).click())

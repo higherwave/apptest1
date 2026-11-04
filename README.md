@@ -220,7 +220,7 @@ A panel that slides in from the right edge and leaves the page visible keeps peo
 
 - Personas and Case studies share the Group by control (`GroupBy.tsx`, `?group=area`): the themes inside each open row are grouped by experience category.
 
-The project Journey Map has a **Backstage** row (a team, system or process under each stage that has themes, marked Simulated). Nothing in the research says who works behind a stage, so `stageBackstage` in `src/pages/themes/journeyMap.ts` infers it from the words in the stage name and its themes: no data, no model call. The Platform Insights journey does not have it (too broad across products and systems).
+The project Journey Map has a **Backstage** row, its last (a team, system or process under each stage that has themes, marked Simulated). Nothing in the research says who works behind a stage, so `stageBackstage` in `src/pages/themes/journeyMap.ts` infers it from the words in the stage name and its themes: no data, no model call. The Platform Insights journey does not have it (too broad across products and systems).
 
 ## The shell
 

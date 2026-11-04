@@ -51,41 +51,6 @@
   gap: var(--at-space-sm);
 }
 
-// The counts above the list; picking one filters the list to it, and All themes shows everything again.
-.cards {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--at-space-sm);
-}
-
-.card {
-  @include tokens.role('body-md');
-  flex: 1 1 11rem;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--at-space-sm);
-  max-inline-size: none;
-  block-size: auto;
-  min-block-size: 0;
-  padding: var(--at-space-md) var(--at-space-lg);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-lg);
-  background: transparent;
-  color: var(--at-body);
-  text-align: start;
-
-  &:hover { background: var(--at-canvas); }
-  &[aria-pressed='true'] { border: 0.125rem solid var(--at-link); padding: calc(var(--at-space-md) - 1px) calc(var(--at-space-lg) - 1px); }
-  &:disabled { opacity: 0.6; }
-}
-
-.cardNum {
-  @include tokens.role('title-lg');
-  color: var(--at-ink);
-  font-weight: 300;
-}
-
 // The themes: one white table; each row is a button that opens its details beneath it.
 .table {
   display: flex;

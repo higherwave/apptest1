@@ -143,6 +143,18 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
               })}
             </div>
 
+            <div className={styles.row}>
+              <div className={styles.rowLabel}>Opportunity</div>
+              {stages.map((stage) => {
+                const opportunity = stageOpportunity(themes.filter((t) => stageOf(t) === stage.position))
+                return (
+                  <div key={stage.position} className={styles.cell}>
+                    <p className={opportunity ? styles.opportunity : styles.none}>{opportunity ?? 'No themes mapped to this stage.'}</p>
+                  </div>
+                )
+              })}
+            </div>
+
             <div className={cx(styles.row, styles.sentimentRow)}>
               <div className={styles.rowLabel}>Sentiment</div>
               <div className={styles.sentiment} role="img" aria-label={sentimentLabel}>
@@ -181,18 +193,6 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
                         <p className={styles.backstageText}>{item.text}</p>
                       </div>
                     ))}
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className={styles.row}>
-              <div className={styles.rowLabel}>Opportunity</div>
-              {stages.map((stage) => {
-                const opportunity = stageOpportunity(themes.filter((t) => stageOf(t) === stage.position))
-                return (
-                  <div key={stage.position} className={styles.cell}>
-                    <p className={opportunity ? styles.opportunity : styles.none}>{opportunity ?? 'No themes mapped to this stage.'}</p>
                   </div>
                 )
               })}

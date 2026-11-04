@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Close } from '@carbon/icons-react'
 import { Button, Dropdown, InlineNotification, Loading, Tag, TextArea, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import type { Checkin, Measure, MeasureItem, MeasureRequest } from '../../api/client'
+import { FilterCards } from '../../components/FilterCards'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { ClampedBlock } from '../requirements/ClampedBlock'
 import styles from './MeasureView.module.scss'
@@ -237,12 +238,13 @@ export function MeasureView(props: MeasureViewProps) {
       setOpened(new Set(measure.items.filter((i) => (next === 'none' ? !i.result : i.result === next)).map((i) => i.storyId)))
     }
   }
-  const STATS: { key: Verdict | 'none'; label: string; n: number }[] = s
+  const STATS: { key: string; label: string; count: number }[] = s
     ? [
-        { key: 'worked', label: 'Worked', n: s.worked },
-        { key: 'needs_attention', label: 'Needs attention', n: s.needsAttention },
-        { key: 'too_early', label: 'Too early to tell', n: s.tooEarly },
-        { key: 'none', label: 'Not measured yet', n: s.notMeasured },
+        { key: 'all', label: 'All measurements', count: measure?.items.length ?? 0 },
+        { key: 'worked', label: 'Worked', count: s.worked },
+        { key: 'needs_attention', label: 'Needs attention', count: s.needsAttention },
+        { key: 'too_early', label: 'Too early to tell', count: s.tooEarly },
+        { key: 'none', label: 'Not measured yet', count: s.notMeasured },
       ]
     : []
 
@@ -273,14 +275,7 @@ export function MeasureView(props: MeasureViewProps) {
       )}
       {state === 'ready' && measure && s && (
         <>
-          <section className={styles.summary} aria-label="Results so far">
-            {STATS.map((x) => (
-              <Button key={x.key} kind="ghost" size="md" className={styles.stat} data-kind={x.key} aria-pressed={only === x.key} disabled={x.n === 0 && only !== x.key} onClick={() => pick(x.key)}>
-                <span className={styles.num}>{x.n}</span>
-                <span>{x.label}</span>
-              </Button>
-            ))}
-          </section>
+          <FilterCards ariaLabel="Results so far" items={STATS} selected={only ?? 'all'} onSelect={(k) => (k === 'all' ? (setOnly(null), setOpened(new Set())) : pick(k as Verdict | 'none'))} />
           {measure.items.length === 0 ? (
             <p className={styles.muted}>This document has no requirements, only open questions, so there is nothing to measure yet.</p>
           ) : (

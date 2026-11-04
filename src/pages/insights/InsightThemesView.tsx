@@ -7,6 +7,7 @@ import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
 import { Sparkline } from './Sparkline'
 import { InsightsHeader } from './InsightsHeader'
+import { FilterCards } from '../../components/FilterCards'
 import { RecommendationStrip } from './RecommendationStrip'
 import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
 import { ORIGIN_LABEL, STATUS, teamConversations } from './labels'
@@ -216,17 +217,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
           <div className={styles.group}>
             <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
 
-            <section className={styles.cards} aria-label="What the themes add up to">
-              {FILTERS.map((f) => {
-                const n = f.count(overview)
-                return (
-                  <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={filter === f.key} disabled={n === 0 && filter !== f.key} onClick={() => setFilter(f.key)}>
-                    <span className={styles.cardNum}>{n}</span>
-                    <span>{f.label}</span>
-                  </Button>
-                )
-              })}
-            </section>
+            <FilterCards ariaLabel="What the themes add up to" items={FILTERS.map((f) => ({ key: f.key, label: f.label, count: f.count(overview) }))} selected={filter} onSelect={(k) => setFilter(k as Filter)} />
           </div>
 
 

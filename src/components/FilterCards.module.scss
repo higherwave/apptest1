@@ -1,0 +1,36 @@
+@use '../tokens' as tokens;
+
+.cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-sm);
+}
+
+.card {
+  @include tokens.role('body-md');
+  flex: 1 1 11rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--at-space-sm);
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: transparent;
+  color: var(--at-body);
+  text-align: start;
+
+  &:hover:not(:disabled) { background: var(--at-canvas); }
+  &[aria-pressed='true'] { border: 0.125rem solid var(--at-link); padding: calc(var(--at-space-md) - 1px) calc(var(--at-space-lg) - 1px); }
+  // Nothing to pick: still a card with its border, but no hover and no pointer.
+  &:disabled { opacity: 0.6; border: 1px solid var(--at-hairline); background: transparent; color: var(--at-body); cursor: default; }
+}
+
+.num {
+  @include tokens.role('title-lg');
+  color: var(--at-ink);
+  font-weight: 300;
+}
