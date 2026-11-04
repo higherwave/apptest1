@@ -98,7 +98,7 @@ $column-wide: 100rem; // the content of the Journey Map and Stories; the project
 }
 
 .appName {
-  @include tokens.role('title-md');
+  @include tokens.role('title-sm');
   margin: 0;
   font-weight: 500;
   white-space: nowrap;
