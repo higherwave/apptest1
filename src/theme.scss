@@ -436,10 +436,16 @@ body {
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-md);
   box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--at-ink) 14%, transparent);
+  // As wide as its longest entry (Carbon fixes 10rem and cuts the text off with an ellipsis), up to the screen's width.
+  inline-size: max-content;
+  min-inline-size: 10rem;
+  max-inline-size: calc(100vw - 2rem);
 }
 
 .cds--overflow-menu-options__btn {
   color: var(--at-ink);
+  max-inline-size: none;
+  text-overflow: clip;
 }
 
 .cds--overflow-menu-options__option--danger .cds--overflow-menu-options__btn,
