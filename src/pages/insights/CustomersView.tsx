@@ -100,8 +100,8 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
             <p className={styles.muted}>
               {plural(groups.length, 'group')} · {plural(customers.totalParticipants, 'participant')}
             </p>
-            <div className={styles.tools}>
-              {onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}
+            <div className={styles.toolsMiddle}>{onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}</div>
+            <div className={styles.toolsEnd}>
               <Button kind="ghost" size="sm" onClick={() => setOpened(opened.size === groups.length ? new Set() : new Set(groups.map((g) => g.key)))}>
                 {opened.size === groups.length ? 'Collapse all' : 'Expand all'}
               </Button>

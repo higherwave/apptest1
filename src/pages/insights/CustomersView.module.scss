@@ -15,9 +15,12 @@
 }
 
 .listTools {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; // the count at the left, Group by in the middle, Expand all at the right
   align-items: center;
-  justify-content: space-between;
+  gap: var(--at-space-xs) var(--at-space-md);
+
+  @media (max-width: 64rem) { grid-template-columns: 1fr; }
 }
 
 .list {
@@ -171,10 +174,14 @@
   padding: 0 var(--at-space-xs);
 }
 
-.tools {
+.toolsMiddle {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  justify-content: center;
+}
+
+.toolsEnd {
+  display: flex;
   justify-content: flex-end;
-  gap: var(--at-space-xs) var(--at-space-md);
+
+  @media (max-width: 64rem) { justify-content: flex-start; }
 }
