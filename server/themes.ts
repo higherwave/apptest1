@@ -35,7 +35,7 @@ export type Theme = {
   /** How many team conversations it came up in. */
   teamSessions: number
   score: number | null
-  /** The feature area the theme is about (the analysis's choice, or a person's), or none. */
+  /** The experience category the theme is about (the analysis's choice, or a person's), or none. */
   area: { id: string; name: string } | null
   quotes?: Quote[]
 }
@@ -173,7 +173,7 @@ export async function resetPriorityOverrides(db: Db, ctx: Actor, projectId: stri
   })
 }
 
-/** Files a theme under a feature area, or under none (editors). The area must be a live one of this workspace. */
+/** Files a theme under an experience category, or under none (editors). The area must be a live one of this workspace. */
 export async function setThemeArea(db: Db, ctx: Actor, themeId: string, areaId: string | null): Promise<void> {
   await db.transaction(async (tx) => {
     const t = (await tx.query(`select t.id, t.area_id, t.run_id from research.themes t join core.projects p on p.id = t.project_id where t.id = $1 and p.workspace_id = $2 for update of t`, [themeId, ctx.workspaceId])).rows[0]

@@ -64,7 +64,7 @@ export function AppShell() {
   const areas = [
     { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
     { to: '/projects', label: 'Product Funnel', active: !insights && !settings, icon: Filter },
-    { to: '/settings/areas', label: 'Settings', active: settings, icon: SettingsIcon },
+    { to: '/settings/categories', label: 'Settings', active: settings, icon: SettingsIcon },
   ]
   const current = areas.find((a) => a.active) ?? areas[0]
   // The prototype gallery lives elsewhere: it opens in its own tab. Its address is a brand setting; with none, the link is not shown.

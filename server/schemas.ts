@@ -153,15 +153,15 @@ const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
 // POST /stories/:id/design/capture. `replace` lets the capture overwrite a picture a person uploaded (the Capture button; the automatic
 // capture after a link is saved never sets it).
 export const captureSchema = z.object({ replace: z.boolean().optional() }).default({})
-// Adding a feature area. `force` is for a name that only resembles an existing area, when the person meant it.
+// Adding an experience category. `force` is for a name that only resembles an existing area, when the person meant it.
 export const createAreaSchema = z.object({
-  name: text(60).min(2, 'Give the area a name of at least 2 characters.'),
+  name: text(60).min(2, 'Give the category a name of at least 2 characters.'),
   definition: optionalText(300),
   aliases: z.array(text(60)).max(12, 'Keep to 12 alternative names.').default([]),
   force: z.boolean().default(false),
 })
 export const updateAreaSchema = createAreaSchema.omit({ force: true })
-export const mergeAreaSchema = z.object({ intoId: z.uuid('Choose the area to merge into.') })
+export const mergeAreaSchema = z.object({ intoId: z.uuid('Choose the category to merge into.') })
 
 export const acceptProposalSchema = z.object({ key: text(60), name: optionalText(60) })
 export const dismissProposalSchema = z.object({ key: text(60) })

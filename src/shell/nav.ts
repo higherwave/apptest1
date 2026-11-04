@@ -22,8 +22,12 @@ export const INSIGHT_SECTIONS = [
   { key: 'case-studies', label: 'Case studies' },
 ]
 
-// The Settings tab: one section for now. Each is a page under /settings/<key>.
-export const SETTINGS_SECTIONS = [{ key: 'areas', label: 'Feature areas' }]
+// The Settings tab: each section is a page under /settings/<key>. App Status is for owners; Members for anyone signed in (SettingsHeader hides the ones a person cannot use).
+export const SETTINGS_SECTIONS = [
+  { key: 'categories', label: 'Experience Categories' },
+  { key: 'status', label: 'App Status' },
+  { key: 'members', label: 'Members' },
+]
 
 export const SECTION_TITLES: Record<string, string> = Object.fromEntries([
   ...STEPS.map((s) => [s.key, s.label]),

@@ -276,7 +276,7 @@ export function createApp(options: AppOptions = {}) {
       if (err instanceof VersionConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this project since you opened it.', undefined, { current: { version: err.current } })
       if (err instanceof UnknownParticipant) throw new ApiError(422, 'validation_failed', 'That participant does not belong to this project.', 'participants')
       if (err instanceof UnknownTranscript) throw new ApiError(422, 'validation_failed', 'That transcript does not belong to this project.', 'transcripts')
-      if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That feature area does not exist or has been retired. Choose another.', 'areaId')
+      if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That experience category does not exist or has been retired. Choose another.', 'areaId')
       if (err instanceof NoTranscripts) throw new ApiError(422, 'no_transcripts', 'Add at least one transcript before analyzing.', 'transcripts')
       throw err
     }
@@ -331,7 +331,7 @@ export function createApp(options: AppOptions = {}) {
   })
 
   // Edits are per theme: the If-Match is the version of that theme's edits (0 when it has none).
-  // Files a theme under a feature area, or none. The analysis chooses one; this is the person's correction.
+  // Files a theme under an experience category, or none. The analysis chooses one; this is the person's correction.
   app.put('/themes/:id/area', withContext, async (c) => {
     requireEditor(c)
     const themeId = c.req.param('id')
@@ -341,7 +341,7 @@ export function createApp(options: AppOptions = {}) {
       await setThemeArea(getDb(), c.get('ctx'), themeId, input.areaId)
     } catch (err) {
       if (err instanceof ThemeNotFound) throw new ApiError(404, 'not_found', 'No such theme.')
-      if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That feature area does not exist or has been retired. Choose another.', 'areaId')
+      if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That experience category does not exist or has been retired. Choose another.', 'areaId')
       throw err
     }
     c.header('Cache-Control', 'no-store')
@@ -536,23 +536,23 @@ export function createApp(options: AppOptions = {}) {
   })
 
 
-  // Feature areas ---------------------------------------------------------------------------------------------
+  // Experience categories ---------------------------------------------------------------------------------------------
   // The shared list of what research is about. Anyone reads it; an editor adds an area (after a duplicate check); an owner edits, merges
   // and retires. An area is a label on a question, task or test item, never a requirement.
 
   const requireAreaOwner = (c: Context) => {
-    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change the feature areas.')
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change the experience categories.')
   }
   const areaId = (c: Context) => {
     const id = c.req.param('id') ?? ''
-    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such feature area.')
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such experience category.')
     return id
   }
   const areaErrors = (err: unknown): never => {
-    if (err instanceof AreaMissing) throw new ApiError(404, 'not_found', 'No such feature area.')
+    if (err instanceof AreaMissing) throw new ApiError(404, 'not_found', 'No such experience category.')
     if (err instanceof AreaDuplicate) throw new ApiError(409, 'duplicate_area', `"${err.existing.name}" already exists: use it.`, 'name', { existing: err.existing })
     if (err instanceof AreaSimilar) throw new ApiError(409, 'similar_area', `This looks like ${err.similar.map((s) => `"${s.name}"`).join(' or ')}. Use that, or add it anyway.`, 'name', { similar: err.similar })
-    if (err instanceof AreaConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this area since you opened it.', undefined, { current: { version: err.current } })
+    if (err instanceof AreaConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this category since you opened it.', undefined, { current: { version: err.current } })
     throw err
   }
 
@@ -748,9 +748,9 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof PlatformThemeMissing) throw new ApiError(404, 'not_found', 'No such platform theme.')
     if (err instanceof DuplicateTitle) throw new ApiError(409, 'duplicate_title', `${err.message} Merge the two themes instead.`, 'title')
     if (err instanceof SameTheme) throw new ApiError(422, 'validation_failed', 'Choose a different theme to merge into.', 'intoId')
-    if (err instanceof NotFiledByHand) throw new ApiError(409, 'not_filed_by_hand', 'This theme’s area was not filed by hand, so there is nothing to take back here.')
-    if (err instanceof AlreadyAssigned) throw new ApiError(409, 'already_assigned', 'This theme already has a feature area.')
-    if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That feature area does not exist or has been retired. Choose another.', 'areaId')
+    if (err instanceof NotFiledByHand) throw new ApiError(409, 'not_filed_by_hand', 'This theme’s category was not filed by hand, so there is nothing to take back here.')
+    if (err instanceof AlreadyAssigned) throw new ApiError(409, 'already_assigned', 'This theme already has an experience category.')
+    if (err instanceof AreaMissing) throw new ApiError(422, 'unknown_area', 'That experience category does not exist or has been retired. Choose another.', 'areaId')
     throw err
   }
   // Takes back a person's filing of a theme under an area.
@@ -760,11 +760,11 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     return c.json(await clearThemeArea(getDb(), c.get('ctx'), id).catch(themeErrors))
   })
-  // Fills in the area of a theme that has none (the Group by Feature area table). A theme that has one is not changed here.
+  // Fills in the area of a theme that has none (the Group by Experience category table). A theme that has one is not changed here.
   app.put('/insights/themes/:id/area', withContext, async (c) => {
     requireEditor(c)
     const id = themeId(c)
-    const input = parseBody(z.object({ areaId: z.uuid('Choose a feature area.') }), await readJson(c))
+    const input = parseBody(z.object({ areaId: z.uuid('Choose an experience category.') }), await readJson(c))
     c.header('Cache-Control', 'no-store')
     return c.json(await assignThemeArea(getDb(), c.get('ctx'), id, input.areaId).catch(themeErrors))
   })

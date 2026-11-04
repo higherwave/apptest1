@@ -1,4 +1,4 @@
-// What counts as the same feature area, and which area a question is about: the words, with no database and no model.
+// What counts as the same experience category, and which area a question is about: the words, with no database and no model.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { similarAreas, stem, suggestAreas, tokens } from '../shared/areas.js'

@@ -16,7 +16,7 @@ export type CustomersViewProps = {
   errorText?: string
   onOpenTheme: (id: string) => void
   onOpenTranscripts: (projectId: string) => void
-  /** How what each group struggles with is divided: one list, or under each feature area. */
+  /** How what each group struggles with is divided: one list, or under each experience category. */
   groupBy?: Grouping
   onGroupBy?: (g: Grouping) => void
 }

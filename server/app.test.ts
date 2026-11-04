@@ -1989,7 +1989,7 @@ test('the capture health check answers without a session, step by step, and says
   assert.ok(failed.detail && !failed.detail.includes('/nonexistent'), 'a reason, with paths hidden')
 })
 
-test('feature areas: editors add them with a duplicate check, owners curate, and a question to ask can name one', async () => {
+test('experience categories: editors add them with a duplicate check, owners curate, and a question to ask can name one', async () => {
   const { app: owner, alex: editor, sam: viewer, send, p1, pg } = await boardFixture()
   const make = (who: ReturnType<typeof createApp>, body: unknown) => send(who, 'POST', '/areas', body)
 
@@ -2052,7 +2052,7 @@ test('feature areas: editors add them with a duplicate check, owners curate, and
   assert.equal((await pg.query<any>(`select count(*)::int n from core.audit_log where entity = 'insights.feature_areas'`)).rows[0].n >= 6, true)
 })
 
-test('feature areas on themes: the simulated analysis files themes under areas, a person can correct it, and counts and merges follow', async () => {
+test('experience categories on themes: the simulated analysis files themes under areas, a person can correct it, and counts and merges follow', async () => {
   const { app: owner, alex: editor, sam: viewer, send, p1 } = await boardFixture()
   const make = async (name: string, definition: string) => (await send(owner, 'POST', '/areas', { name, definition })).json()
   const booking = await make('Booking form', 'The forms people fill in to book a visit')
@@ -2081,7 +2081,7 @@ test('feature areas on themes: the simulated analysis files themes under areas, 
   assert.equal((await unknown.json()).error.code, 'unknown_area')
   assert.equal((await send(owner, 'PUT', `/themes/11111111-1111-4111-8111-111111111111/area`, { areaId: null })).status, 404)
 
-  // The Feature areas list counts themes of the current analysis, and a merge moves them.
+  // The Experience categories list counts themes of the current analysis, and a merge moves them.
   const counts = async () => Object.fromEntries(((await (await owner.request('/api/v1/areas', { headers: { authorization: 'Bearer s3cret' } })).json()) as any).data.map((a: any) => [a.name, a.usage.themes]))
   const before = await counts()
   assert.ok(before['Booking form'] >= 0 && before['Pricing and fees'] >= 1)

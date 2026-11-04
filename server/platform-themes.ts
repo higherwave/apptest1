@@ -17,7 +17,7 @@ export class DuplicateTitle extends Error {
 }
 export class SameTheme extends Error {}
 export class MergeHistoryMissing extends Error {}
-/** The theme already has a feature area; the table only fills in the ones with none. */
+/** The theme already has an experience category; the table only fills in the ones with none. */
 export class AlreadyAssigned extends Error {}
 /** There is no area a person filed this theme under, so there is nothing to take back. */
 export class NotFiledByHand extends Error {}
@@ -166,7 +166,7 @@ export async function undoMerge(db: Db, ctx: RequestContext, historyId: string):
 
 // Automatic merging ---------------------------------------------------------------------------------------------------------------
 
-/** The model's (or the word check's) confidence a pair must reach to be merged without asking: lower when both are in the same known feature area, which is extra evidence. */
+/** The model's (or the word check's) confidence a pair must reach to be merged without asking: lower when both are in the same known experience category, which is extra evidence. */
 export const AUTO_MERGE_SAME_AREA = 0.75
 export const AUTO_MERGE_OTHER = 0.9
 
@@ -298,7 +298,7 @@ export async function writeRankRationales(db: Db, ai: Ai, workspaceId: string): 
 }
 
 /**
- * Files a platform theme that has no feature area under one (editors). It sets the area on the project themes behind it that have none;
+ * Files a platform theme that has no experience category under one (editors). It sets the area on the project themes behind it that have none;
  * a theme that already has an area is left as it is (AlreadyAssigned), because areas are meant to come from the analysis, not be rearranged by hand.
  */
 export async function assignThemeArea(db: Db, ctx: RequestContext, platformThemeId: string, areaId: string): Promise<{ filed: number }> {
@@ -317,7 +317,7 @@ export async function assignThemeArea(db: Db, ctx: RequestContext, platformTheme
 }
 
 /**
- * Takes back a person's filing of a theme under a feature area (editors): the project themes behind it that carry that area go back to
+ * Takes back a person's filing of a theme under an experience category (editors): the project themes behind it that carry that area go back to
  * none, and the theme is Unassigned again. Only a filing a person made can be taken back (NotFiledByHand); an area the analysis chose is not undone here.
  */
 export async function clearThemeArea(db: Db, ctx: RequestContext, platformThemeId: string): Promise<{ cleared: number }> {

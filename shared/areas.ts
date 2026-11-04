@@ -1,4 +1,4 @@
-// Feature areas: the words that decide whether two names are the same area, and which area a piece of text is about. Plain functions,
+// Experience categories: the words that decide whether two names are the same area, and which area a piece of text is about. Plain functions,
 // no database and no model, shared by the API (the duplicate check) and the screens (the suggestion beside a question), so both agree.
 export type AreaLike = { id: string; name: string; definition?: string | null; aliases?: string[] }
 

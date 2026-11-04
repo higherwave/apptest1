@@ -1,4 +1,4 @@
-// Proposing new feature areas: current themes that have no area, grouped by the word they share. When several themes, raised by
+// Proposing new experience categories: current themes that have no area, grouped by the word they share. When several themes, raised by
 // several people, keep coming back around one word that no area covers, that word is probably an area nobody has named yet. No model
 // is involved (plain words, shared/areas.ts), so it costs nothing and runs whenever the page is opened. A person accepts a proposal
 // (the area is added and its themes are filed under it) or says not now (it is not offered again).

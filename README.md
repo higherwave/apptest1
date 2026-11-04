@@ -158,7 +158,7 @@ reason and confidence (`platform_theme_sources.reason`); the open theme shows a 
 **There is no duplicates panel and no "Tidy this theme" tool on the screen** (removed Nov 2). Instead, duplicates are handled on their own:
 after an analysis that started new platform themes, `autoMergeDuplicates` (`server/platform-themes.ts`; prompt `theme-dedupe-v2`,
 `server/ai-dedupe.ts`) asks the model which look-alikes say the same thing. A pair is merged without a person only when it is the same
-category and either both sit in the same known feature area at 0.75 confidence or more, or the model is at 0.9 or more; everything else
+category and either both sit in the same known experience category at 0.75 confidence or more, or the model is at 0.9 or more; everything else
 (different categories never) is filed as a suggestion in `insights.merge_suggestions`. Migration 0028 `insights.merge_history` snapshots
 every merge, by hand or automatic: the theme that was folded in, its names, project-theme tags, recommendation and case-study links.
 **Recent merges** on the Platform Themes page lists them (`GET /insights/merges`), and **Undo** (`POST /insights/merges/{id}/undo`,
@@ -171,16 +171,16 @@ sorts by it. `server/ai-rationale.ts` (prompt `rank-rationale-v1`) writes one or
 (`POST /insights/roadmap/rationale`); every "N of M participants/projects" it writes must be a figure it was given, and without a model a
 plain template from the same figures is used.
 
-## Feature areas
+## Experience categories
 
 One shared list per workspace of what research is about (Scheduling, Reminders, Account setup): `insights.feature_areas`, API under `/api/v1/areas`,
-page under the **Settings** tab at `/settings/areas` (`/insights/areas` redirects there; Settings has its own row of settings types, Feature areas the only one for now). A question to ask or task to observe (`research.tasks.area_id`) and a test item (`research.test_items.area_id`) can name
+page under the **Settings** tab at `/settings/categories` (`/settings/areas` and `/insights/areas` redirect there). Settings is the page title, with a row of tabs under it like Platform Insights: **Experience Categories** (with its own tabs, **Current Categories** and **Relevant Word Matches**, the suggested new categories), **App Status** (`/settings/status`, owners: AI mode, spend against the budget, recent problems) and **Members** (`/settings/members`; `/members` redirects there). The code and the API still say `area` (`insights.feature_areas`, `areaId`, `/areas`): only what people read says experience category. A question to ask or task to observe (`research.tasks.area_id`) and a test item (`research.test_items.area_id`) can name
 one; follow-ups share their parent's. An area is a label, never a gate: nothing requires one, and a theme with none is matched freeform.
 
 - **Who:** anyone reads the list; an owner or editor adds an area; only an owner renames, merges or retires one. Retired areas keep what uses them
   and are not offered for new choices; a merge moves everything over and keeps the old name as an alias.
-- **Adding is typing.** In the Feature area box on a question or a theme, type a name and choose "Add ...": it joins the list for everyone. There is no dialog
-  and no "New area" button; the Feature areas page has the same typing box. An area is optional everywhere: it helps the system file what people say, nothing depends on one.
+- **Adding is typing.** In the Experience category box on a question or a theme, type a name and choose "Add ...": it joins the list for everyone. There is no dialog
+  and no "New area" button; the Experience categories page has the same typing box. An area is optional everywhere: it helps the system file what people say, nothing depends on one.
 - **Duplicates are avoided, not forced.** Names that look like an existing area are listed before the add option (`shared/areas.ts` decides: same words in any
   order, an alias or a common ending such as Schedule and Scheduling is the same; one name inside the other, or most words shared, is similar). The same name is never
   added twice (409 `duplicate_area` from the API, and the box offers the existing one); a look-alike the person chose to add anyway goes through (`force: true`). The
@@ -194,18 +194,18 @@ one; follow-ups share their parent's. An area is a label, never a gate: nothing 
   its own (model) or stays unplaced (keyword matcher). A platform theme's area is the most common area among the themes filed under it. Either side
   without an area is never held back. See "Platform Themes: matching and merging" for automatic merging and undo.
 - **New areas are proposed** (`server/area-proposals.ts`, migration 0029, `GET /areas/proposals`): current themes with no area are grouped by the word their titles share. A
-  group of at least two themes raised by at least three people that no live area covers (name, other names) becomes a "Suggested areas" card on the Feature areas page. **Add area**
+  group of at least two themes raised by at least three people that no live area covers (name, other names) becomes a "Suggested areas" card on the Experience categories page. **Add area**
   creates it and files those themes under it (`POST /areas/proposals/accept`); **Not now** (`/dismiss`) hides it for good, and a dismissed word keeps its themes so
   their other words do not come back as new suggestions. Words only, no model call, so nothing new is sent to a provider.
-- **Rollups group by area** (Platform Themes): a **Group by** control (None, the default, or Feature area; `?group=area` in the address) divides the table into a section
+- **Rollups group by area** (Platform Themes): a **Group by** control (None, the default, or Experience category; `?group=area` in the address) divides the table into a section
   for each area, ordered by the current Order, with **Unassigned** last; sections collapse. A platform theme's area is the most common area among its project themes
-  (`area` on `GET /insights/themes`). The table never rearranges areas: only a theme with no area gets an **Add to Feature Area** button in its open row, which opens a panel sliding in from the right (`AssignAreaPanel` on the shared `src/components/RightPanel.tsx`: search, or type a new name and choose Add; one tap files the theme and closes the panel). A filing a person made can be taken back: the open row says so and offers **Undo** (`DELETE /insights/themes/{id}/area`, from the audit log; an area the analysis chose is not undone here, 409 `not_filed_by_hand`)
+  (`area` on `GET /insights/themes`). The table never rearranges areas: only a theme with no area gets an **Add to Experience Category** button in its open row, which opens a panel sliding in from the right (`AssignAreaPanel` on the shared `src/components/RightPanel.tsx`: search, or type a new name and choose Add; one tap files the theme and closes the panel). A filing a person made can be taken back: the open row says so and offers **Undo** (`DELETE /insights/themes/{id}/area`, from the audit log; an area the analysis chose is not undone here, 409 `not_filed_by_hand`)
   (`PUT /insights/themes/{id}/area`, 409 `already_assigned` otherwise), which files it and its project themes. Areas come from the analysis and matching.
 
 ## Spend alerts
 
 `GET /ai/status` returns `spendLevel` (`ok`, `half` from 50%, `high` from 80%, `reached` at 100% of `AI_MONTHLY_BUDGET_USD`) and `month`
-beside `budgetUsd` and `spentUsd`. Owners and editors get an "AI status" button in the header (spend this month and recent problems);
+beside `budgetUsd` and `spentUsd`. Owners see spend this month and recent problems under Settings > App Status;
 owners also get a banner above the app bar at each level. Dismissing it hides that level for the month in that browser
 (`localStorage`); the next level brings it back.
 
@@ -218,13 +218,13 @@ Neon Free and Vercel Hobby stop at their limits instead of billing. When the dat
 
 A panel that slides in from the right edge and leaves the page visible keeps people in context. It is a design-system pattern (`signal-flow-right-panel` in the design-system-mcp registry, found with `search_patterns`): build it with `RightPanel`, a passive Carbon Modal laid out at the right edge. The linter rule `no-hand-rolled-side-panel` refuses a hand-positioned fixed element on that edge (vendor/design-rules, synced from the rules repo).
 
-- Personas and Case studies share the Group by control (`GroupBy.tsx`, `?group=area`): the themes inside each open row are grouped by feature area.
+- Personas and Case studies share the Group by control (`GroupBy.tsx`, `?group=area`): the themes inside each open row are grouped by experience category.
 
 ## The shell
 
 A dark rail down the left (`src/shell/AppShell.tsx`: the app's name, then Platform Insights, Product Funnel, Settings and the Prototype gallery, which opens `galleryUrl` from `brand/brand.json` in another tab), a slim bar across the top (the account and editing state), and inside a project a project-name bar and the step strip (`--at-surface-slate`, a grayish blue shared with the open recommendation box on Platform Themes). Their left edges line up with the page title below. On narrow screens the rail is replaced by a menu in the top bar. Panel headings use the `panel-title` type role everywhere (Themes, Priorities, Stories), section headings inside a panel use `eyebrow`, and body text `body-md`.
 
-The top bar carries the **AI: live / simulated** badge at its left and, at its right, the signed-in person's picture (`src/auth/AccountPanel.tsx`). The picture comes from the sign-in provider, is kept in `core.users.avatar_url`, refreshed at the next sign-in when it changes, and reported as `avatarUrl` by `GET /me`; without one, initials stand in. Clicking it opens a panel (Carbon `Popover`) with a larger picture, name, email, role, Members, AI status (owners) and Sign out.
+The top bar carries the **AI: live / simulated** badge at its left and, at its right, the signed-in person's picture (`src/auth/AccountPanel.tsx`). The picture comes from the sign-in provider, is kept in `core.users.avatar_url`, refreshed at the next sign-in when it changes, and reported as `avatarUrl` by `GET /me`; without one, initials stand in. Clicking it opens a panel (Carbon `Popover`) with a larger picture, name, email, role, Members and Sign out (Members and App Status are Settings tabs).
 
 Form fields share the buttons' look: white fill, the light hairline border all round (the strong border on hover), and `rounded.md` corners, set once in `src/theme.scss` (Form fields). The focus ring stays Carbon's, in ink.
 

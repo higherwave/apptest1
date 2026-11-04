@@ -71,7 +71,7 @@ export type SignInOption = components['schemas']['SignInOptionList']['data'][num
 export const getSignInOptions = () => request<components['schemas']['SignInOptionList']>('/sign-in-options')
 export type Member = components['schemas']['Member']
 export type MemberRole = Member['role']
-// Feature areas: the shared list of what research is about.
+// Experience categories: the shared list of what research is about.
 export type Area = components['schemas']['Area']
 export const listAreas = () => request<components['schemas']['AreaList']>('/areas')
 export type AreaProposal = components['schemas']['AreaProposal']
@@ -110,7 +110,7 @@ export type ThemeList = components['schemas']['ThemeList']
 export type ThemeCategory = Theme['category']
 export const listThemes = (projectId: string) => request<ThemeList>(`/projects/${projectId}/themes?include=quotes`)
 // An edit is checked against the version of that theme's edits, so edits to other themes never conflict.
-// Files a theme under a feature area, or none.
+// Files a theme under an experience category, or none.
 export const setThemeArea = (themeId: string, areaId: string | null) => request<Theme>(`/themes/${themeId}/area`, { method: 'PUT', body: { areaId } })
 export const updateTheme = (themeId: string, version: number, body: ThemePatch) => request<Theme>(`/themes/${themeId}`, { method: 'PATCH', body, version })
 export const resetPriorityOverrides = (projectId: string) => request<{ data: Theme[] }>(`/projects/${projectId}/priority-overrides`, { method: 'DELETE' })

@@ -1,7 +1,7 @@
 import { Close } from '@carbon/icons-react'
 import { Button, Dropdown, InlineNotification, Loading, Modal, Tag, TextInput } from '@carbon/react'
 import type { Member, MemberRole } from '../../api/client'
-import { ProjectHeader } from '../project/ProjectHeader'
+import { SettingsHeader } from '../settings/SettingsHeader'
 import styles from './MembersView.module.scss'
 
 const ROLES: { key: MemberRole; label: string; help: string }[] = [
@@ -38,7 +38,8 @@ export type MembersViewProps = {
 export function MembersView(p: MembersViewProps) {
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Members" description="Who can use Signal Flow. Invite someone by their email address; they sign in with that account." />
+      <SettingsHeader />
+      <p className={styles.intro}>Who can use Signal Flow. Invite someone by their email address; they sign in with that account.</p>
 
       {p.managedBySso && (
         <InlineNotification kind="info" lowContrast hideCloseButton title="Roles come from your sign-in groups" subtitle="Your identity provider decides who can use Signal Flow and as what. Change a person's access there; it applies at their next sign-in." />

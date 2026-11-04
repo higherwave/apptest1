@@ -1,6 +1,6 @@
 export type AreaRef = { id: string; name: string } | null
 
-/** Items divided by feature area, in the order each area first appears, with the ones that have none last as "Unassigned". */
+/** Items divided by experience category, in the order each area first appears, with the ones that have none last as "Unassigned". */
 export function groupByArea<T extends { area: AreaRef }>(items: T[]): { key: string; name: string; items: T[] }[] {
   const by = new Map<string, { key: string; name: string; items: T[] }>()
   for (const item of items) {

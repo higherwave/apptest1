@@ -16,7 +16,7 @@ export type CaseStudiesViewProps = {
   /** Puts text on the clipboard; false when the browser would not. */
   onCopy: (text: string) => Promise<boolean>
   onOpenTheme: (id: string) => void
-  /** How the themes in each row are divided: one list, or under each feature area. */
+  /** How the themes in each row are divided: one list, or under each experience category. */
   groupBy?: Grouping
   onGroupBy?: (g: Grouping) => void
 }

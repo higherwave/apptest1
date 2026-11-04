@@ -16,12 +16,12 @@ export function useGrouping(): [Grouping, (g: Grouping) => void] {
   return [params.get('group') === 'area' ? 'area' : 'none', set]
 }
 
-// The Group by choice shared by the Platform Insights pages: None (the default) or Feature area.
+// The Group by choice shared by the Platform Insights pages: None (the default) or Experience category.
 export function GroupBy({ value, onChange }: { value: Grouping; onChange: (g: Grouping) => void }) {
   return (
     <div className={styles.group} role="group" aria-label="Group the themes">
       <span className={styles.label}>Group by</span>
-      {([['none', 'None'], ['area', 'Feature area']] as const).map(([key, label]) => (
+      {([['none', 'None'], ['area', 'Experience category']] as const).map(([key, label]) => (
         <Button key={key} kind={value === key ? 'primary' : 'ghost'} size="sm" aria-pressed={value === key} data-testid={`group-${key}`} onClick={() => onChange(key)}>
           {label}
         </Button>

@@ -19,7 +19,7 @@ export type PlatformThemeRow = {
   category: Category
   /** True for a platform theme the model started and nobody has looked at yet. */
   needsReview: boolean
-  /** The feature area most of its project themes are filed under, or null when none is (Unassigned). */
+  /** The experience category most of its project themes are filed under, or null when none is (Unassigned). */
   area: { id: string; name: string } | null
   /** Where it was heard: from customers, from the team, or both. Reach, priority and the counts below are customers only. */
   origin: Origin
@@ -470,7 +470,7 @@ export async function refreshPlatformMatches(db: Db, ai: Ai, workspaceId: string
 
 type PlatformRow = { id: string; title: string; category: string; aliases: string[]; area?: string | null }
 
-/** The feature area most of each platform theme's project themes are filed under (a tie goes to the name that sorts first), by platform theme id. */
+/** The experience category most of each platform theme's project themes are filed under (a tie goes to the name that sorts first), by platform theme id. */
 export async function platformAreas(db: Queryable, workspaceId: string): Promise<Map<string, string>> {
   return new Map([...(await platformAreaRefs(db, workspaceId))].map(([id, a]) => [id, a.name]))
 }
@@ -508,7 +508,7 @@ async function refreshByKeywords(db: Db, ai: Ai, workspaceId: string): Promise<{
     const manual = new Set((await tx.query(`select theme_id from insights.platform_theme_sources where workspace_id = $1 and match_method = 'manual'`, [workspaceId])).rows.map((r) => r.theme_id as string))
     await tx.query(`delete from insights.platform_theme_sources where workspace_id = $1 and match_method = 'auto'`, [workspaceId])
     const raw = await callAi(tx, ai, workspaceId, 'theme_match', (p) => p.matchThemes(themes.filter((t) => !manual.has(t.id)), platform))
-    // A match across feature areas needs more confidence than one within an area; below it the theme stays unplaced (this matcher starts nothing).
+    // A match across experience categories needs more confidence than one within an area; below it the theme stays unplaced (this matcher starts nothing).
     const matches = applyAreaRule(raw.map((m: { themeId: string; platformThemeId: string; confidence: number }): Placement => ({ ...m })), { themes, platform: platform.map((p) => ({ id: p.id, title: '', category: '', area: areaOfPlatform.get(p.id) ?? null })) }, 'drop') as { themeId: string; platformThemeId: string; confidence: number }[]
     await insertMany(
       tx,

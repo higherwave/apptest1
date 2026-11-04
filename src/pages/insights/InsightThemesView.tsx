@@ -25,7 +25,7 @@ export type InsightThemesViewProps = {
   onReviewed?: (id: string) => void
   /** Rename, merge, duplicate suggestions and the rank rationale. */
   curation?: Curation
-  /** How the table is divided: one list, or a section for each feature area. */
+  /** How the table is divided: one list, or a section for each experience category. */
   groupBy?: 'none' | 'area'
   onGroupBy?: (g: 'none' | 'area') => void
 }
@@ -89,7 +89,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   // Reach is the server's order; Suggested priority follows the rank (delights, which are not ranked, last).
   const [order, setOrder] = useState<'reach' | 'priority'>('reach')
   const shown = order === 'priority' ? [...narrowed].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)) : narrowed
-  // Grouped by feature area: sections in the order their strongest theme appears in the current order, the themes with no area last.
+  // Grouped by experience category: sections in the order their strongest theme appears in the current order, the themes with no area last.
   const [assigning, setAssigning] = useState<Row | null>(null)
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
   const sections = (() => {
@@ -172,8 +172,8 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           </section>
                         )}
                         {t.area && (
-                          <section aria-label="Feature area" data-testid={`area-${t.id}`}>
-                            <h3 className={styles.label}>Feature area</h3>
+                          <section aria-label="Experience category" data-testid={`area-${t.id}`}>
+                            <h3 className={styles.label}>Experience category</h3>
                             <p className={styles.text}>
                               {t.areaFiledByHand ? <>Filed under <strong>{t.area.name}</strong> by a person.</> : <>Filed under <strong>{t.area.name}</strong>.</>}
                             </p>
@@ -185,11 +185,11 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           </section>
                         )}
                         {!t.area && curation?.canEdit && curation.onAssignArea && (
-                          <section aria-label="Feature area" data-testid={`assign-area-${t.id}`}>
-                            <h3 className={styles.label}>Feature area</h3>
-                            <p className={styles.text}>No area yet. Adding it to one files this theme, and the project themes behind it, under that area.</p>
+                          <section aria-label="Experience category" data-testid={`assign-area-${t.id}`}>
+                            <h3 className={styles.label}>Experience category</h3>
+                            <p className={styles.text}>No experience category yet. Adding it to one files this theme, and the project themes behind it, under that category.</p>
                             <Button kind="tertiary" size="sm" disabled={curation.busy} data-testid={`open-assign-${t.id}`} onClick={() => setAssigning(t)}>
-                              Add to Feature Area
+                              Add to Experience Category
                             </Button>
                           </section>
                         )}

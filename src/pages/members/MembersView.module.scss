@@ -1,10 +1,17 @@
 @use '../../tokens' as tokens;
+@use '../insights/body';
 
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  max-width: 60rem;
+  @include body.below-hero;
+}
+
+.intro {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
 }
 
 .invite {

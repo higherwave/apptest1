@@ -6,7 +6,7 @@ import { useAreas, useCreateArea, useMe } from '../../api/hooks'
 import { RightPanel } from '../../components/RightPanel'
 import styles from './AssignAreaPanel.module.scss'
 
-// Files a theme that has no feature area. Choose one from the list (search by name or another name), or type a new name and choose
+// Files a theme that has no experience category. Choose one from the list (search by name or another name), or type a new name and choose
 // "Add": it joins the list for everyone and the theme is filed under it. Names that look like an existing area are listed first, and the
 // same name is never added twice. Choosing closes the panel.
 export function AssignAreaPanel({ open, themeTitle, onClose, onChoose }: { open: boolean; themeTitle: string; onClose: () => void; onChoose: (areaId: string) => void }) {
@@ -51,12 +51,12 @@ export function AssignAreaPanel({ open, themeTitle, onClose, onChoose }: { open:
     else if (matched.length === 1) done(matched[0].id)
   }
   return (
-    <RightPanel open={open} heading="Add to Feature Area" label={themeTitle} focus="input.cds--search-input" onClose={close}>
+    <RightPanel open={open} heading="Add to Experience Category" label={themeTitle} focus="input.cds--search-input" onClose={close}>
       <div className={styles.body} data-testid="assign-area-panel">
-        <Search size="md" labelText="Search or add a feature area" placeholder="Search, or type a new area" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') enter() }} />
-        {areas.isSuccess && live.length === 0 && !q && <p className={styles.empty}>There are no feature areas yet. Type a name to add the first one.</p>}
-        {q && matched.length === 0 && !canAdd && <p className={styles.empty}>No feature area matches “{q}”.</p>}
-        <ul className={styles.list} aria-label="Feature areas">
+        <Search size="md" labelText="Search or add an experience category" placeholder="Search, or type a new category" value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') enter() }} />
+        {areas.isSuccess && live.length === 0 && !q && <p className={styles.empty}>There are no experience categories yet. Type a name to add the first one.</p>}
+        {q && matched.length === 0 && !canAdd && <p className={styles.empty}>No experience category matches “{q}”.</p>}
+        <ul className={styles.list} aria-label="Experience categories">
           {matched.map((a) => (
             <li key={a.id}>
               <Button kind="ghost" size="md" className={styles.choice} data-testid={`choose-area-${a.name}`} onClick={() => done(a.id)}>
@@ -72,7 +72,7 @@ export function AssignAreaPanel({ open, themeTitle, onClose, onChoose }: { open:
               <Button kind="ghost" size="md" className={styles.choice} disabled={create.isPending} data-testid="add-area-option" onClick={() => void add()}>
                 <span className={styles.choiceText}>
                   <span className={styles.name}>Add “{q}”</span>
-                  <span className={styles.definition}>A new area for everyone, and file this theme under it</span>
+                  <span className={styles.definition}>A new category for everyone, and file this theme under it</span>
                 </span>
               </Button>
             </li>

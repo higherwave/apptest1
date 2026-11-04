@@ -30,7 +30,7 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
 
       {tasks.length > 0 && (
         <p className={styles.areaNote} data-testid="area-note">
-          {tasks.filter((t) => t.areaId).length} of {tasks.length} {tasks.length === 1 ? 'has' : 'have'} a feature area. The analysis files what people say under these areas, so a question with none is filed by what was said alone.
+          {tasks.filter((t) => t.areaId).length} of {tasks.length} {tasks.length === 1 ? 'has' : 'have'} an experience category. The analysis files what people say under these areas, so a question with none is filed by what was said alone.
         </p>
       )}
       {tasks.length === 0 && <p className={styles.empty}>No questions or tasks yet. Add the first one.</p>}
@@ -43,7 +43,7 @@ export function TaskListView({ state, project, tasks, errorText, save, onChange 
             {!readOnly && <Button kind="ghost" size="md" hasIconOnly renderIcon={TrashCan} iconDescription={`Remove question or task ${i + 1}`} onClick={() => onChange(tasks.filter((_, j) => j !== i))} />}
           </div>
           <div className={readOnly ? undefined : styles.underInput}>
-            <AreaPicker id={`task-${i}-area`} label="Feature area" value={task.areaId} about={task.prompt} readOnly={readOnly} onChange={(areaId) => setTask(i, { areaId })} />
+            <AreaPicker id={`task-${i}-area`} label="Experience category" value={task.areaId} about={task.prompt} readOnly={readOnly} onChange={(areaId) => setTask(i, { areaId })} />
           </div>
           {task.followUps.map((followUp, j) => (
             <div key={j} className={styles.followUp}>

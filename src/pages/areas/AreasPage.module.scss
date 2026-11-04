@@ -151,23 +151,20 @@
   gap: var(--at-space-xs);
 }
 
-// The list (with the add box above it) on the left, the suggestions on the right; one column when there are no suggestions or the screen is narrow.
-.layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: var(--at-space-lg);
-  align-items: start;
-
-  &[data-split='true'] { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); }
-
-  @media (max-width: 56rem) {
-    &[data-split='true'] { grid-template-columns: minmax(0, 1fr); }
-  }
-}
-
 .list {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
   min-inline-size: 0;
+}
+
+.intro {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// The content under a tab sits flush: the page's own spacing already separates it.
+.tabPanel {
+  padding: var(--at-space-lg) 0 0;
 }

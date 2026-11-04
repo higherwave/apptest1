@@ -4,6 +4,7 @@ import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
 import { MembersPage } from './pages/members/MembersPage'
+import { AppStatusPage } from './pages/settings/AppStatusPage'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
 import { InsightThemesPage } from './pages/insights/InsightThemesPage'
@@ -46,15 +47,18 @@ export function App() {
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />
         <Route path="projects/:projectId/measure" element={<MeasurePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
-        <Route path="members" element={<MembersPage />} />
+        <Route path="members" element={<Navigate to="/settings/members" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
         <Route path="insights/personas" element={<CustomersPage />} />
         <Route path="insights/customers" element={<Navigate to="/insights/personas" replace />} />
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
         <Route path="insights/journey" element={<PlatformJourneyPage />} />
-        <Route path="insights/areas" element={<Navigate to="/settings/areas" replace />} />
-        <Route path="settings" element={<Navigate to="/settings/areas" replace />} />
-        <Route path="settings/areas" element={<AreasPage />} />
+        <Route path="insights/areas" element={<Navigate to="/settings/categories" replace />} />
+        <Route path="settings" element={<Navigate to="/settings/categories" replace />} />
+        <Route path="settings/areas" element={<Navigate to="/settings/categories" replace />} />
+        <Route path="settings/categories" element={<AreasPage />} />
+        <Route path="settings/status" element={<AppStatusPage />} />
+        <Route path="settings/members" element={<MembersPage />} />
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />
         <Route path="insights/:section" element={<Placeholder />} />
         <Route path="*" element={<Placeholder title="Page not found" />} />

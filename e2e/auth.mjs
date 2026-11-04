@@ -74,7 +74,6 @@ try {
   page.on('request', canned)
   await page.reload({ waitUntil: 'networkidle0' })
   await waitText('Product Funnel')
-  ok('the header has no AI status button; it is in the account menu', !(await page.evaluate(() => [...document.querySelectorAll('header button')].some((b) => b.offsetParent !== null && b.innerText.trim().startsWith('AI status')))))
   ok('the AI badge sits at the left of the header, the account picture at the right', await page.evaluate(() => {
     const bar = document.querySelector('header').getBoundingClientRect()
     const badge = [...document.querySelectorAll('header .cds--tag')].find((t) => t.innerText.startsWith('AI:'))?.getBoundingClientRect()
@@ -84,24 +83,28 @@ try {
   ok('the header shows a picture (initials here) instead of the name', await page.evaluate(() => !!document.querySelector('[data-testid="account-button"] [data-testid="avatar"]') && !document.querySelector('header').innerText.includes('David')))
   await page.click('[aria-label="Account"]')
   await page.waitForFunction(() => document.querySelector('[data-testid="account-panel"]')?.innerText.includes('david@demo.signalflow.example'), { timeout: 5000 })
-  ok('the picture opens a panel with a larger picture, the name, the email and the links', await page.evaluate(() => {
+  ok('the picture opens a panel with a larger picture, the name, the email and Sign out, and no Members or AI status links', await page.evaluate(() => {
     const panel = document.querySelector('[data-testid="account-panel"]')
     const big = panel.querySelector('[data-testid="avatar"]').getBoundingClientRect().width
     const small = document.querySelector('[data-testid="account-button"] [data-testid="avatar"]').getBoundingClientRect().width
     const links = [...document.querySelectorAll('.cds--popover-content button')].map((b) => b.innerText.trim())
-    return big > small * 2 && panel.innerText.toLowerCase().includes('owner') && ['Members', 'AI status', 'Sign out'].every((l) => links.includes(l))
+    return big > small * 2 && panel.innerText.toLowerCase().includes('owner') && links.includes('Sign out') && !links.includes('Members') && !links.includes('AI status')
   }))
-  await clickText('AI status', '.cds--popover-content button')
-  await page.waitForFunction(() => document.querySelector('.cds--modal.is-visible')?.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })
-  ok('the AI status link opens the spend and problems dialog', true)
   await page.keyboard.press('Escape')
+  await page.goto(`${BASE}/settings/status`, { waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => document.body.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })
+  ok('App Status is a Settings tab with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Settings sections"] [data-label="App Status"]')?.dataset.current === 'true' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
   await new Promise((r) => setTimeout(r, 600))
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })
   await waitText('Product Funnel')
-  await page.click('[aria-label="Account"]')
-  await clickText('Members')
+  await page.goto(`${BASE}/members`, { waitUntil: 'networkidle0' })
+  ok('the old Members address lands on the Settings Members tab', await page.evaluate(() => location.pathname === '/settings/members' && document.querySelector('nav[aria-label="Settings sections"] [data-label="Members"]')?.dataset.current === 'true'))
+  await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
+  await waitText('Experience')
+  await page.evaluate(() => document.querySelector('nav[aria-label="Settings sections"] [data-label="Members"]').click())
   await waitText('Invite')
   await waitText('sam@demo.signalflow.example') // the list arrives after the form
   ok('the account menu opens the Members page, which lists the demo members', (await text()).includes('david@demo.signalflow.example') && (await text()).includes('sam@demo.signalflow.example'))

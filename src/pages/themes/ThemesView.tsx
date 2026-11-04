@@ -21,7 +21,7 @@ export type ThemesViewProps = {
   errorText?: string
   onCategory: (c: ThemeCategory | 'all') => void
   onSelect: (id: string) => void
-  /** Files the theme under another feature area, or none. */
+  /** Files the theme under another experience category, or none. */
   onArea: (theme: Theme, areaId: string | null) => void
   onEdit: (theme: Theme, patch: ThemePatch) => void
   onGoTranscripts: () => void
@@ -75,7 +75,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                       <CategoryBadge category={t.category} />
                     </div>
                     <p className={styles.cardTitle}>{t.title}</p>
-                    <p className={styles.cardArea} data-testid={`theme-area-${t.id}`}>{t.area ? t.area.name : 'No area'}</p>
+                    <p className={styles.cardArea} data-testid={`theme-area-${t.id}`}>{t.area ? t.area.name : 'No category'}</p>
                     <p className={styles.cardMeta}>
                       {participantsLabel(t)} · {LEVEL_LABEL[t.priority as Level]} priority · <span data-testid={`theme-origin-${t.id}`}>{ORIGIN_LABEL[t.origin]}</span>
                     </p>
@@ -132,7 +132,7 @@ export function ThemesView({ state, project, themes, stages, category, selectedI
                     </>
                   )}
                   <div className={styles.area}>
-                    <AreaPicker id="theme-area" label="Feature area" value={selected.area?.id ?? null} readOnly={!canEdit || pending.has(selected.id)} about={`${selected.title} ${selected.description ?? ''}`} onChange={(areaId) => onArea(selected, areaId)} />
+                    <AreaPicker id="theme-area" label="Experience category" value={selected.area?.id ?? null} readOnly={!canEdit || pending.has(selected.id)} about={`${selected.title} ${selected.description ?? ''}`} onChange={(areaId) => onArea(selected, areaId)} />
                   </div>
                   <div className={styles.stage}>
                   <Dropdown

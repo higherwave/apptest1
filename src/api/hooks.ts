@@ -21,7 +21,7 @@ export const useMe = () => {
   return useQuery({ queryKey: ['me', token], queryFn: () => getMe() })
 }
 
-// The workspace's feature areas. Every change refetches the list: usage counts and aliases move together.
+// The workspace's experience categories. Every change refetches the list: usage counts and aliases move together.
 export const useAreas = () => useQuery({ queryKey: ['areas'], queryFn: listAreas, staleTime: 60_000 })
 export const useCreateArea = () => {
   const queryClient = useQueryClient()

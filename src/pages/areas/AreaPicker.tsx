@@ -5,7 +5,7 @@ import { ApiRequestError, friendlyMessage, type Area } from '../../api/client'
 import { useAreas, useCreateArea, useMe } from '../../api/hooks'
 import styles from './AreaPicker.module.scss'
 
-// Chooses the feature area a question to ask, task to observe or theme is about. It is optional: an area helps the system file what people
+// Chooses the experience category a question to ask, task to observe or theme is about. It is optional: an area helps the system file what people
 // say, but nothing depends on one, and a team in discovery may not know what to call a feature yet. Pick one from the list, or type a
 // new name and choose "Add": it joins the list for everyone. Names that look like an existing area are listed first, so a near-duplicate
 // is easy to avoid and never forced. When the text beside it clearly concerns an area, that one is offered. Connected: it reads the shared list itself.
@@ -52,10 +52,10 @@ export function AreaPicker({ id, label, value, onChange, readOnly, about }: { id
       <ComboBox
         id={id}
         titleText={label}
-        placeholder={canAdd ? 'Choose an area, or type a new one (optional)' : 'Choose an area (optional)'}
+        placeholder={canAdd ? 'Choose a category, or type a new one (optional)' : 'Choose a category (optional)'}
         items={items}
         itemToString={(a: Item | null) => (a ? (isNew(a) ? a.name : a.retired ? `${a.name} (retired)` : a.name) : '')}
-        itemToElement={(a: Item) => (isNew(a) ? <span data-testid={`${id}-add`}>Add “{a.name}” as a new area</span> : <span>{a.name}</span>)}
+        itemToElement={(a: Item) => (isNew(a) ? <span data-testid={`${id}-add`}>Add “{a.name}” as a new category</span> : <span>{a.name}</span>)}
         selectedItem={selected}
         onChange={({ selectedItem }: { selectedItem?: Item | null }) => void choose(selectedItem)}
         onInputChange={(text: string) => setTyped(text ?? '')}

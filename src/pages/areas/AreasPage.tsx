@@ -1,4 +1,4 @@
-import { Button, Dropdown, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag, TextInput } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import { ApiRequestError, friendlyMessage, type Area } from '../../api/client'
 import { useAcceptAreaProposal, useAreaProposals, useAreas, useCreateArea, useDismissAreaProposal, useMe, useMergeArea, useRetireArea, useUpdateArea } from '../../api/hooks'
@@ -15,7 +15,7 @@ const used = (a: Area) => {
   return parts.length ? parts.join(', ') : 'Not used yet'
 }
 
-// The shared list of feature areas. Everyone reads it, an editor adds one (the duplicate check is in the dialog), and an owner edits,
+// The shared list of experience categories. Everyone reads it, an editor adds one (the duplicate check is in the dialog), and an owner edits,
 // merges and retires. Connected: it owns the dialogs' state.
 export function AreasPage() {
   const areas = useAreas()
@@ -27,6 +27,7 @@ export function AreasPage() {
   const proposals = useAreaProposals()
   const accept = useAcceptAreaProposal()
   const dismiss = useDismissAreaProposal()
+  const [tab, setTab] = useState(0)
   const [newName, setNewName] = useState('')
   const [heard, setHeard] = useState<{ existing?: string; similar: string[]; error?: string }>({ similar: [] })
   const [action, setAction] = useState<Action>(null)
@@ -60,7 +61,7 @@ export function AreasPage() {
       else if (action.kind === 'retire') await retire.mutateAsync(action.area.id)
       close()
     } catch (err) {
-      setError(err instanceof ApiRequestError && err.code === 'duplicate_area' ? `“${err.extra.existing?.name}” is the same area. Merge them instead.` : friendlyMessage(err))
+      setError(err instanceof ApiRequestError && err.code === 'duplicate_area' ? `“${err.extra.existing?.name}” is the same category. Merge them instead.` : friendlyMessage(err))
     }
   }
   // Adding by typing, as on a question. The same name (or another name of one) is not added twice; a look-alike is shown and may still be added.
@@ -79,18 +80,23 @@ export function AreasPage() {
 
   return (
     <div className={styles.page}>
-      <SettingsHeader
-        title="Feature areas"
-        description="What research is about, in one shared set of words. A question to ask or a task to observe names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement."
-      />
-      <div className={styles.layout} data-split={(canAdd && (proposals.data?.length ?? 0) > 0)}>
+      <SettingsHeader />
+      <p className={styles.intro}>What research is about, in one shared set of words. A question to ask or a task to observe names its area, so what people say is described the same way across studies and duplicates are caught early. An area is a label, never a requirement.</p>
+      <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setTab(selectedIndex)}>
+        <TabList aria-label="Experience categories views">
+          <Tab data-testid="tab-current">Current Categories</Tab>
+          {canAdd && <Tab data-testid="tab-matches">Relevant Word Matches{(proposals.data?.length ?? 0) > 0 ? ` · ${proposals.data!.length}` : ''}</Tab>}
+        </TabList>
+        <TabPanels>
+          <TabPanel className={styles.tabPanel}>
+        {tab === 0 && (
         <div className={styles.list}>
       {canAdd && (
         <div className={styles.add}>
           <div className={styles.addRow}>
             <TextInput
               id="add-area-name"
-              labelText="Add an area"
+              labelText="Add a category"
               placeholder="Type a name, for example Scheduling"
               helperText="It joins the list for everyone. Questions can also add one as you type."
               value={newName}
@@ -104,10 +110,10 @@ export function AreasPage() {
               Add
             </Button>
           </div>
-          {heard.existing && <InlineNotification kind="warning" lowContrast hideCloseButton title="Already on the list" subtitle={`“${heard.existing}” is the same area.`} />}
+          {heard.existing && <InlineNotification kind="warning" lowContrast hideCloseButton title="Already on the list" subtitle={`“${heard.existing}” is the same category.`} />}
           {heard.similar.length > 0 && (
             <div className={styles.found} data-testid="area-similar">
-              <InlineNotification kind="info" lowContrast hideCloseButton title="This looks like an area you have" subtitle={`${heard.similar.map((n) => `“${n}”`).join(' and ')} may already cover it.`} />
+              <InlineNotification kind="info" lowContrast hideCloseButton title="This looks like a category you have" subtitle={`${heard.similar.map((n) => `“${n}”`).join(' and ')} may already cover it.`} />
               <Button kind="tertiary" size="sm" onClick={() => void add(true)}>
                 Add it anyway
               </Button>
@@ -116,14 +122,14 @@ export function AreasPage() {
           {heard.error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={heard.error} />}
         </div>
       )}
-      {areas.isPending && <Loading small withOverlay={false} description="Loading the feature areas" />}
-      {areas.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Could not load the areas" subtitle={friendlyMessage(areas.error)} />}
-      {areas.isSuccess && live.length === 0 && <p className={styles.empty}>No feature areas yet. Add the first one, or type one in the Feature area box on a question in a task list.</p>}
+      {areas.isPending && <Loading small withOverlay={false} description="Loading the experience categories" />}
+      {areas.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Could not load the categories" subtitle={friendlyMessage(areas.error)} />}
+      {areas.isSuccess && live.length === 0 && <p className={styles.empty}>No experience categories yet. Add the first one, or type one in the Experience category box on a question in a task list.</p>}
       {live.length > 0 && (
         <div className={styles.tableWrap}>
-          <div className={styles.table} role="table" aria-label="Feature areas">
+          <div className={styles.table} role="table" aria-label="Experience categories">
             <div className={styles.row} role="row">
-              {['Area', 'Other names', 'Used by'].map((h) => (
+              {['Category', 'Other names', 'Used by'].map((h) => (
                 <div key={h} className={styles.head} role="columnheader">
                   {h}
                 </div>
@@ -152,7 +158,7 @@ export function AreasPage() {
                   {isOwner && (
                     <OverflowMenu iconDescription={`Actions for ${a.name}`} flipped size="sm">
                       <OverflowMenuItem itemText="Edit" onClick={() => open('edit', a)} />
-                      <OverflowMenuItem itemText="Merge into another area" disabled={live.length < 2} onClick={() => open('merge', a)} />
+                      <OverflowMenuItem itemText="Merge into another category" disabled={live.length < 2} onClick={() => open('merge', a)} />
                       <OverflowMenuItem itemText="Retire" isDelete onClick={() => open('retire', a)} />
                     </OverflowMenu>
                   )}
@@ -163,7 +169,7 @@ export function AreasPage() {
         </div>
       )}
       {retired.length > 0 && (
-        <section aria-label="Retired areas" className={styles.retired}>
+        <section aria-label="Retired categories" className={styles.retired}>
           <h2 className={styles.retiredHead}>Retired</h2>
           <p className={styles.definition}>
             {retired.map((a) => (a.mergedInto ? `${a.name} (merged into ${all.find((x) => x.id === a.mergedInto)?.name ?? 'another area'})` : a.name)).join(' · ')}
@@ -172,11 +178,16 @@ export function AreasPage() {
       )}
 
         </div>
-      {canAdd && (proposals.data?.length ?? 0) > 0 && (
-        <section className={styles.proposals} aria-label="Suggested areas" data-testid="area-proposals">
-          <h2 className={styles.retiredHead}>Suggested areas</h2>
-          <p className={styles.definition}>Themes with no area keep coming back around these words. Add one and its themes are filed under it for everyone.</p>
-          {proposals.data!.map((p) => (
+        )}
+          </TabPanel>
+          {canAdd && (
+          <TabPanel className={styles.tabPanel}>
+        {tab === 1 && (
+        <section className={styles.proposals} aria-label="Relevant word matches" data-testid="area-proposals">
+          <h2 className={styles.retiredHead}>Relevant word matches</h2>
+          {(proposals.data?.length ?? 0) === 0 && <p className={styles.empty}>No matches right now. When themes with no category keep coming back around a word that no category covers, it is offered here.</p>}
+          <p className={styles.definition}>Themes with no category keep coming back around these words. Add one and its themes are filed under it for everyone.</p>
+          {(proposals.data ?? []).map((p) => (
             <div key={p.key} className={styles.proposal} data-testid={`area-proposal-${p.name}`}>
               <div>
                 <p className={styles.name}>{p.name}</p>
@@ -187,7 +198,7 @@ export function AreasPage() {
               </div>
               <div className={styles.proposalActions}>
                 <Button kind="primary" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => accept.mutate({ key: p.key })}>
-                  Add area
+                  Add category
                 </Button>
                 <Button kind="ghost" size="sm" disabled={accept.isPending || dismiss.isPending} onClick={() => dismiss.mutate(p.key)}>
                   Not now
@@ -197,13 +208,16 @@ export function AreasPage() {
           ))}
           {accept.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={friendlyMessage(accept.error)} />}
         </section>
-      )}
-      </div>
+        )}
+          </TabPanel>
+          )}
+        </TabPanels>
+      </Tabs>
 
       <Modal
         open={action?.kind === 'edit'}
         size="sm"
-        modalHeading={`Edit ${action?.area.name ?? 'area'}`}
+        modalHeading={`Edit ${action?.area.name ?? 'category'}`}
         primaryButtonText={busy ? 'Saving…' : 'Save'}
         secondaryButtonText="Cancel"
         primaryButtonDisabled={name.trim().length < 2 || busy}
@@ -212,7 +226,7 @@ export function AreasPage() {
       >
         <div className={styles.form}>
           <TextInput id="edit-area-name" labelText="Name" value={name} onChange={(e) => setName(e.target.value)} helperText="A new name keeps the old one as another name, so it is still recognised." />
-          <TextInput id="edit-area-definition" labelText="What is in this area" value={definition} onChange={(e) => setDefinition(e.target.value)} />
+          <TextInput id="edit-area-definition" labelText="What is in this category" value={definition} onChange={(e) => setDefinition(e.target.value)} />
           <TextInput id="edit-area-aliases" labelText="Other names people use" helperText="Separate with commas" value={aliases} onChange={(e) => setAliases(e.target.value)} />
           {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
         </div>
@@ -221,7 +235,7 @@ export function AreasPage() {
       <Modal
         open={action?.kind === 'merge'}
         size="sm"
-        modalHeading={`Merge ${action?.area.name ?? 'area'} into another area`}
+        modalHeading={`Merge ${action?.area.name ?? 'category'} into another category`}
         primaryButtonText={busy ? 'Merging…' : 'Merge'}
         secondaryButtonText="Cancel"
         primaryButtonDisabled={!target || busy}
@@ -229,11 +243,11 @@ export function AreasPage() {
         onRequestSubmit={() => void run()}
       >
         <div className={styles.form}>
-          <p className={styles.confirm}>Everything that uses {action?.area.name} moves to the area you choose, and {action?.area.name} becomes another name for it.</p>
+          <p className={styles.confirm}>Everything that uses {action?.area.name} moves to the category you choose, and {action?.area.name} becomes another name for it.</p>
           <Dropdown
             id="merge-area-target"
             titleText="Merge into"
-            label="Choose an area"
+            label="Choose a category"
             items={live.filter((a) => a.id !== action?.area.id)}
             itemToString={(a: Area | null) => a?.name ?? ''}
             selectedItem={target}
@@ -247,14 +261,14 @@ export function AreasPage() {
         open={action?.kind === 'retire'}
         danger
         size="sm"
-        modalHeading={`Retire ${action?.area.name ?? 'area'}?`}
+        modalHeading={`Retire ${action?.area.name ?? 'category'}?`}
         primaryButtonText={busy ? 'Retiring…' : 'Retire'}
         secondaryButtonText="Cancel"
         primaryButtonDisabled={busy}
         onRequestClose={close}
         onRequestSubmit={() => void run()}
       >
-        <p className={styles.confirm}>It leaves the list people choose from. Questions, tasks and test items that already use it keep it. To combine it with another area instead, use Merge.</p>
+        <p className={styles.confirm}>It leaves the list people choose from. Questions, tasks and test items that already use it keep it. To combine it with another category instead, use Merge.</p>
         {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not retired" subtitle={error} />}
       </Modal>
     </div>

@@ -1,4 +1,4 @@
-// Feature areas: the workspace's shared list of what research is about. An editor adds an area (after a duplicate check); an owner
+// Experience categories: the workspace's shared list of what research is about. An editor adds an area (after a duplicate check); an owner
 // edits, merges and retires them. The matching words are in shared/areas.ts so the screens and the API agree about what a duplicate is.
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
