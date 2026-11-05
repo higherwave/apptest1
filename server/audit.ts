@@ -7,7 +7,7 @@ export const AUDIT_GROUPS = {
   members: ['core.memberships'],
   categories: ['insights.feature_areas'],
   projects: ['core.projects'],
-  workflows: ['insights.workflows', 'insights.workflow_stages', 'insights.workflow_backstage'],
+  workflows: ['insights.workflows'],
   jira: ['delivery.story_tickets'],
 } as const
 export type AuditGroup = keyof typeof AUDIT_GROUPS

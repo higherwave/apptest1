@@ -295,6 +295,151 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /workflows:
+    get:
+      operationId: listWorkflows
+      summary: >
+        The workflows (the service blueprint): each with its stages, and under each stage what good looks like, the signal to watch, the handoff
+        and the backstage (teams, systems and processes, with owners). Open to read as the viewer.
+      responses:
+        '200':
+          description: The workflows, by name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createWorkflow
+      summary: Owners and editors. Adds a workflow with its stages. 409 `duplicate_workflow` if the name is taken.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowRequest' }
+      responses:
+        '201':
+          description: The workflow.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /workflows/sample:
+    post:
+      operationId: addSampleWorkflows
+      summary: Owners and editors. Adds the healthcare example workflows that are not there yet (matched by name) and returns every workflow.
+      responses:
+        '201':
+          description: Every workflow, including the examples.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WorkflowList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /workflows/{id}:
+    put:
+      operationId: saveWorkflow
+      summary: >
+        Owners and editors. Saves the whole workflow: a stage or backstage entry that keeps its id is changed in place (so projects mapped to it stay
+        mapped), one without an id is added, and one left out is removed. If-Match is the workflow's version; a save that changes nothing keeps it.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WorkflowRequest' }
+      responses:
+        '200':
+          description: The workflow as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Workflow' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteWorkflow
+      summary: Owners and editors. Deletes a workflow no project is on. 409 `workflow_in_use` otherwise.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/blueprint:
+    get:
+      operationId: getProjectBlueprint
+      summary: The workflow a project is on (or null) and, for each of the project's journey stages, the workflow stage it is mapped to, with that stage's backstage.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The project's blueprint.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectBlueprint' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/workflow:
+    put:
+      operationId: setProjectWorkflow
+      summary: >
+        Owners and editors. Puts the project on a workflow (one per project) or takes it off with null. Its journey stages are mapped to the
+        workflow's by name; a stage with no clear match stays unmapped.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetProjectWorkflowRequest' }
+      responses:
+        '200':
+          description: The project's blueprint.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectBlueprint' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/stage-map:
+    put:
+      operationId: mapProjectStage
+      summary: Owners and editors. Maps one of the project's journey stages to a stage of its workflow, or clears it with null.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/MapStageRequest' }
+      responses:
+        '200':
+          description: The project's blueprint.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectBlueprint' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /audit:
     get:
       operationId: listAudit
@@ -3003,6 +3148,110 @@ components:
         assignee: { type: string, maxLength: 80 }
         labels: { type: string, maxLength: 200 }
         points: { type: [string, 'null'], maxLength: 6 }
+    WorkflowBackstage:
+      type: object
+      required: [id, kind, name, owner]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [Team, System, Process] }
+        name: { type: string }
+        owner: { type: [string, 'null'], description: 'Who owns it, for example a team name.' }
+    WorkflowStage:
+      type: object
+      required: [id, position, name, good, signal, handoff, backstage]
+      properties:
+        id: { type: string }
+        position: { type: integer }
+        name: { type: string }
+        good: { type: [string, 'null'], description: 'What "good" looks like at this stage.' }
+        signal: { type: [string, 'null'], description: The signal to watch. }
+        handoff: { type: [string, 'null'], description: The handoff out of the stage. }
+        backstage:
+          type: array
+          items: { $ref: '#/components/schemas/WorkflowBackstage' }
+    Workflow:
+      type: object
+      required: [id, name, description, version, projectCount, stages]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: [string, 'null'] }
+        version: { type: integer }
+        projectCount: { type: integer, description: Projects that are on this workflow. }
+        stages:
+          type: array
+          items: { $ref: '#/components/schemas/WorkflowStage' }
+    WorkflowList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Workflow' }
+    WorkflowRequest:
+      type: object
+      required: [name, stages]
+      properties:
+        name: { type: string, minLength: 2, maxLength: 80 }
+        description: { type: [string, 'null'], maxLength: 400 }
+        stages:
+          type: array
+          minItems: 1
+          maxItems: 12
+          items:
+            type: object
+            required: [name]
+            properties:
+              id: { type: [string, 'null'], description: 'Send the id of a stage that exists to change it in place; leave it out to add one.' }
+              name: { type: string, maxLength: 80 }
+              good: { type: [string, 'null'], maxLength: 300 }
+              signal: { type: [string, 'null'], maxLength: 300 }
+              handoff: { type: [string, 'null'], maxLength: 300 }
+              backstage:
+                type: array
+                maxItems: 12
+                items:
+                  type: object
+                  required: [kind, name]
+                  properties:
+                    id: { type: [string, 'null'] }
+                    kind: { type: string, enum: [Team, System, Process] }
+                    name: { type: string, maxLength: 100 }
+                    owner: { type: [string, 'null'], maxLength: 100 }
+    ProjectBlueprint:
+      type: object
+      required: [workflow, stages]
+      properties:
+        workflow:
+          type: [object, 'null']
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
+        stages:
+          type: array
+          items:
+            type: object
+            required: [position, name, workflowStageId, workflowStage]
+            properties:
+              position: { type: integer }
+              name: { type: string }
+              workflowStageId: { type: [string, 'null'] }
+              workflowStage:
+                anyOf:
+                  - { $ref: '#/components/schemas/WorkflowStage' }
+                  - { type: 'null' }
+    SetProjectWorkflowRequest:
+      type: object
+      required: [workflowId]
+      properties:
+        workflowId: { type: [string, 'null'] }
+    MapStageRequest:
+      type: object
+      required: [position, workflowStageId]
+      properties:
+        position: { type: integer, minimum: 0 }
+        workflowStageId: { type: [string, 'null'] }
     AuditEntry:
       type: object
       required: [id, createdAt, actor, group, entity, entityId, verb, before, after]

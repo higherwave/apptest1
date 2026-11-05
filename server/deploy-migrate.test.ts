@@ -57,7 +57,7 @@ test('on a production build every real migration is applied in order, and a seco
   const second = await deployMigrate({ env: PROD, client: adapt(pg), log })
   assert.deepEqual(second, { status: 'none', applied: [] })
   // The schema really is there, not just the bookkeeping rows.
-  assert.equal(((await pg.query<{ n: number }>(`select count(*)::int n from information_schema.tables where table_schema = 'insights' and table_type = 'BASE TABLE'`)).rows[0]).n, 11)
+  assert.equal(((await pg.query<{ n: number }>(`select count(*)::int n from information_schema.tables where table_schema = 'insights' and table_type = 'BASE TABLE'`)).rows[0]).n, 15)
 })
 
 test('only the pending migrations are applied when some already are', async () => {

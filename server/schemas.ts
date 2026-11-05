@@ -167,6 +167,31 @@ export const acceptProposalSchema = z.object({ key: text(60), name: optionalText
 export const dismissProposalSchema = z.object({ key: text(60) })
 export const themeAreaSchema = z.object({ areaId: z.uuid().nullable() })
 
+// A workflow (the service blueprint): saved whole, each stage with what good looks like, the signal to watch, the handoff and its backstage.
+const optionalId = z.uuid().nullish().transform((v) => v ?? null)
+export const workflowSchema = z.object({
+  name: text(80).min(2, 'Give the workflow a name of at least 2 characters.'),
+  description: optionalText(400),
+  stages: z
+    .array(
+      z.object({
+        id: optionalId,
+        name: text(80).min(1, 'Give every stage a name.'),
+        good: optionalText(300),
+        signal: optionalText(300),
+        handoff: optionalText(300),
+        backstage: z
+          .array(z.object({ id: optionalId, kind: z.enum(['Team', 'System', 'Process']), name: text(100).min(1, 'Give every backstage entry a name.'), owner: optionalText(100) }))
+          .max(12, 'Keep to 12 backstage entries a stage.')
+          .default([]),
+      }),
+    )
+    .min(1, 'A workflow needs at least one stage.')
+    .max(12, 'Keep to 12 stages.'),
+})
+export const projectWorkflowSchema = z.object({ workflowId: z.uuid().nullable() })
+export const mapStageSchema = z.object({ position: z.number().int().min(0).max(50), workflowStageId: z.uuid().nullable() })
+
 // A simulated Jira ticket made from a requirement. Everything is what a person chose in the Create ticket dialog.
 export const createTicketSchema = z.object({
   project: text(80).regex(/^[A-Z][A-Z0-9]{1,9} · .{1,60}$/, 'Choose a project.'),

@@ -11,7 +11,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -24,6 +24,7 @@ import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcrip
 import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
+import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowInUse, WorkflowMissing } from './workflows.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
@@ -186,11 +187,11 @@ export function createApp(options: AppOptions = {}) {
   app.get('/audit', withContext, async (c) => {
     requireOwner(c)
     const group = c.req.query('group')
-    if (group && !(group in AUDIT_GROUPS)) throw new ApiError(422, 'invalid_request', 'Unknown group.', 'group')
+    if (group && !(group in AUDIT_GROUPS)) throw new ApiError(422, 'validation_failed', 'Unknown group.', 'group')
     const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50) || 50))
     c.header('Cache-Control', 'private, no-store')
     return c.json(await listAudit(getDb(), c.get('ctx').workspaceId, { group: group as AuditGroup | undefined, limit, cursor: c.req.query('cursor') }).catch((err) => {
-      if (err instanceof BadCursor) throw new ApiError(422, 'invalid_request', 'That page marker is not valid.', 'cursor')
+      if (err instanceof BadCursor) throw new ApiError(422, 'validation_failed', 'That page marker is not valid.', 'cursor')
       throw err
     }))
   })
@@ -634,6 +635,73 @@ export function createApp(options: AppOptions = {}) {
     const id = areaId(c)
     c.header('Cache-Control', 'no-store')
     return c.json(await retireArea(getDb(), c.get('ctx'), id).catch(areaErrors))
+  })
+
+  // Workflows (the service blueprint): anyone reads; editors and owners change them. A workflow is saved whole, against its version.
+  const workflowId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such workflow.')
+    return id
+  }
+  const workflowErrors = (err: unknown): never => {
+    if (err instanceof WorkflowMissing) throw new ApiError(404, 'not_found', 'No such workflow.')
+    if (err instanceof ProjectNotFound) throw new ApiError(404, 'not_found', 'No such project.')
+    if (err instanceof WorkflowDuplicate) throw new ApiError(409, 'duplicate_workflow', `A workflow named "${err.name}" already exists.`, 'name')
+    if (err instanceof WorkflowInUse) throw new ApiError(409, 'workflow_in_use', `${err.projects === 1 ? 'A project is' : `${err.projects} projects are`} on this workflow. Move them to another workflow first.`)
+    if (err instanceof WorkflowConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this workflow since you opened it.', undefined, { current: { version: err.current } })
+    if (err instanceof StageMissing) throw new ApiError(422, 'validation_failed', 'That stage does not belong here.', 'workflowStageId')
+    throw err
+  }
+  app.get('/workflows', withReadContext, async (c) => {
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json({ data: await listWorkflows(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.post('/workflows/sample', withContext, async (c) => {
+    requireEditor(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json({ data: await addSampleWorkflows(getDb(), c.get('ctx')) }, 201)
+  })
+  app.post('/workflows', withContext, async (c) => {
+    requireEditor(c)
+    const input = parseBody(workflowSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await createWorkflow(getDb(), c.get('ctx'), input).catch(workflowErrors), 201)
+  })
+  app.put('/workflows/:id', withContext, async (c) => {
+    requireEditor(c)
+    const id = workflowId(c)
+    const expected = expectedVersion(c)
+    const input = parseBody(workflowSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await saveWorkflow(getDb(), c.get('ctx'), id, expected, input).catch(workflowErrors))
+  })
+  app.delete('/workflows/:id', withContext, async (c) => {
+    requireEditor(c)
+    const id = workflowId(c)
+    await deleteWorkflow(getDb(), c.get('ctx'), id).catch(workflowErrors)
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+  // A project's workflow and how its journey stages map onto the workflow's stages.
+  app.get('/projects/:id/blueprint', withReadContext, async (c) => {
+    const id = projectId(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await projectBlueprint(getDb(), c.get('ctx').workspaceId, id).catch(workflowErrors))
+  })
+  app.put('/projects/:id/workflow', withContext, async (c) => {
+    requireEditor(c)
+    const id = projectId(c)
+    const input = parseBody(projectWorkflowSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await setProjectWorkflow(getDb(), c.get('ctx'), id, input.workflowId).catch(workflowErrors))
+  })
+  app.put('/projects/:id/stage-map', withContext, async (c) => {
+    requireEditor(c)
+    const id = projectId(c)
+    const input = parseBody(mapStageSchema, await readJson(c))
+    c.header('Cache-Control', 'no-store')
+    return c.json(await mapProjectStage(getDb(), c.get('ctx'), id, input.position, input.workflowStageId).catch(workflowErrors))
   })
 
   // The Design step ------------------------------------------------------------------------------------------

@@ -262,6 +262,110 @@ export interface paths {
         patch: operations["changeMemberRole"];
         trace?: never;
     };
+    "/workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The workflows (the service blueprint): each with its stages, and under each stage what good looks like, the signal to watch, the handoff and the backstage (teams, systems and processes, with owners). Open to read as the viewer. */
+        get: operations["listWorkflows"];
+        put?: never;
+        /** Owners and editors. Adds a workflow with its stages. 409 `duplicate_workflow` if the name is taken. */
+        post: operations["createWorkflow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners and editors. Adds the healthcare example workflows that are not there yet (matched by name) and returns every workflow. */
+        post: operations["addSampleWorkflows"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/workflows/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners and editors. Saves the whole workflow: a stage or backstage entry that keeps its id is changed in place (so projects mapped to it stay mapped), one without an id is added, and one left out is removed. If-Match is the workflow's version; a save that changes nothing keeps it. */
+        put: operations["saveWorkflow"];
+        post?: never;
+        /** Owners and editors. Deletes a workflow no project is on. 409 `workflow_in_use` otherwise. */
+        delete: operations["deleteWorkflow"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/blueprint": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The workflow a project is on (or null) and, for each of the project's journey stages, the workflow stage it is mapped to, with that stage's backstage. */
+        get: operations["getProjectBlueprint"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/workflow": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners and editors. Puts the project on a workflow (one per project) or takes it off with null. Its journey stages are mapped to the workflow's by name; a stage with no clear match stays unmapped. */
+        put: operations["setProjectWorkflow"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/stage-map": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners and editors. Maps one of the project's journey stages to a stage of its workflow, or clears it with null. */
+        put: operations["mapProjectStage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit": {
         parameters: {
             query?: never;
@@ -2394,6 +2498,76 @@ export interface components {
             labels?: string;
             points?: string | null;
         };
+        WorkflowBackstage: {
+            id: string;
+            /** @enum {string} */
+            kind: "Team" | "System" | "Process";
+            name: string;
+            /** @description Who owns it, for example a team name. */
+            owner: string | null;
+        };
+        WorkflowStage: {
+            id: string;
+            position: number;
+            name: string;
+            /** @description What "good" looks like at this stage. */
+            good: string | null;
+            /** @description The signal to watch. */
+            signal: string | null;
+            /** @description The handoff out of the stage. */
+            handoff: string | null;
+            backstage: components["schemas"]["WorkflowBackstage"][];
+        };
+        Workflow: {
+            id: string;
+            name: string;
+            description: string | null;
+            version: number;
+            /** @description Projects that are on this workflow. */
+            projectCount: number;
+            stages: components["schemas"]["WorkflowStage"][];
+        };
+        WorkflowList: {
+            data: components["schemas"]["Workflow"][];
+        };
+        WorkflowRequest: {
+            name: string;
+            description?: string | null;
+            stages: {
+                /** @description Send the id of a stage that exists to change it in place; leave it out to add one. */
+                id?: string | null;
+                name: string;
+                good?: string | null;
+                signal?: string | null;
+                handoff?: string | null;
+                backstage?: {
+                    id?: string | null;
+                    /** @enum {string} */
+                    kind: "Team" | "System" | "Process";
+                    name: string;
+                    owner?: string | null;
+                }[];
+            }[];
+        };
+        ProjectBlueprint: {
+            workflow: {
+                id: string;
+                name: string;
+            } | null;
+            stages: {
+                position: number;
+                name: string;
+                workflowStageId: string | null;
+                workflowStage: components["schemas"]["WorkflowStage"] | null;
+            }[];
+        };
+        SetProjectWorkflowRequest: {
+            workflowId: string | null;
+        };
+        MapStageRequest: {
+            position: number;
+            workflowStageId: string | null;
+        };
         AuditEntry: {
             id: string;
             /** Format: date-time */
@@ -2939,6 +3113,227 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workflows, by name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowRequest"];
+            };
+        };
+        responses: {
+            /** @description The workflow. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    addSampleWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every workflow, including the examples. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkflowList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveWorkflow: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WorkflowRequest"];
+            };
+        };
+        responses: {
+            /** @description The workflow as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Workflow"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    deleteWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getProjectBlueprint: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The project's blueprint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBlueprint"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    setProjectWorkflow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetProjectWorkflowRequest"];
+            };
+        };
+        responses: {
+            /** @description The project's blueprint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBlueprint"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    mapProjectStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MapStageRequest"];
+            };
+        };
+        responses: {
+            /** @description The project's blueprint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectBlueprint"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             422: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };

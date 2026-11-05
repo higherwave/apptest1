@@ -2378,3 +2378,85 @@ test('Update board never removes a story that was sent to Jira: it is kept and n
   assert.ok((await stories()).some((s) => s.title === idle.title), 'the story is still on the board')
   assert.equal((await pg.query<any>(`select count(*)::int n from delivery.story_tickets where story_id = $1`, [card.id])).rows[0].n, 1, 'and its ticket still points at it')
 })
+
+test('workflows (the service blueprint): editors build and save them whole, projects go on one and map their stages, and the audit log says what changed', async () => {
+  const { app: owner, alex: editor, sam: viewer, send, p1 } = await boardFixture()
+  const names = (b: any) => b.stages.map((s: any) => s.name)
+
+  // Reading is open; adding the healthcare examples needs edit access, and adding them twice adds nothing.
+  assert.deepEqual((await expectSpec(await send(viewer, 'GET', '/workflows'), '/workflows')).data, [])
+  assert.equal((await send(viewer, 'POST', '/workflows/sample')).status, 403)
+  const sample = await expectSpec(await send(editor, 'POST', '/workflows/sample'), '/workflows/sample', 'post')
+  assert.deepEqual(sample.data.map((w: any) => w.name), ['Patient access and scheduling', 'Referrals and results'])
+  assert.equal((await expectSpec(await send(editor, 'POST', '/workflows/sample'), '/workflows/sample', 'post')).data.length, 2)
+  const access = sample.data[0]
+  assert.deepEqual(names(access), ['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'])
+  assert.ok(access.stages[1].backstage.some((b: any) => b.kind === 'Team' && b.owner), 'a backstage entry has a kind, a name and an owner')
+
+  // Making one: a name is needed (and is unique), and so is a stage.
+  const stage = { name: 'Arrive', backstage: [{ kind: 'Team', name: 'Front desk', owner: 'Clinic Operations' }] }
+  assert.equal((await send(editor, 'POST', '/workflows', { name: 'x', stages: [stage] })).status, 422)
+  assert.equal((await send(editor, 'POST', '/workflows', { name: 'Walk-in visits', stages: [] })).status, 422)
+  assert.equal((await send(viewer, 'POST', '/workflows', { name: 'Walk-in visits', stages: [stage] })).status, 403)
+  const walkIn = await expectSpec(await send(editor, 'POST', '/workflows', { name: 'Walk-in visits', stages: [stage] }), '/workflows', 'post')
+  assert.equal((await expectSpec(await send(editor, 'POST', '/workflows', { name: 'walk-in VISITS', stages: [stage] }), '/workflows', 'post')).error.code, 'duplicate_workflow')
+
+  // Saving whole, against the version: a rename keeps the stage's id; stale versions and missing If-Match are refused.
+  const edit = (w: any, change: (stages: any[]) => void) => {
+    const stages = structuredClone(w.stages)
+    change(stages)
+    return { name: w.name, description: w.description, stages }
+  }
+  assert.equal((await send(editor, 'PUT', `/workflows/${access.id}`, edit(access, () => {}))).status, 428)
+  assert.equal((await send(viewer, 'PUT', `/workflows/${access.id}`, edit(access, () => {}), access.version)).status, 403)
+  const same = await expectSpec(await send(editor, 'PUT', `/workflows/${access.id}`, edit(access, () => {}), access.version), '/workflows/{id}', 'put')
+  assert.equal(same.version, access.version, 'a save that changes nothing keeps the version')
+  const saved = await expectSpec(
+    await send(editor, 'PUT', `/workflows/${access.id}`, edit(access, (s) => {
+      s[1].name = 'Book an appointment'
+      s[1].backstage[0].owner = 'Access Operations'
+      s[1].backstage.push({ id: null, kind: 'Process', name: 'Waitlist review', owner: null })
+    }), access.version),
+    '/workflows/{id}', 'put',
+  )
+  assert.equal(saved.version, access.version + 1)
+  assert.equal(saved.stages[1].id, access.stages[1].id, 'a renamed stage keeps its id')
+  assert.equal(saved.stages[1].backstage.length, access.stages[1].backstage.length + 1)
+  assert.equal((await expectSpec(await send(editor, 'PUT', `/workflows/${access.id}`, edit(saved, () => {}), access.version), '/workflows/{id}', 'put')).error.code, 'version_conflict')
+
+  // A project goes on a workflow: its stages map by name, and only editors may.
+  assert.equal((await send(viewer, 'PUT', `/projects/${p1}/workflow`, { workflowId: access.id })).status, 403)
+  const before = await expectSpec(await send(viewer, 'GET', `/projects/${p1}/blueprint`), '/projects/{id}/blueprint')
+  assert.equal(before.workflow, null)
+  const on = await expectSpec(await send(editor, 'PUT', `/projects/${p1}/workflow`, { workflowId: access.id }), '/projects/{id}/workflow', 'put')
+  assert.equal(on.workflow.name, 'Patient access and scheduling')
+  assert.equal(on.stages.filter((s: any) => s.workflowStageId).length, 4, 'four of the five clinic stages match by name; the renamed one does not')
+  const unmapped = on.stages.find((s: any) => !s.workflowStageId)
+  assert.equal(unmapped.name, 'Book a time')
+  // Map it by hand; a stage of another workflow is refused; null clears it.
+  const bookId = saved.stages[1].id
+  const mapped = await expectSpec(await send(editor, 'PUT', `/projects/${p1}/stage-map`, { position: unmapped.position, workflowStageId: bookId }), '/projects/{id}/stage-map', 'put')
+  assert.equal(mapped.stages[unmapped.position].workflowStage.name, 'Book an appointment')
+  assert.ok(mapped.stages[unmapped.position].workflowStage.backstage.length >= 3)
+  assert.equal((await send(editor, 'PUT', `/projects/${p1}/stage-map`, { position: 0, workflowStageId: walkIn.stages[0].id })).status, 422)
+  assert.equal((await expectSpec(await send(editor, 'PUT', `/projects/${p1}/stage-map`, { position: unmapped.position, workflowStageId: null }), '/projects/{id}/stage-map', 'put')).stages[unmapped.position].workflowStageId, null)
+
+  // A workflow in use cannot be deleted; removing a mapped stage from it leaves the project's stage unmapped.
+  assert.equal((await expectSpec(await send(editor, 'DELETE', `/workflows/${access.id}`), '/workflows/{id}', 'delete')).error.code, 'workflow_in_use')
+  const trimmed = await expectSpec(await send(editor, 'PUT', `/workflows/${access.id}`, edit(saved, (s) => s.splice(0, 1)), saved.version), '/workflows/{id}', 'put')
+  assert.equal(trimmed.stages.length, 4)
+  const after = await (await send(viewer, 'GET', `/projects/${p1}/blueprint`)).json()
+  assert.equal(after.stages.find((s: any) => s.name === 'Find a provider').workflowStageId, null)
+  await send(editor, 'PUT', `/projects/${p1}/workflow`, { workflowId: null })
+  assert.equal((await send(editor, 'DELETE', `/workflows/${walkIn.id}`)).status, 204)
+
+  // The audit log records it all, with the lines of what changed.
+  const log = await expectSpec(await send(owner, 'GET', '/audit?group=workflows&limit=50'), '/audit')
+  const edited = log.data.filter((e: any) => e.verb === 'edited')
+  assert.ok(edited.some((e: any) => e.after.changes.includes('Renamed stage Book a time → Book an appointment')))
+  assert.ok(edited.some((e: any) => e.after.changes.some((c: string) => c.startsWith('Changed the owner of'))))
+  assert.ok(edited.some((e: any) => e.after.changes.includes('Removed stage Find a provider')))
+  assert.ok(log.data.some((e: any) => e.verb === 'created') && log.data.some((e: any) => e.verb === 'deleted'))
+  const projectLog = await (await send(owner, 'GET', '/audit?group=projects&limit=50')).json()
+  assert.ok(projectLog.data.some((e: any) => e.verb === 'workflow set') && projectLog.data.some((e: any) => e.verb === 'stage mapped'))
+})

@@ -14,8 +14,6 @@ const ENTITY_LABEL: Record<string, string> = {
   'insights.feature_areas': 'Experience category',
   'core.projects': 'Project',
   'insights.workflows': 'Workflow',
-  'insights.workflow_stages': 'Workflow stage',
-  'insights.workflow_backstage': 'Backstage entry',
   'delivery.story_tickets': 'Jira ticket',
 }
 export const entityLabel = (entity: string) => ENTITY_LABEL[entity] ?? entity
@@ -44,6 +42,8 @@ export function auditDetail(before: unknown, after: unknown): string {
   }
   const o = a ?? b
   if (!o) return ''
+  // A workflow save lists what it changed, one line each.
+  if (Array.isArray(o.changes)) return o.changes.map(String).join(' · ')
   const keys = [...FIRST.filter((k) => k in o), ...Object.keys(o).filter((k) => !FIRST.includes(k))].slice(0, 3)
   return keys.map((k) => `${k}: ${show(o[k])}`).join(' · ')
 }
