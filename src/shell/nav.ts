@@ -22,11 +22,12 @@ export const INSIGHT_SECTIONS = [
   { key: 'case-studies', label: 'Case studies' },
 ]
 
-// The Settings tab: each section is a page under /settings/<key>. App Status is for owners; Members for anyone signed in (SettingsHeader hides the ones a person cannot use).
+// The Admin tab (its pages live under /settings/<key>): Experience Categories for owners and editors; App Status, Members and the Audit log are for owners (SettingsHeader hides the ones a person cannot use).
 export const SETTINGS_SECTIONS = [
   { key: 'categories', label: 'Experience Categories' },
   { key: 'status', label: 'App Status' },
   { key: 'members', label: 'Members' },
+  { key: 'audit', label: 'Audit log' },
 ]
 
 export const SECTION_TITLES: Record<string, string> = Object.fromEntries([

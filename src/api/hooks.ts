@@ -1,11 +1,11 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
-  changeMemberRole, inviteMember, listMembers, removeMember,
+  changeMemberRole, inviteMember, listAudit, listMembers, removeMember,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type AuditGroup, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -53,6 +53,13 @@ export const useRetireArea = () => {
 // Which ways to sign in this deployment offers (public, so it works before anyone is signed in).
 export const useSignInOptions = () => useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, staleTime: 5 * 60_000 })
 
+export const useAudit = (group?: AuditGroup) =>
+  useInfiniteQuery({
+    queryKey: ['audit', group ?? 'all'],
+    queryFn: ({ pageParam }) => listAudit({ group, cursor: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  })
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: listMembers })
 export const useInviteMember = () => {
   const queryClient = useQueryClient()

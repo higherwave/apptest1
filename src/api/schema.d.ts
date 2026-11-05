@@ -262,6 +262,23 @@ export interface paths {
         patch: operations["changeMemberRole"];
         trace?: never;
     };
+    "/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories, projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page. */
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -2377,6 +2394,30 @@ export interface components {
             labels?: string;
             points?: string | null;
         };
+        AuditEntry: {
+            id: string;
+            /** Format: date-time */
+            createdAt: string;
+            actor: {
+                id: string;
+                name: string;
+            } | null;
+            /** @enum {string} */
+            group: "members" | "categories" | "projects" | "workflows" | "jira";
+            /** @description What changed, for example insights.feature_areas. */
+            entity: string;
+            entityId: string | null;
+            /** @description For example created, edited, merged, retired. */
+            verb: string;
+            /** @description What it was, when the change replaced something. */
+            before: unknown;
+            /** @description What it became. */
+            after: unknown;
+        };
+        AuditPage: {
+            data: components["schemas"]["AuditEntry"][];
+            nextCursor: string | null;
+        };
         MemberList: {
             data: components["schemas"]["Member"][];
         };
@@ -2898,6 +2939,34 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listAudit: {
+        parameters: {
+            query?: {
+                group?: "members" | "categories" | "projects" | "workflows" | "jira";
+                limit?: number;
+                cursor?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of the log. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditPage"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             422: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };

@@ -295,6 +295,26 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /audit:
+    get:
+      operationId: listAudit
+      summary: >
+        Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories,
+        projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
+      parameters:
+        - { name: group, in: query, required: false, schema: { type: string, enum: [members, categories, projects, workflows, jira] } }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+        - { name: cursor, in: query, required: false, schema: { type: string } }
+      responses:
+        '200':
+          description: One page of the log.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AuditPage' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /projects:
     get:
       operationId: listProjects
@@ -2983,6 +3003,32 @@ components:
         assignee: { type: string, maxLength: 80 }
         labels: { type: string, maxLength: 200 }
         points: { type: [string, 'null'], maxLength: 6 }
+    AuditEntry:
+      type: object
+      required: [id, createdAt, actor, group, entity, entityId, verb, before, after]
+      properties:
+        id: { type: string }
+        createdAt: { type: string, format: date-time }
+        actor:
+          type: [object, 'null']
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
+        group: { type: string, enum: [members, categories, projects, workflows, jira] }
+        entity: { type: string, description: 'What changed, for example insights.feature_areas.' }
+        entityId: { type: [string, 'null'] }
+        verb: { type: string, description: 'For example created, edited, merged, retired.' }
+        before: { description: 'What it was, when the change replaced something.' }
+        after: { description: 'What it became.' }
+    AuditPage:
+      type: object
+      required: [data, nextCursor]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/AuditEntry' }
+        nextCursor: { type: [string, 'null'] }
     MemberList:
       type: object
       required: [data]

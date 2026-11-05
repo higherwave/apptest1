@@ -1,0 +1,55 @@
+@use '../../tokens' as tokens;
+@use '../insights/body';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}
+
+.intro {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.filter {
+  max-inline-size: 18rem;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+// A grid with table roles (the page's design rules do not allow a raw table): one row per change.
+.table {
+  min-inline-size: 48rem;
+}
+
+.row {
+  @include tokens.role('body-md');
+  display: grid;
+  grid-template-columns: 11rem 10rem minmax(0, 1fr) minmax(0, 2fr);
+  gap: var(--at-space-sm);
+  align-items: start;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+  color: var(--at-ink);
+  overflow-wrap: anywhere;
+
+  &:first-child { border-block-start: none; }
+}
+
+.head {
+  @include tokens.role('eyebrow');
+  padding: var(--at-space-xs) 0;
+  color: var(--at-muted);
+}
+
+.muted {
+  color: var(--at-muted);
+}

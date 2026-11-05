@@ -69,6 +69,17 @@ export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
 export type SignInOption = components['schemas']['SignInOptionList']['data'][number]
 export const getSignInOptions = () => request<components['schemas']['SignInOptionList']>('/sign-in-options')
+export type AuditEntry = components['schemas']['AuditEntry']
+export type AuditGroup = AuditEntry['group']
+export type AuditPage = components['schemas']['AuditPage']
+// The admin audit log (owners only), a page at a time.
+export const listAudit = (q: { group?: AuditGroup; cursor?: string }) => {
+  const params = new URLSearchParams()
+  if (q.group) params.set('group', q.group)
+  if (q.cursor) params.set('cursor', q.cursor)
+  const qs = params.toString()
+  return request<AuditPage>(`/audit${qs ? `?${qs}` : ''}`)
+}
 export type Member = components['schemas']['Member']
 export type MemberRole = Member['role']
 // Experience categories: the shared list of what research is about.

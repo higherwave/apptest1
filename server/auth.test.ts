@@ -105,6 +105,31 @@ test('roles: a viewer reads but cannot write; an editor can write but cannot man
   assert.equal((await res.json()).error.code, 'forbidden')
 })
 
+test('the audit log is for owners: newest first, filterable, paged, and it shows who did what', async () => {
+  const own = await createDemoDatabase()
+  await invite('audra@invited.test', 'owner', own.pglite)
+  await invite('ed@invited.test', 'editor', own.pglite)
+  const app = await appFor({}, own)
+  const owner = { ...who('audra@invited.test'), ...json }
+  const editor = who('ed@invited.test')
+  assert.equal((await app.request('/api/v1/audit', { headers: editor })).status, 403, 'an editor cannot read the audit log')
+  assert.equal((await app.request('/api/v1/members', { method: 'POST', headers: owner, body: JSON.stringify({ email: 'newbie@invited.test', role: 'viewer' }) })).status, 201)
+  assert.equal((await app.request('/api/v1/members', { method: 'POST', headers: owner, body: JSON.stringify({ email: 'newer@invited.test', role: 'viewer' }) })).status, 201)
+  const all = await (await app.request('/api/v1/audit', { headers: owner })).json()
+  assert.equal(all.data[0].group, 'members')
+  assert.equal(all.data[0].actor.name, 'audra')
+  assert.equal(all.data[0].after.email, 'newer@invited.test', 'newest first')
+  const members = await (await app.request('/api/v1/audit?group=members', { headers: owner })).json()
+  assert.ok(members.data.length >= 2 && members.data.every((e: any) => e.group === 'members'))
+  const first = await (await app.request('/api/v1/audit?limit=1', { headers: owner })).json()
+  assert.equal(first.data.length, 1)
+  assert.ok(first.nextCursor)
+  const second = await (await app.request(`/api/v1/audit?limit=1&cursor=${encodeURIComponent(first.nextCursor)}`, { headers: owner })).json()
+  assert.notEqual(second.data[0].id, first.data[0].id, 'the next page does not repeat the last row')
+  assert.equal((await app.request('/api/v1/audit?group=nope', { headers: owner })).status, 422)
+  assert.equal((await app.request('/api/v1/audit?cursor=bad', { headers: owner })).status, 422)
+})
+
 test('owners invite, change roles and remove; the last owner cannot be demoted or removed', async () => {
   const own = await createDemoDatabase() // this test removes every other owner, so it gets its own database
   await invite('olive@invited.test', 'owner', own.pglite)

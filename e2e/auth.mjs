@@ -93,18 +93,18 @@ try {
   await page.keyboard.press('Escape')
   await page.goto(`${BASE}/settings/status`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => document.body.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })
-  ok('App Status is a Settings tab with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Settings sections"] [data-label="App Status"]')?.dataset.current === 'true' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
+  ok('App Status is an Admin tab with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="App Status"]')?.dataset.current === 'true' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
   await new Promise((r) => setTimeout(r, 600))
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })
   await waitText('Product Funnel')
   await page.goto(`${BASE}/members`, { waitUntil: 'networkidle0' })
-  ok('the old Members address lands on the Settings Members tab', await page.evaluate(() => location.pathname === '/settings/members' && document.querySelector('nav[aria-label="Settings sections"] [data-label="Members"]')?.dataset.current === 'true'))
+  ok('the old Members address lands on the Admin Members tab', await page.evaluate(() => location.pathname === '/settings/members' && document.querySelector('nav[aria-label="Admin sections"] [data-label="Members"]')?.dataset.current === 'true'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
   await waitText('Experience')
-  await page.evaluate(() => document.querySelector('nav[aria-label="Settings sections"] [data-label="Members"]').click())
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Members"]').click())
   await waitText('Invite')
   await waitText('sam@demo.signalflow.example') // the list arrives after the form
   ok('the account menu opens the Members page, which lists the demo members', (await text()).includes('david@demo.signalflow.example') && (await text()).includes('sam@demo.signalflow.example'))
@@ -121,17 +121,22 @@ try {
   await new Promise((r) => setTimeout(r, 800))
   ok('changing the role saves it', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.role === 'viewer'))
 
+  // The audit log records what the owner just did.
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Audit log"]').click())
+  await page.waitForSelector('[data-testid="audit-row"]', { timeout: 8000 })
+  ok('the Audit log tab lists who changed what, newest first, including the invitation and the role change just made', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid="audit-row"]')].map((r) => r.innerText); return location.pathname === '/settings/audit' && rows.length >= 2 && /Member/.test(rows[0]) && rows.some((r) => /e2e\.person@example\.com/.test(r) && /role/i.test(r)) && rows.some((r) => /Created|Invited/i.test(r) && /e2e\.person@example\.com/.test(r)) }))
+
   // The invited person signs in: linked, read-only, and no invite form.
   await signInAs('e2e.person@example.com')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Product Funnel')
-  ok('a viewer does not see Settings in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Settings'))))
-  for (const path of ['/settings/categories', '/settings/members', '/members']) {
+  ok('a viewer does not see Admin in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Admin'))))
+  for (const path of ['/settings/categories', '/settings/members', '/settings/audit', '/members']) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
     await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
   }
-  ok('a viewer who types a Settings address is sent back to the projects', true)
-  ok('the server refuses a viewer the member list and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
+  ok('a viewer who types an Admin address is sent back to the projects', true)
+  ok('the server refuses a viewer the member list, the audit log and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Product Funnel')

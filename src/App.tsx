@@ -5,6 +5,7 @@ import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
 import { MembersPage } from './pages/members/MembersPage'
 import { AppStatusPage } from './pages/settings/AppStatusPage'
+import { AuditLogPage } from './pages/settings/AuditLogPage'
 import { SettingsGate } from './pages/settings/SettingsGate'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
@@ -61,6 +62,7 @@ export function App() {
           <Route path="categories" element={<AreasPage />} />
           <Route path="status" element={<AppStatusPage />} />
           <Route path="members" element={<MembersPage />} />
+          <Route path="audit" element={<AuditLogPage />} />
         </Route>
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />
         <Route path="insights/:section" element={<Placeholder />} />

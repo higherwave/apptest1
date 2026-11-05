@@ -24,6 +24,7 @@ import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcrip
 import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney } from './journey.js'
+import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
@@ -179,6 +180,19 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
+  })
+
+  // The admin audit log: owners only, newest first, a page at a time, optionally one kind of change.
+  app.get('/audit', withContext, async (c) => {
+    requireOwner(c)
+    const group = c.req.query('group')
+    if (group && !(group in AUDIT_GROUPS)) throw new ApiError(422, 'invalid_request', 'Unknown group.', 'group')
+    const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50) || 50))
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await listAudit(getDb(), c.get('ctx').workspaceId, { group: group as AuditGroup | undefined, limit, cursor: c.req.query('cursor') }).catch((err) => {
+      if (err instanceof BadCursor) throw new ApiError(422, 'invalid_request', 'That page marker is not valid.', 'cursor')
+      throw err
+    }))
   })
 
   app.get('/projects', withReadContext, async (c) => {
