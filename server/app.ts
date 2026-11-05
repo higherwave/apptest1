@@ -23,7 +23,7 @@ import {
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
-import { getPlatformJourney } from './journey.js'
+import { getPlatformJourney, getWorkflowJourney } from './journey.js'
 import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowInUse, WorkflowMissing } from './workflows.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
@@ -935,8 +935,12 @@ export function createApp(options: AppOptions = {}) {
     return c.json(body)
   })
   app.get('/insights/journey', withReadContext, async (c) => {
-    const body = await getPlatformJourney(getDb(), c.get('ctx').workspaceId)
+    const workflow = c.req.query('workflow')
+    if (workflow && !UUID.test(workflow)) throw new ApiError(404, 'not_found', 'No such workflow.')
+    const body = workflow ? await getWorkflowJourney(getDb(), c.get('ctx').workspaceId, workflow) : await getPlatformJourney(getDb(), c.get('ctx').workspaceId)
+    if (!body) throw new ApiError(404, 'not_found', 'No such workflow.')
     cacheHeaders(c)
+    c.header('Vary', 'Authorization')
     return c.json(body)
   })
   app.get('/insights/case-studies', withReadContext, async (c) => {

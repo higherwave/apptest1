@@ -19,12 +19,16 @@ $stage-min: 13rem;
 
 // The number of stages sets the columns: a study has three to six, and the platform journey folds every study's stages together, so it can have
 // many more. (Past the last count here a map would lose its columns and stack, so the range is generous.)
-@for $n from 2 through 24 {
+@for $n from 1 through 24 {
   .map[data-columns='#{$n}'] {
     min-inline-size: calc(#{$label-width} + #{$n} * #{$stage-min});
 
     .row {
       grid-template-columns: $label-width repeat($n, minmax(0, 1fr));
+    }
+
+    .sentiment {
+      grid-template-columns: repeat($n, minmax(0, 1fr));
     }
   }
 }
@@ -155,6 +159,69 @@ $stage-min: 13rem;
   font-weight: 400;
 }
 
+.sentimentRow {
+  background: var(--at-surface-soft);
+}
+
+// The chart spans every stage column. Dots are positioned in percentages so they stay round; the line is stretched.
+.sentiment {
+  position: relative;
+  display: grid;
+  grid-column: 2 / -1;
+  min-block-size: 15.75rem;
+  border-inline-start: 1px solid var(--at-hairline);
+}
+
+.axisTop,
+.axisBottom {
+  @include tokens.role('meta');
+  position: absolute;
+  inset-inline-start: var(--at-space-md);
+  color: var(--at-muted);
+}
+
+.axisTop { inset-block-start: var(--at-space-md); }
+.axisBottom { inset-block-end: var(--at-space-md); }
+
+.zero {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 50%;
+  border-block-start: 1px dashed var(--at-border-strong);
+}
+
+.line {
+  position: absolute;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+
+  polyline {
+    fill: none;
+    stroke: var(--at-ink);
+    stroke-width: 0.125rem;
+    vector-effect: non-scaling-stroke;
+  }
+}
+
+.track {
+  position: relative;
+}
+
+// A point sits at its column's middle and at a height in whole percent (y10 is near the top, y90 near the bottom).
+.point {
+  position: absolute;
+  inset-inline-start: 50%;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  transform: translate(-50%, -50%);
+  border: 0.125rem solid var(--at-canvas);
+  border-radius: var(--at-radius-full);
+
+  &[data-tone='negative'] { background: var(--at-signature-coral); }
+  &[data-tone='positive'] { background: var(--at-signature-forest); }
+}
+
 // The user flow: each stage's steps in order, joined by a line, with the stage's sentiment above and where the customer goes next below.
 .flowRow {
   background: var(--at-surface-soft);
@@ -281,4 +348,39 @@ $stage-min: 13rem;
   gap: var(--at-space-md);
   align-items: flex-start;
   color: var(--at-muted);
+}
+
+@for $i from 10 through 90 {
+  .y#{$i} {
+    inset-block-start: #{$i}#{'%'};
+  }
+}
+
+// The workflow chosen for the project, above the map.
+.workflowBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-md);
+  align-items: flex-end;
+}
+
+.workflowPicker {
+  min-inline-size: 18rem;
+}
+
+.workflowNote {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// Unmapping a stage: a small link-like button that wraps instead of running past its column.
+.unmap {
+  inline-size: auto;
+  max-inline-size: 100%;
+  min-block-size: 0;
+  padding: var(--at-space-xs);
+  white-space: normal;
+  text-align: start;
+  color: var(--at-link);
 }

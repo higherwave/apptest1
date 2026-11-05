@@ -203,7 +203,21 @@ export type CaseStudy = components['schemas']['CaseStudy']
 export type Customers = components['schemas']['Customers']
 export const getCustomers = () => request<Customers>('/insights/customers')
 export type PlatformJourney = components['schemas']['PlatformJourney']
-export const getPlatformJourney = () => request<PlatformJourney>('/insights/journey')
+export const getPlatformJourney = (workflowId?: string) => request<PlatformJourney>(`/insights/journey${workflowId ? `?workflow=${workflowId}` : ''}`)
+// Workflows: the service blueprint. A workflow is saved whole, against its version.
+export type Workflow = components['schemas']['Workflow']
+export type WorkflowStage = components['schemas']['WorkflowStage']
+export type WorkflowBackstage = components['schemas']['WorkflowBackstage']
+export type WorkflowRequest = components['schemas']['WorkflowRequest']
+export type ProjectBlueprint = components['schemas']['ProjectBlueprint']
+export const listWorkflows = () => request<components['schemas']['WorkflowList']>('/workflows').then((r) => r.data)
+export const addSampleWorkflows = () => request<components['schemas']['WorkflowList']>('/workflows/sample', { method: 'POST' }).then((r) => r.data)
+export const createWorkflow = (body: WorkflowRequest) => request<Workflow>('/workflows', { method: 'POST', body })
+export const saveWorkflow = (id: string, version: number, body: WorkflowRequest) => request<Workflow>(`/workflows/${id}`, { method: 'PUT', body, version })
+export const deleteWorkflow = (id: string) => request<null>(`/workflows/${id}`, { method: 'DELETE' })
+export const getProjectBlueprint = (projectId: string) => request<ProjectBlueprint>(`/projects/${projectId}/blueprint`)
+export const setProjectWorkflow = (projectId: string, workflowId: string | null) => request<ProjectBlueprint>(`/projects/${projectId}/workflow`, { method: 'PUT', body: { workflowId } })
+export const mapProjectStage = (projectId: string, position: number, workflowStageId: string | null) => request<ProjectBlueprint>(`/projects/${projectId}/stage-map`, { method: 'PUT', body: { position, workflowStageId } })
 export type CaseBrief = components['schemas']['CaseBrief']
 export const listCaseBriefs = () => request<{ data: CaseBrief[] }>('/insights/case-briefs').then((r) => r.data)
 export const getCaseBrief = (projectId: string) => request<CaseBrief>(`/projects/${projectId}/case-study-brief`)

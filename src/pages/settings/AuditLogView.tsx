@@ -26,17 +26,20 @@ export function AuditLogView(p: AuditLogViewProps) {
       <SettingsHeader />
       <p className={styles.intro}>What changed in this workspace, and who changed it: people and roles, experience categories, projects, workflows and Jira hand-offs.</p>
 
-      <Dropdown
-        id="audit-group"
-        titleText="Show"
-        label="All changes"
-        size="md"
-        className={styles.filter}
-        items={FILTERS}
-        itemToString={(f) => f?.label ?? ''}
-        selectedItem={FILTERS.find((f) => f.key === p.group)}
-        onChange={({ selectedItem }) => selectedItem && p.onGroup(selectedItem.key)}
-      />
+      <div>
+        <div className={styles.filter}>
+          <Dropdown
+            id="audit-group"
+            titleText="Show"
+            label="All changes"
+            size="md"
+            items={FILTERS}
+            itemToString={(f) => f?.label ?? ''}
+            selectedItem={FILTERS.find((f) => f.key === p.group)}
+            onChange={({ selectedItem }) => selectedItem && p.onGroup(selectedItem.key)}
+          />
+        </div>
+      </div>
 
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading the audit log" />}

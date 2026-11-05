@@ -3,9 +3,10 @@ import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, inviteMember, listAudit, listMembers, removeMember,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type AuditGroup, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type AuditGroup, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -188,7 +189,37 @@ export const useThemeCuration = () => {
 }
 export const useMerges = () => useQuery({ queryKey: ['insights', 'merges'], queryFn: listMerges })
 export const useCustomers = () => useQuery({ queryKey: ['insights', 'customers'], queryFn: getCustomers })
-export const usePlatformJourney = () => useQuery({ queryKey: ['insights', 'journey'], queryFn: getPlatformJourney })
+export const usePlatformJourney = (workflowId?: string) => useQuery({ queryKey: ['insights', 'journey', workflowId ?? 'all'], queryFn: () => getPlatformJourney(workflowId) })
+
+// Workflows (the service blueprint) and a project's place on one. Anything that changes one refreshes the others that read it.
+export const useWorkflows = () => useQuery({ queryKey: ['workflows'], queryFn: listWorkflows })
+const refreshBlueprints = (queryClient: ReturnType<typeof useQueryClient>) =>
+  Promise.all([queryClient.invalidateQueries({ queryKey: ['workflows'] }), queryClient.invalidateQueries({ queryKey: ['insights', 'journey'] }), queryClient.invalidateQueries({ queryKey: ['blueprint'] }), queryClient.invalidateQueries({ queryKey: ['audit'] })])
+export const useAddSampleWorkflows = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: () => addSampleWorkflows(), onSuccess: () => refreshBlueprints(queryClient) })
+}
+export const useCreateWorkflow = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (body: WorkflowRequest) => createWorkflow(body), onSuccess: () => refreshBlueprints(queryClient) })
+}
+export const useSaveWorkflow = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: ({ id, version, body }: { id: string; version: number; body: WorkflowRequest }) => saveWorkflow(id, version, body), onSuccess: () => refreshBlueprints(queryClient) })
+}
+export const useDeleteWorkflow = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => deleteWorkflow(id), onSuccess: () => refreshBlueprints(queryClient) })
+}
+export const useProjectBlueprint = (projectId: string | undefined) => useQuery({ queryKey: ['blueprint', projectId], queryFn: () => getProjectBlueprint(projectId!), enabled: !!projectId })
+export const useSetProjectWorkflow = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (workflowId: string | null) => setProjectWorkflow(projectId, workflowId), onSuccess: () => refreshBlueprints(queryClient) })
+}
+export const useMapProjectStage = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: ({ position, workflowStageId }: { position: number; workflowStageId: string | null }) => mapProjectStage(projectId, position, workflowStageId), onSuccess: () => refreshBlueprints(queryClient) })
+}
 export const useCaseBriefs = () => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs })
 export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })
 

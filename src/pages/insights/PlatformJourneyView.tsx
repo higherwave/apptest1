@@ -1,17 +1,37 @@
-import { Button, InlineNotification, Loading } from '@carbon/react'
-import type { PlatformJourney } from '../../api/client'
+import { Add, Edit } from '@carbon/icons-react'
+import { Button, Dropdown, InlineNotification, Loading } from '@carbon/react'
+import type { ReactNode } from 'react'
+import type { PlatformJourney, Workflow } from '../../api/client'
 import { CATEGORY_LABEL } from '../themes/themeEdits'
-import { sentimentTop } from '../themes/journeyMap'
 import { InsightsHeader } from './InsightsHeader'
 import { STATUS } from './labels'
+import { SentimentRow } from './SentimentRow'
+import { journeyPersonas, WorkflowJourneyMap } from './WorkflowJourneyMap'
 import map from '../themes/JourneyView.module.scss'
 import styles from './PlatformJourneyView.module.scss'
+import flow from './WorkflowJourney.module.scss'
+
+export const ALL = 'all'
 
 export type PlatformJourneyViewProps = {
   state: 'loading' | 'error' | 'empty' | 'ready'
   journey?: PlatformJourney
   errorText?: string
   onOpenTheme: (id: string) => void
+  /** The workflows to choose between, and the one showing (`ALL` is every study folded by stage name). */
+  workflows: Workflow[]
+  selected: string
+  onSelect: (id: string) => void
+  /** Owners and editors may change the blueprint. */
+  canEdit: boolean
+  onEdit: () => void
+  onNew: () => void
+  onAddSamples: () => void
+  addingSamples: boolean
+  persona: string | null
+  onPersona: (key: string | null) => void
+  /** The editor, when the blueprint is being edited: it takes the place of the map. */
+  editor?: ReactNode
 }
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -20,20 +40,93 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 // A pain point's weight on the dot: what nobody has addressed shows heavier than what is on its way.
 const weight = (opportunity: boolean, status: string) => (opportunity ? 'high' : status === 'not_addressed' ? 'medium' : 'low')
 
-// Presentational: the same map as a project's Journey Map (a dark row of stages, then themes, pain points, sentiment and opportunity), folded
-// from every analysed project. It is read-only; a theme opens on the Themes screen.
-export function PlatformJourneyView({ state, journey, errorText, onOpenTheme }: PlatformJourneyViewProps) {
+// Presentational: the platform journey. Pick a workflow to see it as a service blueprint (its stages and backstage, with the research of the projects on
+// it laid over them, and a persona to trace), or "All studies" for every analysed project's journey map folded together by stage name. Read-only
+// except the blueprint, which owners and editors edit in place. A theme opens on the Themes screen.
+export function PlatformJourneyView(p: PlatformJourneyViewProps) {
+  const { state, journey, errorText, onOpenTheme } = p
   const stages = journey?.stages ?? []
-  // One sentiment point per stage that has a feeling, placed at the middle of its column.
-  const points = stages.flatMap((s, i) => (s.sentiment === null ? [] : [{ index: i, sentiment: s.sentiment, left: ((i + 0.5) / stages.length) * 100, top: sentimentTop(s.sentiment) }]))
-  const sentimentLabel = points.length ? 'Sentiment by stage: ' + points.map((p) => `${stages[p.index].name} ${p.sentiment < 0 ? 'negative' : 'positive'}`).join(', ') : 'No sentiment to show'
+  const picks = [...p.workflows.map((w) => ({ id: w.id, label: `${w.name} · ${plural(w.projectCount, 'project')}` })), { id: ALL, label: 'All studies (by stage name)' }]
+  const onWorkflow = p.selected !== ALL && !!journey?.workflow
+  const personas = journey && onWorkflow ? journeyPersonas(journey) : []
   return (
     <div className={cx(map.page, styles.page)}>
-      <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, from every study" />
+      <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, with the teams and systems behind each stage" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading small withOverlay={false} description="Loading the journey" />}
-      {state === 'empty' && <p className={styles.muted}>No journey yet. Analyze a project’s transcripts and its journey map is folded in here.</p>}
-      {state === 'ready' && journey && (
+
+      {!p.editor && (p.workflows.length > 0 || p.canEdit) && (
+        <div className={flow.toolbar}>
+          {p.workflows.length > 0 && (
+            <Dropdown
+              id="workflow-picker"
+              titleText="Workflow"
+              label="Choose a workflow"
+              size="md"
+              className={flow.picker}
+              items={picks}
+              itemToString={(i) => i?.label ?? ''}
+              selectedItem={picks.find((i) => i.id === p.selected)}
+              onChange={({ selectedItem }) => selectedItem && p.onSelect(selectedItem.id)}
+            />
+          )}
+          {p.canEdit && (
+            <div className={flow.actions}>
+              {onWorkflow && (
+                <Button kind="tertiary" size="md" renderIcon={Edit} onClick={p.onEdit}>
+                  Edit blueprint
+                </Button>
+              )}
+              <Button kind="tertiary" size="md" renderIcon={Add} onClick={p.onNew}>
+                New workflow
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {p.editor}
+
+      {!p.editor && state === 'loading' && <Loading small withOverlay={false} description="Loading the journey" />}
+      {!p.editor && p.workflows.length === 0 && state !== 'loading' && p.canEdit && (
+        <div className={flow.emptyBox}>
+          <p className={styles.muted}>
+            A workflow is the blueprint of one app or feature: its stages, and the teams, systems and processes that work behind each one. Edit it once here and every project on it shows it.
+          </p>
+          <Button kind="primary" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
+            {p.addingSamples ? 'Adding…' : 'Add the healthcare examples'}
+          </Button>
+        </div>
+      )}
+      {!p.editor && state === 'empty' && p.selected === ALL && <p className={styles.muted}>No journey yet. Analyze a project’s transcripts and its journey map is folded in here.</p>}
+
+      {!p.editor && onWorkflow && state === 'ready' && journey?.workflow && (
+        <>
+          <p className={flow.pageNote}>
+            {journey.workflow.description ? `${journey.workflow.description} ` : ''}
+            {journey.workflow.projects === 0
+              ? 'No project is on this workflow yet: on a project’s Journey Map, choose this workflow to lay its research over the blueprint.'
+              : `Research from ${plural(journey.workflow.projects, 'project')} on this workflow.`}
+          </p>
+          {personas.length > 0 && (
+            <div className={flow.trace} role="group" aria-label="Trace a persona">
+              <span className={flow.traceLabel}>Trace a persona</span>
+              {personas.map((x) => (
+                <Button key={x.key} kind={p.persona === x.key ? 'primary' : 'tertiary'} size="sm" aria-pressed={p.persona === x.key} data-testid={`trace-${x.key}`} onClick={() => p.onPersona(p.persona === x.key ? null : x.key)}>
+                  {x.name}
+                </Button>
+              ))}
+              {p.persona && (
+                <Button kind="ghost" size="sm" onClick={() => p.onPersona(null)}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          )}
+          <WorkflowJourneyMap journey={journey} persona={p.persona} onOpenTheme={onOpenTheme} />
+        </>
+      )}
+
+      {!p.editor && !onWorkflow && state === 'ready' && journey && (
         <>
           <p className={styles.muted}>
             Folded together from {plural(journey.projectCount, 'project')}. A theme sits in the stage most studies placed it in.
@@ -93,27 +186,7 @@ export function PlatformJourneyView({ state, journey, errorText, onOpenTheme }: 
                 })}
               </div>
 
-              <div className={cx(map.row, map.sentimentRow)}>
-                <div className={map.rowLabel}>Sentiment</div>
-                <div className={map.sentiment} role="img" aria-label={sentimentLabel}>
-                  <span className={map.axisTop}>Positive</span>
-                  <span className={map.axisBottom}>Negative</span>
-                  <span className={map.zero} />
-                  {points.length > 1 && (
-                    <svg className={map.line} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                      <polyline points={points.map((p) => `${p.left},${p.top}`).join(' ')} />
-                    </svg>
-                  )}
-                  {stages.map((s, i) => {
-                    const p = points.find((x) => x.index === i)
-                    return (
-                      <div key={s.name} className={map.track}>
-                        {p && <span className={cx(map.point, map[`y${Math.round(p.top)}`])} data-tone={p.sentiment < 0 ? 'negative' : 'positive'} />}
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
+              <SentimentRow stages={stages} />
 
               <div className={map.row}>
                 <div className={map.rowLabel}>Opportunity</div>

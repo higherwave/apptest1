@@ -1093,7 +1093,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The platform journey: every analysed project's journey map folded into one. Stages with the same name are one stage, in the order they come along the path; each platform theme sits in the stage most of its project themes were placed in. Open to read as the viewer. */
+        /** The platform journey: every analysed project's journey map folded into one. Stages with the same name are one stage, in the order they come along the path; each platform theme sits in the stage most of its project themes were placed in. With `workflow`, one workflow's journey instead: the blueprint's own stages with the research of the projects on that workflow laid over them, plus each stage's backstage and who is in it. Open to read as the viewer. */
         get: operations["getPlatformJourney"];
         put?: never;
         post?: never;
@@ -1621,7 +1621,29 @@ export interface components {
             projectCount: number;
             /** @description Participants across those projects. */
             totalParticipants: number;
+            /** @description Present on one workflow's journey. */
+            workflow?: {
+                id: string;
+                name: string;
+                description: string | null;
+                version: number;
+                /** @description Projects on this workflow. */
+                projects: number;
+            };
             stages: {
+                /** @description The workflow stage's id (a workflow's journey only). */
+                id?: string;
+                good?: string | null;
+                signal?: string | null;
+                handoff?: string | null;
+                backstage?: components["schemas"]["WorkflowBackstage"][];
+                /** @description Who is in the stage, by the first part of their role, and the theme most of them raised there (a workflow's journey only). */
+                personas?: {
+                    key: string;
+                    name: string;
+                    participantCount: number;
+                    doing: string;
+                }[];
                 name: string;
                 /** @description Projects whose journey map has this stage. */
                 projectCount: number;
@@ -4708,7 +4730,9 @@ export interface operations {
     };
     getPlatformJourney: {
         parameters: {
-            query?: never;
+            query?: {
+                workflow?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -4725,6 +4749,7 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

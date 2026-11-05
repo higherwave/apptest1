@@ -24,6 +24,8 @@ export const verbLabel = (verb: string) => {
   return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
+/** A field name as words: stagesMapped reads "stages mapped". */
+const words = (key: string) => key.replace(/([A-Z])/g, ' $1').toLowerCase()
 const FIRST = ['name', 'title', 'email', 'summary', 'jiraKey']
 const asObject = (v: unknown): Record<string, unknown> | null => (v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null)
 const show = (v: unknown) => {
@@ -37,7 +39,7 @@ export function auditDetail(before: unknown, after: unknown): string {
   const a = asObject(after)
   if (b && a) {
     const keys = [...new Set([...Object.keys(b), ...Object.keys(a)])].filter((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]))
-    const parts = keys.slice(0, 3).map((k) => `${k}: ${show(b[k])} → ${show(a[k])}`)
+    const parts = keys.slice(0, 3).map((k) => `${words(k)}: ${show(b[k])} → ${show(a[k])}`)
     return parts.join(' · ') + (keys.length > 3 ? ' · …' : '')
   }
   const o = a ?? b
@@ -45,7 +47,7 @@ export function auditDetail(before: unknown, after: unknown): string {
   // A workflow save lists what it changed, one line each.
   if (Array.isArray(o.changes)) return o.changes.map(String).join(' · ')
   const keys = [...FIRST.filter((k) => k in o), ...Object.keys(o).filter((k) => !FIRST.includes(k))].slice(0, 3)
-  return keys.map((k) => `${k}: ${show(o[k])}`).join(' · ')
+  return keys.map((k) => `${words(k)}: ${show(o[k])}`).join(' · ')
 }
 
 export const describe = (e: Pick<AuditEntry, 'entity' | 'verb' | 'before' | 'after'>) => ({ what: `${entityLabel(e.entity)} · ${verbLabel(e.verb)}`, detail: auditDetail(e.before, e.after) })

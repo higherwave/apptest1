@@ -1,7 +1,7 @@
 import { ArrowRight } from '@carbon/icons-react'
-import { Button, InlineNotification, Loading, OverflowMenu, OverflowMenuItem } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, Loading, OverflowMenu, OverflowMenuItem } from '@carbon/react'
 import { useState } from 'react'
-import type { ProjectDetail, Theme, ThemePatch } from '../../api/client'
+import type { ProjectBlueprint, ProjectDetail, Theme, ThemePatch, Workflow } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { stageBackstage, stageFlow, stageOpportunity, stagePainPoints } from './journeyMap'
 import { CATEGORY_LABEL, LEVEL_LABEL, type Level } from './themeEdits'
@@ -19,11 +19,18 @@ export type JourneyViewProps = {
   errorText?: string
   onEdit: (theme: Theme, patch: ThemePatch) => void
   onGoTranscripts: () => void
+  /** The workflow the project is on (the service blueprint) and the stages mapped to it; undefined until loaded. */
+  blueprint?: ProjectBlueprint
+  workflows: Workflow[]
+  onSetWorkflow: (workflowId: string | null) => void
+  onMapStage: (position: number, workflowStageId: string | null) => void
 }
+
+const NONE = { id: '', label: 'Not on a workflow' }
 
 // Presentational: every theme laid out by journey stage, at the stage the analysis suggested unless the person moved it. A theme moves by dragging it to a stage, or with its
 // menu, which is the way to do it without a mouse.
-export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoTranscripts }: JourneyViewProps) {
+export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoTranscripts, blueprint, workflows, onSetWorkflow, onMapStage }: JourneyViewProps) {
   const [over, setOver] = useState<number | null>(null)
   const stageOf = (t: Theme) => t.stagePosition ?? 0
   const drop = (position: number, id: string) => {
@@ -34,6 +41,33 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
   return (
     <div className={styles.page}>
       {project && <ProjectHeader title="Journey Map" description="Where each theme falls along the customer journey. Drag a theme to another stage to move it." />}
+
+      {state === 'ready' && blueprint && (canEdit || blueprint.workflow) && (
+        <div className={styles.workflowBar}>
+          {canEdit ? (
+            <Dropdown
+              id="project-workflow"
+              titleText="Workflow"
+              label="Choose a workflow"
+              size="md"
+              className={styles.workflowPicker}
+              items={[NONE, ...workflows.map((w) => ({ id: w.id, label: w.name }))]}
+              itemToString={(i) => i?.label ?? ''}
+              selectedItem={blueprint.workflow ? { id: blueprint.workflow.id, label: blueprint.workflow.name } : NONE}
+              onChange={({ selectedItem }) => selectedItem && selectedItem.id !== (blueprint.workflow?.id ?? '') && onSetWorkflow(selectedItem.id || null)}
+            />
+          ) : (
+            <p className={styles.workflowNote}>Workflow: {blueprint.workflow?.name}</p>
+          )}
+          <p className={styles.workflowNote}>
+            {blueprint.workflow
+              ? 'The Backstage row comes from this workflow’s blueprint, edited under Platform Insights > Journey.'
+              : workflows.length > 0
+                ? 'Put this project on a workflow and the Backstage row shows its real teams, systems and owners.'
+                : 'The Backstage row is simulated. Add a workflow under Platform Insights > Journey to replace it with real teams, systems and owners.'}
+          </p>
+        </div>
+      )}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the journey map" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Journey Map" subtitle={errorText} />}
@@ -190,10 +224,59 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
             <div className={cx(styles.row, styles.backstageRow)} data-testid="backstage-row">
               <div className={styles.rowLabel}>
                 Backstage
-                <span className={styles.simulated}>Simulated</span>
+                <span className={styles.simulated}>{blueprint?.workflow ? `From ${blueprint.workflow.name}` : 'Simulated'}</span>
               </div>
               {stages.map((stage) => {
-                const items = stageBackstage(stage.name, themes.filter((t) => stageOf(t) === stage.position))
+                const here = themes.filter((t) => stageOf(t) === stage.position)
+                const mapped = blueprint?.workflow ? blueprint.stages.find((b) => b.position === stage.position) : undefined
+                if (blueprint?.workflow) {
+                  const flowStages = workflows.find((w) => w.id === blueprint.workflow!.id)?.stages ?? []
+                  return (
+                    <div key={stage.position} className={styles.cell}>
+                      {mapped?.workflowStage ? (
+                        <>
+                          {mapped.workflowStage.backstage.length === 0 && <p className={styles.none}>Nothing added to {mapped.workflowStage.name} yet</p>}
+                          {mapped.workflowStage.backstage.map((b) => (
+                            <div key={b.id} className={styles.backstageItem}>
+                              <span className={styles.backstageKind}>{b.kind}</span>
+                              <p className={styles.backstageText}>{b.name}</p>
+                              {b.owner && <p className={styles.meta}>Owner: {b.owner}</p>}
+                            </div>
+                          ))}
+                          {mapped.workflowStage.handoff && (
+                            <div className={styles.backstageItem}>
+                              <span className={styles.backstageKind}>Handoff</span>
+                              <p className={styles.backstageText}>{mapped.workflowStage.handoff}</p>
+                            </div>
+                          )}
+                          {canEdit && (
+                            <Button kind="ghost" size="sm" className={styles.unmap} onClick={() => onMapStage(stage.position, null)}>
+                              Unmap from {mapped.workflowStage.name}
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <p className={styles.none}>Not mapped to a stage of this workflow</p>
+                          {canEdit && (
+                            <Dropdown
+                              id={`map-stage-${stage.position}`}
+                              titleText={`Workflow stage for ${stage.name}`}
+                              hideLabel
+                              label="Map to a stage"
+                              size="sm"
+                              items={flowStages.map((f) => ({ id: f.id, label: f.name }))}
+                              itemToString={(i) => i?.label ?? ''}
+                              selectedItem={null}
+                              onChange={({ selectedItem }) => selectedItem && onMapStage(stage.position, selectedItem.id)}
+                            />
+                          )}
+                        </>
+                      )}
+                    </div>
+                  )
+                }
+                const items = stageBackstage(stage.name, here)
                 return (
                   <div key={stage.position} className={styles.cell}>
                     {items.length === 0 && <p className={styles.none}>Nothing to infer</p>}

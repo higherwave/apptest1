@@ -1061,6 +1061,66 @@ try {
   ok('the old Onboarding page is gone from the tabs', await page.evaluate(() => ![...document.querySelectorAll('[data-label]')].some((a) => a.dataset.label === 'Onboarding')))
   await page.goto(`${BASE}/insights/onboarding`, { waitUntil: 'networkidle0' })
   ok('and its old address leads to the journey', await page.evaluate(() => location.pathname === '/insights/journey'))
+  ok('the platform journey’s sentiment chart is drawn: tall, with round points placed over it', await page.evaluate(() => { const chart = document.querySelector('[role="img"][aria-label^="Sentiment by stage"]'); const pt = chart?.querySelector('[class*="point"]'); return !!chart && chart.getBoundingClientRect().height > 150 && getComputedStyle(chart).position === 'relative' && !!pt && getComputedStyle(pt).position === 'absolute' && getComputedStyle(pt).borderRadius !== '0px' }))
+
+  // Workflows: the service blueprint, edited once under Platform Insights > Journey and read by each project that is on it.
+  const pickOption = async (selector, label) => {
+    await page.$eval(selector, (el) => el.scrollIntoView({ block: 'center' })) // the fixed bars would cover a control at the edge
+    await page.click(selector)
+    await page.waitForSelector('[role=option]', { visible: true })
+    await page.evaluate((l) => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.trim().startsWith(l)).click(), label)
+    await new Promise((r) => setTimeout(r, 700))
+  }
+  await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the healthcare examples')), { timeout: 8000 })
+  ok('with no workflow yet, an editor is offered the healthcare examples', true)
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.includes('Add the healthcare examples')).click())
+  await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
+  ok('adding them opens a workflow as a blueprint: five stages, what good looks like, backstage with owners, marked as from the blueprint', await page.evaluate(() => { const t = document.body.innerText; return document.querySelectorAll('[data-testid^="journey-stage-"]').length === 5 && /Patient access and scheduling/.test(t) && /what good looks like/i.test(t) && /Owner: /.test(t) && /from the blueprint/i.test(t) && /No project is on this workflow yet/.test(t) }))
+  const flows = (await (await fetch(`${API}/api/v1/workflows`)).json()).data
+  await page.click('#workflow-picker')
+  await page.waitForSelector('[role=option]', { visible: true })
+  const picks = await page.evaluate(() => [...document.querySelectorAll('[role=option]')].map((x) => x.innerText))
+  await page.keyboard.press('Escape')
+  ok('both healthcare examples exist, and the picker lists them with All studies last', flows.length === 2 && picks.length === 3 && /Referrals and results/.test(picks[1]) && /^All studies/.test(picks[2]), picks.join(' | '))
+  await new Promise((r) => setTimeout(r, 400))
+
+  // A project goes on a workflow: its stages map by name and its Backstage row reads the blueprint.
+  await page.goto(`${BASE}/projects/${projectId}/journey`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#project-workflow', { timeout: 8000 })
+  ok('before a workflow is chosen the Backstage row is still the simulation', await page.evaluate(() => /simulated/i.test(document.querySelector('[data-testid="backstage-row"]').children[0].innerText)))
+  await pickOption('#project-workflow', 'Patient access and scheduling')
+  await page.waitForFunction(() => /From Patient access and scheduling/i.test(document.querySelector('[data-testid="backstage-row"]')?.children[0]?.innerText ?? ''), { timeout: 8000 })
+  ok('choosing a workflow maps the stages by name, and the Backstage row shows the blueprint’s teams, systems and owners instead of the simulation', await page.evaluate(() => { const row = document.querySelector('[data-testid="backstage-row"]'); const cells = [...row.children].slice(1); return cells.length === 5 && cells.every((c) => /Owner: /.test(c.innerText)) && /Scheduling team/.test(row.innerText) && !/simulated/i.test(row.children[0].innerText) }))
+  await page.evaluate(() => [...document.querySelectorAll('[data-testid="backstage-row"] button')].find((b) => /^Unmap from/.test(b.innerText.trim())).click())
+  await page.waitForFunction(() => /Not mapped to a stage/.test(document.querySelector('[data-testid="backstage-row"]').innerText), { timeout: 8000 })
+  await pickOption('[id^="map-stage-"]', 'Find a provider')
+  await page.waitForFunction(() => !/Not mapped to a stage/.test(document.querySelector('[data-testid="backstage-row"]').innerText), { timeout: 8000 })
+  ok('a stage can be unmapped (it says so and offers the workflow’s stages) and mapped again', true)
+
+  // The platform journey for that workflow lays the project's research over the blueprint, and a persona can be traced.
+  await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
+  ok('the workflow opens by default now that a project is on it, with that project’s themes and personas in the stages', await page.evaluate(() => /Research from 1 project on this workflow/.test(document.body.innerText) && document.querySelectorAll('article[data-category]').length > 0 && !!document.querySelector('[data-testid="persona-row"]')))
+  const traceChip = await page.evaluate(() => document.querySelector('[data-testid^="trace-"]')?.dataset.testid ?? null)
+  if (traceChip) {
+    await page.evaluate((c) => document.querySelector(`[data-testid="${c}"]`).click(), traceChip)
+    await page.waitForFunction(() => document.querySelectorAll('[data-traced="true"]').length > 0, { timeout: 8000 })
+    ok('tracing a persona highlights where they are in the journey, and Clear takes it off', await page.evaluate(() => document.querySelector('[data-testid^="trace-"][aria-pressed="true"]') !== null) && (await (async () => { await clickText('Clear'); await new Promise((r) => setTimeout(r, 300)); return (await page.$$('[data-traced="true"]')).length === 0 })()))
+  } else ok('no personas in this study to trace (the demo studies have them)', true)
+
+  // Editing the blueprint in place, and the audit log keeping the record.
+  await clickText('Edit blueprint')
+  await page.waitForSelector('[data-testid="blueprint-editor"]', { timeout: 8000 })
+  ok('Edit blueprint opens a box for every stage’s name, what good looks like, signal and handoff, and its backstage entries', await page.evaluate(() => document.querySelectorAll('[data-testid="blueprint-editor"] textarea[id$="-good"], [data-testid="blueprint-editor"] textarea[id$="-signal"], [data-testid="blueprint-editor"] textarea[id$="-handoff"]').length === 15 && document.querySelectorAll('[data-testid="backstage-entry"]').length >= 5))
+  ok('Save waits for a change', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Save').disabled === true))
+  await page.$eval('textarea[id$="-good"]', (el) => { el.scrollIntoView({ block: 'center' }); el.focus(); el.setSelectionRange(el.value.length, el.value.length) })
+  await page.keyboard.type(' Edited by the browser test.')
+  await clickText('Save')
+  await page.waitForFunction(() => !document.querySelector('[data-testid="blueprint-editor"]'), { timeout: 8000 })
+  await page.waitForFunction(() => /Edited by the browser test\./.test(document.body.innerText), { timeout: 8000 })
+  const log = await (await fetch(`${API}/api/v1/audit?group=workflows`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  ok('the edit shows on the journey and the audit log records what changed', log.data.some((e) => e.verb === 'edited' && e.after.changes.some((c) => /^Changed what good looks like of Find a provider/.test(c))))
   await page.goto(`${BASE}/projects/${projectId}/stories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="tab-sent"]')
 

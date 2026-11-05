@@ -2433,6 +2433,14 @@ test('workflows (the service blueprint): editors build and save them whole, proj
   assert.equal(on.stages.filter((s: any) => s.workflowStageId).length, 4, 'four of the five clinic stages match by name; the renamed one does not')
   const unmapped = on.stages.find((s: any) => !s.workflowStageId)
   assert.equal(unmapped.name, 'Book a time')
+  // The workflow's journey: the blueprint's own stages, the backstage under each, and the research of the project on it laid over them.
+  const journey = await expectSpec(await send(viewer, 'GET', `/insights/journey?workflow=${access.id}`), '/insights/journey')
+  assert.deepEqual(journey.stages.map((s: any) => s.name), ['Find a provider', 'Book an appointment', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'])
+  assert.equal(journey.workflow.name, 'Patient access and scheduling')
+  assert.equal(journey.workflow.projects, 1)
+  assert.ok(journey.stages.every((s: any) => s.id && Array.isArray(s.backstage) && Array.isArray(s.personas)))
+  assert.equal((await send(viewer, 'GET', '/insights/journey?workflow=00000000-0000-4000-8000-000000000000')).status, 404)
+  assert.equal((await send(viewer, 'GET', '/insights/journey?workflow=nope')).status, 404)
   // Map it by hand; a stage of another workflow is refused; null clears it.
   const bookId = saved.stages[1].id
   const mapped = await expectSpec(await send(editor, 'PUT', `/projects/${p1}/stage-map`, { position: unmapped.position, workflowStageId: bookId }), '/projects/{id}/stage-map', 'put')

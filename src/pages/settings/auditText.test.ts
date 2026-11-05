@@ -14,6 +14,10 @@ test('something made or removed shows its main fields, name first', () => {
   assert.equal(auditDetail(null, null), '')
 })
 
+test('field names read as words', () => {
+  assert.equal(auditDetail(null, { project: 'P', stagesMapped: 5 }), 'project: P · stages mapped: 5')
+})
+
 test('long values are shortened and verbs read as phrases', () => {
   assert.ok(auditDetail(null, { name: 'x'.repeat(200) }).length < 100)
   assert.equal(verbLabel('analysis_run'), 'Analysis run')
