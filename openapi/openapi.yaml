@@ -23,7 +23,7 @@ paths:
       operationId: getAiStatus
       summary: >
         Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and
-        the budget when live, and what recently went wrong (the App Status tab in Settings); nobody else does.
+        the budget when live, and what recently went wrong (the AI usage and costs tab in Admin); nobody else does.
       responses:
         '200':
           description: The AI mode.
@@ -439,6 +439,21 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /usage:
+    get:
+      operationId: getUsage
+      summary: >
+        Owners only (403 otherwise). How much of each limit the app has used. Today one row, the database's size against `DATABASE_SIZE_LIMIT_MB`
+        (default 512, 0 for no limit); it is read from the database itself.
+      responses:
+        '200':
+          description: The usage rows.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/UsageList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /audit:
     get:
@@ -3285,6 +3300,24 @@ components:
       properties:
         position: { type: integer, minimum: 0 }
         workflowStageId: { type: [string, 'null'] }
+    UsageRow:
+      type: object
+      required: [key, label, used, limit, unit, level, note]
+      properties:
+        key: { type: string, description: 'For example database.' }
+        label: { type: string }
+        used: { type: [integer, 'null'], description: 'In the unit; null when it could not be read.' }
+        limit: { type: [integer, 'null'], description: 'In the unit; null when no limit is set.' }
+        unit: { type: string, enum: [bytes] }
+        level: { type: string, enum: [ok, half, high, reached], description: 'half from 50% of the limit, high from 80%, reached at 100%.' }
+        note: { type: string }
+    UsageList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/UsageRow' }
     AuditEntry:
       type: object
       required: [id, createdAt, actor, group, entity, entityId, verb, before, after]

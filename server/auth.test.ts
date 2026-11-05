@@ -130,6 +130,24 @@ test('the audit log is for owners: newest first, filterable, paged, and it shows
   assert.equal((await app.request('/api/v1/audit?cursor=bad', { headers: owner })).status, 422)
 })
 
+test('system usage is for owners: the database size against DATABASE_SIZE_LIMIT_MB, with alert levels', async () => {
+  const own = await createDemoDatabase()
+  await invite('uma@invited.test', 'owner', own.pglite)
+  await invite('ed2@invited.test', 'editor', own.pglite)
+  const owner = who('uma@invited.test')
+  const app = await appFor({}, own)
+  assert.equal((await app.request('/api/v1/usage', { headers: who('ed2@invited.test') })).status, 403, 'an editor cannot read it')
+  const row = (await (await app.request('/api/v1/usage', { headers: owner })).json()).data[0]
+  assert.deepEqual([row.key, row.unit, row.limit], ['database', 'bytes', 512 * 1024 * 1024])
+  assert.ok(Number.isInteger(row.used) && row.used > 0, 'the size is read from the database')
+  assert.equal(row.level, 'ok')
+  const tight = await appFor({ DATABASE_SIZE_LIMIT_MB: '0.001' }, own)
+  assert.equal((await (await tight.request('/api/v1/usage', { headers: owner })).json()).data[0].level, 'reached')
+  const none = await appFor({ DATABASE_SIZE_LIMIT_MB: '0' }, own)
+  const unlimited = (await (await none.request('/api/v1/usage', { headers: owner })).json()).data[0]
+  assert.deepEqual([unlimited.limit, unlimited.level], [null, 'ok'])
+})
+
 test('owners invite, change roles and remove; the last owner cannot be demoted or removed', async () => {
   const own = await createDemoDatabase() // this test removes every other owner, so it gets its own database
   await invite('olive@invited.test', 'owner', own.pglite)

@@ -93,8 +93,11 @@ try {
   await page.keyboard.press('Escape')
   await page.goto(`${BASE}/settings/status`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => document.body.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })
-  ok('App Status is an Admin tab with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="App Status"]')?.dataset.current === 'true' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
+  ok('AI usage and costs is an Admin tab with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="AI usage and costs"]')?.dataset.current === 'true' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
   await new Promise((r) => setTimeout(r, 600))
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="System usage"]').click())
+  await page.waitForSelector('[data-testid="usage-database"]', { timeout: 8000 })
+  ok('System usage is an Admin tab with the database size against its limit, read from the database itself', await page.evaluate(() => { const card = document.querySelector('[data-testid="usage-database"]'); return location.pathname === '/settings/usage' && /Database size/.test(card.innerText) && /\d+ (KB|MB|GB) of 512 MB \(\d+%\)/.test(card.innerText) && !!card.querySelector('[role="progressbar"]') }))
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })
@@ -131,12 +134,12 @@ try {
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Product Funnel')
   ok('a viewer does not see Admin in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Admin'))))
-  for (const path of ['/settings/categories', '/settings/members', '/settings/audit', '/members']) {
+  for (const path of ['/settings/categories', '/settings/members', '/settings/audit', '/settings/usage', '/members']) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
     await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
   }
   ok('a viewer who types an Admin address is sent back to the projects', true)
-  ok('the server refuses a viewer the member list, the audit log and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
+  ok('the server refuses a viewer the member list, the audit log, system usage and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && (await fetch('/api/v1/usage')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Product Funnel')

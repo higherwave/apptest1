@@ -28,7 +28,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and the budget when live, and what recently went wrong (the App Status tab in Settings); nobody else does. */
+        /** Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and the budget when live, and what recently went wrong (the AI usage and costs tab in Admin); nobody else does. */
         get: operations["getAiStatus"];
         put?: never;
         post?: never;
@@ -359,6 +359,23 @@ export interface paths {
         get?: never;
         /** Owners and editors. Maps one of the project's journey stages to a stage of its workflow, or clears it with null. */
         put: operations["mapProjectStage"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only (403 otherwise). How much of each limit the app has used. Today one row, the database's size against `DATABASE_SIZE_LIMIT_MB` (default 512, 0 for no limit); it is read from the database itself. */
+        get: operations["getUsage"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -2590,6 +2607,26 @@ export interface components {
             position: number;
             workflowStageId: string | null;
         };
+        UsageRow: {
+            /** @description For example database. */
+            key: string;
+            label: string;
+            /** @description In the unit; null when it could not be read. */
+            used: number | null;
+            /** @description In the unit; null when no limit is set. */
+            limit: number | null;
+            /** @enum {string} */
+            unit: "bytes";
+            /**
+             * @description half from 50% of the limit, high from 80%, reached at 100%.
+             * @enum {string}
+             */
+            level: "ok" | "half" | "high" | "reached";
+            note: string;
+        };
+        UsageList: {
+            data: components["schemas"]["UsageRow"][];
+        };
         AuditEntry: {
             id: string;
             /** Format: date-time */
@@ -3357,6 +3394,29 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getUsage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The usage rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

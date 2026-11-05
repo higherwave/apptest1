@@ -69,6 +69,8 @@ export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
 export type SignInOption = components['schemas']['SignInOptionList']['data'][number]
 export const getSignInOptions = () => request<components['schemas']['SignInOptionList']>('/sign-in-options')
+export type UsageRow = components['schemas']['UsageRow']
+export const listUsage = () => request<components['schemas']['UsageList']>('/usage').then((r) => r.data)
 export type AuditEntry = components['schemas']['AuditEntry']
 export type AuditGroup = AuditEntry['group']
 export type AuditPage = components['schemas']['AuditPage']

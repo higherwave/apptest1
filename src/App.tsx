@@ -6,6 +6,7 @@ import { AreasPage } from './pages/areas/AreasPage'
 import { MembersPage } from './pages/members/MembersPage'
 import { AppStatusPage } from './pages/settings/AppStatusPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
+import { UsagePage } from './pages/settings/UsagePage'
 import { SettingsGate } from './pages/settings/SettingsGate'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
@@ -61,6 +62,7 @@ export function App() {
           <Route path="areas" element={<Navigate to="/settings/categories" replace />} />
           <Route path="categories" element={<AreasPage />} />
           <Route path="status" element={<AppStatusPage />} />
+          <Route path="usage" element={<UsagePage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>

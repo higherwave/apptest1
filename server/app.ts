@@ -25,6 +25,7 @@ import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney, getWorkflowJourney } from './journey.js'
 import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowInUse, WorkflowMissing } from './workflows.js'
+import { getUsage } from './usage.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
 import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
@@ -181,6 +182,13 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
+  })
+
+  // System usage: owners only. How much of each limit the app has used (today the database's size).
+  app.get('/usage', withContext, async (c) => {
+    requireOwner(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ data: await getUsage(getDb(), env) })
   })
 
   // The admin audit log: owners only, newest first, a page at a time, optionally one kind of change.
