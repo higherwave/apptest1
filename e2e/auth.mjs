@@ -97,7 +97,7 @@ try {
   await new Promise((r) => setTimeout(r, 600))
   await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="System usage"]').click())
   await page.waitForSelector('[data-testid="usage-database"]', { timeout: 8000 })
-  ok('System usage is an Admin tab with the database size against its limit, read from the database itself', await page.evaluate(() => { const card = document.querySelector('[data-testid="usage-database"]'); return location.pathname === '/settings/usage' && /Database size/.test(card.innerText) && /\d+ (KB|MB|GB) of 512 MB \(\d+%\)/.test(card.innerText) && !!card.querySelector('[role="progressbar"]') }))
+  ok('System usage is an Admin tab with the database size against its limit, read from the database itself', await page.evaluate(() => { const card = document.querySelector('[data-testid="usage-database"]'); return location.pathname === '/settings/usage' && /Database size/.test(card.innerText) && /\d+ (KB|MB|GB) of 1\.00 GB \(\d+%\)/.test(card.innerText) && !!card.querySelector('[role="progressbar"]') }))
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })

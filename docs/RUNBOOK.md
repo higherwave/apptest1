@@ -40,7 +40,7 @@ and push again, or apply it by hand (`node db/migrate.mjs up --yes`) and push.
 | `ai_output_unusable` | The model's reply failed validation twice; nothing was saved. Try again; check the problems list for the reason |
 | Need to stop all spend now | Set `AI_ENABLED=false` and redeploy: every call becomes the free simulation |
 
-Spend is recorded per call in `core.ai_usage`; owners see problems under Admin > AI usage and costs. Admin > System usage shows the database's size against `DATABASE_SIZE_LIMIT_MB` (default 512; set it to your plan's limit, 0 for none).
+Spend is recorded per call in `core.ai_usage`; owners see problems under Admin > AI usage and costs. Admin > System usage shows the database's size against `DATABASE_SIZE_LIMIT_MB` (default 1024, Neon's free plan; set it to your plan's limit, 0 for none).
 
 ## Design thumbnails
 

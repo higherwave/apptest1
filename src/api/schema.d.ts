@@ -373,7 +373,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Owners only (403 otherwise). How much of each limit the app has used. Today one row, the database's size against `DATABASE_SIZE_LIMIT_MB` (default 512, 0 for no limit); it is read from the database itself. */
+        /** Owners only (403 otherwise). How much of each limit the app has used. Today one row, the database's size against `DATABASE_SIZE_LIMIT_MB` (default 1024, 0 for no limit); it is read from the database itself. */
         get: operations["getUsage"];
         put?: never;
         post?: never;

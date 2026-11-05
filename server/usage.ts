@@ -17,9 +17,9 @@ export type UsageRow = {
 }
 
 const MB = 1024 * 1024
-const DEFAULT_LIMIT_MB = 512
+const DEFAULT_LIMIT_MB = 1024
 
-/** The database size limit in bytes: DATABASE_SIZE_LIMIT_MB (default 512, a free plan's usual half gigabyte); 0 or "none" means no limit. */
+/** The database size limit in bytes: DATABASE_SIZE_LIMIT_MB (default 1024: the 1 GB per project of Neon's free plan); 0 or "none" means no limit. */
 export function databaseLimitBytes(env: Record<string, string | undefined>): number | null {
   const raw = env.DATABASE_SIZE_LIMIT_MB?.trim()
   if (raw === undefined || raw === '') return DEFAULT_LIMIT_MB * MB

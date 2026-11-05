@@ -445,7 +445,7 @@ paths:
       operationId: getUsage
       summary: >
         Owners only (403 otherwise). How much of each limit the app has used. Today one row, the database's size against `DATABASE_SIZE_LIMIT_MB`
-        (default 512, 0 for no limit); it is read from the database itself.
+        (default 1024, 0 for no limit); it is read from the database itself.
       responses:
         '200':
           description: The usage rows.
