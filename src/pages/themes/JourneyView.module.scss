@@ -10,7 +10,7 @@ $stage-min: 13rem;
   max-width: 100rem;
 }
 
-// The map is a matrix: a dark row of stages, then one row each for themes, pain points, sentiment and opportunity.
+// The map is a matrix: a dark row of stages, then one row each for themes, pain points, opportunity, the user flow and the backstage.
 .scroll {
   overflow-x: auto;
   border: 1px solid var(--at-hairline);
@@ -25,10 +25,6 @@ $stage-min: 13rem;
 
     .row {
       grid-template-columns: $label-width repeat($n, minmax(0, 1fr));
-    }
-
-    .sentiment {
-      grid-template-columns: repeat($n, minmax(0, 1fr));
     }
   }
 }
@@ -159,67 +155,79 @@ $stage-min: 13rem;
   font-weight: 400;
 }
 
-.sentimentRow {
+// The user flow: each stage's steps in order, joined by a line, with the stage's sentiment above and where the customer goes next below.
+.flowRow {
   background: var(--at-surface-soft);
 }
 
-// The chart spans every stage column. Dots are positioned in percentages so they stay round; the line is stretched.
-.sentiment {
-  position: relative;
-  display: grid;
-  grid-column: 2 / -1;
-  min-block-size: 15.75rem;
-  border-inline-start: 1px solid var(--at-hairline);
-}
-
-.axisTop,
-.axisBottom {
-  @include tokens.role('meta');
-  position: absolute;
-  inset-inline-start: var(--at-space-md);
+.feel {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  padding: var(--at-space-xs);
   color: var(--at-muted);
+
+  &[data-tone='negative'] { color: var(--at-signature-coral); }
+  &[data-tone='positive'] { color: var(--at-signature-forest); }
 }
 
-.axisTop { inset-block-start: var(--at-space-md); }
-.axisBottom { inset-block-end: var(--at-space-md); }
-
-.zero {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-start: 50%;
-  border-block-start: 1px dashed var(--at-border-strong);
+.steps {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.line {
-  position: absolute;
-  inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
+.step {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
 
-  polyline {
-    fill: none;
-    stroke: var(--at-ink);
-    stroke-width: 0.125rem;
-    vector-effect: non-scaling-stroke;
+  &[data-kind='Friction'] { background: var(--at-tint-coral); }
+  &[data-kind='Delight'] { background: var(--at-tint-yellow); }
+  &[data-kind='Decision'] { border-style: dashed; border-color: var(--at-border-strong); }
+
+  & + & { margin-block-start: var(--at-space-md); }
+
+  // The line to the step before.
+  & + &::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: 50%;
+    inset-block-end: 100%;
+    block-size: var(--at-space-md);
+    border-inline-start: 1px solid var(--at-border-strong);
   }
 }
 
-.track {
-  position: relative;
+.stepKind {
+  @include tokens.role('eyebrow');
+  color: var(--at-muted);
 }
 
-// A point sits at its column's middle and at a height in whole percent (y10 is near the top, y90 near the bottom).
-.point {
-  position: absolute;
-  inset-inline-start: 50%;
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  transform: translate(-50%, -50%);
-  border: 0.125rem solid var(--at-canvas);
-  border-radius: var(--at-radius-full);
+.stepText {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
 
-  &[data-tone='negative'] { background: var(--at-signature-coral); }
-  &[data-tone='positive'] { background: var(--at-signature-forest); }
+.step .meta {
+  margin: 0;
+}
+
+.next {
+  @include tokens.role('meta');
+  display: flex;
+  gap: var(--at-space-xs);
+  align-items: center;
+  margin: 0;
+  padding: var(--at-space-xs);
+  color: var(--at-muted);
 }
 
 .opportunity {
@@ -273,10 +281,4 @@ $stage-min: 13rem;
   gap: var(--at-space-md);
   align-items: flex-start;
   color: var(--at-muted);
-}
-
-@for $i from 10 through 90 {
-  .y#{$i} {
-    inset-block-start: #{$i}#{'%'};
-  }
 }

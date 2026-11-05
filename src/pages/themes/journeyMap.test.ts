@@ -1,7 +1,7 @@
 // npm run test:api also runs these.
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { sentimentTop, stageBackstage, stageOpportunity, stagePainPoints, stageSentiment, strongestFirst } from './journeyMap.js'
+import { sentimentTop, sentimentWord, stageBackstage, stageFlow, stageOpportunity, stagePainPoints, stageSentiment, strongestFirst } from './journeyMap.js'
 
 const t = (title: string, over: Record<string, unknown> = {}) =>
   ({ title, category: 'pain_point', priority: 'medium', participantCount: 1, severity: -0.5, opportunity: `Fix ${title}`, ...over }) as never
@@ -39,4 +39,19 @@ test('backstage (simulated): inferred from the stage name and its themes, strong
   assert.ok(booking.length <= 3 && new Set(booking.map((b) => b.text)).size === booking.length)
   assert.equal(stageBackstage('Confirm & pay', [t('Fees surprise people')])[0].text, 'Billing and insurance team')
   assert.deepEqual(stageBackstage('Stage', [t('Zzz', { description: 'qqq' })]), [{ kind: 'Team', text: 'Operations team' }])
+})
+
+test('user flow (simulated): start, the two strongest themes, a decision where it reads negative, and where it goes next', () => {
+  assert.deepEqual(stageFlow('Book', [], 'Pay'), { sentiment: null, steps: [], next: 'Pay' })
+  const flow = stageFlow('Book', [t('a', { totalParticipants: 5 }), t('b', { priority: 'high', category: 'pain_point', totalParticipants: 5 }), t('c', { category: 'delight', severity: 0.9 })], 'Pay')
+  assert.deepEqual(flow.steps.map((s) => `${s.kind}:${s.text}`), ['Start:Book', 'Friction:b', 'Friction:a', 'Decision:Keeps going?'])
+  assert.equal(flow.steps[1].tone, 'negative')
+  assert.equal(flow.next, 'Pay')
+  const good = stageFlow('Done', [t('c', { category: 'delight', severity: 0.9 })], null)
+  assert.deepEqual(good.steps.map((s) => s.kind), ['Start', 'Delight'])
+  assert.equal(good.next, null)
+})
+
+test('a stage feels negative, mixed or positive by its mean severity', () => {
+  assert.deepEqual([sentimentWord(-0.5), sentimentWord(0), sentimentWord(0.5), sentimentWord(null)], ['Negative', 'Mixed', 'Positive', null])
 })

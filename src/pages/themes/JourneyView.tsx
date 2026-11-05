@@ -1,8 +1,9 @@
+import { ArrowRight } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, OverflowMenu, OverflowMenuItem } from '@carbon/react'
 import { useState } from 'react'
 import type { ProjectDetail, Theme, ThemePatch } from '../../api/client'
 import { ProjectHeader } from '../project/ProjectHeader'
-import { sentimentTop, stageBackstage, stageOpportunity, stagePainPoints, stageSentiment } from './journeyMap'
+import { stageBackstage, stageFlow, stageOpportunity, stagePainPoints } from './journeyMap'
 import { CATEGORY_LABEL, LEVEL_LABEL, type Level } from './themeEdits'
 import styles from './JourneyView.module.scss'
 
@@ -25,14 +26,6 @@ export type JourneyViewProps = {
 export function JourneyView({ state, project, stages, themes, canEdit, pending, errorText, onEdit, onGoTranscripts }: JourneyViewProps) {
   const [over, setOver] = useState<number | null>(null)
   const stageOf = (t: Theme) => t.stagePosition ?? 0
-  // One sentiment point per stage that has themes, placed at the middle of its column.
-  const points = stages.flatMap((stage, i) => {
-    const sentiment = stageSentiment(themes.filter((t) => stageOf(t) === stage.position))
-    return sentiment === null ? [] : [{ position: stage.position, sentiment, left: ((i + 0.5) / stages.length) * 100, top: sentimentTop(sentiment) }]
-  })
-  const sentimentLabel = points.length
-    ? 'Sentiment by stage: ' + points.map((p) => `${stages.find((s) => s.position === p.position)?.name} ${p.sentiment < 0 ? 'negative' : 'positive'}`).join(', ')
-    : 'No sentiment to show'
   const drop = (position: number, id: string) => {
     const theme = themes.find((t) => t.id === id)
     if (theme && canEdit && stageOf(theme) !== position) onEdit(theme, { stagePosition: position })
@@ -155,26 +148,43 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
               })}
             </div>
 
-            <div className={cx(styles.row, styles.sentimentRow)}>
-              <div className={styles.rowLabel}>Sentiment</div>
-              <div className={styles.sentiment} role="img" aria-label={sentimentLabel}>
-                <span className={styles.axisTop}>Positive</span>
-                <span className={styles.axisBottom}>Negative</span>
-                <span className={styles.zero} />
-                {points.length > 1 && (
-                  <svg className={styles.line} viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden>
-                    <polyline points={points.map((p) => `${p.left},${p.top}`).join(' ')} />
-                  </svg>
-                )}
-                {stages.map((stage) => {
-                  const p = points.find((x) => x.position === stage.position)
-                  return (
-                    <div key={stage.position} className={styles.track}>
-                      {p && <span className={cx(styles.point, styles[`y${Math.round(p.top)}`])} data-tone={p.sentiment < 0 ? 'negative' : 'positive'} />}
-                    </div>
-                  )
-                })}
+            <div className={cx(styles.row, styles.flowRow)} data-testid="flow-row">
+              <div className={styles.rowLabel}>
+                User flow
+                <span className={styles.simulated}>Simulated</span>
               </div>
+              {stages.map((stage, i) => {
+                const flow = stageFlow(stage.name, themes.filter((t) => stageOf(t) === stage.position), stages[i + 1]?.name ?? null)
+                return (
+                  <div key={stage.position} className={styles.cell}>
+                    {flow.steps.length === 0 && <p className={styles.none}>Nothing to follow</p>}
+                    {flow.steps.length > 0 && (
+                      <>
+                        {flow.sentiment && (
+                          <p className={styles.feel} data-tone={flow.sentiment.toLowerCase()}>
+                            {flow.sentiment} sentiment
+                          </p>
+                        )}
+                        <ol className={styles.steps}>
+                          {flow.steps.map((step, n) => (
+                            <li key={step.kind + step.text} className={styles.step} data-kind={step.kind} data-tone={step.tone}>
+                              <span className={styles.stepKind}>
+                                {n + 1} · {step.kind}
+                              </span>
+                              <p className={styles.stepText}>{step.text}</p>
+                              {step.note && <p className={styles.meta}>{step.note}</p>}
+                            </li>
+                          ))}
+                        </ol>
+                        <p className={styles.next}>
+                          <ArrowRight size={16} aria-hidden />
+                          {flow.next ? `Next: ${flow.next}` : 'End of the journey'}
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )
+              })}
             </div>
 
             <div className={cx(styles.row, styles.backstageRow)} data-testid="backstage-row">

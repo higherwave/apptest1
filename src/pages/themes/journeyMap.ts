@@ -53,3 +53,30 @@ export function stageBackstage(stageName: string, themes: Theme[]): Backstage[] 
   for (const { b } of scored) for (const item of b.items) if (out.length < 3 && !out.some((o) => o.text === item.text)) out.push(item)
   return out.length ? out : [{ kind: 'Team', text: 'Operations team' }]
 }
+
+// The User flow row is a simulation too. It follows a customer through the stage as a short chain of steps, worked out from the themes placed in it:
+// where they start, the strongest things they run into (friction, a delight, something they expect), a decision point where the stage reads
+// negative or a serious pain point was raised, then where they go next. Each step keeps the sentiment of the theme it came from.
+// It folds the journey map, a blueprint's backstage and a user flow into one view, so it is only as accurate as the themes are.
+export type FlowStep = { kind: 'Start' | 'Friction' | 'Delight' | 'Expectation' | 'Decision'; text: string; tone: 'negative' | 'positive' | 'neutral'; note?: string }
+export type StageFlow = { sentiment: 'Negative' | 'Mixed' | 'Positive' | null; steps: FlowStep[]; next: string | null }
+
+// The stage's overall feel in a word, from its mean severity; null when no theme has one.
+export function sentimentWord(sentiment: number | null): StageFlow['sentiment'] {
+  return sentiment === null ? null : sentiment < -0.15 ? 'Negative' : sentiment > 0.15 ? 'Positive' : 'Mixed'
+}
+
+// Up to four steps for a stage, none when it has no themes (nothing to follow). `next` is the following stage's name, null at the end of the journey.
+export function stageFlow(stageName: string, themes: Theme[], next: string | null): StageFlow {
+  const sentiment = sentimentWord(stageSentiment(themes))
+  if (themes.length === 0) return { sentiment, steps: [], next }
+  const steps: FlowStep[] = [{ kind: 'Start', text: stageName, tone: 'neutral' }]
+  for (const t of strongestFirst(themes).slice(0, 2)) {
+    const kind = t.category === 'pain_point' ? 'Friction' : t.category === 'delight' ? 'Delight' : 'Expectation'
+    steps.push({ kind, text: t.title, tone: kind === 'Friction' ? 'negative' : kind === 'Delight' ? 'positive' : 'neutral', note: `${t.participantCount} of ${t.totalParticipants} people` })
+  }
+  if (sentiment === 'Negative' || themes.some((t) => t.category === 'pain_point' && t.priority === 'high')) {
+    steps.push({ kind: 'Decision', text: 'Keeps going?', tone: 'neutral', note: 'Risk of leaving here' })
+  }
+  return { sentiment, steps, next }
+}
