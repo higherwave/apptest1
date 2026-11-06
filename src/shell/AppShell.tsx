@@ -72,6 +72,8 @@ export function AppShell() {
   const current = areas.find((a) => a.active) ?? areas[0]
   // The prototype gallery lives elsewhere: it opens in its own tab. Its address is a brand setting; with none, the link is not shown.
   const gallery = brand.galleryUrl as string | undefined
+  // The decision guides are another place outside the app, set the same way and shown under the gallery.
+  const decisionGuides = brand.decisionGuidesUrl as string | undefined
 
   return (
     <div className={styles.shell} ref={shell} data-wide={wide}>
@@ -93,6 +95,13 @@ export function AppShell() {
             <a href={gallery} data-label="Prototype gallery" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
               <Launch size={20} aria-hidden />
               Prototype gallery
+              <span className={styles.srOnly}> (opens in a new tab)</span>
+            </a>
+          )}
+          {decisionGuides && (
+            <a href={decisionGuides} data-label="Decision Guides" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
+              <Launch size={20} aria-hidden />
+              Decision Guides
               <span className={styles.srOnly}> (opens in a new tab)</span>
             </a>
           )}
@@ -118,6 +127,11 @@ export function AppShell() {
               {gallery && (
                 <a href={gallery} role="menuitem" target="_blank" rel="noopener noreferrer" className={styles.menuItem}>
                   Prototype gallery
+                </a>
+              )}
+              {decisionGuides && (
+                <a href={decisionGuides} role="menuitem" target="_blank" rel="noopener noreferrer" className={styles.menuItem}>
+                  Decision Guides
                 </a>
               )}
             </div>
