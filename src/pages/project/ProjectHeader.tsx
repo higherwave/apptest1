@@ -1,11 +1,12 @@
+import type { ReactNode } from 'react'
 import { SaveControls, type SaveBarProps } from './SaveBar'
 import styles from './ProjectHeader.module.scss'
 
-type ProjectHeaderProps = { title: string; description: string; /** On pages that save: the Save button and state, shown at the right of the title. */ save?: SaveBarProps }
+type ProjectHeaderProps = { title: string; description: string; /** On pages that save: the Save button and state, shown at the right of the title. */ save?: SaveBarProps; /** Buttons for the page, at the right of the title. */ actions?: ReactNode }
 
 // A step's title and one line about it, with Save and its state at the right where the page saves. The project's name
 // and the way back live in the app header.
-export function ProjectHeader({ title, description, save }: ProjectHeaderProps) {
+export function ProjectHeader({ title, description, save, actions }: ProjectHeaderProps) {
   return (
     <header className={styles.header}>
       <div className={styles.text}>
@@ -13,6 +14,7 @@ export function ProjectHeader({ title, description, save }: ProjectHeaderProps) 
         <p className={styles.description}>{description}</p>
       </div>
       {save && <SaveControls {...save} />}
+      {actions && <div className={styles.actions}>{actions}</div>}
     </header>
   )
 }

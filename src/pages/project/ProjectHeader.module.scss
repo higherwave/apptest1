@@ -28,3 +28,10 @@
   color: var(--at-muted);
   font-weight: 400;
 }
+
+.actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--at-space-xs);
+}

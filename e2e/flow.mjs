@@ -135,7 +135,7 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-nav] a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
   const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-nav] a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.dataset.label, { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
   ok('Discovery steps are open and Analysis, Strategy and Delivery steps are locked with a hint',
-    !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Journey Map', 'Priorities', 'Requirements', 'Stories', 'Measure'].every((k) => navState[k].disabled && navState[k].hint),
+    !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Storyboard', 'Priorities', 'Requirements', 'Stories', 'Measure'].every((k) => navState[k].disabled && navState[k].hint),
     JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
   await page.waitForSelector('#project-name')
   ok('the plan loads the project’s data', await page.evaluate(() => document.querySelector('#project-name').value === 'New patient intake (draft)' && document.querySelector('#p-name-0').value === 'Riley Brooks'))
@@ -321,8 +321,8 @@ try {
   ok('a progress dialog shows the analysis steps', (await text()).includes('Clustering statements'))
   await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 20000 })
   ok('when it finishes, the person lands on Themes', true)
-  ok('Themes, Journey Map, Priorities and Requirements are now open; Stories is still locked',
-    !(await navLocked('Themes')) && !(await navLocked('Journey Map')) && !(await navLocked('Priorities')) && !(await navLocked('Requirements')) && (await navLocked('Stories')))
+  ok('Themes, Storyboard, Priorities and Requirements are now open; Stories is still locked',
+    !(await navLocked('Themes')) && !(await navLocked('Storyboard')) && !(await navLocked('Priorities')) && !(await navLocked('Requirements')) && (await navLocked('Stories')))
   // The steps are a horizontal strip: every group in one line when wide, one group at a time when narrow.
   ok('wide: one strip shows every group and all ten steps', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return ['Discovery', 'Analysis', 'Strategy', 'Delivery'].every((g) => n.innerText.includes(g.toUpperCase()) || n.innerText.includes(g)) && n.querySelectorAll('a').length === 10 }))
   await page.setViewport({ width: 800, height: 900 })
@@ -337,7 +337,7 @@ try {
   const mine = async () => (await apiProjects()).find((p) => p.id === projectId)
   ok('the project is Analyzed with 3 sessions and 9 themes', await mine().then((p) => p.status === 'analyzed' && p.sessions === 3 && p.themes === 9))
 
-  // Themes, Journey Map and Priorities, on the analysis just made.
+  // Themes, Storyboard and Priorities, on the analysis just made.
   const apiThemes = async () => (await (await fetch(`${API}/api/v1/projects/${projectId}/themes`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).data
   const navTo = async (label) => { await page.evaluate((l) => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === l).click(), label) }
   const choose = async (id, option) => {
@@ -396,8 +396,8 @@ try {
   await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 5000 })
 
   // Coming back to Themes with the data already loaded must still fill the name box (it was empty once).
-  await navTo('Journey Map')
-  await waitText('Journey Map')
+  await navTo('Storyboard')
+  await waitText('Generate the storyboard')
   await navTo('Themes')
   await page.waitForFunction(() => document.querySelector('#theme-title')?.value.length > 0, { timeout: 8000 })
   ok('returning to Themes shows the selected theme’s name in the name box', true)
@@ -418,28 +418,66 @@ try {
   await new Promise((r) => setTimeout(r, 600))
   ok('choosing a stage saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 2)
 
-  // Journey Map: every theme is already on it, with no pinning; drag the renamed one, then use its menu.
-  await navTo('Journey Map')
-  await page.waitForFunction(() => document.querySelectorAll('article').length > 0, { timeout: 8000 })
-  const inStage = (name) => page.evaluate((n) => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith(n))?.querySelectorAll('article').length ?? -1, name)
-  const stageHolds = (name, title) => page.evaluate((n, t) => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith(n))?.innerText.includes(t) ?? false, name, title)
-  ok('the Journey Map shows all 9 themes without any being pinned', (await page.evaluate(() => document.querySelectorAll('article').length)) === 9)
-  ok('the map has Themes, Pain points and Opportunity rows', await page.evaluate(() => ['THEMES', 'PAIN POINTS', 'OPPORTUNITY'].every((l) => [...document.querySelectorAll('div')].some((d) => d.children.length === 0 && d.innerText.trim().toUpperCase() === l))))
-  ok('the map has a Backstage row, marked Simulated, with a team, system or process under each stage that has themes', await page.evaluate(() => { const row = document.querySelector('[data-testid="backstage-row"]'); const cells = row ? [...row.children].slice(1) : []; return !!row && /simulated/i.test(row.children[0].innerText) && cells.length > 0 && cells.some((c) => /\b(Team|System|Process)\b/i.test(c.innerText)) }))
-  ok('the rows run Themes, Pain points, Opportunity, User flow, then Backstage last', await page.evaluate(() => { const map = document.querySelector('[data-testid="backstage-row"]').parentElement; const labels = [...map.children].slice(1).map((r) => r.children[0].innerText.trim().split('\n')[0].toUpperCase()); return labels.join('|') === 'THEMES|PAIN POINTS|OPPORTUNITY|USER FLOW|BACKSTAGE' }))
-  ok('pain points list each pain-point theme with its participants and importance', await page.evaluate(() => /\d of \d participants · (High|Medium|Low)/.test(document.body.innerText)))
-  ok('each stage has an opportunity, or says no themes are mapped', await page.evaluate(() => document.querySelectorAll('[class*="opportunity"], [class*="none"]').length >= 5))
-  ok('the user flow row is marked Simulated and shows numbered steps, a sentiment word and where each stage goes next', await page.evaluate(() => { const row = document.querySelector('[data-testid="flow-row"]'); const cells = row ? [...row.children].slice(1) : []; return !!row && /simulated/i.test(row.children[0].innerText) && cells.some((c) => c.querySelectorAll('ol > li').length >= 2 && /\b1 · start\b/i.test(c.innerText) && /(negative|mixed|positive) sentiment/i.test(c.innerText) && /next:|end of the journey/i.test(c.innerText)) }))
-  ok('the stage counts add up to 9', (await Promise.all(['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'].map(inStage))).every((n) => n >= 0))
-  ok('the renamed theme sits in Confirm & pay', await stageHolds('Confirm & pay', 'Hard to see who is free'))
-  await dnd(() => [...document.querySelectorAll('article')].find((a) => a.innerText.includes('Hard to see who is free')), () => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change')))
-  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Prepare or change'))?.innerText.includes('Hard to see who is free'), { timeout: 8000 })
-  ok('dragging a theme to another stage moves and saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 3)
-  await page.evaluate(() => [...document.querySelectorAll('article')].find((a) => a.innerText.includes('Hard to see who is free')).querySelector('.cds--overflow-menu').click())
-  await clickText('Move to Find a provider', 'button')
-  await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label]')].find((s) => s.getAttribute('aria-label').startsWith('Find a provider'))?.innerText.includes('Hard to see who is free'), { timeout: 8000 })
-  ok('the menu moves it too, without dragging', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 0)
-  ok('the menu has no unpin item', !(await text()).includes('Unpin'))
+  // Storyboard: nothing to read until an owner or editor writes it; then six slides that cannot be edited, and a PDF to download.
+  await navTo('Storyboard')
+  await waitText('Generate the storyboard')
+  ok('before it is written the Storyboard offers Generate, and nothing to download', await page.evaluate(() => { const t = [...document.querySelectorAll('button')].map((b) => b.innerText.trim()); return t.includes('Generate the storyboard') && !t.includes('Download as PDF') && !document.querySelector('[aria-roledescription="slide"]') }))
+  ok('the step is called Storyboard, and the old Journey Map is gone from the steps', await page.evaluate(() => { const labels = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); return labels.includes('Storyboard') && !labels.includes('Journey Map') }))
+  await clickText('Generate the storyboard')
+  await page.waitForSelector('[aria-roledescription="slide"]', { timeout: 20000 })
+  const slide = () => page.evaluate(() => document.querySelector('[aria-roledescription="slide"]').getAttribute('aria-label'))
+  const pickSlide = async (n) => { await page.evaluate((k) => document.querySelector(`ul[aria-label="Slides"] button[aria-label^="Slide ${k}:"]`).click(), n); await new Promise((r) => setTimeout(r, 250)) }
+  ok('the Storyboard has six slides in a strip, opens on the title, and says which it is on', (await slide()) === 'Slide 1 of 6: Title' && (await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Slides"] button')].map((b) => b.getAttribute('aria-label')).join('|'))) === 'Slide 1: Title|Slide 2: The problem and what we did|Slide 3: What we heard|Slide 4: Recommended solutions|Slide 5: Trade-offs|Slide 6: Recommendation and the ask')
+  ok('without the AI model it says so: a plain draft, with its trade-offs not estimated', await page.evaluate(() => /Plain draft/.test(document.body.innerText) && /without the AI model/.test(document.body.innerText)))
+  ok('the title slide has the project, the headline, "Draft for review", a date and the author', await page.evaluate(() => { const t = document.querySelector('[aria-roledescription="slide"]').innerText; return /Intake v2 · Research storyboard/.test(t) && /Draft for review/.test(t) && /\d{1,2} [A-Z][a-z]+ \d{4}/.test(t) && !!document.querySelector('[aria-roledescription="slide"] h2') }), (await page.evaluate(() => document.querySelector('[aria-roledescription="slide"]').innerText)).replace(/\n/g, ' | '))
+  await pickSlide(2)
+  ok('slide 2 has the problem as its title, how many participants and sessions, and the tasks observed', await page.evaluate(() => { const s = document.querySelector('[aria-roledescription="slide"]'); const t = s.innerText; return s.querySelector('h2').innerText.length > 20 && /\d\s*participants?/i.test(t) && /\d\s*sessions?/i.test(t) && /Tasks we observed/i.test(t) }))
+  await pickSlide(3)
+  ok('slide 3 shows the five strongest themes, each with how many of the participants raised it, a category and a quote', await page.evaluate(() => { const items = [...document.querySelectorAll('[aria-roledescription="slide"] ul > li')]; return items.length === 5 && items.every((i) => /\d+\s*of\s*\d+/.test(i.innerText) && /(Pain point|Need|Expectation|Delight)/.test(i.innerText)) && items.some((i) => /“/.test(i.innerText)) }))
+  ok('and offers Show all themes (9), which opens the Themes page', await page.evaluate(() => [...document.querySelectorAll('[aria-roledescription="slide"] button')].some((b) => b.innerText.trim() === 'Show all themes (9)')))
+  await pickSlide(4)
+  ok('slide 4 lists the solutions, each with the themes it addresses, labeled as a best guess or plain draft', await page.evaluate(() => { const s = document.querySelector('[aria-roledescription="slide"]'); const items = [...s.querySelectorAll('ol > li')]; return items.length >= 1 && items.every((i) => /Addresses these themes/i.test(i.innerText)) && /Plain draft|best guess/.test(s.innerText) }))
+  await pickSlide(5)
+  ok('slide 5 is a table of trade-offs: benefit, cost, risk, what we give up and alternatives, a row for each solution', await page.evaluate(() => { const t = document.querySelector('[aria-roledescription="slide"] [role="table"]'); const heads = [...t.querySelectorAll('[role="columnheader"]')].map((h) => h.innerText.trim().toUpperCase()); const rows = [...t.querySelectorAll('[role="row"]')].length - 1; return heads.join('|') === 'SOLUTION|BENEFIT|COST|RISK|WHAT WE GIVE UP|ALTERNATIVES CONSIDERED' && rows >= 1 }))
+  await pickSlide(6)
+  ok('slide 6 is the recommendation: the decision needed and the next step', await page.evaluate(() => { const t = document.querySelector('[aria-roledescription="slide"]').innerText; return /The decision we need/i.test(t) && /Next step/i.test(t) }))
+  ok('nothing on it can be edited: no text box or field anywhere on the page', await page.evaluate(() => !document.querySelector('main textarea, main input, [contenteditable="true"]')))
+  ok('Regenerate and Download as PDF sit at the right of the title, in that order, Download as PDF being the black button', await page.evaluate(() => { const h = document.querySelector('h1').getBoundingClientRect(); const bs = [...document.querySelectorAll('button')]; const re = bs.find((b) => b.innerText.trim() === 'Regenerate'); const dl = bs.find((b) => b.innerText.trim() === 'Download as PDF'); if (!re || !dl) return false; const r = re.getBoundingClientRect(); const d = dl.getBoundingClientRect(); return r.left > h.right && r.right <= d.left && d.right > innerWidth * 0.5 && getComputedStyle(dl).backgroundColor === 'rgb(24, 29, 38)' }))
+  // Regenerate asks first.
+  await clickText('Regenerate')
+  await page.waitForSelector('.cds--modal.is-visible', { timeout: 8000 })
+  ok('Regenerate asks before it replaces the text, and Cancel leaves it as it was', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible'); return /Write the storyboard again\?/.test(m.innerText) && /for everyone/.test(m.innerText) }))
+  await clickInOpenDialog('Cancel')
+  await new Promise((r) => setTimeout(r, 400))
+  // Download as PDF prints the deck: only the six slides, one to a landscape page, the page named after the project.
+  await page.evaluate(() => { window.__printed = null; window.print = () => { window.__printed = { title: document.title, rule: [...document.querySelectorAll('style')].some((s) => /@page\s*{\s*size:\s*10in 5\.625in/.test(s.textContent)) } } })
+  await clickText('Download as PDF')
+  ok('Download as PDF prints with the page sized to a 16:9 slide and the document named after the project', await page.evaluate(() => window.__printed && /storyboard$/.test(window.__printed.title) && window.__printed.rule === true))
+  await page.emulateMediaType('print')
+  ok('when printing, the app is hidden and the six slides are shown full size, 960 by 540, one after another', await page.evaluate(() => { const sheets = [...document.querySelectorAll('[data-testid="storyboard-print"] > div')]; return getComputedStyle(document.querySelector('#root')).display === 'none' && sheets.length === 6 && sheets.every((x) => Math.round(x.getBoundingClientRect().width) === 960 && Math.round(x.getBoundingClientRect().height) === 540) }))
+  ok('the title and closing slides keep their dark backgrounds in print', await page.evaluate(() => { const bg = (i) => getComputedStyle([...document.querySelectorAll('[data-testid="storyboard-print"] section')][i]).backgroundColor; return bg(0) === 'rgb(24, 29, 38)' && bg(5) === 'rgb(24, 29, 38)' && bg(2) !== 'rgb(24, 29, 38)' }))
+  await page.addStyleTag({ content: '@page { size: 10in 5.625in; margin: 0 }' })
+  const pdf = await page.pdf({ preferCSSPageSize: true, printBackground: true })
+  ok('the PDF has six pages', (Buffer.from(pdf).toString('latin1').match(/\/Type\s*\/Page[^s]/g) ?? []).length === 6)
+  await page.emulateMediaType('screen')
+  await page.reload({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[aria-roledescription="slide"]', { timeout: 8000 })
+  ok('the saved text is still there after a reload, the same for everyone', (await slide()) === 'Slide 1 of 6: Title')
+  await pickSlide(3)
+  await page.evaluate(() => [...document.querySelectorAll('[aria-roledescription="slide"] button')].find((b) => b.innerText.trim() === 'Show all themes (9)').click())
+  await page.waitForFunction(() => /\/themes$/.test(location.pathname), { timeout: 8000 })
+  ok('Show all themes goes to the Themes page', true)
+  await page.goto(`${BASE}/projects/${projectId}/journey`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-nav] a[data-label="Themes"]', { timeout: 8000 })
+  ok('the old Journey Map address leads to the Storyboard', await page.evaluate(() => /\/storyboard$/.test(location.pathname)))
+  // A theme's stage is still set on the Themes page (it was also movable on the old Journey Map).
+  await navTo('Themes')
+  await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 8000 })
+  await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Themes"] li')].find((li) => li.innerText.includes('Hard to see who is free')).querySelector('a, button').click())
+  await waitText('Theme name')
+  await choose('theme-stage', 'Find a provider')
+  await new Promise((r) => setTimeout(r, 600))
+  ok('a theme’s stage is set from the Themes page', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 0)
 
   // Priorities: the map has the whole width and no side panel. A node moves with its three-dot menu (for people who cannot drag) or by dragging; its details
   // open beside it after two seconds of rest (or at once on a click), and the menu also resets it.
@@ -508,7 +546,7 @@ try {
   for (const width of [744, 1024]) {
     await page.setViewport({ width, height: 900 })
     const wide = []
-    for (const path of ['/projects', '/projects/new', `/projects/${projectId}/plan`, `/projects/${projectId}/tasks`, `/projects/${projectId}/transcripts`, `/projects/${projectId}/themes`, `/projects/${projectId}/journey`, `/projects/${projectId}/prio`, '/insights/themes', '/insights/personas', '/insights/journey', '/insights/case-studies']) {
+    for (const path of ['/projects', '/projects/new', `/projects/${projectId}/plan`, `/projects/${projectId}/tasks`, `/projects/${projectId}/transcripts`, `/projects/${projectId}/themes`, `/projects/${projectId}/storyboard`, `/projects/${projectId}/prio`, '/insights/themes', '/insights/personas', '/insights/journey', '/insights/case-studies']) {
       await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
       await new Promise((r) => setTimeout(r, 300))
       if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) wide.push(path.replace(projectId, ':id'))
@@ -650,7 +688,7 @@ try {
   ok('with stories still to prepare, the page opens on Prepare for Jira', await page.evaluate(() => document.querySelector('[data-testid="tab-prepare"]').getAttribute('aria-selected') === 'true'))
 
 
-  ok('Stories uses the standard column, 75rem like every page but the Journey Map, and the step strip and the project bar sit where they do on every other page', await page.evaluate((x) => { const left = (el) => Math.round(el.getBoundingClientRect().left); const label = document.querySelector('nav[aria-label="Project steps"] p'); return Math.round(document.querySelector('[data-testid="page-column"]').getBoundingClientRect().width) <= 1200 && left(label) === x && left(document.querySelector('[data-context] a[data-label="All projects"]')) - left(label) >= 2 && left(document.querySelector('[data-context] a[data-label="All projects"]')) - left(label) <= 6 }, stripLeft))
+  ok('Stories uses the standard column, 75rem like every page, and the step strip and the project bar sit where they do on every other page', await page.evaluate((x) => { const left = (el) => Math.round(el.getBoundingClientRect().left); const label = document.querySelector('nav[aria-label="Project steps"] p'); return Math.round(document.querySelector('[data-testid="page-column"]').getBoundingClientRect().width) <= 1200 && left(label) === x && left(document.querySelector('[data-context] a[data-label="All projects"]')) - left(label) >= 2 && left(document.querySelector('[data-context] a[data-label="All projects"]')) - left(label) <= 6 }, stripLeft))
   ok('the footer text is 14px, the same as a case study card’s description', await page.evaluate(() => { const ps = [...document.querySelectorAll('footer p')].filter((p) => !p.querySelector('img')); return ps.length >= 3 && ps.every((p) => getComputedStyle(p).fontSize === '14px') }))
   // Design: a row per requirement with a prototype link, a picture and design notes.
   const designApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/design`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
@@ -1119,7 +1157,7 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Workflows').click())
   await page.waitForSelector('[data-testid^="journey-stage-"]', { timeout: 8000 })
   const journey = await (await fetch(`${API}/api/v1/insights/journey`)).json()
-  ok('the platform journey uses the project Journey Map format: a dark stage row, then Themes, Pain points, Sentiment and Opportunity rows', await page.evaluate((j) => { const heads = [...document.querySelectorAll('[data-testid^="journey-stage-"]')]; const labels = [...document.querySelectorAll('[class*="rowLabel"]')].map((e) => e.textContent.trim()); const themes = [...document.querySelectorAll('article[data-category]')].map((a) => a.innerText); return heads.length === j.stages.length && heads.every((h, i) => h.innerText.toLowerCase().includes(j.stages[i].name.toLowerCase()) && h.innerText.toLowerCase().includes(`stage ${i + 1}`)) && labels.join() === 'Themes,Pain points,Sentiment,Opportunity' && j.stages.every((st) => st.themes.every((t) => themes.some((x) => x.includes(t.title)))) && !!document.querySelector('[role="img"][aria-label^="Sentiment by stage"]') && heads.length === document.querySelector('[data-columns]').getAttribute('data-columns') * 1 }, journey))
+  ok('the platform journey uses the same map format: a dark stage row, then Themes, Pain points, Sentiment and Opportunity rows', await page.evaluate((j) => { const heads = [...document.querySelectorAll('[data-testid^="journey-stage-"]')]; const labels = [...document.querySelectorAll('[class*="rowLabel"]')].map((e) => e.textContent.trim()); const themes = [...document.querySelectorAll('article[data-category]')].map((a) => a.innerText); return heads.length === j.stages.length && heads.every((h, i) => h.innerText.toLowerCase().includes(j.stages[i].name.toLowerCase()) && h.innerText.toLowerCase().includes(`stage ${i + 1}`)) && labels.join() === 'Themes,Pain points,Sentiment,Opportunity' && j.stages.every((st) => st.themes.every((t) => themes.some((x) => x.includes(t.title)))) && !!document.querySelector('[role="img"][aria-label^="Sentiment by stage"]') && heads.length === document.querySelector('[data-columns]').getAttribute('data-columns') * 1 }, journey))
   ok('a theme card on the journey opens that theme', await (async () => { await page.evaluate(() => document.querySelector('article[data-category] button').click()); await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 }); await page.goBack({ waitUntil: 'networkidle0' }); await page.waitForSelector('[data-testid^="journey-stage-"]'); return true })())
   ok('the old Onboarding page is gone from the tabs', await page.evaluate(() => ![...document.querySelectorAll('[data-label]')].some((a) => a.dataset.label === 'Onboarding')))
   await page.goto(`${BASE}/insights/onboarding`, { waitUntil: 'networkidle0' })
@@ -1169,18 +1207,10 @@ try {
   ok('the picker lists the workflows by name with All studies last', flows.length === 2 && picks.length === 3 && /^Customer success lifecycle/.test(picks[0]) && /^Patient access and scheduling/.test(picks[1]) && /^All studies/.test(picks[2]), picks.join(' | '))
   await new Promise((r) => setTimeout(r, 400))
 
-  // A project goes on a workflow: its stages map by name and its Backstage row reads the blueprint.
-  await page.goto(`${BASE}/projects/${projectId}/journey`, { waitUntil: 'networkidle0' })
-  await page.waitForSelector('#project-workflow', { timeout: 8000 })
-  ok('before a workflow is chosen the Backstage row is still the simulation', await page.evaluate(() => /simulated/i.test(document.querySelector('[data-testid="backstage-row"]').children[0].innerText)))
-  await pickOption('#project-workflow', 'Patient access and scheduling')
-  await page.waitForFunction(() => /From Patient access and scheduling/i.test(document.querySelector('[data-testid="backstage-row"]')?.children[0]?.innerText ?? ''), { timeout: 8000 })
-  ok('choosing a workflow maps the stages by name, and the Backstage row shows the blueprint’s teams, systems and owners instead of the simulation', await page.evaluate(() => { const row = document.querySelector('[data-testid="backstage-row"]'); const cells = [...row.children].slice(1); return cells.length === 5 && cells.every((c) => /Owner: /.test(c.innerText)) && /Scheduling team/.test(row.innerText) && !/simulated/i.test(row.children[0].innerText) }))
-  await page.evaluate(() => [...document.querySelectorAll('[data-testid="backstage-row"] button')].find((b) => /^Unmap from/.test(b.innerText.trim())).click())
-  await page.waitForFunction(() => /Not mapped to a stage/.test(document.querySelector('[data-testid="backstage-row"]').innerText), { timeout: 8000 })
-  await pickOption('[id^="map-stage-"]', 'Find a provider')
-  await page.waitForFunction(() => !/Not mapped to a stage/.test(document.querySelector('[data-testid="backstage-row"]').innerText), { timeout: 8000 })
-  ok('a stage can be unmapped (it says so and offers the workflow’s stages) and mapped again', true)
+  // A project goes on a workflow (there is no picker on the project any more; the API still does it): its stages map by name.
+  const patientFlow = (await (await fetch(`${API}/api/v1/workflows`)).json()).data.find((w) => w.name === 'Patient access and scheduling')
+  const onFlow = await (await fetch(`${API}/api/v1/projects/${projectId}/workflow`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ workflowId: patientFlow.id }) })).json()
+  ok('putting a project on a workflow maps its five stages to the workflow’s by name', onFlow.workflow?.name === 'Patient access and scheduling' && onFlow.stages.length === 5 && onFlow.stages.every((x) => x.workflowStage && (x.workflowStage.backstage ?? []).length > 0))
 
   // The platform journey for that workflow lays the project's research over the blueprint, and a persona can be traced.
   await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
@@ -1234,8 +1264,8 @@ try {
   await page.waitForSelector('[data-testid="blueprint-editor"]', { timeout: 8000 })
   await clickPage('Delete')
   await page.waitForSelector('.cds--modal.is-visible', { timeout: 8000 })
-  ok('Delete on a workflow with a project on it explains that and only offers Close', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible'); const b = [...m.querySelectorAll('button')].map((x) => x.innerText.trim()).filter(Boolean); return /Delete Patient access and scheduling\?/.test(m.innerText) && /project is on this workflow/i.test(m.innerText) && b.includes('Close') && !b.includes('Delete') }))
-  await clickInOpenDialog('Close')
+  ok('Delete on a workflow with a project on it says the project will be taken off it, and offers Delete and Cancel', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible'); const b = [...m.querySelectorAll('button')].map((x) => x.innerText.trim()).filter(Boolean); return /Delete Patient access and scheduling\?/.test(m.innerText) && /project is on this workflow and will be taken off it/i.test(m.innerText) && b.includes('Delete') && b.includes('Cancel') }))
+  await clickInOpenDialog('Cancel')
   await new Promise((r) => setTimeout(r, 400))
   await clickPage('Cancel')
   await page.waitForFunction(() => !document.querySelector('[data-testid="blueprint-editor"]'), { timeout: 8000 })

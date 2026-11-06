@@ -22,9 +22,10 @@ import {
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
 import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
+import { generateStoryboard, getStoryboard, NoStoryboardProject, NoThemesYet } from './storyboard.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney, getWorkflowJourney } from './journey.js'
-import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, sampleMissing, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowInUse, WorkflowMissing } from './workflows.js'
+import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, sampleMissing, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowMissing } from './workflows.js'
 import { getUsage } from './usage.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
@@ -655,7 +656,6 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof WorkflowMissing) throw new ApiError(404, 'not_found', 'No such workflow.')
     if (err instanceof ProjectNotFound) throw new ApiError(404, 'not_found', 'No such project.')
     if (err instanceof WorkflowDuplicate) throw new ApiError(409, 'duplicate_workflow', `A workflow named "${err.name}" already exists.`, 'name')
-    if (err instanceof WorkflowInUse) throw new ApiError(409, 'workflow_in_use', `${err.projects === 1 ? 'A project is' : `${err.projects} projects are`} on this workflow. Move them to another workflow first.`)
     if (err instanceof WorkflowConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this workflow since you opened it.', undefined, { current: { version: err.current } })
     if (err instanceof StageMissing) throw new ApiError(422, 'validation_failed', 'That stage does not belong here.', 'workflowStageId')
     throw err
@@ -925,6 +925,24 @@ export function createApp(options: AppOptions = {}) {
     requireEditor(c)
     c.header('Cache-Control', 'no-store')
     return c.json(await writeRankRationales(getDb(), ai, c.get('ctx').workspaceId))
+  })
+  app.get('/projects/:id/storyboard', withReadContext, async (c) => {
+    const board = await getStoryboard(getDb(), c.get('ctx').workspaceId, projectId(c))
+    if (!board) throw new ApiError(404, 'not_found', 'No such project.')
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(board)
+  })
+  app.post('/projects/:id/storyboard/generate', withContext, async (c) => {
+    requireEditor(c)
+    c.header('Cache-Control', 'no-store')
+    try {
+      return c.json(await generateStoryboard(getDb(), ai, c.get('ctx'), projectId(c)))
+    } catch (err) {
+      if (err instanceof NoStoryboardProject) throw new ApiError(404, 'not_found', 'No such project.')
+      if (err instanceof NoThemesYet) throw new ApiError(409, 'no_themes', 'This project has no themes yet. Add transcripts and run the analysis first.')
+      throw err
+    }
   })
   app.get('/projects/:id/case-study-brief', withReadContext, async (c) => {
     const id = projectId(c)

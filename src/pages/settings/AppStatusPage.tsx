@@ -3,7 +3,7 @@ import { useAiStatus, useMe } from '../../api/hooks'
 import { SettingsHeader } from './SettingsHeader'
 import styles from './AppStatusPage.module.scss'
 
-const PURPOSE_LABEL: Record<string, string> = { analysis: 'Transcript analysis', spec_step: 'Requirements drafting', theme_match: 'Theme matching' }
+const PURPOSE_LABEL: Record<string, string> = { analysis: 'Transcript analysis', spec_step: 'Requirements drafting', theme_match: 'Theme matching', storyboard: 'Storyboard' }
 const SPEND_LABEL = { half: '50% reached', high: '80% reached', reached: 'Budget reached' } as const
 
 // How the app is running: this month's AI spend against its budget, and the recent problems the AI steps ran into. Owners only: the

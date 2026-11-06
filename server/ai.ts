@@ -8,6 +8,7 @@ import type { DraftInput, StepDraft } from './ai-drafting.js'
 import type { MatchInput, Placement } from './ai-matching.js'
 import type { DedupeInput, MergeGroup } from './ai-dedupe.js'
 import type { RationaleInput, Rationale } from './ai-rationale.js'
+import type { StoryboardDraft, StoryboardInput } from './ai-storyboard.js'
 
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
@@ -30,10 +31,12 @@ export type AiProvider = {
   suggestMerges?(input: DedupeInput): Promise<Priced<{ groups: MergeGroup[]; promptVersion: string }>>
   /** Writes why each ranked theme ranks where it does. Providers without it use a plain template from the same figures. */
   writeRationales?(input: RationaleInput): Promise<Priced<{ rationales: Rationale[]; promptVersion: string }>>
+  /** Writes the model-written parts of a project's Storyboard. Providers without it use a plain draft from the same themes. */
+  writeStoryboard?(input: StoryboardInput): Promise<Priced<{ draft: StoryboardDraft; promptVersion: string }>>
   analyzeProject?(input: AnalysisInput): Promise<Priced<{ themes: ReturnType<Fn<'analyze'>>; promptVersion: string }>>
 }
 export type Ai = { provider: AiProvider; env: Env }
-export type Purpose = 'analysis' | 'spec_step' | 'theme_match'
+export type Purpose = 'analysis' | 'spec_step' | 'theme_match' | 'storyboard'
 
 const FREE: Usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 }
 

@@ -1,7 +1,7 @@
 import { ChevronLeft, ChevronRight } from '@carbon/icons-react'
 import { Button } from '@carbon/react'
-import { useCallback, useEffect, useRef, useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
+import { useStrip } from '../../components/useStrip'
 import styles from './RecommendationStrip.module.scss'
 
 type Rec = InsightsThemes['recommendations'][number]
@@ -17,48 +17,7 @@ export const sortRecommendations = (recs: Rec[]) => [...recs].sort((a, b) => RAN
 // Picking a card selects it, so the table below can show only the themes it covers.
 export function RecommendationStrip({ recs, selectedId, onSelect }: { recs: Rec[]; selectedId: string | null; onSelect: (id: string | null) => void }) {
   const sorted = sortRecommendations(recs)
-  const track = useRef<HTMLUListElement>(null)
-  const [view, setView] = useState({ first: 1, last: sorted.length, canBack: false, canForward: false })
-
-  // Which cards are showing, measured from the scroll position.
-  const measure = useCallback(() => {
-    const el = track.current
-    if (!el) return
-    const cards = [...el.children] as HTMLElement[]
-    const left = el.scrollLeft
-    const right = left + el.clientWidth
-    // A card's place along the track, measured from the track itself (offsetLeft is from the nearest positioned ancestor, which is not the track).
-    const origin = el.getBoundingClientRect().left
-    const showing = cards
-      .map((c, i) => {
-        const box = c.getBoundingClientRect()
-        const start = box.left - origin + left
-        return { i, whole: start >= left - 1 && start + box.width <= right + 1 }
-      })
-      .filter((c) => c.whole)
-    setView({
-      first: showing.length ? showing[0].i + 1 : 1,
-      last: showing.length ? showing[showing.length - 1].i + 1 : cards.length,
-      canBack: left > 1,
-      canForward: left + el.clientWidth < el.scrollWidth - 1,
-    })
-  }, [])
-
-  useEffect(() => {
-    const el = track.current
-    if (!el) return
-    measure()
-    const watch = new ResizeObserver(measure)
-    watch.observe(el)
-    return () => watch.disconnect()
-  }, [measure, recs])
-
-  const move = (direction: 1 | -1) => {
-    const el = track.current
-    if (!el) return
-    const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
-    el.scrollBy({ left: direction * el.clientWidth * 0.9, behavior: calm ? 'auto' : 'smooth' })
-  }
+  const { track, view, measure, move } = useStrip(sorted.length, recs)
 
   const all = view.first === 1 && view.last === sorted.length
   return (

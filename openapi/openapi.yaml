@@ -371,7 +371,7 @@ paths:
         '428': { $ref: '#/components/responses/Error' }
     delete:
       operationId: deleteWorkflow
-      summary: Owners and editors. Deletes a workflow no project is on. 409 `workflow_in_use` otherwise.
+      summary: Owners and editors. Deletes a workflow. The projects on it are taken off it and their stage mapping is cleared; the audit log records how many.
       parameters:
         - { $ref: '#/components/parameters/Id' }
       responses:
@@ -1469,6 +1469,44 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/storyboard:
+    get:
+      operationId: getStoryboard
+      summary: >
+        A project's research as a short deck for product leaders. The facts (who was studied, the strongest themes, a customer's words for each) are read live;
+        `draft` is the text a model wrote (the headline, the problem, up to three recommended solutions with trade-offs, the recommendation and ask),
+        saved once and the same for everyone, or null until an owner or editor generates it. Read-only in the app. Open to read as the viewer.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The storyboard.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Storyboard' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/storyboard/generate:
+    post:
+      operationId: generateStoryboard
+      summary: >
+        Writes the storyboard's text from the project's themes, or writes it again, replacing the saved text (owners and editors). Counts as an AI call under the
+        month's budget; with no model, or when the budget or credit is used up, a plain draft from the same themes is saved and `fallback` says why.
+        409 `no_themes` when the project has no themes yet; 503 `ai_output_unusable` (nothing saved) when the reply could not be used.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The storyboard with its new text.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Storyboard' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /insights/case-briefs:
     get:
       operationId: listCaseBriefs
@@ -1751,13 +1789,13 @@ components:
       properties:
         tabs:
           type: object
-          required: [plan, tasks, transcripts, themes, journey, prio, requirements, design, stories, measure]
+          required: [plan, tasks, transcripts, themes, storyboard, prio, requirements, design, stories, measure]
           properties:
             plan: { $ref: '#/components/schemas/StageTab' }
             tasks: { $ref: '#/components/schemas/StageTab' }
             transcripts: { $ref: '#/components/schemas/StageTab' }
             themes: { $ref: '#/components/schemas/StageTab' }
-            journey: { $ref: '#/components/schemas/StageTab' }
+            storyboard: { $ref: '#/components/schemas/StageTab' }
             prio: { $ref: '#/components/schemas/StageTab' }
             requirements: { $ref: '#/components/schemas/StageTab' }
             design: { $ref: '#/components/schemas/StageTab' }
@@ -2986,6 +3024,81 @@ components:
           type: array
           maxItems: 60
           items: { $ref: '#/components/schemas/Checkin' }
+    Storyboard:
+      type: object
+      required: [facts, draft]
+      properties:
+        facts:
+          type: object
+          required: [projectName, participants, sessions, roles, tasks, when, themes, themeCount]
+          properties:
+            projectName: { type: string }
+            participants: { type: integer }
+            sessions: { type: integer }
+            roles:
+              type: array
+              items:
+                type: object
+                required: [role, count]
+                properties: { role: { type: string }, count: { type: integer } }
+            tasks: { type: array, items: { type: string }, description: 'The top-level questions and tasks of the test plan (up to six).' }
+            when:
+              type: [object, 'null']
+              description: First and last session date of the participants, or null when none has a date.
+              required: [from, to]
+              properties: { from: { type: string, format: date }, to: { type: string, format: date } }
+            themes:
+              type: array
+              description: The strongest themes (up to eight), most important first. The deck shows the first five.
+              items:
+                type: object
+                required: [id, title, category, participants, totalParticipants, quote]
+                properties:
+                  id: { type: string }
+                  title: { type: string }
+                  category: { type: string }
+                  participants: { type: integer }
+                  totalParticipants: { type: integer }
+                  quote:
+                    type: [object, 'null']
+                    description: A customer's own words, or null.
+                    required: [text, who]
+                    properties: { text: { type: string }, who: { type: string } }
+            themeCount: { type: integer, description: 'All the project''s themes, for "Show all themes".' }
+        draft:
+          type: [object, 'null']
+          description: The saved text, or null until generated.
+          required: [headline, problem, solutions, recommendation, source, generatedAt]
+          properties:
+            headline: { type: string }
+            problem: { type: string }
+            solutions:
+              type: array
+              items:
+                type: object
+                required: [name, description, themes, benefit, cost, risk, giveUp, alternatives]
+                properties:
+                  name: { type: string }
+                  description: { type: string }
+                  themes:
+                    type: array
+                    description: The themes it answers, by name.
+                    items:
+                      type: object
+                      required: [id, title]
+                      properties: { id: { type: string }, title: { type: string } }
+                  benefit: { type: string }
+                  cost: { type: string }
+                  risk: { type: string }
+                  giveUp: { type: string }
+                  alternatives: { type: string }
+            recommendation:
+              type: object
+              required: [direction, decision, nextStep]
+              properties: { direction: { type: string }, decision: { type: string }, nextStep: { type: string } }
+            source: { type: string, enum: [model, template], description: 'template is the plain draft made without the AI model.' }
+            generatedAt: { type: string, format: date-time }
+        fallback: { type: string, enum: [budget, credit], description: 'Set on a generate that fell back to the plain draft because the month''s budget or the account''s credit was used up.' }
     AiStatus:
       type: object
       required: [mode, enabled]
@@ -3004,7 +3117,7 @@ components:
             required: [at, purpose, code, message, detail]
             properties:
               at: { type: string, format: date-time }
-              purpose: { type: string, description: 'analysis, spec_step or theme_match.' }
+              purpose: { type: string, description: 'analysis, spec_step, theme_match or storyboard.' }
               code: { type: string, description: 'For example ai_output_unusable, ai_credit_exhausted or ai_budget_reached.' }
               message: { type: string }
               detail: { type: [string, 'null'], description: 'What was wrong with the reply, or what the app did instead. Never research text.' }

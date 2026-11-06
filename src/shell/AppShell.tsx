@@ -34,8 +34,6 @@ export function AppShell() {
 
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
-  // Every project step shares one centered column; the Journey Map alone needs the room, so its content is wider (the project bar and the step strip stay at the shared width everywhere).
-  const wide = project?.[2] === 'journey'
   const insights = pathname.startsWith('/insights')
   const settings = pathname.startsWith('/settings')
   // Creating a project shows the same steps, with only Test Plan open: the others need a saved project.
@@ -76,7 +74,7 @@ export function AppShell() {
   const decisionGuides = brand.decisionGuidesUrl as string | undefined
 
   return (
-    <div className={styles.shell} ref={shell} data-wide={wide}>
+    <div className={styles.shell} ref={shell}>
       <SpendBanner onHeight={onBanner} />
       <aside className={styles.rail} aria-label="Main menu">
         <div className={styles.brand}>

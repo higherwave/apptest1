@@ -223,6 +223,9 @@ export const setProjectWorkflow = (projectId: string, workflowId: string | null)
 export const mapProjectStage = (projectId: string, position: number, workflowStageId: string | null) => request<ProjectBlueprint>(`/projects/${projectId}/stage-map`, { method: 'PUT', body: { position, workflowStageId } })
 export type CaseBrief = components['schemas']['CaseBrief']
 export const listCaseBriefs = () => request<{ data: CaseBrief[] }>('/insights/case-briefs').then((r) => r.data)
+export type Storyboard = components['schemas']['Storyboard']
+export const getStoryboard = (projectId: string) => request<Storyboard>(`/projects/${projectId}/storyboard`)
+export const generateStoryboard = (projectId: string) => request<Storyboard>(`/projects/${projectId}/storyboard/generate`, { method: 'POST' })
 export const getCaseBrief = (projectId: string) => request<CaseBrief>(`/projects/${projectId}/case-study-brief`)
 export const getInsightsThemes = () => request<InsightsThemes>('/insights/themes')
 export const renamePlatformTheme = (id: string, title: string) => request<components['schemas']['PlatformThemeRef']>(`/insights/themes/${id}`, { method: 'PATCH', body: { title } })

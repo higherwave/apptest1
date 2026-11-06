@@ -1,0 +1,143 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  max-inline-size: 76rem;
+  min-inline-size: 0;
+}
+
+.empty {
+  @include tokens.role('body-md');
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  align-items: flex-start;
+  max-inline-size: 40rem;
+  color: var(--at-muted);
+}
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0;
+}
+
+// The slide strip: the same row-that-scrolls-sideways as the Recommendations on Platform Themes.
+.strip {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+
+.stripHead {
+  display: flex;
+  justify-content: flex-end;
+  min-block-size: 0;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+}
+
+.track {
+  display: flex;
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: var(--at-space-xxs); // room for the selected slide's outline
+  list-style: none;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-padding-inline: var(--at-space-xxs);
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+.item {
+  flex: 0 0 9rem;
+  min-inline-size: 0;
+  scroll-snap-align: start;
+}
+
+.thumb {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  gap: var(--at-space-xxs);
+  inline-size: 100%; // Carbon sizes a button to its text; the thumbnail is the width of its slot
+  max-inline-size: none;
+  block-size: auto;
+  min-block-size: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--at-ink);
+  text-align: start;
+
+  &:hover { background: transparent; }
+  &:focus-visible { outline: 0.125rem solid var(--at-link); outline-offset: 0.125rem; }
+  // The selected slide's picture is outlined; the others only have their hairline.
+  &[data-current='true'] > div { outline: 0.125rem solid var(--at-link); outline-offset: 1px; }
+  &[data-current='true'] .thumbNumber { font-weight: 600; }
+}
+
+.thumbNumber {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+// The slide being read, as wide as the page allows (up to 72rem), with where it is in the deck beneath it.
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  max-inline-size: 72rem;
+}
+
+.slide {
+  inline-size: 100%;
+}
+
+.caption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.captionText {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// The PDF. The deck is drawn again at full size after the app, hidden on screen; printing shows only it, one slide to a page.
+.print {
+  display: none;
+}
+
+@media print {
+  body[data-storyboard-print] > :global(#root) {
+    display: none;
+  }
+
+  .print {
+    display: block;
+  }
+
+  .sheet {
+    inline-size: 60rem;
+    block-size: 33.75rem;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+
+    &:last-child {
+      break-after: auto;
+      page-break-after: auto;
+    }
+  }
+}

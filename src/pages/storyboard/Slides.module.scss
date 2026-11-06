@@ -1,0 +1,368 @@
+@use '../../tokens' as tokens;
+
+// The deck's slides. Each is drawn on a fixed 16:9 canvas of 60 by 33.75 rem; ScaledSlide fits that canvas to whatever width it is shown at, and the
+// print layout (StoryboardPrint) uses it as it is, so the screen and the PDF match.
+
+.frame {
+  position: relative;
+  inline-size: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: var(--at-canvas);
+  box-shadow: var(--at-ring);
+}
+
+.canvas {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  transform-origin: top left;
+}
+
+.slide {
+  box-sizing: border-box;
+  inline-size: 60rem;
+  block-size: 33.75rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--at-canvas);
+  color: var(--at-ink);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+
+  &[data-dark='true'] {
+    background: var(--at-surface-dark);
+    color: var(--at-on-dark);
+    padding: var(--at-space-xxl) 4.5rem;
+  }
+}
+
+// Type used on the slides ----------------------------------------------------------------------------------------
+
+.eyebrow {
+  @include tokens.role('eyebrow-sm');
+  margin: 0 0 var(--at-space-xxs);
+  color: var(--at-rail-text);
+}
+
+.heading {
+  @include tokens.role('eyebrow-sm');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-muted);
+}
+
+.text {
+  @include tokens.role('reading-lg');
+  margin: 0;
+}
+
+.plain {
+  @include tokens.role('reading-lg');
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li + li { margin-block-start: var(--at-space-xxs); }
+}
+
+.draftLabel {
+  @include tokens.role('meta');
+  margin: 0;
+  padding: var(--at-space-xxs) var(--at-space-sm);
+  border: 1px solid var(--at-rail-active);
+  border-radius: var(--at-radius-full);
+  background: var(--at-rail);
+  color: var(--at-on-dark);
+  white-space: nowrap;
+}
+
+// A slide with a dark band across the top ------------------------------------------------------------------------
+
+.band {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-lg);
+  padding: var(--at-space-lg) var(--at-space-xxl);
+  background: var(--at-surface-dark);
+  color: var(--at-on-dark);
+}
+
+.bandTitle {
+  @include tokens.role('title-md');
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3; // a long problem statement stays inside its band
+  overflow: hidden;
+  margin: 0;
+  max-inline-size: 44rem;
+  font-weight: 400;
+}
+
+.bandLink {
+  flex: none;
+  color: var(--at-on-dark);
+
+  &:hover { background: var(--at-rail-hover); color: var(--at-on-dark); }
+  svg { fill: currentColor; }
+}
+
+// 1. Title --------------------------------------------------------------------------------------------------------
+
+.titleTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.titleKicker {
+  @include tokens.role('title-sm');
+  margin: 0;
+  color: var(--at-on-dark);
+  font-weight: 400;
+}
+
+.status {
+  @include tokens.role('body-md');
+  padding: var(--at-space-xxs) var(--at-space-md);
+  border: 1px solid var(--at-rail-active);
+  border-radius: var(--at-radius-full);
+  background: var(--at-rail);
+}
+
+.titleMain {
+  @include tokens.role('display-xl');
+  margin: auto 0;
+  max-inline-size: 48rem;
+  font-weight: 400;
+}
+
+.titleFoot {
+  @include tokens.role('body-md');
+  display: flex;
+  gap: var(--at-space-xxl);
+  padding-block-start: var(--at-space-md);
+  border-block-start: 1px solid var(--at-rail-active);
+  color: var(--at-rail-text);
+}
+
+// 2. The problem and what we did -----------------------------------------------------------------------------------
+
+.problemBody {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: var(--at-space-xxl);
+  padding: var(--at-space-lg) var(--at-space-xxl);
+  min-block-size: 0;
+  overflow: hidden;
+}
+
+.problemLeft,
+.problemRight {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  min-inline-size: 0;
+}
+
+.stats {
+  display: flex;
+  gap: var(--at-space-xl);
+}
+
+.statNumber {
+  @include tokens.role('display-lg');
+  margin: 0;
+}
+
+.statLabel {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// 3. What we heard -------------------------------------------------------------------------------------------------
+
+.themes {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 5), minmax(0, 1fr));
+  gap: var(--at-space-md);
+  margin: 0;
+  padding: var(--at-space-lg) var(--at-space-xxl);
+  list-style: none;
+  min-block-size: 0;
+
+  &[data-count='1'] { --cols: 1; }
+  &[data-count='2'] { --cols: 2; }
+  &[data-count='3'] { --cols: 3; }
+  &[data-count='4'] { --cols: 4; }
+}
+
+.theme {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-surface-soft);
+  min-inline-size: 0;
+  overflow: hidden;
+}
+
+.themeCount {
+  @include tokens.role('display-md');
+  margin: 0;
+
+  span { @include tokens.role('meta'); color: var(--at-muted); }
+}
+
+.themeName {
+  @include tokens.role('label-md');
+  margin: 0;
+}
+
+.quote {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+
+  cite {
+    @include tokens.role('meta');
+    display: block;
+    margin-block-start: var(--at-space-xs);
+    color: var(--at-muted);
+    font-style: normal;
+  }
+}
+
+// 4. Recommended solutions -----------------------------------------------------------------------------------------
+
+.solutions {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(0, 1fr));
+  gap: var(--at-space-lg);
+  margin: 0;
+  padding: var(--at-space-xl) var(--at-space-xxl);
+  list-style: none;
+  min-block-size: 0;
+
+  &[data-count='1'] { --cols: 1; }
+  &[data-count='2'] { --cols: 2; }
+}
+
+.solution {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+  padding-block-start: var(--at-space-md);
+  border-block-start: 0.1875rem solid var(--at-ink);
+}
+
+.solutionNum {
+  @include tokens.role('eyebrow-sm');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.solutionName {
+  @include tokens.role('title-md');
+  margin: 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xxs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  @include tokens.role('meta');
+  padding: var(--at-space-xxs) var(--at-space-xs);
+  border-radius: var(--at-radius-sm);
+  background: var(--at-surface-slate);
+  color: var(--at-ink);
+}
+
+// 5. Trade-offs ----------------------------------------------------------------------------------------------------
+
+.table {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: var(--at-space-lg) var(--at-space-xxl);
+  min-block-size: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1.1fr repeat(5, minmax(0, 1fr));
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.th,
+.rowHead,
+.td {
+  padding: var(--at-space-sm) var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.th {
+  @include tokens.role('eyebrow-sm');
+  color: var(--at-muted);
+  background: var(--at-surface-soft);
+}
+
+.rowHead {
+  @include tokens.role('body-md');
+  font-weight: 600;
+}
+
+.td {
+  @include tokens.role('meta');
+  color: var(--at-body);
+}
+
+// 6. Recommendation and the ask ------------------------------------------------------------------------------------
+
+.closeTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.direction {
+  @include tokens.role('display-md');
+  margin: auto 0;
+  max-inline-size: 48rem;
+}
+
+.ask {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--at-space-xxl);
+  padding-block-start: var(--at-space-md);
+  border-block-start: 1px solid var(--at-rail-active);
+}
+
+.askHeading {
+  @include tokens.role('eyebrow-sm');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-rail-text);
+}
+
+.askText {
+  @include tokens.role('title-sm');
+  margin: 0;
+  font-weight: 400;
+}

@@ -7,6 +7,7 @@ import { draftWithModel } from './ai-drafting.js'
 import { matchWithModel } from './ai-matching.js'
 import { dedupeWithModel } from './ai-dedupe.js'
 import { rationalesWithModel } from './ai-rationale.js'
+import { storyboardWithModel } from './ai-storyboard.js'
 import { simulatedProvider, type AiProvider, type Usage } from './ai.js'
 
 export const DEFAULT_ANALYSIS_MODEL = 'claude-sonnet-5-5'
@@ -87,6 +88,10 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
     writeRationales: async (input) => {
       const r = await rationalesWithModel(matchCall, input)
       return { value: { rationales: r.rationales, promptVersion: r.promptVersion }, usage: r.usage }
+    },
+    writeStoryboard: async (input) => {
+      const r = await storyboardWithModel(draftCall, input)
+      return { value: { draft: r.draft, promptVersion: r.promptVersion }, usage: r.usage }
     },
     draftStep: async (input) => {
       const r = await draftWithModel(draftCall, input)

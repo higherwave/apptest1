@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getAiStatus, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
+  getAiStatus, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, inviteMember, listAudit, listUsage, listMembers, removeMember,
@@ -222,6 +222,17 @@ export const useMapProjectStage = (projectId: string) => {
   return useMutation({ mutationFn: ({ position, workflowStageId }: { position: number; workflowStageId: string | null }) => mapProjectStage(projectId, position, workflowStageId), onSuccess: () => refreshBlueprints(queryClient) })
 }
 // The header counts them on every Platform Insights tab, so they are kept for half a minute instead of being rebuilt on each tab.
+export const useStoryboard = (projectId: string) => useQuery({ queryKey: ['storyboard', projectId], queryFn: () => getStoryboard(projectId) })
+export const useGenerateStoryboard = (projectId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => generateStoryboard(projectId),
+    onSuccess: (board) => {
+      queryClient.setQueryData(['storyboard', projectId], board)
+      return queryClient.invalidateQueries({ queryKey: ['ai-status'] })
+    },
+  })
+}
 export const useCaseBriefs = () => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs, staleTime: 30_000 })
 export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })
 

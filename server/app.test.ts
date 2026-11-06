@@ -485,7 +485,7 @@ test('GET /projects/:id/stage: the server decides which steps are open', async (
     assert.deepEqual([r2.themes.enabled, r2.requirements.enabled, r2.stories.enabled, r2.stories.hint], [true, true, false, 'Publish the requirements first'])
     // Draft: only the plan steps.
     const draft = await tabs('New patient intake (draft)')
-    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, journey: false, prio: false, requirements: false, design: false, stories: false, measure: false })
+    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, storyboard: false, prio: false, requirements: false, design: false, stories: false, measure: false })
     assert.equal(draft.themes.hint, 'Save and analyze a transcript first')
   })
 })
@@ -2467,14 +2467,18 @@ test('workflows (the service blueprint): editors build and save them whole, proj
   assert.equal((await send(editor, 'PUT', `/projects/${p1}/stage-map`, { position: 0, workflowStageId: walkIn.stages[0].id })).status, 422)
   assert.equal((await expectSpec(await send(editor, 'PUT', `/projects/${p1}/stage-map`, { position: unmapped.position, workflowStageId: null }), '/projects/{id}/stage-map', 'put')).stages[unmapped.position].workflowStageId, null)
 
-  // A workflow in use cannot be deleted; removing a mapped stage from it leaves the project's stage unmapped.
-  assert.equal((await expectSpec(await send(editor, 'DELETE', `/workflows/${access.id}`), '/workflows/{id}', 'delete')).error.code, 'workflow_in_use')
+  // Removing a mapped stage from a workflow leaves the project's stage unmapped.
   const trimmed = await expectSpec(await send(editor, 'PUT', `/workflows/${access.id}`, edit(saved, (s) => s.splice(0, 1)), saved.version), '/workflows/{id}', 'put')
   assert.equal(trimmed.stages.length, 4)
   const after = await (await send(viewer, 'GET', `/projects/${p1}/blueprint`)).json()
   assert.equal(after.stages.find((s: any) => s.name === 'Find a provider').workflowStageId, null)
   await send(editor, 'PUT', `/projects/${p1}/workflow`, { workflowId: null })
   assert.equal((await send(editor, 'DELETE', `/workflows/${walkIn.id}`)).status, 204)
+  // Deleting a workflow that projects are on takes them off it.
+  assert.equal((await send(editor, 'DELETE', `/workflows/${access.id}`)).status, 204)
+  const gone = await (await send(viewer, 'GET', `/projects/${p1}/blueprint`)).json()
+  assert.equal(gone.workflow, null)
+  assert.ok(gone.stages.every((s: any) => s.workflowStageId === null))
 
   // The audit log records it all, with the lines of what changed.
   const log = await expectSpec(await send(owner, 'GET', '/audit?group=workflows&limit=50'), '/audit')

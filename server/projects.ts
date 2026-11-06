@@ -191,12 +191,12 @@ export async function getProjectDetail(db: Queryable, workspaceId: string, proje
   }
 }
 
-export type StepKey = 'plan' | 'tasks' | 'transcripts' | 'themes' | 'journey' | 'prio' | 'requirements' | 'design' | 'stories' | 'measure'
+export type StepKey = 'plan' | 'tasks' | 'transcripts' | 'themes' | 'storyboard' | 'prio' | 'requirements' | 'design' | 'stories' | 'measure'
 export type StageInfo = { tabs: Record<StepKey, { enabled: boolean; hint: string | null }> }
 
 // The server decides which steps are open, so the page never re-derives the rules:
 //   Plan, Task List, Transcripts: always (the project exists).
-//   Themes, Journey Map, Priorities, Requirements: the current analysis has at least one theme.
+//   Themes, Storyboard, Priorities, Requirements: the current analysis has at least one theme.
 //   Design, Stories and Measure: a requirements document of this project is published.
 export async function getProjectStage(db: Queryable, workspaceId: string, projectId: string): Promise<StageInfo | undefined> {
   const summary = await getProjectSummary(db, workspaceId, projectId)
@@ -208,7 +208,7 @@ export async function getProjectStage(db: Queryable, workspaceId: string, projec
   return {
     tabs: {
       plan: open, tasks: open, transcripts: open,
-      themes: needAnalysis, journey: needAnalysis, prio: needAnalysis, requirements: needAnalysis,
+      themes: needAnalysis, storyboard: needAnalysis, prio: needAnalysis, requirements: needAnalysis,
       design: { enabled: published, hint: published ? null : 'Publish the requirements first' },
       stories: { enabled: published, hint: published ? null : 'Publish the requirements first' },
       measure: { enabled: published, hint: published ? null : 'Publish the requirements first' },

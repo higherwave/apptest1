@@ -308,7 +308,7 @@ export interface paths {
         /** Owners and editors. Saves the whole workflow: a stage or backstage entry that keeps its id is changed in place (so projects mapped to it stay mapped), one without an id is added, and one left out is removed. If-Match is the workflow's version; a save that changes nothing keeps it. */
         put: operations["saveWorkflow"];
         post?: never;
-        /** Owners and editors. Deletes a workflow no project is on. 409 `workflow_in_use` otherwise. */
+        /** Owners and editors. Deletes a workflow. The projects on it are taken off it and their stage mapping is cleared; the audit log records how many. */
         delete: operations["deleteWorkflow"];
         options?: never;
         head?: never;
@@ -1137,6 +1137,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/storyboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A project's research as a short deck for product leaders. The facts (who was studied, the strongest themes, a customer's words for each) are read live; `draft` is the text a model wrote (the headline, the problem, up to three recommended solutions with trade-offs, the recommendation and ask), saved once and the same for everyone, or null until an owner or editor generates it. Read-only in the app. Open to read as the viewer. */
+        get: operations["getStoryboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/projects/{id}/storyboard/generate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Writes the storyboard's text from the project's themes, or writes it again, replacing the saved text (owners and editors). Counts as an AI call under the month's budget; with no model, or when the budget or credit is used up, a plain draft from the same themes is saved and `fallback` says why. 409 `no_themes` when the project has no themes yet; 503 `ai_output_unusable` (nothing saved) when the reply could not be used. */
+        post: operations["generateStoryboard"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/insights/case-briefs": {
         parameters: {
             query?: never;
@@ -1324,7 +1358,7 @@ export interface components {
                 tasks: components["schemas"]["StageTab"];
                 transcripts: components["schemas"]["StageTab"];
                 themes: components["schemas"]["StageTab"];
-                journey: components["schemas"]["StageTab"];
+                storyboard: components["schemas"]["StageTab"];
                 prio: components["schemas"]["StageTab"];
                 requirements: components["schemas"]["StageTab"];
                 design: components["schemas"]["StageTab"];
@@ -2348,6 +2382,77 @@ export interface components {
             target?: string | null;
             checkins: components["schemas"]["Checkin"][];
         };
+        Storyboard: {
+            facts: {
+                projectName: string;
+                participants: number;
+                sessions: number;
+                roles: {
+                    role: string;
+                    count: number;
+                }[];
+                /** @description The top-level questions and tasks of the test plan (up to six). */
+                tasks: string[];
+                /** @description First and last session date of the participants, or null when none has a date. */
+                when: {
+                    /** Format: date */
+                    from: string;
+                    /** Format: date */
+                    to: string;
+                } | null;
+                /** @description The strongest themes (up to eight), most important first. The deck shows the first five. */
+                themes: {
+                    id: string;
+                    title: string;
+                    category: string;
+                    participants: number;
+                    totalParticipants: number;
+                    /** @description A customer's own words, or null. */
+                    quote: {
+                        text: string;
+                        who: string;
+                    } | null;
+                }[];
+                /** @description All the project's themes, for "Show all themes". */
+                themeCount: number;
+            };
+            /** @description The saved text, or null until generated. */
+            draft: {
+                headline: string;
+                problem: string;
+                solutions: {
+                    name: string;
+                    description: string;
+                    /** @description The themes it answers, by name. */
+                    themes: {
+                        id: string;
+                        title: string;
+                    }[];
+                    benefit: string;
+                    cost: string;
+                    risk: string;
+                    giveUp: string;
+                    alternatives: string;
+                }[];
+                recommendation: {
+                    direction: string;
+                    decision: string;
+                    nextStep: string;
+                };
+                /**
+                 * @description template is the plain draft made without the AI model.
+                 * @enum {string}
+                 */
+                source: "model" | "template";
+                /** Format: date-time */
+                generatedAt: string;
+            } | null;
+            /**
+             * @description Set on a generate that fell back to the plain draft because the month's budget or the account's credit was used up.
+             * @enum {string}
+             */
+            fallback?: "budget" | "credit";
+        };
         AiStatus: {
             /** @enum {string} */
             mode: "live" | "simulated";
@@ -2366,7 +2471,7 @@ export interface components {
             problems?: {
                 /** Format: date-time */
                 at: string;
-                /** @description analysis, spec_step or theme_match. */
+                /** @description analysis, spec_step, theme_match or storyboard. */
                 purpose: string;
                 /** @description For example ai_output_unusable, ai_credit_exhausted or ai_budget_reached. */
                 code: string;
@@ -4837,6 +4942,58 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getStoryboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The storyboard. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Storyboard"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    generateStoryboard: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The storyboard with its new text. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Storyboard"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

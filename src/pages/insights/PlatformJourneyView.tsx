@@ -114,7 +114,7 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
           <p className={flow.pageNote}>
             {journey.workflow.description ? `${journey.workflow.description} ` : ''}
             {journey.workflow.projects === 0
-              ? 'No project is on this workflow yet: on a project’s Journey Map, choose this workflow to lay its research over the blueprint.'
+              ? 'No project is on this workflow yet, so no research is laid over it.'
               : `Research from ${plural(journey.workflow.projects, 'project')} on this workflow.`}
           </p>
           {personas.length > 0 && (
