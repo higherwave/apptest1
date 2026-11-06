@@ -54,6 +54,9 @@
 }
 
 .tableWrap {
+  // The wrapper scrolls the table sideways when the page is narrower than it. It also has to hold the screen-reader-only labels inside it: positioned
+  // against something outside, one would sit beyond the scrolling box and stretch the whole page.
+  position: relative;
   overflow-x: auto;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);

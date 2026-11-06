@@ -504,7 +504,19 @@ try {
   await clickText('Reset all')
   for (let n = 0; n < 40 && (await apiThemes()).some((t) => t.edited); n++) await new Promise((r) => setTimeout(r, 150))
   ok('Reset all clears every importance and effort edit', (await apiThemes()).every((t) => !t.edited))
-  ok('the Priorities map scrolls nowhere: at a narrow width it still fits the page', await (async () => { await page.setViewport({ width: 700, height: 900 }); await new Promise((r) => setTimeout(r, 400)); const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1); await page.setViewport({ width: 1400, height: 900 }); return fits })())
+  // Tablet portrait (744 to 1024px) is the narrowest the app is built for: no page may scroll sideways there (a wide table or map scrolls inside its own box).
+  for (const width of [744, 1024]) {
+    await page.setViewport({ width, height: 900 })
+    const wide = []
+    for (const path of ['/projects', '/projects/new', `/projects/${projectId}/plan`, `/projects/${projectId}/tasks`, `/projects/${projectId}/transcripts`, `/projects/${projectId}/themes`, `/projects/${projectId}/journey`, `/projects/${projectId}/prio`, '/insights/themes', '/insights/personas', '/insights/journey', '/insights/case-studies']) {
+      await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
+      await new Promise((r) => setTimeout(r, 300))
+      if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) wide.push(path.replace(projectId, ':id'))
+    }
+    ok(`no page scrolls sideways at ${width}px (tablet portrait)`, wide.length === 0, wide.join(', '))
+  }
+  await page.setViewport({ width: 1400, height: 900 })
+  await page.goto(`${BASE}/projects/${projectId}/prio`, { waitUntil: 'networkidle0' })
 
   // Requirements: open the project's one document, review the eight steps (redo, edit, exclude a theme), approve, publish, then start over.
   const apiSpecs = async () => (await (await fetch(`${API}/api/v1/specs?projectId=${projectId}`)).json()).data
