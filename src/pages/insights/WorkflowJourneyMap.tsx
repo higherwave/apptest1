@@ -20,8 +20,9 @@ export function journeyPersonas(journey: PlatformJourney): { key: string; name: 
 
 export type WorkflowJourneyMapProps = { journey: PlatformJourney; persona: string | null; onOpenTheme: (id: string) => void }
 
-// Presentational: one workflow as a service blueprint. The blueprint's own stages and what good looks like at each, the research of the projects on
-// the workflow (themes, pain points, opportunity, sentiment), who is in each stage, and the backstage under it with its owners and the handoff out.
+// Presentational: one workflow as a service blueprint. The blueprint's own stages and what good looks like at each, who is in each stage (just under it, so
+// tracing a persona shows its effect at once), the research of the projects on the workflow (themes, pain points, opportunity, sentiment), and the backstage
+// under it with its owners and the handoff out.
 export function WorkflowJourneyMap({ journey, persona, onOpenTheme }: WorkflowJourneyMapProps) {
   const stages = journey.stages
   // With a persona traced, a stage they are not in fades back.
@@ -54,6 +55,26 @@ export function WorkflowJourneyMap({ journey, persona, onOpenTheme }: WorkflowJo
               </div>
             </div>
           ))}
+        </div>
+
+        <div className={cx(map.row, styles.personaRow)} data-testid="persona-row">
+          <div className={map.rowLabel}>Personas</div>
+          {stages.map((s, i) => {
+            const people = s.personas ?? []
+            return (
+              <div key={s.id ?? s.name} className={cx(map.cell, fade(i))}>
+                {people.length === 0 && <p className={map.none}>Nobody mapped here</p>}
+                {people.map((p) => (
+                  <div key={p.key} className={styles.persona} data-traced={persona === p.key}>
+                    <p className={styles.fieldText}>
+                      {p.name} · {plural(p.participantCount, 'person', 'people')}
+                    </p>
+                    <p className={map.meta}>Raised: {p.doing}</p>
+                  </div>
+                ))}
+              </div>
+            )
+          })}
         </div>
 
         <div className={map.row}>
@@ -114,26 +135,6 @@ export function WorkflowJourneyMap({ journey, persona, onOpenTheme }: WorkflowJo
         </div>
 
         <SentimentRow stages={stages} />
-
-        <div className={cx(map.row, styles.personaRow)} data-testid="persona-row">
-          <div className={map.rowLabel}>Personas</div>
-          {stages.map((s, i) => {
-            const people = s.personas ?? []
-            return (
-              <div key={s.id ?? s.name} className={cx(map.cell, fade(i))}>
-                {people.length === 0 && <p className={map.none}>Nobody mapped here</p>}
-                {people.map((p) => (
-                  <div key={p.key} className={styles.persona} data-traced={persona === p.key}>
-                    <p className={styles.fieldText}>
-                      {p.name} · {plural(p.participantCount, 'person', 'people')}
-                    </p>
-                    <p className={map.meta}>Raised: {p.doing}</p>
-                  </div>
-                ))}
-              </div>
-            )
-          })}
-        </div>
 
         <div className={cx(map.row, map.backstageRow)} data-testid="blueprint-backstage-row">
           <div className={map.rowLabel}>

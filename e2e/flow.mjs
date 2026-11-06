@@ -1131,6 +1131,17 @@ try {
     ok('tracing a persona highlights where they are in the journey, and Clear takes it off', await page.evaluate(() => document.querySelector('[data-testid^="trace-"][aria-pressed="true"]') !== null) && (await (async () => { await clickText('Clear'); await new Promise((r) => setTimeout(r, 300)); return (await page.$$('[data-traced="true"]')).length === 0 })()))
   } else ok('no personas in this study to trace (the demo studies have them)', true)
 
+  ok('the Personas row sits just under Stage goal, then Themes, Pain points, Opportunity, Sentiment and Backstage', await page.evaluate(() => { const map = document.querySelector('[data-testid="workflow-map"]'); const labels = [...map.children].slice(1).map((r) => r.children[0].innerText.trim().split('\n')[0].toUpperCase()); return labels.join('|') === 'STAGE GOAL|PERSONAS|THEMES|PAIN POINTS|OPPORTUNITY|SENTIMENT|BACKSTAGE' }))
+  const titles = []
+  for (const path of ['/insights/themes', '/insights/personas', '/insights/journey', '/insights/case-studies']) {
+    await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
+    await page.waitForSelector('h1')
+    titles.push(await page.evaluate(() => document.querySelector('h1').innerText.trim()))
+  }
+  ok('every Platform Insights tab keeps the same title, Platform Insights (only the description changes)', titles.every((t) => t === 'Platform Insights'), titles.join(' | '))
+  await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
+
   // Editing the blueprint in place, and the audit log keeping the record.
   ok('Edit Workflow is at the right of the picker’s row', await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'Edit Workflow'); const pick = document.querySelector('#workflow-picker'); if (!b || !pick) return false; const r = b.getBoundingClientRect(); const p = pick.getBoundingClientRect(); return Math.abs(r.top - p.top) < 80 && r.left > p.right && innerWidth - r.right < 360 }))
   await clickText('Edit Workflow')
