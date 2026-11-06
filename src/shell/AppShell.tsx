@@ -135,7 +135,7 @@ export function AppShell() {
         <div className={styles.context} data-context>
           <div className={styles.contextInner}>
             <a href="/projects" data-label="All projects" className={styles.back} onClick={go('/projects')}>
-              <ChevronLeft size={20} aria-hidden />
+              <ChevronLeft size={16} aria-hidden />
               All projects
             </a>
             <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>

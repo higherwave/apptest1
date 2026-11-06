@@ -238,7 +238,7 @@ $column-wide: 100rem; // the content of the Journey Map; the project bar and the
   margin-inline-end: var(--at-space-xs);
   padding-inline-end: var(--at-space-md);
   border-inline-end: 1px solid var(--at-hairline);
-  @include tokens.role('title-sm');
+  @include tokens.role('label-md'); // smaller than the project's name beside it
   color: var(--at-link);
   text-decoration: none;
   white-space: nowrap;
