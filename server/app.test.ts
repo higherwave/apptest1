@@ -2383,15 +2383,33 @@ test('workflows (the service blueprint): editors build and save them whole, proj
   const { app: owner, alex: editor, sam: viewer, send, p1 } = await boardFixture()
   const names = (b: any) => b.stages.map((s: any) => s.name)
 
-  // Reading is open; adding the healthcare examples needs edit access, and adding them twice adds nothing.
-  assert.deepEqual((await expectSpec(await send(viewer, 'GET', '/workflows'), '/workflows')).data, [])
+  // Reading is open; adding the example needs edit access, and adding it twice adds nothing. The Anchor CX example's stages do not match the clinic
+  // demo's, so no project goes on it here (the Anchor CX tests cover that).
+  const none = await expectSpec(await send(viewer, 'GET', '/workflows'), '/workflows')
+  assert.deepEqual([none.data, none.sampleMissing], [[], true])
   assert.equal((await send(viewer, 'POST', '/workflows/sample')).status, 403)
   const sample = await expectSpec(await send(editor, 'POST', '/workflows/sample'), '/workflows/sample', 'post')
-  assert.deepEqual(sample.data.map((w: any) => w.name), ['Patient access and scheduling', 'Referrals and results'])
-  assert.equal((await expectSpec(await send(editor, 'POST', '/workflows/sample'), '/workflows/sample', 'post')).data.length, 2)
-  const access = sample.data[0]
+  assert.deepEqual([sample.data.map((w: any) => w.name), sample.sampleMissing, sample.data[0].projectCount], [['Customer success lifecycle'], false, 0])
+  assert.equal((await expectSpec(await send(editor, 'POST', '/workflows/sample'), '/workflows/sample', 'post')).data.length, 1)
+  assert.ok(sample.data[0].stages[1].backstage.some((b: any) => b.kind && b.owner), 'a backstage entry has a kind, a name and an owner')
+
+  // A workflow made by hand for the clinic demo's stages, used for the rest.
+  const entry = (kind: string, name: string, owner: string) => ({ kind, name, owner })
+  const access = await expectSpec(
+    await send(editor, 'POST', '/workflows', {
+      name: 'Patient access and scheduling',
+      description: 'How a patient finds a provider, books, pays, prepares and follows up.',
+      stages: [
+        { name: 'Find a provider', good: 'The patient finds a provider who takes their insurance.', backstage: [entry('Team', 'Provider data team', 'Provider Operations')] },
+        { name: 'Book a time', good: 'The patient books in one sitting.', signal: 'Booking completion rate.', handoff: 'A confirmed slot is written to the schedule.', backstage: [entry('Team', 'Scheduling team', 'Patient Access'), entry('System', 'Booking and calendar system', 'Scheduling Platform'), entry('System', 'Patient records (EHR)', 'Clinical Systems')] },
+        { name: 'Confirm & pay', backstage: [entry('Team', 'Billing and insurance team', 'Revenue Cycle')] },
+        { name: 'Prepare or change', backstage: [entry('System', 'Messaging service', 'Patient Communications')] },
+        { name: 'Visit & follow-up', backstage: [entry('Team', 'Front desk staff', 'Clinic Operations')] },
+      ],
+    }),
+    '/workflows', 'post',
+  )
   assert.deepEqual(names(access), ['Find a provider', 'Book a time', 'Confirm & pay', 'Prepare or change', 'Visit & follow-up'])
-  assert.ok(access.stages[1].backstage.some((b: any) => b.kind === 'Team' && b.owner), 'a backstage entry has a kind, a name and an owner')
 
   // Making one: a name is needed (and is unique), and so is a stage.
   const stage = { name: 'Arrive', backstage: [{ kind: 'Team', name: 'Front desk', owner: 'Clinic Operations' }] }

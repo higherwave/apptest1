@@ -27,7 +27,7 @@ export function JourneyPage() {
       pending={data.pending}
       errorText={data.themes.isError ? friendlyMessage(data.themes.error) : (data.error ?? (blueprintFailure ? friendlyMessage(blueprintFailure) : undefined))}
       blueprint={blueprint.data}
-      workflows={workflows.data ?? []}
+      workflows={workflows.data?.data ?? []}
       onSetWorkflow={(id) => setWorkflow.mutate(id)}
       onMapStage={(position, workflowStageId) => mapStage.mutate({ position, workflowStageId })}
       onEdit={data.edit}

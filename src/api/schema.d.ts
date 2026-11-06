@@ -289,7 +289,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Owners and editors. Adds the healthcare example workflows that are not there yet (matched by name) and returns every workflow. */
+        /** Owners and editors. Adds the Anchor CX example workflow if it is not there yet (matched by name), puts on it the projects that are on no workflow and whose journey stages all match its stages by name, and returns every workflow. */
         post: operations["addSampleWorkflows"];
         delete?: never;
         options?: never;
@@ -2568,6 +2568,8 @@ export interface components {
         };
         WorkflowList: {
             data: components["schemas"]["Workflow"][];
+            /** @description True while the Anchor CX example workflow is not in the workspace yet (the button that adds it is offered). */
+            sampleMissing: boolean;
         };
         WorkflowRequest: {
             name: string;
@@ -3236,7 +3238,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Every workflow, including the examples. */
+            /** @description Every workflow, including the example. */
             201: {
                 headers: {
                     [name: string]: unknown;

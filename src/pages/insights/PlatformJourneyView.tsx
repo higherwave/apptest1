@@ -26,6 +26,8 @@ export type PlatformJourneyViewProps = {
   canEdit: boolean
   onEdit: () => void
   onNew: () => void
+  /** The Anchor CX example workflow is not in the workspace yet. */
+  sampleMissing: boolean
   onAddSamples: () => void
   addingSamples: boolean
   persona: string | null
@@ -79,6 +81,11 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
               <Button kind="tertiary" size="md" renderIcon={Add} onClick={p.onNew}>
                 New workflow
               </Button>
+              {p.sampleMissing && p.workflows.length > 0 && (
+                <Button kind="ghost" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
+                  {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -93,7 +100,7 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
             A workflow is the blueprint of one app or feature: its stages, and the teams, systems and processes that work behind each one. Edit it once here and every project on it shows it.
           </p>
           <Button kind="primary" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
-            {p.addingSamples ? 'Adding…' : 'Add the healthcare examples'}
+            {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
           </Button>
         </div>
       )}

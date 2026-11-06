@@ -157,3 +157,38 @@ test('retiring the clinic demo leaves only Anchor CX, with its own journey, them
   assert.ok((await get('/insights/case-briefs')).data.some((c: any) => c.projectName === 'Health score trust'))
   assert.deepEqual(await retireClinic(db, ws), { projects: 0, platformThemes: 0, recommendations: 0, caseStudies: 0 }, 'a second run finds nothing')
 })
+
+test('the Anchor CX example workflow: adding it puts the three studies on it, and its journey is the aggregate with the four personas', async () => {
+  const { app, get } = await fixture()
+  const auth = { authorization: 'Bearer s3cret' }
+  const before = await get('/workflows')
+  assert.deepEqual([before.data, before.sampleMissing], [[], true])
+  const done = await (await app.request('/api/v1/workflows/sample', { method: 'POST', headers: auth })).json()
+  assert.equal(done.sampleMissing, false)
+  const flow = done.data.find((w: any) => w.name === 'Customer success lifecycle')
+  assert.deepEqual(flow.stages.map((s: any) => s.name), DATA.STAGES, 'the example’s stages are the Anchor CX story’s journey stages')
+  assert.equal(flow.projectCount, 3, 'the three Anchor CX studies went on it')
+  assert.ok(flow.stages.every((s: any) => s.backstage.length >= 2 && s.backstage.every((b: any) => b.owner)))
+  // The original clinic demo is on no workflow: its stages are not the example's.
+  const projects = (await get('/projects')).data
+  for (const p of projects.filter((x: any) => !ANCHOR.includes(x.name))) {
+    const blueprint = await get(`/projects/${p.id}/blueprint`)
+    assert.equal(blueprint.workflow, null, p.name)
+  }
+  for (const name of ANCHOR) {
+    const p = projects.find((x: any) => x.name === name)
+    const blueprint = await get(`/projects/${p.id}/blueprint`)
+    assert.equal(blueprint.workflow.name, 'Customer success lifecycle')
+    assert.ok(blueprint.stages.every((s: any) => s.workflowStageId), `${name}: every journey stage is mapped`)
+  }
+  // The journey of that workflow: five stages, research from the three studies, and the four personas.
+  const journey = await get(`/insights/journey?workflow=${flow.id}`)
+  assert.deepEqual(journey.stages.map((s: any) => s.name), DATA.STAGES)
+  assert.equal(journey.workflow.projects, 3)
+  assert.ok(journey.stages.every((s: any) => s.projectCount === 3))
+  assert.ok(journey.stages.some((s: any) => s.themes.length > 0))
+  const personas = new Set(journey.stages.flatMap((s: any) => s.personas.map((p: any) => p.name)))
+  assert.deepEqual([...personas].sort(), ['CS Operations Manager', 'Customer Success Manager', 'Executive', 'Support Lead'])
+  // Adding it again changes nothing.
+  assert.equal((await (await app.request('/api/v1/workflows/sample', { method: 'POST', headers: auth })).json()).data.length, 1)
+})

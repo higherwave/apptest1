@@ -331,10 +331,12 @@ paths:
   /workflows/sample:
     post:
       operationId: addSampleWorkflows
-      summary: Owners and editors. Adds the healthcare example workflows that are not there yet (matched by name) and returns every workflow.
+      summary: >
+        Owners and editors. Adds the Anchor CX example workflow if it is not there yet (matched by name), puts on it the projects that are on no workflow and whose
+        journey stages all match its stages by name, and returns every workflow.
       responses:
         '201':
-          description: Every workflow, including the examples.
+          description: Every workflow, including the example.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/WorkflowList' }
@@ -3231,11 +3233,12 @@ components:
           items: { $ref: '#/components/schemas/WorkflowStage' }
     WorkflowList:
       type: object
-      required: [data]
+      required: [data, sampleMissing]
       properties:
         data:
           type: array
           items: { $ref: '#/components/schemas/Workflow' }
+        sampleMissing: { type: boolean, description: True while the Anchor CX example workflow is not in the workspace yet (the button that adds it is offered). }
     WorkflowRequest:
       type: object
       required: [name, stages]

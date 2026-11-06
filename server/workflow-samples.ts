@@ -1,6 +1,7 @@
-// The healthcare examples a workspace can start from (the "Add the healthcare examples" button on Platform Insights > Journey). Everything here is
-// made up: the teams, systems and owners are what a clinic's blueprint could look like, not data about any real organisation. The first workflow's
-// stages carry the same names as the demo clinic study's journey stages, so a project on that study maps to them by name.
+// The example a workspace can start from (the "Add the Anchor CX example" button on Platform Insights > Journey): the blueprint of Anchor CX, the made-up
+// customer-success platform whose research story the demo tells (db/seed/anchor-cx/README.md). The stages carry the same names as that story's journey
+// stages, so its three studies go on the workflow and map to it by name. Everything here is invented: the teams, systems and owners are what Anchor CX's
+// blueprint could look like, not data about any real organisation.
 import type { WorkflowInput } from './workflows.js'
 
 type S = [name: string, good: string, signal: string, handoff: string, backstage: [kind: 'Team' | 'System' | 'Process', name: string, owner: string][]]
@@ -14,28 +15,16 @@ const build = (name: string, description: string, stages: S[]): WorkflowInput =>
 })
 
 export const SAMPLE_WORKFLOWS: WorkflowInput[] = [
-  build('Patient access and scheduling', 'How a patient finds a provider, books, pays, prepares and follows up.', [
-    ['Find a provider', 'The patient finds a provider who takes their insurance and has openings, without calling.', 'Searches that end without a booking; calls asking who is in network.', 'The provider choice carries into booking with the visit type and insurance already known.', [
-      ['Team', 'Provider data team', 'Provider Operations'], ['System', 'Provider directory and insurance network data', 'Platform Engineering'], ['Process', 'Quarterly insurance network verification', 'Revenue Cycle']]],
-    ['Book a time', 'The patient sees real openings and books in one sitting.', 'Booking completion rate; slot-not-available errors; double bookings.', 'A confirmed slot is written to the clinic schedule and the patient record.', [
-      ['Team', 'Scheduling team', 'Patient Access'], ['System', 'Booking and calendar system', 'Scheduling Platform'], ['System', 'Patient records (EHR)', 'Clinical Systems']]],
-    ['Confirm & pay', 'The patient knows what they will owe before they arrive.', 'Surprise balances at the visit; eligibility check failures; billing calls after booking.', 'The eligibility result and the estimate attach to the appointment.', [
-      ['Team', 'Billing and insurance team', 'Revenue Cycle'], ['System', 'Payments platform', 'Finance Systems'], ['Process', 'Insurance eligibility check', 'Revenue Cycle']]],
-    ['Prepare or change', 'Reminders arrive in time to prepare, and a change is one step.', 'No-show rate; reschedules handled by phone; reminder bounces.', 'A reschedule releases the old slot and tells the care team.', [
-      ['System', 'Messaging service', 'Patient Communications'], ['Team', 'Patient communications', 'Patient Access'], ['Process', 'Intake forms and pre-visit checklist', 'Front Desk']]],
-    ['Visit & follow-up', 'Check-in is quick, and the follow-up plan is in the patient’s hands before they leave.', 'Wait at check-in; follow-up visits booked within the window.', 'Visit notes and the follow-up plan return to the patient record and the patient.', [
-      ['Team', 'Front desk staff', 'Clinic Operations'], ['System', 'Patient records (EHR)', 'Clinical Systems'], ['Team', 'Care team', 'Clinical Operations']]],
-  ]),
-  build('Referrals and results', 'How a referral reaches a specialist and the outcome comes back to the patient and the referring clinic.', [
-    ['Referral placed', 'The referral reaches the right specialist with the reason and the urgency.', 'Referrals with no response after three days.', 'The referral package goes to the specialist’s intake.', [
-      ['Team', 'Referral coordinators', 'Care Coordination'], ['System', 'Referral management system', 'Clinical Systems'], ['Process', 'Referral triage', 'Care Coordination']]],
-    ['Records shared', 'The relevant records arrive before the visit.', 'Visits that start without records.', 'The records are available in the specialist’s chart.', [
-      ['System', 'Health information exchange', 'Integration Engineering'], ['Team', 'Medical records team', 'Health Information Management'], ['Process', 'Release of information consent', 'Compliance']]],
-    ['Specialist booked', 'The patient has a confirmed specialist appointment within the target window.', 'Days from referral to appointment.', 'The appointment is confirmed to the patient and the referring clinic.', [
-      ['Team', 'Specialty scheduling', 'Patient Access'], ['System', 'Booking and calendar system', 'Scheduling Platform']]],
-    ['Specialist visit', 'The visit starts on time with the history in hand.', 'Late starts; patients asked to repeat their history.', 'A visit summary is written back to the referring clinic.', [
-      ['Team', 'Specialist clinic staff', 'Specialty Clinics'], ['System', 'Patient records (EHR)', 'Clinical Systems']]],
-    ['Results returned', 'The patient and the referring clinician both hear the outcome.', 'Results more than a week old with no patient contact.', 'The results and next steps reach the patient portal and the referring clinic.', [
-      ['Team', 'Care team', 'Clinical Operations'], ['System', 'Patient portal', 'Digital Products'], ['Process', 'Results review and release', 'Clinical Operations']]],
+  build('Customer success lifecycle', 'How a customer-success team prepares for a customer, judges account health, spots risk, hands a case to the right team, and renews and reports.', [
+    ['Prepare for a customer', 'A customer success manager goes into a check-in knowing the account’s history, health and open issues without opening another tool.', 'Minutes spent preparing a check-in; tabs and tools opened per account.', 'The prepared account view goes into the manager’s check-in notes.', [
+      ['System', 'Customer 360 timeline', 'Platform Data'], ['System', 'CRM and contract sync', 'Integrations'], ['Team', 'CS Operations', 'Customer Success']]],
+    ['Judge account health', 'The health score shows why it changed, in words a manager trusts.', 'Support tickets asking why a score changed; scores overridden by hand.', 'A score and its drivers feed the risk alerts.', [
+      ['System', 'Health score engine', 'Data Science'], ['System', 'Usage and ticket signal pipeline', 'Data Platform'], ['Process', 'Quarterly score model review', 'CS Operations']]],
+    ['Spot risk early', 'Alerts arrive early enough to act on, and are quiet enough to trust.', 'Alerts muted or ignored; renewals lost with no earlier alert.', 'A risk alert opens a case with its context attached.', [
+      ['System', 'Risk alert service', 'Platform Engineering'], ['Team', 'Support leads', 'Support Operations'], ['Process', 'Alert threshold tuning', 'CS Operations']]],
+    ['Hand off to the right team', 'Support and success pass a case along with its context, and nothing is retold.', 'Escalations missed by the manager; cases reopened for missing context.', 'The receiving team sees the timeline and what has already been tried.', [
+      ['System', 'Support ticketing integration', 'Integrations'], ['Team', 'Support and success operations', 'Customer Operations'], ['Process', 'Escalation rules by segment', 'Support Operations']]],
+    ['Renew and report', 'A renewal is prepared from one workspace and reported to leadership without a manual spreadsheet.', 'Hours spent on manual reporting; renewals with no prepared playbook.', 'Renewal outcomes and the portfolio report reach the executives.', [
+      ['System', 'Renewal playbook engine', 'Product Engineering'], ['System', 'Reporting and export service', 'Data Platform'], ['Team', 'CS Operations', 'Customer Success']]],
   ]),
 ]

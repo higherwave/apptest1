@@ -117,13 +117,35 @@ export async function createWorkflow(db: Db, ctx: RequestContext, input: Workflo
   return db.transaction(async (tx) => (await getWorkflow(tx, ctx.workspaceId, await insertWorkflow(tx, ctx, input)))!)
 }
 
-/** Adds the healthcare examples that are not there yet (matched by name). Returns every workflow. */
+/** True when an example workflow (matched by name) is not in the workspace yet: the button that adds it is offered while this is true. */
+export async function sampleMissing(db: Queryable, workspaceId: string): Promise<boolean> {
+  const names = (await db.query(`select lower(name) as name from insights.workflows where workspace_id = $1`, [workspaceId])).rows.map((r) => r.name as string)
+  return SAMPLE_WORKFLOWS.some((w) => !names.includes(w.name.toLowerCase()))
+}
+
+/**
+ * Adds the example workflows that are not there yet (matched by name), and puts on each new one the projects that are on no workflow and whose journey
+ * stages all match its stages by name (so the Anchor CX studies land on the Anchor CX workflow, and nothing else is touched). Returns every workflow.
+ */
 export async function addSampleWorkflows(db: Db, ctx: RequestContext): Promise<Workflow[]> {
   return db.transaction(async (tx) => {
     await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [`workflows:${ctx.workspaceId}`])
     for (const sample of SAMPLE_WORKFLOWS) {
       const there = (await tx.query(`select 1 from insights.workflows where workspace_id = $1 and lower(name) = lower($2)`, [ctx.workspaceId, sample.name])).rows[0]
-      if (!there) await insertWorkflow(tx, ctx, sample)
+      if (there) continue
+      const id = await insertWorkflow(tx, ctx, sample)
+      const flow = (await getWorkflow(tx, ctx.workspaceId, id))!
+      const free = (
+        await tx.query(
+          `select p.id from core.projects p where p.workspace_id = $1 and not exists (select 1 from insights.project_workflows pw where pw.project_id = p.id)
+           and exists (select 1 from research.study_stages ss where ss.study_id = p.id)`,
+          [ctx.workspaceId],
+        )
+      ).rows
+      for (const { id: projectId } of free) {
+        const names = (await tx.query(`select name from research.study_stages where study_id = $1`, [projectId])).rows.map((r) => r.name as string)
+        if (names.length >= 3 && names.every((n) => matchStage(n, flow.stages))) await applyProjectWorkflow(tx, ctx, projectId, flow.id)
+      }
     }
     return listWorkflows(tx, ctx.workspaceId)
   })
@@ -232,32 +254,35 @@ export function matchStage(name: string, stages: { id: string; name: string }[])
 
 /** Puts a project on a workflow (or takes it off), mapping its stages to the workflow's by name. Mapping is then editable stage by stage. */
 export async function setProjectWorkflow(db: Db, ctx: RequestContext, projectId: string, workflowId: string | null): Promise<ProjectBlueprint> {
-  return db.transaction(async (tx) => {
-    const project = (await tx.query(`select id, name from core.projects where id = $1 and workspace_id = $2`, [projectId, ctx.workspaceId])).rows[0]
-    if (!project) throw new ProjectNotFound()
-    const current = (await tx.query(`select workflow_id from insights.project_workflows where project_id = $1`, [projectId])).rows[0]?.workflow_id ?? null
-    if (current === workflowId) return projectBlueprint(tx, ctx.workspaceId, projectId)
-    const flow = workflowId ? await getWorkflow(tx, ctx.workspaceId, workflowId) : undefined
-    if (workflowId && !flow) throw new WorkflowMissing()
-    await tx.query(`update research.study_stages set workflow_stage_id = null where study_id = $1`, [projectId])
-    if (!flow) {
-      await tx.query(`delete from insights.project_workflows where project_id = $1`, [projectId])
-    } else {
-      await tx.query(
-        `insert into insights.project_workflows (project_id, workspace_id, workflow_id, updated_by) values ($1, $2, $3, $4)
-         on conflict (project_id) do update set workflow_id = excluded.workflow_id, updated_by = excluded.updated_by, updated_at = now()`,
-        [projectId, ctx.workspaceId, workflowId, ctx.userId],
-      )
-      const stages = (await tx.query(`select id, name from research.study_stages where study_id = $1`, [projectId])).rows
-      for (const s of stages) {
-        const match = matchStage(s.name, flow.stages)
-        if (match) await tx.query(`update research.study_stages set workflow_stage_id = $2 where id = $1`, [s.id, match])
-      }
+  return db.transaction((tx) => applyProjectWorkflow(tx, ctx, projectId, workflowId))
+}
+
+/** setProjectWorkflow inside a transaction the caller already has. */
+async function applyProjectWorkflow(tx: Queryable, ctx: RequestContext, projectId: string, workflowId: string | null): Promise<ProjectBlueprint> {
+  const project = (await tx.query(`select id, name from core.projects where id = $1 and workspace_id = $2`, [projectId, ctx.workspaceId])).rows[0]
+  if (!project) throw new ProjectNotFound()
+  const current = (await tx.query(`select workflow_id from insights.project_workflows where project_id = $1`, [projectId])).rows[0]?.workflow_id ?? null
+  if (current === workflowId) return projectBlueprint(tx, ctx.workspaceId, projectId)
+  const flow = workflowId ? await getWorkflow(tx, ctx.workspaceId, workflowId) : undefined
+  if (workflowId && !flow) throw new WorkflowMissing()
+  await tx.query(`update research.study_stages set workflow_stage_id = null where study_id = $1`, [projectId])
+  if (!flow) {
+    await tx.query(`delete from insights.project_workflows where project_id = $1`, [projectId])
+  } else {
+    await tx.query(
+      `insert into insights.project_workflows (project_id, workspace_id, workflow_id, updated_by) values ($1, $2, $3, $4)
+       on conflict (project_id) do update set workflow_id = excluded.workflow_id, updated_by = excluded.updated_by, updated_at = now()`,
+      [projectId, ctx.workspaceId, workflowId, ctx.userId],
+    )
+    const stages = (await tx.query(`select id, name from research.study_stages where study_id = $1`, [projectId])).rows
+    for (const s of stages) {
+      const match = matchStage(s.name, flow.stages)
+      if (match) await tx.query(`update research.study_stages set workflow_stage_id = $2 where id = $1`, [s.id, match])
     }
-    const result = await projectBlueprint(tx, ctx.workspaceId, projectId)
-    await audit(tx, ctx, 'core.projects', 'workflow set', projectId, null, { project: project.name, workflow: flow?.name ?? 'none', stagesMapped: result.stages.filter((s) => s.workflowStageId).length })
-    return result
-  })
+  }
+  const result = await projectBlueprint(tx, ctx.workspaceId, projectId)
+  await audit(tx, ctx, 'core.projects', 'workflow set', projectId, null, { project: project.name, workflow: flow?.name ?? 'none', stagesMapped: result.stages.filter((s) => s.workflowStageId).length })
+  return result
 }
 
 /** Maps one of a project's journey stages to a stage of its workflow, or clears the mapping. */

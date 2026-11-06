@@ -212,8 +212,9 @@ export type WorkflowStage = components['schemas']['WorkflowStage']
 export type WorkflowBackstage = components['schemas']['WorkflowBackstage']
 export type WorkflowRequest = components['schemas']['WorkflowRequest']
 export type ProjectBlueprint = components['schemas']['ProjectBlueprint']
-export const listWorkflows = () => request<components['schemas']['WorkflowList']>('/workflows').then((r) => r.data)
-export const addSampleWorkflows = () => request<components['schemas']['WorkflowList']>('/workflows/sample', { method: 'POST' }).then((r) => r.data)
+export type WorkflowList = components['schemas']['WorkflowList']
+export const listWorkflows = () => request<WorkflowList>('/workflows')
+export const addSampleWorkflows = () => request<WorkflowList>('/workflows/sample', { method: 'POST' })
 export const createWorkflow = (body: WorkflowRequest) => request<Workflow>('/workflows', { method: 'POST', body })
 export const saveWorkflow = (id: string, version: number, body: WorkflowRequest) => request<Workflow>(`/workflows/${id}`, { method: 'PUT', body, version })
 export const deleteWorkflow = (id: string) => request<null>(`/workflows/${id}`, { method: 'DELETE' })

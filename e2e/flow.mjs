@@ -1073,17 +1073,30 @@ try {
     await new Promise((r) => setTimeout(r, 700))
   }
   await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
-  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the healthcare examples')), { timeout: 8000 })
-  ok('with no workflow yet, an editor is offered the healthcare examples', true)
-  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.includes('Add the healthcare examples')).click())
+  await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the Anchor CX example')), { timeout: 8000 })
+  ok('with no workflow yet, an editor is offered the Anchor CX example', true)
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.includes('Add the Anchor CX example')).click())
   await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
-  ok('adding them opens a workflow as a blueprint: five stages, what good looks like, backstage with owners, marked as from the blueprint', await page.evaluate(() => { const t = document.body.innerText; return document.querySelectorAll('[data-testid^="journey-stage-"]').length === 5 && /Patient access and scheduling/.test(t) && /what good looks like/i.test(t) && /Owner: /.test(t) && /from the blueprint/i.test(t) && /No project is on this workflow yet/.test(t) }))
+  ok('adding it opens the Anchor CX workflow as a blueprint: its five journey stages, what good looks like, backstage with owners, marked as from the blueprint', await page.evaluate(() => { const t = document.body.innerText; const heads = [...document.querySelectorAll('[data-testid^="journey-stage-"]')].map((h) => h.innerText.split('\n').pop().trim()); return heads.join('|') === 'Prepare for a customer|Judge account health|Spot risk early|Hand off to the right team|Renew and report' && /Customer success lifecycle/.test(t) && /what good looks like/i.test(t) && /Owner: /.test(t) && /Customer 360 timeline/.test(t) && /from the blueprint/i.test(t) }))
+  ok('it is not offered again once the example is there, and no project is on it here (this demo’s stages are the clinic’s)', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the Anchor CX example')) && /No project is on this workflow yet/.test(document.body.innerText)))
+  // The clinic demo this test runs on needs a workflow of its own stages to go on: made through the API.
+  const entry = (kind, name, owner) => ({ kind, name, owner })
+  const clinicFlow = { name: 'Patient access and scheduling', description: 'How a patient finds a provider, books, pays, prepares and follows up.', stages: [
+    { name: 'Find a provider', good: 'The patient finds a provider who takes their insurance.', signal: 'Searches that end without a booking.', handoff: 'The choice carries into booking.', backstage: [entry('Team', 'Provider data team', 'Provider Operations'), entry('System', 'Provider directory', 'Platform Engineering')] },
+    { name: 'Book a time', good: 'The patient books in one sitting.', signal: 'Booking completion rate.', handoff: 'A confirmed slot is written to the schedule.', backstage: [entry('Team', 'Scheduling team', 'Patient Access'), entry('System', 'Booking and calendar system', 'Scheduling Platform')] },
+    { name: 'Confirm & pay', good: 'The patient knows what they will owe.', backstage: [entry('Team', 'Billing and insurance team', 'Revenue Cycle')] },
+    { name: 'Prepare or change', good: 'Reminders arrive in time.', backstage: [entry('System', 'Messaging service', 'Patient Communications')] },
+    { name: 'Visit & follow-up', good: 'Check-in is quick.', backstage: [entry('Team', 'Front desk staff', 'Clinic Operations')] },
+  ] }
+  ok('a workflow of the clinic’s stages can be made through the API', (await fetch(`${API}/api/v1/workflows`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify(clinicFlow) })).status === 201)
   const flows = (await (await fetch(`${API}/api/v1/workflows`)).json()).data
+  await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#workflow-picker', { timeout: 8000 })
   await page.click('#workflow-picker')
   await page.waitForSelector('[role=option]', { visible: true })
   const picks = await page.evaluate(() => [...document.querySelectorAll('[role=option]')].map((x) => x.innerText))
   await page.keyboard.press('Escape')
-  ok('both healthcare examples exist, and the picker lists them with All studies last', flows.length === 2 && picks.length === 3 && /Referrals and results/.test(picks[1]) && /^All studies/.test(picks[2]), picks.join(' | '))
+  ok('the picker lists the workflows by name with All studies last', flows.length === 2 && picks.length === 3 && /^Customer success lifecycle/.test(picks[0]) && /^Patient access and scheduling/.test(picks[1]) && /^All studies/.test(picks[2]), picks.join(' | '))
   await new Promise((r) => setTimeout(r, 400))
 
   // A project goes on a workflow: its stages map by name and its Backstage row reads the blueprint.

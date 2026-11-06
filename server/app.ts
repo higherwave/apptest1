@@ -24,7 +24,7 @@ import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcrip
 import { getCaseBrief, listCaseBriefs } from './case-briefs.js'
 import { getCustomers } from './customers.js'
 import { getPlatformJourney, getWorkflowJourney } from './journey.js'
-import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowInUse, WorkflowMissing } from './workflows.js'
+import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, sampleMissing, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowInUse, WorkflowMissing } from './workflows.js'
 import { getUsage } from './usage.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
 import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
@@ -663,12 +663,14 @@ export function createApp(options: AppOptions = {}) {
   app.get('/workflows', withReadContext, async (c) => {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
-    return c.json({ data: await listWorkflows(getDb(), c.get('ctx').workspaceId) })
+    const ws = c.get('ctx').workspaceId
+    return c.json({ data: await listWorkflows(getDb(), ws), sampleMissing: await sampleMissing(getDb(), ws) })
   })
   app.post('/workflows/sample', withContext, async (c) => {
     requireEditor(c)
     c.header('Cache-Control', 'no-store')
-    return c.json({ data: await addSampleWorkflows(getDb(), c.get('ctx')) }, 201)
+    const data = await addSampleWorkflows(getDb(), c.get('ctx'))
+    return c.json({ data, sampleMissing: await sampleMissing(getDb(), c.get('ctx').workspaceId) }, 201)
   })
   app.post('/workflows', withContext, async (c) => {
     requireEditor(c)

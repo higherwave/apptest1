@@ -14,7 +14,7 @@ export function PlatformJourneyPage() {
   const me = useMe()
   const canEdit = me.data?.role === 'owner' || me.data?.role === 'editor'
   const workflows = useWorkflows()
-  const list = workflows.data ?? []
+  const list = workflows.data?.data ?? []
   const wanted = params.get('workflow')
   const selected = wanted === ALL ? ALL : (list.find((w) => w.id === wanted) ?? (wanted ? undefined : (list.find((w) => w.projectCount > 0) ?? list[0])))?.id ?? ALL
   const journey = usePlatformJourney(workflows.isPending ? undefined : selected === ALL ? undefined : selected)
@@ -69,7 +69,8 @@ export function PlatformJourneyPage() {
       canEdit={canEdit}
       onEdit={() => current && setDraft(fromWorkflow(current))}
       onNew={() => setDraft(blankDraft())}
-      onAddSamples={() => sample.mutate(undefined, { onSuccess: (all) => choose(all.find((w) => w.projectCount > 0)?.id ?? all[0]?.id ?? ALL) })}
+      sampleMissing={workflows.data?.sampleMissing ?? false}
+      onAddSamples={() => sample.mutate(undefined, { onSuccess: ({ data }) => choose(data.find((w) => w.projectCount > 0)?.id ?? data[0]?.id ?? ALL) })}
       addingSamples={sample.isPending}
       persona={persona}
       onPersona={setPersona}
