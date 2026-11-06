@@ -28,7 +28,7 @@ export function PriorityNote({ theme, curation }: { theme: Row; curation: Curati
     <section aria-label="Suggested priority" data-testid={`priority-${theme.id}`}>
       <h3 className={styles.label}>Suggested priority</h3>
       <div className={styles.text}>
-        <Tag size="sm" type="purple">
+        <Tag size="sm" type="gray">
           #{theme.priority.rank}
         </Tag>{' '}
         Score {theme.priority.score}. {theme.rationale ?? 'No rationale written yet.'}

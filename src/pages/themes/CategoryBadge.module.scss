@@ -12,4 +12,6 @@
   &[data-category='need'] { background: var(--at-tint-cream); color: var(--at-on-tint-cream); }
   &[data-category='expectation'] { background: var(--at-tint-mint); color: var(--at-signature-forest); }
   &[data-category='delight'] { background: var(--at-tint-yellow); color: var(--at-ink); }
+
+  &[data-quiet='true']:not([data-category='pain_point']) { background: var(--at-surface-strong); color: var(--at-ink); }
 }

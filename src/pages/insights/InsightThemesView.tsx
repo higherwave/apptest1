@@ -115,16 +115,16 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           {open && matchLine(t) && <span className={styles.matchLine} title={matchDetail(t)}>{matchLine(t)}</span>}
                         </span>
                         <span className={styles.chips}>
-                          <CategoryBadge category={t.category} />
-                          {t.needsReview && <Tag size="sm" type="warm-gray">New · review</Tag>}
-                          {order === 'priority' && t.priority && <Tag size="sm" type="purple">#{t.priority.rank}</Tag>}
-                          {t.opportunity && <Tag size="sm" type="purple">Opportunity</Tag>}
+                          <CategoryBadge category={t.category} quiet />
+                          {t.needsReview && <Tag size="sm" type="gray">New · review</Tag>}
+                          {order === 'priority' && t.priority && <Tag size="sm" type="gray">#{t.priority.rank}</Tag>}
+                          {t.opportunity && <Tag size="sm" type="gray">Opportunity</Tag>}
                         </span>
                         <span>
-                          <Tag size="sm" type="outline" data-testid={`origin-${t.id}`}>{ORIGIN_LABEL[t.origin]}</Tag>
+                          <Tag size="sm" type="gray" data-testid={`origin-${t.id}`}>{ORIGIN_LABEL[t.origin]}</Tag>
                         </span>
                         <span>
-                          <Tag size="sm" type={STATUS[t.status].tag}>{STATUS[t.status].label}</Tag>
+                          <Tag size="sm" type="gray">{STATUS[t.status].label}</Tag>
                         </span>
                         <span>{t.trend && <Sparkline values={t.trendSeries} trend={t.trend} label={`Trend: ${TREND[t.trend]}`} note={`${TREND[t.trend]}: share of each project’s participants, oldest project first: ${t.trendSeries.map((s) => `${Math.round(s * 100)}%`).join(', ')}`} />}</span>
                         <span className={styles.rowCount}>
