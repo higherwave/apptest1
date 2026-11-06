@@ -1,4 +1,4 @@
-import { Analytics, ChevronDown, Filter, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
+import { Analytics, ChevronDown, ChevronLeft, Filter, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
 import { useCallback, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -134,6 +134,10 @@ export function AppShell() {
       {hasPanel && (
         <div className={styles.context} data-context>
           <div className={styles.contextInner}>
+            <a href="/projects" data-label="All projects" className={styles.back} onClick={go('/projects')}>
+              <ChevronLeft size={20} aria-hidden />
+              All projects
+            </a>
             <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
             {projectDetail.data && !creating && (
               <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>

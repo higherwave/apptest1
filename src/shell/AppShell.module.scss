@@ -217,7 +217,7 @@ $column-wide: 100rem; // the content of the Journey Map; the project bar and the
     content: '';
     position: absolute;
     inset-block: -1.5rem;
-    inset-inline-start: 10%;
+    inset-inline-start: 38%; // right of the back link and the project's name, so they sit on white
     inline-size: 56rem;
     max-inline-size: 80%;
     background: radial-gradient(ellipse closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) 60%, transparent), color-mix(in srgb, var(--at-glow-blue) 40%, transparent) 55%, transparent);
@@ -228,6 +228,23 @@ $column-wide: 100rem; // the content of the Journey Map; the project bar and the
   > * { position: relative; }
 
   @media (max-width: $narrow) { inset-inline: 0; }
+}
+
+.back {
+  display: inline-flex;
+  flex: none;
+  gap: var(--at-space-xxs);
+  align-items: center;
+  margin-inline-end: var(--at-space-xs);
+  padding-inline-end: var(--at-space-md);
+  border-inline-end: 1px solid var(--at-hairline);
+  @include tokens.role('title-sm');
+  color: var(--at-link);
+  text-decoration: none;
+  white-space: nowrap;
+
+  &:hover { color: var(--at-link-active); text-decoration: underline; }
+  &:focus-visible { outline: 0.125rem solid var(--at-link); outline-offset: 0.125rem; }
 }
 
 .projectName {
