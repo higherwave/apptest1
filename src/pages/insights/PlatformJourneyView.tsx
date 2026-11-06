@@ -32,8 +32,10 @@ export type PlatformJourneyViewProps = {
   addingSamples: boolean
   persona: string | null
   onPersona: (key: string | null) => void
-  /** The editor, when the blueprint is being edited: it takes the place of the map. */
+  /** The editor, when the workflow is being edited: it takes the place of the map. */
   editor?: ReactNode
+  /** Its buttons (Add stage, Delete, Cancel, Save): they take the place of Edit Workflow in the toolbar. */
+  editActions?: ReactNode
 }
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -56,9 +58,19 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
       <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, with the teams and systems behind each stage" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
 
-      {!p.editor && (p.workflows.length > 0 || p.canEdit) && (
+      {p.canEdit && !p.editor && (
+        <div className={flow.newRow}>
+          <Button kind="primary" size="md" renderIcon={Add} onClick={p.onNew}>
+            New Workflow
+          </Button>
+        </div>
+      )}
+
+      {(p.workflows.length > 0 || p.editor) && (
         <div className={flow.toolbar}>
-          {p.workflows.length > 0 && (
+          {p.editor ? (
+            <span className={flow.editing}>Editing workflow</span>
+          ) : (
             <Dropdown
               id="workflow-picker"
               titleText="Workflow"
@@ -71,20 +83,21 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
               onChange={({ selectedItem }) => selectedItem && p.onSelect(selectedItem.id)}
             />
           )}
-          {p.canEdit && (
+          {(p.editor || p.canEdit) && (
             <div className={flow.actions}>
-              {onWorkflow && (
-                <Button kind="tertiary" size="md" renderIcon={Edit} onClick={p.onEdit}>
-                  Edit blueprint
-                </Button>
-              )}
-              <Button kind="tertiary" size="md" renderIcon={Add} onClick={p.onNew}>
-                New workflow
-              </Button>
-              {p.sampleMissing && p.workflows.length > 0 && (
-                <Button kind="ghost" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
-                  {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
-                </Button>
+              {p.editActions ?? (
+                <>
+                  {p.sampleMissing && (
+                    <Button kind="ghost" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
+                      {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
+                    </Button>
+                  )}
+                  {onWorkflow && (
+                    <Button kind="tertiary" size="md" renderIcon={Edit} onClick={p.onEdit}>
+                      Edit Workflow
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           )}

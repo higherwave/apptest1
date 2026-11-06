@@ -61,10 +61,10 @@ export function JourneyView({ state, project, stages, themes, canEdit, pending, 
           )}
           <p className={styles.workflowNote}>
             {blueprint.workflow
-              ? 'The Backstage row comes from this workflow’s blueprint, edited under Platform Insights > Journey.'
+              ? 'The Backstage row comes from this workflow’s blueprint, edited under Platform Insights > Workflows.'
               : workflows.length > 0
                 ? 'Put this project on a workflow and the Backstage row shows its real teams, systems and owners.'
-                : 'The Backstage row is simulated. Add a workflow under Platform Insights > Journey to replace it with real teams, systems and owners.'}
+                : 'The Backstage row is simulated. Add a workflow under Platform Insights > Workflows to replace it with real teams, systems and owners.'}
           </p>
         </div>
       )}

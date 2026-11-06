@@ -1,32 +1,20 @@
 import { Add, ArrowLeft, ArrowRight, Close } from '@carbon/icons-react'
-import { Button, Dropdown, InlineNotification, Modal, TextArea, TextInput } from '@carbon/react'
-import { useState } from 'react'
-import { addBackstage, addStage, isDirty, KINDS, moveStage, patchBackstage, patchStage, problems, removeBackstage, removeStage, type BackstageKind, type Draft } from './blueprintDraft'
+import { Button, Dropdown, InlineNotification, TextArea, TextInput } from '@carbon/react'
+import { addBackstage, KINDS, moveStage, patchBackstage, patchStage, removeBackstage, removeStage, type BackstageKind, type Draft } from './blueprintDraft'
 import map from '../themes/JourneyView.module.scss'
 import styles from './WorkflowJourney.module.scss'
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
 
 export type BlueprintEditorProps = {
-  initial: Draft
-  projectCount: number
-  saving: boolean
+  draft: Draft
+  onChange: (draft: Draft) => void
   errorText?: string
-  onSave: (draft: Draft) => void
-  onCancel: () => void
-  /** Only for a workflow that exists. */
-  onDelete?: () => void
-  deleting?: boolean
 }
 
-// The workflow, editable: the same matrix as the journey, with a box for everything the blueprint holds. Nothing is saved until Save; the
-// parent keys this by the workflow and its version, so a save (or someone else's) starts it again from what is stored.
-export function BlueprintEditor({ initial, projectCount, saving, errorText, onSave, onCancel, onDelete, deleting }: BlueprintEditorProps) {
-  const [draft, setDraft] = useState(initial)
-  const [askDelete, setAskDelete] = useState(false)
-  const todo = problems(draft)
-  const dirty = isDirty(draft, initial)
-  const set = (next: Draft) => setDraft(next)
+// The workflow, editable: the same matrix as the journey, with a box for everything the blueprint holds. The draft lives in the page, which also holds the
+// buttons (Add stage, Delete, Cancel, Save) in the toolbar above (BlueprintActions); nothing is saved until Save.
+export function BlueprintEditor({ draft, onChange: set, errorText }: BlueprintEditorProps) {
   const columns = draft.stages.length
 
   return (
@@ -107,43 +95,6 @@ export function BlueprintEditor({ initial, projectCount, saving, errorText, onSa
           </div>
         </div>
       </div>
-
-      <div className={styles.editorFoot}>
-        <Button kind="tertiary" size="md" renderIcon={Add} onClick={() => set(addStage(draft))}>
-          Add stage
-        </Button>
-        <span className={styles.spacer} />
-        {todo.length > 0 && <p className={styles.problems}>{todo[0]}</p>}
-        {onDelete && (
-          <Button kind="danger--ghost" size="md" onClick={() => setAskDelete(true)}>
-            Delete workflow
-          </Button>
-        )}
-        <Button kind="secondary" size="md" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button kind="primary" size="md" disabled={saving || todo.length > 0 || (!dirty && initial.id !== null)} onClick={() => onSave(draft)}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-      </div>
-
-      <Modal
-        open={askDelete}
-        danger
-        size="sm"
-        modalHeading={`Delete ${initial.name || 'this workflow'}?`}
-        primaryButtonText={deleting ? 'Deleting…' : projectCount > 0 ? 'Close' : 'Delete'}
-        secondaryButtonText={projectCount > 0 ? undefined : 'Cancel'}
-        primaryButtonDisabled={deleting}
-        onRequestClose={() => setAskDelete(false)}
-        onRequestSubmit={() => (projectCount > 0 ? setAskDelete(false) : onDelete?.())}
-      >
-        <p className={styles.confirm}>
-          {projectCount > 0
-            ? `${projectCount === 1 ? 'A project is' : `${projectCount} projects are`} on this workflow. Take them off it (on each project's Journey Map) before deleting it.`
-            : 'Its stages and backstage are removed. This cannot be undone, though the audit log keeps a record.'}
-        </p>
-      </Modal>
     </div>
   )
 }

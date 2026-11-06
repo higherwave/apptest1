@@ -88,6 +88,17 @@
   align-items: flex-end;
 }
 
+// New Workflow sits above the content at its right edge, as Save does on the Test Plan and Task List pages.
+.newRow {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.editing {
+  @include tokens.role('eyebrow');
+  color: var(--at-muted);
+}
+
 .picker {
   min-inline-size: 20rem;
 }
@@ -96,6 +107,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--at-space-xs);
+  align-items: center;
+  justify-content: flex-end;
+  margin-inline-start: auto;
 }
 
 .emptyBox {
@@ -144,13 +158,6 @@
 .grow {
   flex: 1;
   min-inline-size: 0;
-}
-
-.editorFoot {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--at-space-sm);
-  align-items: center;
 }
 
 .problems {
