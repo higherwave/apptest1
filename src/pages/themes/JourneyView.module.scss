@@ -2,6 +2,8 @@
 
 $label-width: 10rem;
 $stage-min: 13rem;
+$add-width: 3rem; // the slim lane that adds a stage, in the editor
+$stage-min-edit: 12rem; // and its stages are a little narrower, so five and the lane fit the page's width
 
 .page {
   display: flex;
@@ -29,6 +31,15 @@ $stage-min: 13rem;
 
     .sentiment {
       grid-template-columns: repeat($n, minmax(0, 1fr));
+    }
+
+    // The editor's slim lane at the far right.
+    &[data-add='true'] {
+      min-inline-size: calc(#{$label-width} + #{$n} * #{$stage-min-edit} + #{$add-width});
+
+      .row {
+        grid-template-columns: $label-width repeat($n, minmax(0, 1fr)) $add-width;
+      }
     }
   }
 }

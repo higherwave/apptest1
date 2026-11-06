@@ -43,22 +43,28 @@ export function PlatformJourneyPage() {
     remove.reset()
     setEditing(null)
   }
-  const editor = editing && <BlueprintEditor key={`${editing.initial.id ?? 'new'}:${editing.initial.version}`} draft={editing.draft} onChange={(d) => setEditing({ ...editing, draft: d })} errorText={failure ? friendlyMessage(failure) : undefined} />
-  const editActions = editing && (
-    <BlueprintActions
+  const editor = editing && (
+    <BlueprintEditor
+      key={`${editing.initial.id ?? 'new'}:${editing.initial.version}`}
       draft={editing.draft}
-      initial={editing.initial}
-      projectCount={current?.projectCount ?? 0}
-      saving={create.isPending || save.isPending}
-      deleting={remove.isPending}
       onChange={(d) => setEditing({ ...editing, draft: d })}
-      onCancel={stopEditing}
-      onSave={() => {
-        const d = editing.draft
-        if (d.id) save.mutate({ id: d.id, version: d.version, body: toRequest(d) }, { onSuccess: () => setEditing(null) })
-        else create.mutate(toRequest(d), { onSuccess: (w) => { setEditing(null); choose(w.id) } })
-      }}
-      onDelete={draft?.id ? () => remove.mutate(draft.id!, { onSuccess: () => { setEditing(null); setParams({}) } }) : undefined}
+      errorText={failure ? friendlyMessage(failure) : undefined}
+      actions={
+        <BlueprintActions
+          draft={editing.draft}
+          initial={editing.initial}
+          projectCount={current?.projectCount ?? 0}
+          saving={create.isPending || save.isPending}
+          deleting={remove.isPending}
+          onCancel={stopEditing}
+          onSave={() => {
+            const d = editing.draft
+            if (d.id) save.mutate({ id: d.id, version: d.version, body: toRequest(d) }, { onSuccess: () => setEditing(null) })
+            else create.mutate(toRequest(d), { onSuccess: (w) => { setEditing(null); choose(w.id) } })
+          }}
+          onDelete={draft?.id ? () => remove.mutate(draft.id!, { onSuccess: () => { setEditing(null); setParams({}) } }) : undefined}
+        />
+      }
     />
   )
 
@@ -87,7 +93,6 @@ export function PlatformJourneyPage() {
       persona={persona}
       onPersona={setPersona}
       editor={editor}
-      editActions={editActions}
     />
   )
 }

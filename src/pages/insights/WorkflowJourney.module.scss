@@ -121,10 +121,58 @@
 
 // The editor ------------------------------------------------------------------------------------------------
 
+// The editor fills the page's width (the empty state beside it does not): its matrix scrolls inside its own box, never the page.
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+// The name and description on the left; Delete, Cancel and Save at the right of the same row, level with the boxes.
 .editorTop {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-md);
+  align-items: flex-end;
+}
+
+.editorFields {
   display: grid;
+  flex: 1 1 32rem;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
   gap: var(--at-space-md);
+  min-inline-size: 0;
+}
+
+.editorActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+  align-items: center;
+  justify-content: flex-end;
+  margin-inline-start: auto;
+}
+
+// The slim lane at the far right of the stages: a dashed edge, and in the dark head row the button that adds a stage.
+.addLane {
+  border-inline-start: 1px dashed var(--at-border-strong);
+}
+
+.addHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-block-start: var(--at-space-md);
+  border-inline-start: 1px dashed var(--at-border-strong);
+}
+
+.addButton {
+  // On the dark header the icon has to be light: Carbon colors a ghost button's icon from this variable.
+  --cds-icon-primary: var(--at-on-dark);
+  --cds-button-icon-hover: var(--at-on-dark);
+  color: var(--at-on-dark);
+
+  &:hover { background: var(--at-surface-dark-elevated); }
 }
 
 .editCell {
@@ -162,6 +210,7 @@
 
 .problems {
   @include tokens.role('body-md');
+  max-inline-size: 16rem;
   margin: 0;
   color: var(--at-muted);
 }

@@ -1,7 +1,6 @@
-import { Add } from '@carbon/icons-react'
 import { Button, Modal } from '@carbon/react'
 import { useState } from 'react'
-import { addStage, isDirty, MAX_STAGES, problems, type Draft } from './blueprintDraft'
+import { isDirty, problems, type Draft } from './blueprintDraft'
 import styles from './WorkflowJourney.module.scss'
 
 export type BlueprintActionsProps = {
@@ -11,28 +10,24 @@ export type BlueprintActionsProps = {
   projectCount: number
   saving: boolean
   deleting: boolean
-  onChange: (draft: Draft) => void
   onSave: () => void
   onCancel: () => void
   /** Only for a workflow that exists. */
   onDelete?: () => void
 }
 
-// The buttons of Edit Workflow, in the toolbar where the Edit Workflow button was: Add stage, Delete workflow, Cancel and Save. What is still missing
-// before it can be saved is named beside them.
-export function BlueprintActions({ draft, initial, projectCount, saving, deleting, onChange, onSave, onCancel, onDelete }: BlueprintActionsProps) {
+// The buttons of Edit Workflow: Delete, Cancel and Save, at the right of the workflow's name and description. Delete asks first (the dialog below), and refuses
+// while projects are on the workflow. What is still missing before it can be saved is named beside them.
+export function BlueprintActions({ draft, initial, projectCount, saving, deleting, onSave, onCancel, onDelete }: BlueprintActionsProps) {
   const [askDelete, setAskDelete] = useState(false)
   const todo = problems(draft)
   const dirty = isDirty(draft, initial)
   return (
     <>
       {todo.length > 0 && <p className={styles.problems}>{todo[0]}</p>}
-      <Button kind="tertiary" size="md" renderIcon={Add} disabled={draft.stages.length >= MAX_STAGES} onClick={() => onChange(addStage(draft))}>
-        Add stage
-      </Button>
       {onDelete && (
         <Button kind="danger--ghost" size="md" onClick={() => setAskDelete(true)}>
-          Delete workflow
+          Delete
         </Button>
       )}
       <Button kind="secondary" size="md" onClick={onCancel}>

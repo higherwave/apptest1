@@ -32,10 +32,8 @@ export type PlatformJourneyViewProps = {
   addingSamples: boolean
   persona: string | null
   onPersona: (key: string | null) => void
-  /** The editor, when the workflow is being edited: it takes the place of the map. */
+  /** The editor, when the workflow is being edited: it takes the place of the picker row and the map. */
   editor?: ReactNode
-  /** Its buttons (Add stage, Delete, Cancel, Save): they take the place of Edit Workflow in the toolbar. */
-  editActions?: ReactNode
 }
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
@@ -66,38 +64,30 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
         </div>
       )}
 
-      {(p.workflows.length > 0 || p.editor) && (
+      {!p.editor && p.workflows.length > 0 && (
         <div className={flow.toolbar}>
-          {p.editor ? (
-            <span className={flow.editing}>Editing workflow</span>
-          ) : (
-            <Dropdown
-              id="workflow-picker"
-              titleText="Workflow"
-              label="Choose a workflow"
-              size="md"
-              className={flow.picker}
-              items={picks}
-              itemToString={(i) => i?.label ?? ''}
-              selectedItem={picks.find((i) => i.id === p.selected)}
-              onChange={({ selectedItem }) => selectedItem && p.onSelect(selectedItem.id)}
-            />
-          )}
-          {(p.editor || p.canEdit) && (
+          <Dropdown
+            id="workflow-picker"
+            titleText="Workflow"
+            label="Choose a workflow"
+            size="md"
+            className={flow.picker}
+            items={picks}
+            itemToString={(i) => i?.label ?? ''}
+            selectedItem={picks.find((i) => i.id === p.selected)}
+            onChange={({ selectedItem }) => selectedItem && p.onSelect(selectedItem.id)}
+          />
+          {p.canEdit && (
             <div className={flow.actions}>
-              {p.editActions ?? (
-                <>
-                  {p.sampleMissing && (
-                    <Button kind="ghost" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
-                      {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
-                    </Button>
-                  )}
-                  {onWorkflow && (
-                    <Button kind="tertiary" size="md" renderIcon={Edit} onClick={p.onEdit}>
-                      Edit Workflow
-                    </Button>
-                  )}
-                </>
+              {p.sampleMissing && (
+                <Button kind="ghost" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
+                  {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
+                </Button>
+              )}
+              {onWorkflow && (
+                <Button kind="tertiary" size="md" renderIcon={Edit} onClick={p.onEdit}>
+                  Edit Workflow
+                </Button>
               )}
             </div>
           )}
