@@ -6,13 +6,6 @@
   gap: var(--at-space-lg);
 }
 
-.columns {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem);
-  gap: var(--at-space-lg);
-  align-items: start;
-}
-
 .toolbar {
   display: flex;
   justify-content: flex-end;
@@ -40,6 +33,14 @@
   display: grid;
   grid-template-columns: 5rem repeat(3, minmax(0, 1fr));
   gap: var(--at-space-xs);
+}
+
+// On a narrow screen the row labels give up some width to the map.
+@media (max-width: 40rem) {
+  .row,
+  .footer {
+    grid-template-columns: 3.5rem repeat(3, minmax(0, 1fr));
+  }
 }
 
 .rowLabel,
@@ -71,30 +72,50 @@
   color: var(--at-muted);
 }
 
+// A theme on the map: the chip (what is dragged) and, for editors, the three-dot menu beside it.
+.node {
+  display: block;
+  inline-size: 100%;
+}
+
+.nodeRow {
+  display: flex;
+  gap: var(--at-space-xxs);
+  align-items: flex-start;
+}
+
 .chip {
+  flex: 1;
+  min-inline-size: 0;
   max-inline-size: 100%;
   min-block-size: auto;
+  // Carbon keeps room at the end of a button for an icon; a theme's name needs that width, most of all in a narrow column.
+  padding: var(--at-space-xs) var(--at-space-sm);
   white-space: normal;
   text-align: start;
+  overflow-wrap: break-word;
 }
 
-.panel {
+// What opens beside a node when the pointer has rested on it: the supporting detail the page used to keep in a side panel.
+.details {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-sm);
-  padding: var(--at-space-lg);
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-lg);
+  gap: var(--at-space-xs);
+  min-inline-size: 16rem;
+  max-inline-size: 22rem;
+  padding: var(--at-space-md);
+  background: var(--at-canvas);
 }
 
-.panelHead {
+.detailsHead {
   display: flex;
+  gap: var(--at-space-xs);
   align-items: center;
   justify-content: space-between;
 }
 
-.panelTitle {
-  @include tokens.role('panel-title');
+.detailsTitle {
+  @include tokens.role('label-md');
   margin: 0;
   color: var(--at-ink);
 }
@@ -109,12 +130,6 @@
   @include tokens.role('body-md');
   margin: 0;
   color: var(--at-body);
-}
-
-.none {
-  @include tokens.role('body-md');
-  margin: 0;
-  color: var(--at-muted);
 }
 
 .empty {

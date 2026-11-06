@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { applyPatch, cellKey, importanceOf, levelOf, matrixPatch, participantsLabel } from './themeEdits.js'
+import { applyPatch, cellKey, importanceOf, levelOf, matrixPatch, movePatch, participantsLabel } from './themeEdits.js'
 
 const theme = {
   id: 't1', title: 'Provider availability is hard to see', originalTitle: 'Provider availability is hard to see', category: 'pain_point', stagePosition: 0, suggestedStagePosition: 0,
@@ -42,3 +42,19 @@ test('matrix cells are importance-effort, with importance 3 for high', () => {
 })
 
 test('participants read "N of M participants", as in the prototype', () => assert.equal(participantsLabel(theme as never), '3 of 3 participants'))
+
+test('a step on the matrix moves one cell up (more important), down, right (more effort) or left, and stops at the edge', () => {
+  const t = { priority: 'medium', effort: 2, suggestedPriority: 'medium', suggestedEffort: 2 } as never
+  assert.deepEqual(movePatch(t, 'up'), { priority: 'high', effort: null }, 'effort stays at its suggestion, so it is sent as null')
+  assert.deepEqual(movePatch(t, 'down'), { priority: 'low', effort: null })
+  assert.deepEqual(movePatch(t, 'right'), { priority: null, effort: 3 })
+  assert.deepEqual(movePatch(t, 'left'), { priority: null, effort: 1 })
+  const corner = { priority: 'high', effort: 3, suggestedPriority: 'low', suggestedEffort: 1 } as never
+  assert.equal(movePatch(corner, 'up'), null)
+  assert.equal(movePatch(corner, 'right'), null)
+  assert.deepEqual(movePatch(corner, 'down'), { priority: 'medium', effort: 3 })
+  assert.deepEqual(movePatch(corner, 'left'), { priority: 'high', effort: 2 })
+  const low = { priority: 'low', effort: 1, suggestedPriority: 'low', suggestedEffort: 1 } as never
+  assert.equal(movePatch(low, 'down'), null)
+  assert.equal(movePatch(low, 'left'), null)
+})

@@ -37,3 +37,16 @@ export function matrixPatch(theme: Theme, importance: number, effort: number): T
 
 export const cellKey = (theme: Pick<Theme, 'priority' | 'effort'>) => `${importanceOf(theme.priority as Level)}-${theme.effort}`
 export const participantsLabel = (t: Pick<Theme, 'participantCount' | 'totalParticipants'>) => `${t.participantCount} of ${t.totalParticipants} participants`
+
+// A step on the matrix, for the menu on each node: up is more important, right is more effort (the matrix's own directions). Null at the edge,
+// where there is nowhere to step.
+export type Move = 'up' | 'down' | 'left' | 'right'
+export const MOVES: Move[] = ['up', 'down', 'right', 'left']
+export const MOVE_LABEL: Record<Move, string> = { up: 'Move up', down: 'Move down', right: 'Move right', left: 'Move left' }
+export function movePatch(theme: Pick<Theme, 'priority' | 'effort' | 'suggestedPriority' | 'suggestedEffort'>, move: Move): ThemePatch | null {
+  const importance = importanceOf(theme.priority as Level)
+  const next = { up: [importance + 1, theme.effort], down: [importance - 1, theme.effort], right: [importance, theme.effort + 1], left: [importance, theme.effort - 1] }[move]
+  const [i, e] = next
+  if (i < 1 || i > 3 || e < 1 || e > 3) return null
+  return matrixPatch(theme as Theme, i, e)
+}
