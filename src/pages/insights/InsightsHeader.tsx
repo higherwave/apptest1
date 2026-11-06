@@ -1,6 +1,6 @@
 import { Button } from '@carbon/react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useCaseStudies, useInsightsThemes } from '../../api/hooks'
+import { useCaseBriefs, useCaseStudies, useInsightsThemes } from '../../api/hooks'
 import { INSIGHT_SECTIONS } from '../../shell/nav'
 import { PageHero } from '../../shell/PageHero'
 import styles from './InsightsHeader.module.scss'
@@ -11,7 +11,12 @@ export function InsightsHeader({ title, description }: { title: string; descript
   const { pathname } = useLocation()
   const themes = useInsightsThemes()
   const cases = useCaseStudies()
-  const counts: Record<string, number | undefined> = { themes: themes.data?.themes.length, 'case-studies': cases.data?.length }
+  const briefs = useCaseBriefs()
+  // The page lists a row for each project with a shipped success and one for each case study written by hand: the count is both, so it matches the rows.
+  const counts: Record<string, number | undefined> = {
+    themes: themes.data?.themes.length,
+    'case-studies': cases.data && briefs.data ? cases.data.length + briefs.data.length : undefined,
+  }
   const current = Math.max(0, INSIGHT_SECTIONS.findIndex((s) => pathname === `/insights/${s.key}`))
   return (
     <PageHero title={title} description={description} glow="left">

@@ -221,7 +221,8 @@ export const useMapProjectStage = (projectId: string) => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: ({ position, workflowStageId }: { position: number; workflowStageId: string | null }) => mapProjectStage(projectId, position, workflowStageId), onSuccess: () => refreshBlueprints(queryClient) })
 }
-export const useCaseBriefs = () => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs })
+// The header counts them on every Platform Insights tab, so they are kept for half a minute instead of being rebuilt on each tab.
+export const useCaseBriefs = () => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs, staleTime: 30_000 })
 export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })
 
 // The Design table of a project. A save returns the row as it is now and is merged into the cached table.

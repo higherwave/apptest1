@@ -1139,6 +1139,7 @@ try {
     titles.push(await page.evaluate(() => document.querySelector('h1').innerText.trim()))
   }
   ok('every Platform Insights tab keeps the same title, Platform Insights (only the description changes)', titles.every((t) => t === 'Platform Insights'), titles.join(' | '))
+  ok('the Case studies tab count is the number of rows on that page (a project with a shipped success counts as one, like a written case study)', await page.evaluate(() => { const rows = document.querySelectorAll('ul[aria-label="Case studies"] > li').length; const count = Number(document.querySelector('nav[aria-label="Platform Insights sections"] [data-label="Case studies"]').innerText.match(/· (\d+)/)?.[1] ?? -1); return rows > 0 && count === rows }))
   await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
 
