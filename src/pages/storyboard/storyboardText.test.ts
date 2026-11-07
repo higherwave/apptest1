@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clip, dateRange, draftLabel, heardTitle, longDate } from './storyboardText'
+import { clip, dateRange, draftLabel, heardTitle, longDate, paginateRows, rowHeight, slidePlan, slideTitle } from './storyboardText'
 
 test('dates read in UTC and share the year and month', () => {
   assert.equal(longDate('2026-11-12'), '12 November 2026')
@@ -22,4 +22,28 @@ test('the slide wording', () => {
   assert.equal(heardTitle(1, 1), 'The strongest theme across 1 participant')
   assert.match(draftLabel('template'), /without the AI model/)
   assert.match(draftLabel('model'), /best guess/)
+})
+
+const row = (len: number, name = 'Account risk timeline') => ({ name, benefit: 'b'.repeat(len), cost: 'c'.repeat(len), risk: 'r'.repeat(len), giveUp: 'g'.repeat(len), alternatives: 'a'.repeat(len) })
+
+test('short trade-offs share one slide; long ones carry on to a continued slide, and no row is left out or split', () => {
+  assert.deepEqual(paginateRows([row(60), row(60), row(60)]), [[0, 1, 2]])
+  const long = [row(160), row(160), row(160)]
+  const pages = paginateRows(long)
+  assert.ok(pages.length > 1, 'three rows of 160 characters do not fit one slide')
+  assert.deepEqual(pages.flat(), [0, 1, 2], 'every row appears once, in order')
+  assert.ok(pages.every((p) => p.length > 0))
+  assert.deepEqual(paginateRows([row(160)]), [[0]], 'a single row always has a slide')
+  assert.deepEqual(paginateRows([]), [[]])
+  assert.ok(rowHeight(row(160)) > rowHeight(row(40)))
+})
+
+test('the deck is five slides, plus one for each further page of trade-offs, with the closing slide last', () => {
+  assert.deepEqual(slidePlan([row(60), row(60)]).map((s) => s.kind), ['title', 'problem', 'heard', 'solutions', 'tradeoffs', 'close'])
+  const plan = slidePlan([row(160), row(160), row(160)])
+  assert.deepEqual(plan.map((s) => s.kind), ['title', 'problem', 'heard', 'solutions', ...plan.filter((s) => s.kind === 'tradeoffs').map(() => 'tradeoffs'), 'close'])
+  const trade = plan.filter((s) => s.kind === 'tradeoffs')
+  assert.ok(trade.length >= 2 && trade.every((s, i) => s.part === i + 1 && s.parts === trade.length))
+  assert.equal(slideTitle(trade[0]), 'Trade-offs')
+  assert.equal(slideTitle(trade[1]), 'Trade-offs (continued)')
 })

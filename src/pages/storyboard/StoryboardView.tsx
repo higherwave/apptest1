@@ -5,8 +5,8 @@ import { createPortal } from 'react-dom'
 import type { ProjectDetail, Storyboard } from '../../api/client'
 import { useStrip } from '../../components/useStrip'
 import { ProjectHeader } from '../project/ProjectHeader'
-import { ScaledSlide, Slide, type Deck, type SlideNumber } from './Slides'
-import { SLIDE_COUNT, SLIDE_TITLES } from './storyboardText'
+import { ScaledSlide, Slide, type Deck } from './Slides'
+import { slidePlan, slideTitle } from './storyboardText'
 import styles from './StoryboardView.module.scss'
 
 export type StoryboardViewProps = {
@@ -26,17 +26,20 @@ export type StoryboardViewProps = {
   onAllThemes: () => void
 }
 
-const SLIDES: SlideNumber[] = [1, 2, 3, 4, 5, 6]
-
 // A style that sizes the PDF's pages to the slides (10 by 5.625 inches, 16:9). It is added only while printing, since @page cannot be scoped to a screen.
 const PAGE_RULE = '@page { size: 10in 5.625in; margin: 0 }'
 
 // Presentational: the project's research as a deck. Nobody edits it here; it is read, and downloaded to be changed in another tool.
 export function StoryboardView({ state, project, board, author, canEdit, generating, errorText, fallback, onGenerate, onGoTranscripts, onAllThemes }: StoryboardViewProps) {
-  const [current, setCurrent] = useState<SlideNumber>(1)
+  const [current, setCurrent] = useState(1)
   const [again, setAgain] = useState(false)
   const deck: Deck | null = board?.draft ? { facts: board.facts, draft: board.draft } : null
-  const strip = useStrip(SLIDE_COUNT, board?.draft?.generatedAt)
+  // The slides: five, with the trade-offs on as many as its rows need.
+  const plan = deck ? slidePlan(deck.draft.solutions) : []
+  const count = plan.length
+  const slides = plan.map((_, i) => i + 1)
+  const titleOf = (n: number) => (plan[n - 1] ? slideTitle(plan[n - 1]) : '')
+  const strip = useStrip(count, board?.draft?.generatedAt)
 
   // While this page is up, printing shows only the deck (see StoryboardView.module.scss).
   useEffect(() => {
@@ -59,8 +62,9 @@ export function StoryboardView({ state, project, board, author, canEdit, generat
     window.print()
   }
 
-  const go = (n: number) => setCurrent(Math.min(SLIDE_COUNT, Math.max(1, n)) as SlideNumber)
-  const all = strip.view.first === 1 && strip.view.last === SLIDE_COUNT
+  const shownSlide = Math.min(current, Math.max(count, 1))
+  const go = (n: number) => setCurrent(Math.min(count, Math.max(1, n)))
+  const all = strip.view.first === 1 && strip.view.last === count
 
   return (
     <div className={styles.page}>
@@ -127,9 +131,9 @@ export function StoryboardView({ state, project, board, author, canEdit, generat
               )}
             </div>
             <ul ref={strip.track} className={styles.track} onScroll={strip.measure} aria-label="Slides">
-              {SLIDES.map((n) => (
+              {slides.map((n) => (
                 <li key={n} className={styles.item}>
-                  <Button kind="ghost" size="sm" className={styles.thumb} data-current={current === n} aria-current={current === n ? 'true' : undefined} aria-label={`Slide ${n}: ${SLIDE_TITLES[n - 1]}`} onClick={() => go(n)}>
+                  <Button kind="ghost" size="sm" className={styles.thumb} data-current={shownSlide === n} aria-current={shownSlide === n ? 'true' : undefined} aria-label={`Slide ${n}: ${titleOf(n)}`} onClick={() => go(n)}>
                     <ScaledSlide thumb n={n} deck={deck} author={author} />
                     <span className={styles.thumbNumber}>{n}</span>
                   </Button>
@@ -139,23 +143,23 @@ export function StoryboardView({ state, project, board, author, canEdit, generat
           </section>
 
           <div className={styles.stage}>
-            <div className={styles.slide} role="group" aria-roledescription="slide" aria-label={`Slide ${current} of ${SLIDE_COUNT}: ${SLIDE_TITLES[current - 1]}`}>
-              <ScaledSlide n={current} deck={deck} author={author} onAllThemes={onAllThemes} />
+            <div className={styles.slide} role="group" aria-roledescription="slide" aria-label={`Slide ${shownSlide} of ${count}: ${titleOf(shownSlide)}`}>
+              <ScaledSlide n={shownSlide} deck={deck} author={author} onAllThemes={onAllThemes} />
             </div>
             <div className={styles.caption}>
               <p className={styles.captionText} role="status">
-                Slide {current} of {SLIDE_COUNT} · {SLIDE_TITLES[current - 1]}
+                Slide {shownSlide} of {count} · {titleOf(shownSlide)}
               </p>
               <div className={styles.controls}>
-                <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Previous slide" tooltipPosition="top" disabled={current === 1} onClick={() => go(current - 1)} />
-                <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Next slide" tooltipPosition="top" disabled={current === SLIDE_COUNT} onClick={() => go(current + 1)} />
+                <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronLeft} iconDescription="Previous slide" tooltipPosition="top" disabled={shownSlide === 1} onClick={() => go(shownSlide - 1)} />
+                <Button kind="ghost" size="sm" hasIconOnly renderIcon={ChevronRight} iconDescription="Next slide" tooltipPosition="top" disabled={shownSlide === count} onClick={() => go(shownSlide + 1)} />
               </div>
             </div>
           </div>
 
           {createPortal(
             <div className={styles.print} data-testid="storyboard-print">
-              {SLIDES.map((n) => (
+              {slides.map((n) => (
                 <div key={n} className={styles.sheet}>
                   <Slide n={n} deck={deck} author={author} />
                 </div>

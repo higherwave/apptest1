@@ -3,12 +3,11 @@ import { Button } from '@carbon/react'
 import { useEffect, useRef } from 'react'
 import type { Storyboard } from '../../api/client'
 import { CategoryBadge } from '../themes/CategoryBadge'
-import { clip, dateRange, draftLabel, heardTitle, longDate, SLIDE_COUNT, SLIDE_TITLES, THEMES_ON_SLIDE } from './storyboardText'
+import { clip, dateRange, draftLabel, heardTitle, longDate, slidePlan, slideTitle, THEMES_ON_SLIDE } from './storyboardText'
 import styles from './Slides.module.scss'
 
 /** A storyboard whose text has been written. */
 export type Deck = { facts: Storyboard['facts']; draft: NonNullable<Storyboard['draft']> }
-export type SlideNumber = 1 | 2 | 3 | 4 | 5 | 6
 
 /** A tile on "What we heard" fits about this much of a quote. */
 const QUOTE_CHARS = 110
@@ -19,12 +18,12 @@ function DraftLabel({ source }: { source: 'model' | 'template' }) {
   return <p className={styles.draftLabel}>{draftLabel(source)}</p>
 }
 
-function Band({ n, title, children }: { n: number; title: string; children?: React.ReactNode }) {
+function Band({ n, name, title, children }: { n: number; name: string; title: string; children?: React.ReactNode }) {
   return (
     <header className={styles.band}>
       <div>
         <p className={styles.eyebrow}>
-          {n} · {SLIDE_TITLES[n - 1]}
+          {n} · {name}
         </p>
         <h2 className={styles.bandTitle}>{title}</h2>
       </div>
@@ -35,12 +34,15 @@ function Band({ n, title, children }: { n: number; title: string; children?: Rea
 
 // One slide, laid out on a fixed 60 by 33.75 rem canvas (16:9). Where it shows is the caller's business: ScaledSlide fits it to a width, and the
 // print layout uses it as it is. `onAllThemes` adds the "Show all themes" link, which only makes sense on screen.
-export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: Deck; author: string; onAllThemes?: () => void }) {
+export function Slide({ n, deck, author, onAllThemes }: { n: number; deck: Deck; author: string; onAllThemes?: () => void }) {
   const { facts, draft } = deck
+  const plan = slidePlan(draft.solutions)
+  const spec = plan[n - 1] ?? plan[0]
+  const name = slideTitle(spec)
   const shown = facts.themes.slice(0, THEMES_ON_SLIDE)
   const titleOf = (id: string) => facts.themes.find((t) => t.id === id)?.title
 
-  if (n === 1) {
+  if (spec.kind === 'title') {
     return (
       <section className={styles.slide} data-dark="true">
         <div className={styles.titleTop}>
@@ -56,10 +58,10 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
     )
   }
 
-  if (n === 2) {
+  if (spec.kind === 'problem') {
     return (
       <section className={styles.slide}>
-        <Band n={2} title={draft.problem} />
+        <Band n={n} name={name} title={draft.problem} />
         <div className={styles.problemBody}>
           <div className={styles.problemLeft}>
             <div className={styles.stats}>
@@ -108,10 +110,10 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
     )
   }
 
-  if (n === 3) {
+  if (spec.kind === 'heard') {
     return (
       <section className={styles.slide}>
-        <Band n={3} title={heardTitle(shown.length, facts.participants)}>
+        <Band n={n} name={name} title={heardTitle(shown.length, facts.participants)}>
           {onAllThemes && facts.themeCount > shown.length && (
             <Button kind="ghost" size="sm" className={styles.bandLink} renderIcon={ArrowRight} onClick={onAllThemes}>
               Show all themes ({facts.themeCount})
@@ -138,10 +140,10 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
     )
   }
 
-  if (n === 4) {
+  if (spec.kind === 'solutions') {
     return (
       <section className={styles.slide}>
-        <Band n={4} title={draft.solutions.length === 1 ? 'One solution addresses the themes' : `${draft.solutions.length} solutions address the themes`}>
+        <Band n={n} name={name} title={draft.solutions.length === 1 ? 'One solution addresses the themes' : `${draft.solutions.length} solutions address the themes`}>
           <DraftLabel source={draft.source} />
         </Band>
         <ol className={styles.solutions} data-count={draft.solutions.length}>
@@ -169,10 +171,10 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
     )
   }
 
-  if (n === 5) {
+  if (spec.kind === 'tradeoffs') {
     return (
       <section className={styles.slide}>
-        <Band n={5} title="Cost and risk differ across the solutions">
+        <Band n={n} name={name} title={(spec.part ?? 1) > 1 ? `Cost and risk, continued (${spec.part} of ${spec.parts})` : spec.parts && spec.parts > 1 ? `Cost and risk differ across the solutions (1 of ${spec.parts})` : 'Cost and risk differ across the solutions'}>
           <DraftLabel source={draft.source} />
         </Band>
         <div role="table" aria-label="Trade-offs by solution" className={styles.table}>
@@ -184,7 +186,7 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
               </div>
             ))}
           </div>
-          {draft.solutions.map((s) => (
+          {(spec.rows ?? []).map((i) => draft.solutions[i]).map((s) => (
             <div key={s.name} role="row" className={styles.row}>
               <div role="rowheader" className={styles.rowHead}>{s.name}</div>
               {[s.benefit, s.cost, s.risk, s.giveUp, s.alternatives].map((v, i) => (
@@ -203,7 +205,7 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
     <section className={styles.slide} data-dark="true">
       <div className={styles.closeTop}>
         <p className={styles.titleKicker}>
-          {SLIDE_COUNT} · {SLIDE_TITLES[SLIDE_COUNT - 1]}
+          {n} · {name}
         </p>
         <DraftLabel source={draft.source} />
       </div>
@@ -224,7 +226,7 @@ export function Slide({ n, deck, author, onAllThemes }: { n: SlideNumber; deck: 
 
 // A slide shrunk or stretched to the width it is given (its parent's), keeping 16:9. The slide is drawn at its own size and scaled, so type and spacing
 // stay in proportion; `thumb` makes it a picture only (not focusable, hidden from screen readers).
-export function ScaledSlide({ thumb = false, ...slide }: { n: SlideNumber; deck: Deck; author: string; onAllThemes?: () => void; thumb?: boolean }) {
+export function ScaledSlide({ thumb = false, ...slide }: { n: number; deck: Deck; author: string; onAllThemes?: () => void; thumb?: boolean }) {
   const frame = useRef<HTMLDivElement>(null)
   const canvas = useRef<HTMLDivElement>(null)
   useEffect(() => {
