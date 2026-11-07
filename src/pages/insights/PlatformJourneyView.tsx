@@ -1,4 +1,3 @@
-import { Add, Edit } from '@carbon/icons-react'
 import { Button, Dropdown, InlineNotification, Loading } from '@carbon/react'
 import type { ReactNode } from 'react'
 import type { PlatformJourney, Workflow } from '../../api/client'
@@ -56,28 +55,22 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
       <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, with the teams and systems behind each stage" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
 
-      {p.canEdit && !p.editor && (
-        <div className={flow.newRow}>
-          <Button kind="primary" size="md" renderIcon={Add} onClick={p.onNew}>
-            New Workflow
-          </Button>
-        </div>
-      )}
-
-      {!p.editor && p.workflows.length > 0 && (
+      {!p.editor && (p.workflows.length > 0 || p.canEdit) && (
         <div className={flow.toolbar}>
-          <Dropdown
-            id="workflow-picker"
-            titleText="Workflow"
-            label="Choose a workflow"
-            size="md"
-            className={flow.picker}
-            items={picks}
-            itemToString={(i) => i?.label ?? ''}
-            selectedItem={picks.find((i) => i.id === p.selected)}
-            onChange={({ selectedItem }) => selectedItem && p.onSelect(selectedItem.id)}
-          />
-          {p.canEdit && (
+          {p.workflows.length > 0 && (
+            <Dropdown
+              id="workflow-picker"
+              titleText="Workflow"
+              label="Choose a workflow"
+              size="md"
+              className={flow.picker}
+              items={picks}
+              itemToString={(i) => i?.label ?? ''}
+              selectedItem={picks.find((i) => i.id === p.selected)}
+              onChange={({ selectedItem }) => selectedItem && p.onSelect(selectedItem.id)}
+            />
+          )}
+          {p.canEdit && p.workflows.length > 0 && (
             <div className={flow.actions}>
               {p.sampleMissing && (
                 <Button kind="ghost" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
@@ -85,11 +78,16 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
                 </Button>
               )}
               {onWorkflow && (
-                <Button kind="tertiary" size="md" renderIcon={Edit} onClick={p.onEdit}>
+                <Button kind="tertiary" size="md" onClick={p.onEdit}>
                   Edit Workflow
                 </Button>
               )}
             </div>
+          )}
+          {p.canEdit && (
+            <Button kind="primary" size="md" className={flow.newButton} onClick={p.onNew}>
+              New Workflow
+            </Button>
           )}
         </div>
       )}

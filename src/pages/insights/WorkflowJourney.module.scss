@@ -88,10 +88,9 @@
   align-items: flex-end;
 }
 
-// New Workflow sits above the content at its right edge, as Save does on the Test Plan and Task List pages.
-.newRow {
-  display: flex;
-  justify-content: flex-end;
+// New Workflow ends the toolbar's row, at the right edge, as Save does on the Test Plan and Task List pages.
+.newButton {
+  margin-inline-start: auto;
 }
 
 .editing {
@@ -108,8 +107,6 @@
   flex-wrap: wrap;
   gap: var(--at-space-xs);
   align-items: center;
-  justify-content: flex-end;
-  margin-inline-start: auto;
 }
 
 .emptyBox {
@@ -149,8 +146,6 @@
   flex-wrap: wrap;
   gap: var(--at-space-xs);
   align-items: center;
-  justify-content: flex-end;
-  margin-inline-start: auto;
 }
 
 // The slim lane at the far right of the stages: a dashed edge, and in the dark head row the button that adds a stage.
