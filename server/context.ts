@@ -33,6 +33,15 @@ const IDENTITY_SQL = `
   join core.users u on u.id = m.user_id
   where w.slug = $1 and lower(u.email) = lower($2)`
 
+const ANY_MEMBER_SQL = `
+  select u.id as user_id, u.email, u.display_name, u.avatar_url, w.id as workspace_id, w.name as workspace_name, m.role
+  from core.workspaces w
+  join core.memberships m on m.workspace_id = w.id
+  join core.users u on u.id = m.user_id
+  where w.slug = $1
+  order by (m.role = 'owner') desc, m.created_at asc
+  limit 1`
+
 // Sets userId and workspaceId for every request that needs them. In order:
 //   1. A request with a Bearer header is checked against DEV_TOKEN: the right token acts as the demo owner, a wrong
 //      one is always refused. (A break-glass path that goes away once sign-in is the only way in.)
@@ -139,7 +148,11 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
       return next()
     }
     const { rows } = await deps.getDb().query(IDENTITY_SQL, [slug, email])
-    const row = rows[0]
+    let row = rows[0]
+    // A visitor with no session only reads, as a viewer, so it does not matter whose identity stands in for them. If the
+    // configured demo identity is not a member (the usual case once real people own the workspace), borrow the workspace's
+    // owner (or its oldest member) instead of failing with a 503. Anyone else still needs the exact identity.
+    if (!row && anonymous) row = (await deps.getDb().query(ANY_MEMBER_SQL, [slug])).rows[0]
     if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Create the workspace with: node db/init-workspace.mjs (or load the demo with the seed).`)
     const value: RequestContext = {
       anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,

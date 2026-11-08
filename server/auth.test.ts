@@ -268,6 +268,19 @@ test('PUBLIC_VIEW lets a visitor look, read-only and uncached; writes, members a
   assert.equal((await (await appFor()).request('/api/v1/projects')).status, 401)
 })
 
+test('PUBLIC_VIEW still works when the configured demo identity is not a member of the workspace', async () => {
+  // The demo identity is wrong (as on a deployment whose real owners replaced the seeded demo user).
+  const app = await appFor({ PUBLIC_VIEW: 'true', DEV_USER_EMAIL: 'nobody@gone.test' })
+  const me = await app.request('/api/v1/me')
+  assert.equal(me.status, 200)
+  const body = await me.json()
+  assert.equal(body.role, 'viewer')
+  assert.equal(body.via, 'anonymous')
+  assert.equal((await app.request('/api/v1/projects')).status, 200)
+  // Still read-only.
+  assert.equal((await app.request('/api/v1/projects', { method: 'POST', headers: json, body: newProject('By a visitor') })).status, 401)
+})
+
 test('BETTER_AUTH_TRUSTED_ORIGINS adds trusted addresses, and the default adds none', () => {
   const pool = {} as never
   assert.deepEqual(authOptions(SIGNED_IN, pool).trustedOrigins, [])
