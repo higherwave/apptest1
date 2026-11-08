@@ -55,6 +55,23 @@ try {
   await waitText('Editing is locked')
   ok('a project opens read-only and says how to get editing access', (await text()).includes('Sign in') && (await page.evaluate(() => document.querySelector('#project-name').readOnly === true)))
 
+  // A visitor sees every Platform Insights tab and a project's pages with the sample data, never an error banner
+  // (once a visitor's lookup failed with "The demo data is not loaded yet.").
+  const errorShown = async () => { const t = await text(); return t.includes('Something went wrong') || t.includes('not loaded yet') }
+  let clean = true
+  for (const key of ['themes', 'personas', 'journey', 'case-studies']) {
+    await page.goto(`${BASE}/insights/${key}`, { waitUntil: 'networkidle0' })
+    await waitText('Platform Insights')
+    clean = clean && !(await errorShown())
+  }
+  ok('a visitor sees Platform Themes, Personas, Workflows and Case studies without an error', clean)
+  const pagesClean = []
+  for (const step of ['plan', 'themes']) {
+    await page.goto(`${BASE}/projects/${first.id}/${step}`, { waitUntil: 'networkidle0' })
+    pagesClean.push(!(await errorShown()))
+  }
+  ok('a visitor can open a project\'s pages without an error', pagesClean.every(Boolean))
+
   // /sign-in sends someone who is already signed in straight to the projects.
   await signInAs('david@demo.signalflow.example')
   await page.goto(`${BASE}/sign-in`, { waitUntil: 'networkidle0' })
