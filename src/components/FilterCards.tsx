@@ -7,7 +7,7 @@ export type FilterCardItem = { key: string; label: string; count: number }
 // cannot be picked (and has no hover), unless it is the one already chosen. Used on Platform Insights > Themes and on Measure.
 export function FilterCards({ items, selected, onSelect, ariaLabel }: { items: FilterCardItem[]; selected: string; onSelect: (key: string) => void; ariaLabel: string }) {
   return (
-    <section className={styles.cards} aria-label={ariaLabel}>
+    <section className={styles.cards} aria-label={ariaLabel} data-tour="filter-cards">
       {items.map((f) => (
         <Button key={f.key} kind="ghost" size="md" className={styles.card} data-kind={f.key} aria-pressed={selected === f.key} disabled={f.count === 0 && selected !== f.key} onClick={() => onSelect(f.key)}>
           <span className={styles.num}>{f.count}</span>

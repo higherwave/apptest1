@@ -140,7 +140,7 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
             Folded together from {plural(journey.projectCount, 'project')}. A theme sits in the stage most studies placed it in.
           </p>
           <div className={map.scroll}>
-            <div className={map.map} data-columns={stages.length}>
+            <div className={map.map} data-columns={stages.length} data-tour="journey-map">
               <div className={map.row}>
                 <div className={map.corner} />
                 {stages.map((s, i) => (

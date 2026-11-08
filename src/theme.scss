@@ -73,6 +73,7 @@
   --at-z-bar: 2; // the slim bar naming the project
   --at-z-header: 3; // the app bar
   --at-z-banner: 4; // the spend alert, above the app bar
+  --at-z-tour: 5; // the guided tour's spotlight and step card, above the app bars
   // A one-pixel ring drawn with box-shadow, so it takes no space: at rest, selected, and a drop target.
   --at-ring: 0 0 0 1px var(--at-hairline);
   --at-ring-strong: 0 0 0 1px var(--at-border-strong);

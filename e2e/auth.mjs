@@ -9,6 +9,7 @@ const ok = (name, cond, extra = '') => { results.push([cond ? 'ok  ' : 'FAIL', n
 
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--window-size=1400,900', ...(process.env.CI ? ['--no-sandbox'] : [])] })
 const page = await browser.newPage()
+await page.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: [] })) } catch { /* ignore */ } }) // the welcome screen is tested in tour.mjs; here it would only be in the way
 await page.setViewport({ width: 1400, height: 900 })
 page.on('pageerror', (e) => ok('no page errors', false, e.message))
 const text = () => page.evaluate(() => document.body.innerText)

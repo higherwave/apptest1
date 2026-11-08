@@ -12,6 +12,7 @@ const ok = (name, cond, extra = '') => { results.push([cond ? 'ok  ' : 'FAIL', n
 
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--window-size=1400,900', ...(process.env.CI ? ['--no-sandbox'] : [])] })
 const page = await browser.newPage()
+await page.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: [] })) } catch { /* ignore */ } }) // the welcome screen is tested in tour.mjs; here it would only be in the way
 await page.setViewport({ width: 1400, height: 900 })
 page.on('pageerror', (e) => ok('no page errors', false, e.message))
 const text = async () => page.evaluate(() => document.body.innerText)
@@ -50,7 +51,7 @@ try {
   await clickText('Unlock')
   await waitText('Editing unlocked')
   ok('the right token unlocks editing', (await text()).includes('Editing unlocked'))
-  ok('the token is in session storage only', await page.evaluate((token) => sessionStorage.getItem('signalflow.editToken') === token && localStorage.length === 0, TOKEN))
+  ok('the token is in session storage only', await page.evaluate((token) => sessionStorage.getItem('signalflow.editToken') === token && !Object.keys(localStorage).some((k) => k.includes(token) || localStorage.getItem(k).includes(token)), TOKEN))
   ok('remove menus appear once unlocked', (await page.$$('.cds--overflow-menu')).length === 4)
   ok('each menu has its own accessible name', (await page.evaluate(() => [...document.querySelectorAll('.cds--overflow-menu svg')].map((s) => s.getAttribute('aria-label')))).every((l) => /^Actions for .+/.test(l ?? '')))
 
@@ -1391,6 +1392,7 @@ try {
   // Spend alerts: a canned live status (the in-memory API is always simulated) drives the owner banner above the app bar.
   {
     const p2 = await browser.newPage()
+    await p2.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: [] })) } catch { /* ignore */ } })
     await p2.setViewport({ width: 1400, height: 900 })
     p2.on('pageerror', (e) => ok('no page errors (spend alerts)', false, e.message))
     let status = { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 5.2, spendLevel: 'half', month: '2026-11' }

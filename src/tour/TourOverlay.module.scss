@@ -1,0 +1,97 @@
+@use '../tokens' as tokens;
+
+// The tour: one full-screen layer (it stops clicks reaching the page while a tour runs), a lit window round the target, and the card.
+// Positions come from custom properties the component sets as the page scrolls (see TourOverlay.tsx).
+$card-width: 22rem;
+
+.root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--at-z-tour);
+}
+
+// With nothing to point at, the whole page is dimmed.
+.dim {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--at-ink) 55%, transparent);
+
+  .root[data-spot='true'] & { display: none; }
+}
+
+// With a target, the dimming is a huge shadow around a clear window, so the target shows through at full strength.
+.spot {
+  display: none;
+  position: absolute;
+  inset-block-start: var(--tour-y, 0);
+  inset-inline-start: var(--tour-x, 0);
+  inline-size: var(--tour-w, 0);
+  block-size: var(--tour-h, 0);
+  border-radius: var(--at-radius-md);
+  box-shadow: 0 0 0 0.1875rem var(--at-info-border), 0 0 0 100vmax color-mix(in srgb, var(--at-ink) 55%, transparent);
+  pointer-events: none;
+
+  .root[data-spot='true'] & { display: block; }
+}
+
+.card {
+  position: absolute;
+  box-sizing: border-box;
+  inline-size: min(#{$card-width}, calc(100vw - 2rem));
+  max-block-size: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: var(--at-space-lg);
+  background: var(--at-canvas);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  box-shadow: 0 1rem 2.5rem color-mix(in srgb, var(--at-ink) 18%, transparent);
+  color: var(--at-body);
+
+  // Hidden until it knows where to go, so it never flashes in the wrong place.
+  &[data-status='finding'] { visibility: hidden; }
+
+  &[data-mode='beside'] {
+    inset-block-start: var(--tour-card-y, 0);
+    inset-inline-start: var(--tour-card-x, 0);
+  }
+
+  &[data-mode='center'] {
+    inset-block-start: 50%;
+    inset-inline-start: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  // Along the bottom edge, the whole width on a tablet, so the target stays visible above it.
+  &[data-mode='dock'] {
+    inset-block-end: var(--at-space-md);
+    inset-inline: 0;
+    margin-inline: auto;
+    inline-size: min(40rem, calc(100vw - 2rem));
+  }
+}
+
+.eyebrow {
+  @include tokens.role('eyebrow-sm');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-muted);
+}
+
+.title {
+  @include tokens.role('title-sm');
+  margin: 0 0 var(--at-space-sm);
+  color: var(--at-ink);
+}
+
+.body {
+  @include tokens.role('reading-md');
+  margin: 0 0 var(--at-space-lg);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.spacer { flex: 1; }

@@ -48,7 +48,7 @@ export function PrioritiesView({ state, project, themes, canEdit, pending, error
               Reset all
             </Button>
           </div>
-          <div className={styles.matrix}>
+          <div className={styles.matrix} data-tour="priority-matrix">
             <span className={styles.axisY}>Importance</span>
             {IMPORTANCE_ROWS.map((imp) => (
               <div key={imp} className={styles.row}>

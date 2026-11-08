@@ -38,6 +38,8 @@ const run = (script, env) => new Promise((resolve) => {
 
 // The main flow, with the access token. Then the sign-in flow, against a second API that has the stand-in sign-in service.
 let code = await run('e2e/flow.mjs', { E2E_BASE: 'http://localhost:5198', E2E_API: 'http://localhost:8791', E2E_TOKEN: TOKEN })
+console.log('\nWelcome screen and guided tours')
+code = (await run('e2e/tour.mjs', { E2E_BASE: 'http://localhost:5198' })) || code
 start('npx', ['tsx', 'server/dev-memory.ts'], { API_PORT: '8792', AUTH_TEST: 'true' })
 start('npx', ['vite', '--port', '5199', '--strictPort'], { API_PORT: '8792' })
 await waitFor('http://localhost:8792/api/v1/health', 'The sign-in test API')

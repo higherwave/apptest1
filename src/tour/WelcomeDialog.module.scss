@@ -1,0 +1,62 @@
+@use '../tokens' as tokens;
+
+.dialog { :global(.cds--modal-container) { max-block-size: calc(100vh - 2rem); } }
+
+.lead {
+  @include tokens.role('reading-lg');
+  margin: 0 0 var(--at-space-md);
+  color: var(--at-body);
+}
+
+.tours {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  margin-block: var(--at-space-lg);
+}
+
+.tour {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-lg);
+  padding: var(--at-space-md) var(--at-space-lg);
+  background: var(--at-surface-soft);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+}
+
+.name {
+  @include tokens.role('title-sm');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin: 0 0 var(--at-space-xxs);
+  color: var(--at-ink);
+}
+
+.done { color: var(--at-success); }
+
+.summary {
+  @include tokens.role('body-md');
+  margin: 0 0 var(--at-space-xxs);
+  color: var(--at-body);
+}
+
+.time {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-md);
+}
+
+.hint {
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+}

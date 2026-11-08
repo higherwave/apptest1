@@ -273,6 +273,13 @@ $column-width: 75rem; // every project step shares this width, centered
   margin-inline-start: auto;
 }
 
+// "Take a tour" sits at the right, beside the account.
+.tourLink {
+  margin-inline-start: auto;
+
+  & + .access { margin-inline-start: 0; }
+}
+
 
 // The one width every project step shares, centered, as on Platform Insights, Product Funnel and Settings.
 .column {
