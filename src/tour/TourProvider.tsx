@@ -4,7 +4,7 @@ import { getProjectStage, listProjects } from '../api/client'
 import { useMe } from '../api/hooks'
 import { TourOverlay } from './TourOverlay'
 import { readMemory, writeMemory, type TourMemory } from './storage'
-import { tourById, type Tour, type TourStep } from './tours'
+import { TOURS, tourById, type Tour, type TourStep } from './tours'
 import { WelcomeDialog } from './WelcomeDialog'
 
 import { TourContext, type TourApi } from './tourContext'
@@ -72,12 +72,15 @@ export function TourProvider({ children }: { children: ReactNode }) {
     [remember],
   )
 
+  // Finishing a tour (not skipping it) brings the welcome back so the other tour is one click away, until both have been taken.
   const end = useCallback(() => {
-    setRunning((r) => {
-      if (r && r.index === r.steps.length - 1) remember({ finished: [...new Set([...memory.finished, r.tour.id])] })
-      return null
-    })
-  }, [memory.finished, remember])
+    if (running && running.index === running.steps.length - 1) {
+      const finished = [...new Set([...memory.finished, running.tour.id])]
+      remember({ finished })
+      if (TOURS.some((t) => !finished.includes(t.id))) setAsked(true)
+    }
+    setRunning(null)
+  }, [memory.finished, remember, running])
 
   const api = useMemo<TourApi>(() => ({ openWelcome: () => setAsked(true), running: running !== null }), [running])
 

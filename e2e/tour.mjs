@@ -83,11 +83,14 @@ try {
     ok(`${label}: "Take a tour" in the header reopens the welcome`, (await text(page)).includes('Welcome to Signal Flow'))
 
     await walk(page, label, 'insights', 8)
-    await click(page, 'take-a-tour')
     await page.waitForSelector('.cds--modal.is-visible', { timeout: 5000 })
     await new Promise((r) => setTimeout(r, 400))
+    ok(`${label}: finishing the first tour brings the welcome back, with the second tour to start`, (await text(page)).includes('Welcome to Signal Flow') && !!(await page.$('[data-testid="start-project"]')))
     ok(`${label}: a finished tour is marked on the welcome screen`, await page.evaluate(() => !!document.querySelector('.cds--modal.is-visible [aria-label="Finished"]')))
     await walk(page, label, 'project', 9)
+
+    await new Promise((r) => setTimeout(r, 500))
+    ok(`${label}: once both tours are finished, the welcome stays closed`, !(await page.$('.cds--modal.is-visible')))
 
     // Escape ends a tour at once.
     await click(page, 'take-a-tour')
