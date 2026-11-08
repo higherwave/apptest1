@@ -152,7 +152,11 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     // A visitor with no session only reads, as a viewer, so it does not matter whose identity stands in for them. If the
     // configured demo identity is not a member (the usual case once real people own the workspace), borrow the workspace's
     // owner (or its oldest member) instead of failing with a 503. Anyone else still needs the exact identity.
-    if (!row && anonymous) row = (await deps.getDb().query(ANY_MEMBER_SQL, [slug])).rows[0]
+    // Never show the borrowed person's details to a visitor.
+    if (!row && anonymous) {
+      row = (await deps.getDb().query(ANY_MEMBER_SQL, [slug])).rows[0]
+      if (row) row = { ...row, email: 'visitor@demo.signalflow.example', display_name: 'Visitor', avatar_url: null }
+    }
     if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Create the workspace with: node db/init-workspace.mjs (or load the demo with the seed).`)
     const value: RequestContext = {
       anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,

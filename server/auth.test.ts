@@ -276,6 +276,9 @@ test('PUBLIC_VIEW still works when the configured demo identity is not a member 
   const body = await me.json()
   assert.equal(body.role, 'viewer')
   assert.equal(body.via, 'anonymous')
+  assert.equal(body.displayName, 'Visitor')
+  assert.equal(body.avatarUrl, null)
+  assert.ok(!/@(?!demo\.signalflow\.example)/.test(body.email), 'a visitor is never shown a real person')
   assert.equal((await app.request('/api/v1/projects')).status, 200)
   // Still read-only.
   assert.equal((await app.request('/api/v1/projects', { method: 'POST', headers: json, body: newProject('By a visitor') })).status, 401)
