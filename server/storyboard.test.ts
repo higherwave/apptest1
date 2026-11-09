@@ -7,6 +7,7 @@ import { simulatedProvider, type AiProvider } from './ai.js'
 import { ModelOutputError, type ModelCall } from './ai-analysis.js'
 import { buildStoryboardPrompt, parseStoryboard, storyboardWithModel, templateStoryboard, type StoryboardInput } from './ai-storyboard.js'
 import { createDemoDatabase } from './test-utils.js'
+import research from '../db/seed/data/research.json' with { type: 'json' }
 
 declare global {
   interface Response {
@@ -148,7 +149,9 @@ test('the storyboard is the live facts until someone generates it, and then the 
 
 test('an analysis writes the storyboard by itself, and a failure to write it leaves the analysis saved', async () => {
   const calls = { n: 0 }
-  const m = await fixture(fakeModel(calls))
+  // The plain keyword analysis finds nothing in the demo project's own transcripts, so it reads the sample interviews instead.
+  const withThemes = (p: AiProvider): AiProvider => ({ ...p, analyze: (_t, ...rest) => p.analyze((research.SAMPLES as { name: string; text: string }[]).map((x) => ({ name: x.name, text: x.text })), ...rest) })
+  const m = await fixture(withThemes(fakeModel(calls)))
   const version = async () => (await m.pg.query<any>(`select version from core.projects where id = $1`, [m.projectId])).rows[0].version as number
   const analyze = async () => m.app.request(`/api/v1/projects/${m.projectId}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(await version()) }, body: '{}' })
   const first = await analyze()
@@ -158,7 +161,7 @@ test('an analysis writes the storyboard by itself, and a failure to write it lea
   assert.equal(board.draft?.headline, 'Seeing risk before the renewal')
   await analyze()
   assert.equal(calls.n, 2, 'analysing again writes it again')
-  const broken = { ...fakeModel({ n: 0 }), writeStoryboard: async () => { throw new Error('model down') } } as AiProvider
+  const broken = withThemes({ ...fakeModel({ n: 0 }), writeStoryboard: async () => { throw new Error('model down') } } as AiProvider)
   const b = await fixture(broken)
   const v = (await b.pg.query<any>(`select version from core.projects where id = $1`, [b.projectId])).rows[0].version
   const res = await b.app.request(`/api/v1/projects/${b.projectId}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(v) }, body: '{}' })

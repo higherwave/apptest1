@@ -79,7 +79,7 @@ async function writeStoryboardAfter(db: Db, ai: Ai, ctx: Actor, projectId: strin
   try {
     await generateStoryboard(db, ai, { ...ctx, anonymous: false }, projectId)
   } catch (err) {
-    console.error('storyboard was not written after the analysis', err instanceof Error ? err.message : err)
+    console.error('storyboard was not written after the analysis', err instanceof Error ? `${err.constructor.name} ${err.message}` : err)
   }
 }
 
