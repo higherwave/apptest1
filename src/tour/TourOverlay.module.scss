@@ -48,7 +48,7 @@ $card-width: 22rem;
   color: var(--at-body);
 
   // Hidden until it knows where to go, so it never flashes in the wrong place.
-  &[data-status='finding'] { visibility: hidden; }
+  &[data-state='finding'] { visibility: hidden; }
 
   &[data-mode='beside'] {
     inset-block-start: var(--tour-card-y, 0);

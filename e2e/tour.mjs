@@ -22,20 +22,28 @@ const stepState = (page) => page.evaluate(() => {
   const s = spot.getBoundingClientRect()
   const lit = root.dataset.spot === 'true'
   return {
-    title: card.querySelector('h2').innerText, eyebrow: card.querySelector('p').innerText, mode: card.dataset.mode, status: card.dataset.status, lit,
+    title: card.querySelector('h2').innerText, eyebrow: card.querySelector('p').innerText, mode: card.dataset.mode, status: card.dataset.state, lit,
     card: { x: c.left, y: c.top, w: c.width, h: c.height }, spot: { x: s.left, y: s.top, w: s.width, h: s.height },
     overlap: lit && c.left < s.right && s.left < c.right && c.top < s.bottom && s.top < c.bottom,
     inView: c.left >= 0 && c.top >= 0 && c.right <= innerWidth && c.bottom <= innerHeight,
     spotVisible: lit && s.bottom > 0 && s.top < innerHeight,
+    // The lit window sits on the thing the step points at (its first visible match), give or take the margin round it.
+    onTarget: (() => {
+      if (!lit || !root.dataset.target) return true
+      const el = [...document.querySelectorAll(root.dataset.target)].find((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0 })
+      if (!el) return false
+      const r = el.getBoundingClientRect()
+      return Math.abs(r.left - 6 - s.left) < 3 && Math.abs(r.top - 6 - s.top) < 3 && Math.abs(r.width + 12 - s.width) < 3 && (Math.abs(r.height + 12 - s.height) < 3 || card.dataset.mode === 'dock')
+    })(),
   }
 })
 
 async function walk(page, label, tourId, expectSteps) {
   await click(page, `start-${tourId}`)
-  await page.waitForSelector('[data-testid="tour"] [role="dialog"]:not([data-status="finding"])', { timeout: 15000 })
+  await page.waitForSelector('[data-testid="tour"] [role="dialog"]:not([data-state="finding"])', { timeout: 15000 })
   const seen = []
   for (let i = 0; i < 20; i++) {
-    await page.waitForFunction(() => document.querySelector('[data-testid="tour"] [role="dialog"]')?.dataset.status !== 'finding', { timeout: 15000 })
+    await page.waitForFunction(() => document.querySelector('[data-testid="tour"] [role="dialog"]')?.dataset.state !== 'finding', { timeout: 15000 })
     await new Promise((r) => setTimeout(r, 250))
     const st = await stepState(page)
     seen.push(st)
@@ -52,6 +60,8 @@ async function walk(page, label, tourId, expectSteps) {
   ok(`${label}: every step of the ${tourId} tour finds what it points at`, missing.length === 0, missing.map(([s, i]) => `${i} "${s.title}"`).join('; '))
   const covered = seen.map((s, i) => [s, i + 1]).filter(([s]) => s.overlap)
   ok(`${label}: the card never covers what the ${tourId} tour points at`, covered.length === 0, covered.map(([s, i]) => `${i} ${JSON.stringify([s.card, s.spot])}`).join('; '))
+  const stray = seen.map((s, i) => [s, i + 1]).filter(([s]) => !s.onTarget)
+  ok(`${label}: the lit window is on the right thing at every step of the ${tourId} tour`, stray.length === 0, stray.map(([s, i]) => `${i} "${s.title}" ${JSON.stringify(s.spot)}`).join('; '))
   const off = seen.map((s, i) => [s, i + 1]).filter(([s]) => !s.inView || (s.lit && !s.spotVisible))
   ok(`${label}: the card and the lit window are on screen at every step of the ${tourId} tour`, off.length === 0, off.map(([s, i]) => `${i} ${JSON.stringify([s.card, s.spot])}`).join('; '))
   return seen
@@ -92,11 +102,32 @@ try {
     await new Promise((r) => setTimeout(r, 500))
     ok(`${label}: once both tours are finished, the welcome stays closed`, !(await page.$('.cds--modal.is-visible')))
 
+    // A slow page: the project list arrives late, after the tour has started, and the light must still land on the first project.
+    {
+      const slow = await browser.createBrowserContext()
+      const sp = await slow.newPage()
+      await sp.setViewport(viewport)
+      await sp.setRequestInterception(true)
+      sp.on('request', (r) => { const u = new URL(r.url()); if (u.pathname === '/api/v1/projects') setTimeout(() => r.continue().catch(() => {}), 1500); else r.continue().catch(() => {}) })
+      await sp.evaluateOnNewDocument(() => localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: ['insights'] })))
+      await sp.goto(`${BASE}/insights/case-studies`, { waitUntil: 'networkidle0' })
+      await sp.evaluate(() => window.scrollTo(0, 600))
+      await click(sp, 'take-a-tour')
+      await sp.waitForSelector('[data-testid="start-project"]')
+      await new Promise((r) => setTimeout(r, 400))
+      await click(sp, 'start-project')
+      await sp.waitForFunction(() => document.querySelector('[data-testid="tour"] [role="dialog"]')?.dataset.state === 'target', { timeout: 20000 })
+      await new Promise((r) => setTimeout(r, 800))
+      const st = await stepState(sp)
+      ok(`${label}: with a slow project list, the first step still lights the first project card`, st.onTarget && st.lit && st.title === 'One question, one project', JSON.stringify(st.spot))
+      await slow.close()
+    }
+
     // Escape ends a tour at once.
     await click(page, 'take-a-tour')
     await new Promise((r) => setTimeout(r, 400))
     await click(page, 'start-insights')
-    await page.waitForSelector('[data-testid="tour"] [role="dialog"]:not([data-status="finding"])', { timeout: 15000 })
+    await page.waitForSelector('[data-testid="tour"] [role="dialog"]:not([data-state="finding"])', { timeout: 15000 })
     await page.keyboard.press('Escape')
     await new Promise((r) => setTimeout(r, 300))
     ok(`${label}: Escape ends the tour`, !(await page.$('[data-testid="tour"]')))
