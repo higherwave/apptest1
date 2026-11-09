@@ -23,6 +23,15 @@ const clickText = async (t, tag = 'button') => {
   await handle.asElement().evaluate((el) => el.scrollIntoView({ block: 'center' })) // the fixed bars would cover a button scrolled to the edge
   await handle.asElement().click()
 }
+// Carbon dropdowns on the themes toolbar: open the one in the wrapper with this test id, then pick the option whose text starts with the label.
+const pickFrom = async (wrap, label) => {
+  await page.$eval(`[data-testid="${wrap}"] button`, (el) => el.scrollIntoView({ block: 'center' }))
+  await page.click(`[data-testid="${wrap}"] button`)
+  await page.waitForSelector(`[data-testid="${wrap}"] [role="option"]`, { timeout: 4000 }).catch(async (e) => { throw new Error('DBG ' + await page.evaluate((w) => document.querySelector(`[data-testid="${w}"]`).outerHTML.slice(0, 1200), wrap)) })
+  await page.evaluate((w, l) => [...document.querySelectorAll(`[data-testid="${w}"] [role="option"]`)].find((o) => o.innerText.trim().startsWith(l)).click(), wrap, label)
+  await new Promise((r) => setTimeout(r, 250))
+}
+const selectedOf = (wrap) => page.evaluate((w) => document.querySelector(`[data-testid="${w}"] button`).innerText.trim(), wrap)
 // Hidden dialogs keep their buttons in the page, so a dialog's own button is looked up inside the open one.
 const clickInOpenDialog = async (t) => page.evaluate((t) => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === t).click(), t)
 const retype = async (sel, value) => { await page.$eval(sel, (el) => el.select()); await page.keyboard.type(value) }
@@ -970,27 +979,24 @@ try {
   await page.$eval(`[data-testid="platform-theme-${second.id}"] button`, (el) => el.scrollIntoView({ block: 'center' })) // the fixed header would cover it
   await page.click(`[data-testid="platform-theme-${second.id}"] button`)
   ok('picking an open row closes it', await page.evaluate((id) => !document.querySelector(`#theme-body-${id}`), second.id))
-  const cardCount = await page.evaluate(() => document.querySelectorAll('section[aria-label="What the themes add up to"] button').length)
-  ok('five counts sit above the list, All themes first and chosen', cardCount === 5 && await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')]; return b[0].innerText.includes('All themes') && b[0].getAttribute('aria-pressed') === 'true' }))
-  const zeroCard = await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((x) => x.disabled); if (!b) return null; b.setAttribute('data-zero', 'true'); return true })
-  if (zeroCard) {
-    const look = () => page.evaluate(() => { const c = getComputedStyle(document.querySelector('[data-zero="true"]')); return `${c.borderTopWidth} ${c.borderTopColor} ${c.backgroundColor}` })
-    const before = await look()
-    await page.hover('[data-zero="true"]')
-    const after = await look()
-    ok('a count of zero keeps its border and does not react to the pointer', before === after && !/^0px|rgba\(0, 0, 0, 0\) rgba/.test(before) && !before.includes('0px'), before + ' / ' + after)
-  }
-  ok('the recommendations come first, then the counts, then the themes table', await page.evaluate(() => { const top = (e) => e.getBoundingClientRect().top; return top(document.querySelector('section[aria-labelledby="recs-heading"]')) < top(document.querySelector('section[aria-label="What the themes add up to"]')) && top(document.querySelector('section[aria-label="What the themes add up to"]')) < top(document.querySelector('section[aria-labelledby="themes-heading"]')) }))
+  ok('the toolbar has search, Show, Order by and Group by dropdowns side by side on one line', await page.evaluate(() => { const r = ['theme-search', 'theme-filter', 'theme-order', 'group-by'].map((id) => { const e = document.querySelector(`[data-testid="${id}"]`); return e && e.getBoundingClientRect() }); return r.every(Boolean) && r.every((x) => Math.abs(x.bottom - r[0].bottom) < 8) && !document.querySelector('section[aria-label="What the themes add up to"]') }))
+  await page.$eval('[data-testid="theme-filter"] button', (el) => el.click())
+  await page.waitForSelector('[data-testid="theme-filter"] [role="option"]')
+  const filterOptions = await page.evaluate(() => [...document.querySelectorAll('[data-testid="theme-filter"] [role="option"]')].map((o) => o.innerText.trim()))
+  ok('Show lists five counts, All themes first and chosen', filterOptions.length === 5 && filterOptions[0].startsWith('All themes') && (await selectedOf('theme-filter')).startsWith('All themes'), filterOptions.join(' | '))
+  await page.$eval('[data-testid="theme-filter"] [role="option"]', (el) => el.click()) // choosing All themes again closes it
+  await new Promise((r) => setTimeout(r, 250))
+  ok('the recommendations come first, then the toolbar, then the themes table', await page.evaluate(() => { const top = (e) => e.getBoundingClientRect().top; return top(document.querySelector('section[aria-labelledby="recs-heading"]')) < top(document.querySelector('[data-testid="theme-filter"]')) && top(document.querySelector('[data-testid="theme-filter"]')) < top(document.querySelector('ul[aria-label="Themes across projects"]')) }))
   if (insights.summary.opportunities > 0) {
-    await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('Opportunities')).click())
+    await pickFrom('theme-filter', 'Opportunities')
     await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.summary.opportunities)
     ok('picking Opportunities lists only the themes nobody has written a requirement for', true)
-    await page.evaluate(() => [...document.querySelectorAll('section[aria-label="What the themes add up to"] button')].find((b) => b.innerText.includes('All themes')).click())
+    await pickFrom('theme-filter', 'All themes')
     await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, insights.themes.length)
     ok('All themes shows every theme again', true)
     // The list has no duplicates panel and no tidy tools; order by suggested priority.
     ok('there is no duplicates panel and no Tidy this theme section', await page.evaluate(() => !document.querySelector('[data-testid="duplicates-panel"]') && !/check for duplicates|possible duplicates|tidy this theme/i.test(document.body.innerText)))
-    await page.click('[data-testid="order-priority"]')
+    await pickFrom('theme-order', 'Suggested priority')
     const byRank = [...insights.themes].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)).map((t) => t.id)
     await page.waitForFunction((ids) => [...document.querySelectorAll('[data-testid^="platform-theme-"]')].map((e) => e.dataset.testid.replace('platform-theme-', '')).join() === ids.join(), { timeout: 5000 }, byRank)
     ok('ordering by suggested priority lists the themes by rank, with the rank on each row', await page.evaluate((n) => [...document.querySelectorAll('[data-testid^="platform-theme-"]')].slice(0, n).every((e, i) => e.innerText.includes(`#${i + 1}`)), insights.themes.filter((t) => t.priority).length))
@@ -999,7 +1005,7 @@ try {
     await page.waitForSelector(`[data-testid="priority-${first}"]`, { timeout: 5000 })
     ok('an open theme shows its suggested priority with a rank and score', await page.evaluate((id) => /Suggested priority/i.test(document.querySelector(`[data-testid="priority-${id}"]`).innerText) && /#1\b/.test(document.querySelector(`[data-testid="priority-${id}"]`).innerText), first))
     ok('an open theme has no Tidy this theme tools', await page.evaluate((id) => !document.querySelector(`[data-testid="tools-${id}"]`), first))
-    await page.click('[data-testid="order-reach"]')
+    await pickFrom('theme-order', 'Reach')
   }
   await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Personas').click())
   await page.waitForSelector('[data-testid^="customer-"]', { timeout: 8000 })
@@ -1039,8 +1045,8 @@ try {
   await page.keyboard.press('Backspace')
   await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, themeCount)
   ok('clearing the search brings every theme back', true)
-  ok('Group by starts on None', await page.evaluate(() => document.querySelector('[data-testid="group-none"]').getAttribute('aria-pressed') === 'true' && !document.querySelector('[data-testid^="area-group-"]')))
-  await page.click('[data-testid="group-area"]')
+  ok('Group by starts on None', (await selectedOf('group-by')) === 'None' && await page.evaluate(() => !document.querySelector('[data-testid^="area-group-"]')))
+  await pickFrom('group-by', 'Experience category')
   await page.waitForSelector('[data-testid^="area-group-"]', { timeout: 5000 })
   const groups = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="area-group-"]')].map((e) => e.dataset.testid.replace('area-group-', '')))
   const every = await page.evaluate(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length)
@@ -1048,7 +1054,7 @@ try {
   ok('the grouping is in the address', await page.evaluate(() => location.search.includes('group=area')))
   await page.click(`[data-testid="area-head-${groups[0]}"]`)
   ok('a section can be collapsed', await page.evaluate((g) => document.querySelector(`[data-testid="area-head-${g}"]`).getAttribute('aria-expanded') === 'false' && document.querySelectorAll(`[data-testid="area-group-${g}"] [data-testid^="platform-theme-"]`).length === 0, groups[0]))
-  ok('Search is at the left, Order in the middle and Group by at the right, on one row', await page.evaluate(() => { const q = document.querySelector('input[placeholder="Search themes"]').getBoundingClientRect(); const o = document.querySelector('[aria-label="Order the themes"]').getBoundingClientRect(); const g = document.querySelector('[aria-label="Group the themes"]').getBoundingClientRect(); const mid = (q.left + g.right) / 2; return Math.abs(o.top - g.top) < 8 && q.right < o.left && o.right < g.left && Math.abs((o.left + o.right) / 2 - mid) < 60 && g.right > innerWidth * 0.7 }))
+  ok('the toolbar runs search, Show, Order by, Group by from left to right on one row', await page.evaluate(() => { const r = ['theme-search', 'theme-filter', 'theme-order', 'group-by'].map((id) => document.querySelector(`[data-testid="${id}"]`).getBoundingClientRect()); return r.every((x, i) => i === 0 || (Math.abs(x.bottom - r[0].bottom) < 8 && r[i - 1].right <= x.left + 1)) && r[3].right > innerWidth * 0.7 }))
   ok('the Trend column is a small line chart with the trend as its accessible name, not a badge', await page.evaluate(() => { const row = document.querySelector('[data-testid^="platform-theme-"]'); const svg = row.querySelector('svg[role="img"][aria-label^="Trend: "]'); return !svg || (/^Trend: (Growing|Steady|Fading|New)$/.test(svg.getAttribute('aria-label')) && !!svg.querySelector('polyline') && svg.getBoundingClientRect().width < 100 && !/Steady|Fading|Growing/.test(row.innerText)) }))
   // A theme with no area is filed from a panel that slides in from the right and closes when an area is chosen. Clear the areas first so there is one to file.
   {
@@ -1102,8 +1108,8 @@ try {
       await new Promise((r) => setTimeout(r, 400))
     }
   }
-  await page.$eval('[data-testid="group-none"]', (el) => el.scrollIntoView({ block: 'center' }))
-  await page.click('[data-testid="group-none"]')
+  await page.$eval('[data-testid="group-by"]', (el) => el.scrollIntoView({ block: 'center' }))
+  await pickFrom('group-by', 'None')
   await page.waitForFunction(() => !document.querySelector('[data-testid^="area-group-"]'), { timeout: 5000 })
   ok('None brings back the single list', true)
   // A merge is listed with Undo, and undoing it brings the theme back.

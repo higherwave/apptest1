@@ -42,9 +42,9 @@ export const TOURS: Tour[] = [
       },
       {
         title: 'Sort the themes at a glance',
-        body: 'Every theme from every project is counted here: the ones that keep coming back as pain points, the opportunities, and the things that already worked after they shipped. Pick a card to filter the list below.',
+        body: 'Every theme from every project is counted here: the ones that keep coming back as pain points, the opportunities, and the things that already worked after they shipped. Use Show to narrow the list below to one of them.',
         route: '/insights/themes',
-        target: '[data-tour="filter-cards"]',
+        target: '[data-tour="theme-filters"]',
       },
       {
         title: 'One row, many conversations',

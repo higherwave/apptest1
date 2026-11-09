@@ -1,5 +1,5 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, InlineNotification, Loading, ProgressBar, Search, Tag } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, Loading, ProgressBar, Search, Tag } from '@carbon/react'
 import { useState } from 'react'
 import type { InsightsThemes } from '../../api/client'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
@@ -7,7 +7,6 @@ import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
 import { Sparkline } from './Sparkline'
 import { InsightsHeader } from './InsightsHeader'
-import { FilterCards } from '../../components/FilterCards'
 import { RecommendationStrip } from './RecommendationStrip'
 import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
 import { ORIGIN_LABEL, STATUS, teamConversations } from './labels'
@@ -71,6 +70,11 @@ function matchDetail(t: Row): string {
   return lines.join('\n')
 }
 
+const ORDERS: { key: 'reach' | 'priority'; label: string }[] = [
+  { key: 'reach', label: 'Reach' },
+  { key: 'priority', label: 'Suggested priority' },
+]
+
 const NO_CURATION: Curation = { canEdit: false, busy: false, onRationale: () => {} }
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 
@@ -89,6 +93,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   const narrowed = needle ? byRec.filter((t) => [t.title, t.summary ?? '', ...t.aliases].some((text) => text.toLowerCase().includes(needle))) : byRec
   // Reach is the server's order; Suggested priority follows the rank (delights, which are not ranked, last).
   const [order, setOrder] = useState<'reach' | 'priority'>('reach')
+  const filterItems = overview ? FILTERS.map((f) => ({ key: f.key, label: f.label, count: f.count(overview) })) : []
   const shown = order === 'priority' ? [...narrowed].sort((a, b) => (a.priority?.rank ?? 1e9) - (b.priority?.rank ?? 1e9)) : narrowed
   // Grouped by experience category: sections in the order their strongest theme appears in the current order, the themes with no area last.
   const [assigning, setAssigning] = useState<Row | null>(null)
@@ -214,26 +219,37 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
         <>
           <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
 
-          <div className={styles.group}>
-            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
-
-            <FilterCards ariaLabel="What the themes add up to" items={FILTERS.map((f) => ({ key: f.key, label: f.label, count: f.count(overview) }))} selected={filter} onSelect={(k) => setFilter(k as Filter)} />
-          </div>
-
+          <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
 
           <div className={styles.controls}>
             <div className={styles.search}>
               <Search size="md" labelText="Search themes" placeholder="Search themes" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="theme-search" />
             </div>
-            <div className={styles.order} role="group" aria-label="Order the themes">
-              <span className={styles.label}>Order</span>
-              {([['reach', 'Reach'], ['priority', 'Suggested priority']] as const).map(([key, label]) => (
-                <Button key={key} kind={order === key ? 'primary' : 'ghost'} size="sm" aria-pressed={order === key} data-testid={`order-${key}`} onClick={() => setOrder(key)}>
-                  {label}
-                </Button>
-              ))}
+            <div className={styles.pick} data-tour="theme-filters" data-testid="theme-filter">
+              <Dropdown
+                id="theme-filter"
+                titleText="Show"
+                label="Show"
+                size="md"
+                items={filterItems}
+                itemToString={(i) => (i ? `${i.label} (${i.count})` : '')}
+                selectedItem={filterItems.find((f) => f.key === filter)}
+                onChange={({ selectedItem }) => selectedItem && setFilter(selectedItem.key as Filter)}
+              />
             </div>
-            <div className={styles.groupEnd}>{onGroupBy && <GroupBy value={groupBy} onChange={onGroupBy} />}</div>
+            <div className={styles.pick} data-testid="theme-order">
+              <Dropdown
+                id="theme-order"
+                titleText="Order by"
+                label="Order by"
+                size="md"
+                items={ORDERS}
+                itemToString={(i) => i?.label ?? ''}
+                selectedItem={ORDERS.find((o) => o.key === order)}
+                onChange={({ selectedItem }) => selectedItem && setOrder(selectedItem.key)}
+              />
+            </div>
+            <div className={styles.pick}>{onGroupBy && <GroupBy compact value={groupBy} onChange={onGroupBy} />}</div>
           </div>
 
           {rec && (
