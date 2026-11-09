@@ -219,37 +219,39 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
         <>
           <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
 
-          <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+          <div className={styles.group}>
+            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
 
-          <div className={styles.controls}>
-            <div className={styles.search}>
-              <Search size="md" labelText="Search themes" placeholder="Search themes" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="theme-search" />
+            <div className={styles.controls}>
+              <div className={styles.search}>
+                <Search size="md" labelText="Search themes" placeholder="Search themes" value={query} onChange={(e) => setQuery(e.target.value)} data-testid="theme-search" />
+              </div>
+              <div className={styles.pick} data-tour="theme-filters" data-testid="theme-filter">
+                <Dropdown
+                  id="theme-filter"
+                  titleText="Show"
+                  label="Show"
+                  size="md"
+                  items={filterItems}
+                  itemToString={(i) => (i ? `${i.label} (${i.count})` : '')}
+                  selectedItem={filterItems.find((f) => f.key === filter)}
+                  onChange={({ selectedItem }) => selectedItem && setFilter(selectedItem.key as Filter)}
+                />
+              </div>
+              <div className={styles.pick} data-testid="theme-order">
+                <Dropdown
+                  id="theme-order"
+                  titleText="Order by"
+                  label="Order by"
+                  size="md"
+                  items={ORDERS}
+                  itemToString={(i) => i?.label ?? ''}
+                  selectedItem={ORDERS.find((o) => o.key === order)}
+                  onChange={({ selectedItem }) => selectedItem && setOrder(selectedItem.key)}
+                />
+              </div>
+              <div className={styles.pick}>{onGroupBy && <GroupBy compact value={groupBy} onChange={onGroupBy} />}</div>
             </div>
-            <div className={styles.pick} data-tour="theme-filters" data-testid="theme-filter">
-              <Dropdown
-                id="theme-filter"
-                titleText="Show"
-                label="Show"
-                size="md"
-                items={filterItems}
-                itemToString={(i) => (i ? `${i.label} (${i.count})` : '')}
-                selectedItem={filterItems.find((f) => f.key === filter)}
-                onChange={({ selectedItem }) => selectedItem && setFilter(selectedItem.key as Filter)}
-              />
-            </div>
-            <div className={styles.pick} data-testid="theme-order">
-              <Dropdown
-                id="theme-order"
-                titleText="Order by"
-                label="Order by"
-                size="md"
-                items={ORDERS}
-                itemToString={(i) => i?.label ?? ''}
-                selectedItem={ORDERS.find((o) => o.key === order)}
-                onChange={({ selectedItem }) => selectedItem && setOrder(selectedItem.key)}
-              />
-            </div>
-            <div className={styles.pick}>{onGroupBy && <GroupBy compact value={groupBy} onChange={onGroupBy} />}</div>
           </div>
 
           {rec && (

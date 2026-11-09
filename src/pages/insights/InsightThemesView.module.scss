@@ -44,11 +44,11 @@
   color: var(--at-body);
 }
 
-// The heading and the counts that filter the list beneath it, kept close together.
+// The heading and the toolbar beneath it, the same distance apart as Recommendations and its cards.
 .group {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-sm);
+  gap: var(--at-space-xs);
 }
 
 // The themes: one white table; each row is a button that opens its details beneath it.
