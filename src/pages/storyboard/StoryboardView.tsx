@@ -71,7 +71,6 @@ export function StoryboardView({ state, project, board, author, canEdit, generat
       {project && (
         <ProjectHeader
           title="Storyboard"
-          description="Your research as a short deck to share with product leaders. The solutions and trade-offs are best guesses to react to."
           actions={
             deck && (
               <>
@@ -87,6 +86,14 @@ export function StoryboardView({ state, project, board, author, canEdit, generat
             )
           }
         />
+      )}
+
+      {project && (
+        <section className={styles.about} aria-label="About this deck">
+          <h2 className={styles.aboutTitle}>About this deck</h2>
+          <p className={styles.aboutText}>Your research as a short deck to share with product leaders. The solutions and trade-offs are best guesses to react to.</p>
+          <p className={styles.aboutText}>Updated automatically after each analysis. Download a copy to edit.</p>
+        </section>
       )}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the storyboard" />}

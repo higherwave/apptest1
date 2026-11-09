@@ -146,6 +146,25 @@ test('the storyboard is the live facts until someone generates it, and then the 
   assert.equal((await m.pg.query<any>(`select count(*)::int n from research.storyboards`)).rows[0].n, 1, 'still one per project')
 })
 
+test('an analysis writes the storyboard by itself, and a failure to write it leaves the analysis saved', async () => {
+  const calls = { n: 0 }
+  const m = await fixture(fakeModel(calls))
+  const version = async () => (await m.pg.query<any>(`select version from core.projects where id = $1`, [m.projectId])).rows[0].version as number
+  const analyze = async () => m.app.request(`/api/v1/projects/${m.projectId}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(await version()) }, body: '{}' })
+  const first = await analyze()
+  assert.equal(first.status, 201)
+  assert.equal(calls.n, 1, 'the deck is written once the themes are saved')
+  const board = await (await m.api(`/projects/${m.projectId}/storyboard`)).json()
+  assert.equal(board.draft?.headline, 'Seeing risk before the renewal')
+  await analyze()
+  assert.equal(calls.n, 2, 'analysing again writes it again')
+  const broken = { ...fakeModel({ n: 0 }), writeStoryboard: async () => { throw new Error('model down') } } as AiProvider
+  const b = await fixture(broken)
+  const v = (await b.pg.query<any>(`select version from core.projects where id = $1`, [b.projectId])).rows[0].version
+  const res = await b.app.request(`/api/v1/projects/${b.projectId}/analysis-runs`, { method: 'POST', headers: { ...auth, 'if-match': String(v) }, body: '{}' })
+  assert.ok(res.status < 300, 'the analysis itself succeeded')
+})
+
 test('with no model the plain draft is saved and marked as such; a viewer may read but not generate', async () => {
   const m = await fixture()
   const made = await (await m.api(`/projects/${m.projectId}/storyboard/generate`, 'POST')).json()

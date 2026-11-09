@@ -407,7 +407,7 @@ try {
 
   // Coming back to Themes with the data already loaded must still fill the name box (it was empty once).
   await navTo('Storyboard')
-  await waitText('Generate the storyboard')
+  await page.waitForSelector('[aria-roledescription="slide"]', { timeout: 20000 })
   await navTo('Themes')
   await page.waitForFunction(() => document.querySelector('#theme-title')?.value.length > 0, { timeout: 8000 })
   ok('returning to Themes shows the selected theme’s name in the name box', true)
@@ -428,13 +428,12 @@ try {
   await new Promise((r) => setTimeout(r, 600))
   ok('choosing a stage saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 2)
 
-  // Storyboard: nothing to read until an owner or editor writes it; then six slides that cannot be edited, and a PDF to download.
+  // Storyboard: written by itself when the analysis ran; six slides that cannot be edited, and a PDF to download.
   await navTo('Storyboard')
-  await waitText('Generate the storyboard')
-  ok('before it is written the Storyboard offers Generate, and nothing to download', await page.evaluate(() => { const t = [...document.querySelectorAll('button')].map((b) => b.innerText.trim()); return t.includes('Generate the storyboard') && !t.includes('Download as PDF') && !document.querySelector('[aria-roledescription="slide"]') }))
-  ok('the step is called Storyboard, and the old Journey Map is gone from the steps', await page.evaluate(() => { const labels = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); return labels.includes('Storyboard') && !labels.includes('Journey Map') }))
-  await clickText('Generate the storyboard')
   await page.waitForSelector('[aria-roledescription="slide"]', { timeout: 20000 })
+  ok('the Storyboard was written by the analysis itself: slides and a download, no Generate button', await page.evaluate(() => { const t = [...document.querySelectorAll('button')].map((b) => b.innerText.trim()); return !t.includes('Generate the storyboard') && t.includes('Download as PDF') && t.includes('Regenerate') }))
+  ok('a green banner under the title says what the deck is and that it updates after each analysis', await page.evaluate(() => { const b = document.querySelector('section[aria-label="About this deck"]'); return !!b && /Updated automatically after each analysis\. Download a copy to edit\./.test(b.innerText) && /short deck to share with product leaders/.test(b.innerText) && getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)' }))
+  ok('the step is called Storyboard, and the old Journey Map is gone from the steps', await page.evaluate(() => { const labels = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); return labels.includes('Storyboard') && !labels.includes('Journey Map') }))
   const slide = () => page.evaluate(() => document.querySelector('[aria-roledescription="slide"]').getAttribute('aria-label'))
   const pickSlide = async (n) => { await page.evaluate((k) => document.querySelector(`ul[aria-label="Slides"] button[aria-label^="Slide ${k}:"]`).click(), n); await new Promise((r) => setTimeout(r, 250)) }
   ok('the Storyboard has six slides in a strip, opens on the title, and says which it is on', (await slide()) === 'Slide 1 of 6: Title' && (await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Slides"] button')].map((b) => b.getAttribute('aria-label')).join('|'))) === 'Slide 1: Title|Slide 2: The problem and what we did|Slide 3: What we heard|Slide 4: Recommended solutions|Slide 5: Trade-offs|Slide 6: Recommendation and the ask')
@@ -944,7 +943,7 @@ try {
   const sortedRecs = [...insights.recommendations].sort((a, b) => rank[a.priority] - rank[b.priority] || a.title.localeCompare(b.title))
   ok('recommendation cards are white, each with a priority dot', await page.evaluate((n) => { const tiles = [...document.querySelectorAll('[data-testid^="rec-"]')]; return tiles.length === n && tiles.every((t) => getComputedStyle(t).backgroundColor === 'rgb(255, 255, 255)' && !!t.querySelector('[role="img"][aria-label$="priority"]')) }, insights.recommendations.length))
   ok('the recommendations are most important first, alphabetical within a priority', await page.evaluate((titles) => [...document.querySelectorAll('[data-testid^="rec-"]')].map((t) => t.querySelector('[class*="recTitle"]').textContent.trim()).join('|') === titles.join('|'), sortedRecs.map((r) => r.title)))
-  ok('the recommendations are one row, and the themes table starts on the first screen', await page.evaluate(() => { const tops = [...document.querySelectorAll('[data-testid^="rec-"]')].map((t) => Math.round(t.getBoundingClientRect().top)); return new Set(tops).size === 1 && document.querySelector('[data-testid^="platform-theme-"]').getBoundingClientRect().top < innerHeight }))
+  ok('the recommendations are one row, with the themes table right beneath (the task panel above them takes the first screen)', await page.evaluate(() => { const tops = [...document.querySelectorAll('[data-testid^="rec-"]')].map((t) => Math.round(t.getBoundingClientRect().top)); return new Set(tops).size === 1 && document.querySelector('[data-testid^="platform-theme-"]').getBoundingClientRect().top > tops[0] }))
   ok('on the themes table every badge is light gray except Pain point, which keeps its color', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="platform-theme-"]')]; const bg = (e) => getComputedStyle(e).backgroundColor; const grayish = (c) => { const [r, g, b] = c.match(/\d+/g).map(Number); return r > 200 && Math.max(r, g, b) - Math.min(r, g, b) < 12 }; const cats = rows.flatMap((r) => [...r.querySelectorAll('[data-quiet]')]); const pain = cats.filter((c) => c.dataset.category === 'pain_point'); const rest = cats.filter((c) => c.dataset.category !== 'pain_point'); const tags = rows.flatMap((r) => [...r.querySelectorAll('.cds--tag')]); return pain.length > 0 && rest.length > 0 && tags.length > 0 && pain.every((p) => !grayish(bg(p))) && rest.every((c) => grayish(bg(c))) && tags.every((t) => grayish(bg(t))) && new Set(tags.map(bg)).size === 1 }))
   const picked = sortedRecs[0]
   await page.click(`[data-testid="rec-${picked.id}"]`)

@@ -99,7 +99,7 @@ export class NoThemesYet extends Error {}
 type Written = { draft: StoryboardDraft; version: string; source: 'model' | 'template' }
 
 /** Writes the deck's text (or writes it again) and saves it. A model that cannot be used leaves the plain draft in its place; an unusable reply saves nothing. */
-export async function generateStoryboard(db: Db, ai: Ai, ctx: RequestContext, projectId: string): Promise<Storyboard> {
+export async function generateStoryboard(db: Db, ai: Ai, ctx: Pick<RequestContext, 'workspaceId' | 'userId' | 'anonymous'>, projectId: string): Promise<Storyboard> {
   const g = await gather(db, ctx.workspaceId, projectId)
   if (!g) throw new NoStoryboardProject()
   if (!g.input.themes.length) throw new NoThemesYet()

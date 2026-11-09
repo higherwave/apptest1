@@ -2,6 +2,7 @@ import { EFFORT, STEP_TITLES, THEMES } from '../shared/stub-config.mjs'
 import { callAiWithFallback, simulatedProvider, type Ai, type AiProvider } from './ai.js'
 import { ANALYSIS_PROMPT_VERSION, loadAnalysisInput, TranscriptsTooLarge } from './ai-analysis.js'
 import type { Db } from './db.js'
+import { generateStoryboard } from './storyboard.js'
 import { ApiError } from './errors.js'
 import { insertMany } from './sql.js'
 import { claimVersion, ProjectNotFound, VersionConflict, type Actor } from './versioning.js'
@@ -62,12 +63,23 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
     const live = (await db.query(`select id, name, definition, aliases from insights.feature_areas where workspace_id = $1 and retired_at is null`, [ctx.workspaceId])).rows as { id: string; name: string; definition: string | null; aliases: string[] }[]
     for (const th of themes) if (th.area === undefined) th.area = suggestAreas(`${th.title} ${th.desc}`, live).find((s) => s.score >= 2)?.area.name ?? null
     const result = await store(db, ctx, projectId, expected, runId, themes)
+    // The project's storyboard is written again from the new themes. The analysis is already saved, so a failure here only leaves the
+    // previous deck in place (the Storyboard step offers Regenerate).
+    await writeStoryboardAfter(db, ai, ctx, projectId)
     return fallback ? { ...result, fallback } : result
   } catch (err) {
     await db.query(`update core.agent_runs set status = 'failed' where id = $1`, [runId]).catch(() => undefined)
     // Nothing was stored, so the current analysis is untouched. Say plainly what went wrong.
     if (err instanceof TranscriptsTooLarge) throw new ApiError(422, 'transcripts_too_large', 'These transcripts are too long for one analysis. Remove some and try again.', 'transcripts')
     throw err
+  }
+}
+
+async function writeStoryboardAfter(db: Db, ai: Ai, ctx: Actor, projectId: string): Promise<void> {
+  try {
+    await generateStoryboard(db, ai, { ...ctx, anonymous: false }, projectId)
+  } catch (err) {
+    console.error('storyboard was not written after the analysis', err instanceof Error ? err.message : err)
   }
 }
 
