@@ -3,7 +3,7 @@ import { useMemo, type MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useProjects } from '../api/hooks'
 import type { Project } from '../api/client'
-import { SECTION_TITLES } from '../shell/nav'
+import { STEPS } from '../shell/nav'
 import { ago, readRecent, type Recent } from './recent'
 import { nextTodo } from './todo'
 import styles from './ResumePanel.module.scss'
@@ -27,7 +27,7 @@ export function ResumePanel() {
     navigate(to)
   }
   const last: { project: Project; path: string; where: string; when: string | null } = seen[0]
-    ? { project: byId.get(seen[0].projectId)!, path: seen[0].path, where: SECTION_TITLES[seen[0].step] ?? seen[0].step, when: ago(seen[0].at) }
+    ? { project: byId.get(seen[0].projectId)!, path: seen[0].path, where: stepLabel(seen[0].step), when: ago(seen[0].at) }
     : { project: list[0], path: `/projects/${list[0].id}/${list[0].status === 'analyzed' ? 'themes' : 'plan'}`, where: list[0].status === 'analyzed' ? 'Themes' : 'Test Plan', when: null }
   const others: Recent[] = seen.slice(1, 4)
 
@@ -46,7 +46,7 @@ export function ResumePanel() {
               <li key={r.projectId}>
                 <Link to={r.path} className={styles.other} data-testid={`resume-${r.projectId}`} onClick={go(r.path)}>
                   <span>{byId.get(r.projectId)!.name}</span>
-                  <span className={styles.meta}>{SECTION_TITLES[r.step] ?? r.step} · {ago(r.at)}</span>
+                  <span className={styles.meta}>{stepLabel(r.step)} · {ago(r.at)}</span>
                 </Link>
               </li>
             ))}
@@ -77,5 +77,8 @@ export function ResumePanel() {
     </section>
   )
 }
+
+// The project step's name (the Platform Insights tab of the same key has a different one).
+const stepLabel = (key: string) => STEPS.find((s) => s.key === key)?.label ?? key
 
 const when = (w: string | null) => (w ? 'Pick up where you left off' : 'Start here')
