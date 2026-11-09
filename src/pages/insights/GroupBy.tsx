@@ -30,11 +30,13 @@ export function GroupBy({ value, onChange, compact = false }: { value: Grouping;
         <Dropdown
           id="group-by"
           titleText="Group by"
+          hideLabel
           label="Group by"
           size="md"
           items={CHOICES}
           itemToString={(i) => i?.label ?? ''}
           selectedItem={CHOICES.find((c) => c.key === value)}
+          renderSelectedItem={(i) => `Group by: ${i.label}`}
           onChange={({ selectedItem }) => selectedItem && onChange(selectedItem.key)}
         />
       </div>

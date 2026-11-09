@@ -86,11 +86,8 @@
 
 .item + .item { border-block-start: 1px solid var(--at-hairline); }
 .item[data-open='true'] { background: var(--at-surface-soft); }
-// The header line of an opened row sits a step lighter than the details beneath it, with a hairline between.
-.item[data-open='true'] > .headButton.headButton {
-  background: var(--at-surface-raised);
-  border-block-end: 1px solid var(--at-hairline);
-}
+// An opened row keeps the details' ground; its title goes bold so the header reads apart from what is beneath it.
+.item[data-open='true'] .rowTitle { font-weight: 600; }
 
 .item .headButton.headButton {
   position: relative;
@@ -193,7 +190,7 @@
 .controls {
   display: grid;
   grid-template-columns: minmax(12rem, 1fr) repeat(3, minmax(11rem, 14rem));
-  align-items: end;
+  align-items: center;
   gap: var(--at-space-sm) var(--at-space-md);
 
   @media (max-width: 64rem) { grid-template-columns: repeat(3, minmax(0, 1fr)); }

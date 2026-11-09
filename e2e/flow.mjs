@@ -979,11 +979,13 @@ try {
   await page.$eval(`[data-testid="platform-theme-${second.id}"] button`, (el) => el.scrollIntoView({ block: 'center' })) // the fixed header would cover it
   await page.click(`[data-testid="platform-theme-${second.id}"] button`)
   ok('picking an open row closes it', await page.evaluate((id) => !document.querySelector(`#theme-body-${id}`), second.id))
+  const resume = await page.evaluate(() => { const p = document.querySelector('[data-testid="resume-panel"]'); const mem = JSON.parse(localStorage.getItem('signal-flow-recent') || '[]'); const go = p?.querySelector('[data-testid="resume-continue"]'); return { has: !!p, href: go?.getAttribute('href'), last: mem[0]?.path, dark: p ? getComputedStyle(p).backgroundColor : '', above: p ? p.getBoundingClientRect().top < document.querySelector('section[aria-labelledby="recs-heading"]').getBoundingClientRect().top : false } })
+  ok('a task panel sits above Recommendations, dark, and Continue goes to the last project page viewed', resume.has && resume.above && resume.dark !== 'rgba(0, 0, 0, 0)' && (!resume.last || resume.href === resume.last), JSON.stringify(resume))
   ok('the toolbar has search, Show, Order by and Group by dropdowns side by side on one line', await page.evaluate(() => { const r = ['theme-search', 'theme-filter', 'theme-order', 'group-by'].map((id) => { const e = document.querySelector(`[data-testid="${id}"]`); return e && e.getBoundingClientRect() }); return r.every(Boolean) && r.every((x) => Math.abs(x.bottom - r[0].bottom) < 8) && !document.querySelector('section[aria-label="What the themes add up to"]') }))
   await page.$eval('[data-testid="theme-filter"] button', (el) => el.click())
   await page.waitForSelector('[data-testid="theme-filter"] [role="option"]')
   const filterOptions = await page.evaluate(() => [...document.querySelectorAll('[data-testid="theme-filter"] [role="option"]')].map((o) => o.innerText.trim()))
-  ok('Show lists five counts, All themes first and chosen', filterOptions.length === 5 && filterOptions[0].startsWith('All themes') && (await selectedOf('theme-filter')).startsWith('All themes'), filterOptions.join(' | '))
+  ok('Show lists five counts, All themes first and chosen', filterOptions.length === 5 && filterOptions[0].startsWith('All themes') && (await selectedOf('theme-filter')).startsWith('Show: All themes'), filterOptions.join(' | '))
   await page.$eval('[data-testid="theme-filter"] [role="option"]', (el) => el.click()) // choosing All themes again closes it
   await new Promise((r) => setTimeout(r, 250))
   ok('the recommendations come first, then the toolbar, then the themes table', await page.evaluate(() => { const top = (e) => e.getBoundingClientRect().top; return top(document.querySelector('section[aria-labelledby="recs-heading"]')) < top(document.querySelector('[data-testid="theme-filter"]')) && top(document.querySelector('[data-testid="theme-filter"]')) < top(document.querySelector('ul[aria-label="Themes across projects"]')) }))
@@ -1045,7 +1047,7 @@ try {
   await page.keyboard.press('Backspace')
   await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, themeCount)
   ok('clearing the search brings every theme back', true)
-  ok('Group by starts on None', (await selectedOf('group-by')) === 'None' && await page.evaluate(() => !document.querySelector('[data-testid^="area-group-"]')))
+  ok('Group by starts on None', (await selectedOf('group-by')) === 'Group by: None' && await page.evaluate(() => !document.querySelector('[data-testid^="area-group-"]')))
   await pickFrom('group-by', 'Experience category')
   await page.waitForSelector('[data-testid^="area-group-"]', { timeout: 5000 })
   const groups = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="area-group-"]')].map((e) => e.dataset.testid.replace('area-group-', '')))

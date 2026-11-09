@@ -1,0 +1,145 @@
+@use '../tokens' as tokens;
+
+// A dark panel, two columns: where you were, and what is left.
+.panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: var(--at-space-xl);
+  padding: var(--at-space-xl);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-dark);
+  color: var(--at-on-dark);
+
+  @media (max-width: 56rem) { grid-template-columns: 1fr; }
+}
+
+.left,
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.right { align-items: stretch; }
+
+.label {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: color-mix(in srgb, var(--at-on-dark) 72%, transparent);
+  font-weight: 400;
+}
+
+.project {
+  @include tokens.role('title-md');
+  margin: var(--at-space-xs) 0 0;
+}
+
+.where {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: color-mix(in srgb, var(--at-on-dark) 72%, transparent);
+}
+
+// The one-click way back: a white button on the dark ground.
+.continue {
+  @include tokens.role('button-sm');
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin-block-start: var(--at-space-sm);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  background: var(--at-on-dark);
+  color: var(--at-ink);
+  text-decoration: none;
+
+  &:hover { background: var(--at-surface-hover-strong); }
+  &:focus-visible { outline: 0.125rem solid var(--at-on-dark); outline-offset: 0.125rem; }
+}
+
+.others {
+  display: flex;
+  flex-direction: column;
+  inline-size: 100%;
+  margin: var(--at-space-md) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.other {
+  @include tokens.role('body-md');
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--at-space-xxs) var(--at-space-md);
+  padding-block: var(--at-space-xs);
+  border-block-start: 1px solid color-mix(in srgb, var(--at-on-dark) 20%, transparent);
+  color: var(--at-on-dark);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 0.125rem solid var(--at-on-dark); outline-offset: 0.125rem; }
+}
+
+.meta {
+  @include tokens.role('meta');
+  color: color-mix(in srgb, var(--at-on-dark) 72%, transparent);
+}
+
+.todos {
+  display: flex;
+  flex-direction: column;
+  margin: var(--at-space-xs) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.todo {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--at-space-md);
+  padding-block: var(--at-space-sm);
+  border-block-start: 1px solid color-mix(in srgb, var(--at-on-dark) 20%, transparent);
+  @include tokens.role('body-md');
+}
+
+.dot {
+  inline-size: var(--at-space-xs);
+  block-size: var(--at-space-xs);
+  border-radius: 50%;
+  background: var(--at-signature-mint);
+
+  .todo[data-urgent='true'] & { background: var(--at-signature-peach); }
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
+}
+
+.name {
+  @include tokens.role('meta');
+  color: color-mix(in srgb, var(--at-on-dark) 72%, transparent);
+}
+
+.open {
+  @include tokens.role('button-sm');
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  color: var(--at-on-dark);
+  text-decoration: none;
+
+  &:hover { text-decoration: underline; }
+  &:focus-visible { outline: 0.125rem solid var(--at-on-dark); outline-offset: 0.125rem; }
+}
+
+.done {
+  @include tokens.role('body-md');
+  margin: 0;
+}

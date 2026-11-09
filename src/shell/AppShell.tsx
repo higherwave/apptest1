@@ -1,6 +1,6 @@
 import { Analytics, ChevronDown, ChevronLeft, Filter, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button, Tag } from '@carbon/react'
-import { useCallback, useRef, useState, type MouseEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMe, useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
@@ -12,6 +12,7 @@ import { Logo } from './Logo'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
 import { useTour } from '../tour/tourContext'
+import { noteVisit } from '../resume/recent'
 import styles from './AppShell.module.scss'
 import brand from '../../brand/brand.json'
 
@@ -20,13 +21,16 @@ const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).j
 // Two navigation levels: a dark header with the app's areas (a dropdown on narrow screens), and inside a project a light
 // strip of that project's steps. Links carry data-label so tests and scripts find them by name, not by their markup.
 export function AppShell() {
-  const { pathname } = useLocation()
+  const { pathname, search } = useLocation()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
   const tour = useTour()
   // The spend alert sits above the fixed app bar; it reports its height so everything below moves down by that much.
   const shell = useRef<HTMLDivElement>(null)
   const onBanner = useCallback((rem: number) => shell.current?.style.setProperty('--at-banner', `${rem}rem`), [])
+
+  // Remember the project page being viewed, so the Platform Insights home can offer a way straight back to it.
+  useEffect(() => noteVisit(pathname, search), [pathname, search])
 
   const go = (to: string) => (event: MouseEvent) => {
     event.preventDefault()

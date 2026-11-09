@@ -5,6 +5,7 @@ import type { InsightsThemes } from '../../api/client'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
+import { ResumePanel } from '../../resume/ResumePanel'
 import { Sparkline } from './Sparkline'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
@@ -212,6 +213,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   return (
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
+      <ResumePanel />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
@@ -230,11 +232,13 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                 <Dropdown
                   id="theme-filter"
                   titleText="Show"
+                  hideLabel
                   label="Show"
                   size="md"
                   items={filterItems}
                   itemToString={(i) => (i ? `${i.label} (${i.count})` : '')}
                   selectedItem={filterItems.find((f) => f.key === filter)}
+                  renderSelectedItem={(i) => `Show: ${i.label} (${i.count})`}
                   onChange={({ selectedItem }) => selectedItem && setFilter(selectedItem.key as Filter)}
                 />
               </div>
@@ -242,11 +246,13 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                 <Dropdown
                   id="theme-order"
                   titleText="Order by"
+                  hideLabel
                   label="Order by"
                   size="md"
                   items={ORDERS}
                   itemToString={(i) => i?.label ?? ''}
                   selectedItem={ORDERS.find((o) => o.key === order)}
+                  renderSelectedItem={(i) => `Order by: ${i.label}`}
                   onChange={({ selectedItem }) => selectedItem && setOrder(selectedItem.key)}
                 />
               </div>
