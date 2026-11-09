@@ -92,6 +92,21 @@ try {
     await page.waitForSelector('.cds--modal.is-visible', { timeout: 5000 })
     ok(`${label}: "Take a tour" in the header reopens the welcome`, (await text(page)).includes('Welcome to Signal Flow'))
 
+    // Carbon's black focus ring belongs to the keyboard: a mouse click leaves none behind, Tab brings it back.
+    // A ring is the ink colour drawn as a shadow, an outline or the border (Carbon uses all three).
+    const ring = () => page.evaluate(() => { const c = getComputedStyle(document.activeElement); const ink = 'rgb(24, 29, 38)'; return { on: c.boxShadow.includes(ink) || c.outlineStyle !== 'none' || c.borderColor.includes(ink), shadow: c.boxShadow, outline: c.outlineStyle, border: c.borderColor, cls: document.activeElement.className.slice(0, 50) } })
+    await click(page, 'welcome-skip')
+    await new Promise((r) => setTimeout(r, 600))
+    await page.click('[data-testid="take-a-tour"]') // a real mouse click, not a scripted one
+    await page.waitForSelector('.cds--modal.is-visible', { timeout: 5000 })
+    await new Promise((r) => setTimeout(r, 400))
+    const closeRing = await ring()
+    ok(`${label}: after the mouse opens the welcome, no focus ring is left on the close button`, !closeRing.on, JSON.stringify(closeRing))
+    await page.keyboard.press('Tab')
+    await new Promise((r) => setTimeout(r, 500)) // Carbon fades the ring in
+    const ringed = await ring()
+    ok(`${label}: pressing Tab shows the focus ring on the next control`, ringed.on, JSON.stringify(ringed))
+
     await walk(page, label, 'insights', 8)
     await page.waitForSelector('.cds--modal.is-visible', { timeout: 5000 })
     await new Promise((r) => setTimeout(r, 400))

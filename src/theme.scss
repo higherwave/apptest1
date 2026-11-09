@@ -478,6 +478,26 @@ body {
   box-shadow: inset 0 0 0 1px var(--at-canvas), 0 0 0 2px var(--at-signature-coral);
 }
 
+// -- Focus rings: for the keyboard, not for the mouse ---------------------
+// Carbon draws its ink focus ring on :focus, so a button, accordion heading, tab or modal close that was only clicked kept a black box
+// until something else was clicked. The ring is what tells a keyboard user where they are (WCAG 2.4.7), so it stays on :focus-visible,
+// which a browser sets for keyboard use (and never for a mouse click); a mouse click no longer leaves it behind.
+.cds--accordion__heading:focus:not(:focus-visible),
+.cds--modal-close:focus:not(:focus-visible),
+.cds--btn:focus:not(:focus-visible),
+.cds--tabs .cds--tabs__nav-link:focus:not(:focus-visible),
+.cds--tabs .cds--tabs__nav-item:focus:not(:focus-visible) {
+  outline: none;
+  box-shadow: none;
+}
+
+// Carbon also recolours the border on :focus: put each kind's own border back (the modal close, a primary button in Carbon, goes last).
+.cds--btn--primary:focus:not(:focus-visible) { border-color: var(--at-primary); }
+.cds--btn--ghost:focus:not(:focus-visible),
+.cds--modal-close:focus:not(:focus-visible) { border-color: transparent; }
+.cds--btn--secondary:focus:not(:focus-visible):not(:hover),
+.cds--btn--tertiary:focus:not(:focus-visible):not(:hover) { border-color: var(--at-hairline); }
+
 // A soft fill, not a black box, for the focused menu entry.
 .cds--overflow-menu-options__btn:focus {
   outline: none;
