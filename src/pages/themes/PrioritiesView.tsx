@@ -19,6 +19,8 @@ export type PrioritiesViewProps = {
 
 const IMPORTANCE_ROWS = [3, 2, 1]
 const EFFORT_COLUMNS = [1, 2, 3]
+// The four named corners, as the keys the styles tint them by.
+const ZONE_KEY: Record<string, string> = { '3-1': 'quick', '3-3': 'major', '1-1': 'fill', '1-3': 'reconsider' }
 
 // Presentational: themes placed by importance (rows) and effort (columns), across the whole width: the map is the point of the page. A theme moves by dragging
 // it to a cell, or with the three-dot menu on its node (for people who cannot drag); its details open beside it when the pointer rests on it.
@@ -49,36 +51,44 @@ export function PrioritiesView({ state, project, themes, canEdit, pending, error
             </Button>
           </div>
           <div className={styles.matrix} data-tour="priority-matrix">
-            <span className={styles.axisY}>Importance</span>
-            {IMPORTANCE_ROWS.map((imp) => (
-              <div key={imp} className={styles.row}>
-                <span className={styles.rowLabel}>{LEVEL_LABEL[levelOf(imp)]}</span>
-                {EFFORT_COLUMNS.map((eff) => {
-                  const key = `${imp}-${eff}`
-                  const here = themes.filter((t) => cellKey(t) === key)
-                  return (
-                    <div
-                      key={key}
-                      className={styles.cell}
-                      role="group"
-                      aria-label={`Importance ${LEVEL_LABEL[levelOf(imp)]}, effort ${EFFORT_LABEL[eff]}${ZONES[key] ? `: ${ZONES[key]}` : ''}`}
-                      data-zone={ZONES[key] ? 'true' : 'false'}
-                      onDragOver={(e) => canEdit && e.preventDefault()}
-                      onDrop={(e) => {
-                        e.preventDefault()
-                        const theme = themes.find((t) => t.id === e.dataTransfer.getData('text/plain'))
-                        if (theme && canEdit && !pending.has(theme.id) && cellKey(theme) !== key) onEdit(theme, matrixPatch(theme, imp, eff))
-                      }}
-                    >
-                      {ZONES[key] && <span className={styles.zone}>{ZONES[key]}</span>}
-                      {here.map((t) => (
-                        <PriorityNode key={t.id} theme={t} canEdit={canEdit} busy={pending.has(t.id)} onEdit={onEdit} />
-                      ))}
-                    </div>
-                  )
-                })}
-              </div>
-            ))}
+            <div className={styles.plot}>
+              <span className={styles.axisY} aria-hidden>
+                <span className={styles.arrowY} />
+                <span className={styles.axisName}>Importance</span>
+              </span>
+              {IMPORTANCE_ROWS.map((imp) => (
+                <div key={imp} className={styles.row}>
+                  <span className={styles.rowLabel}>{LEVEL_LABEL[levelOf(imp)]}</span>
+                  {EFFORT_COLUMNS.map((eff) => {
+                    const key = `${imp}-${eff}`
+                    const here = themes.filter((t) => cellKey(t) === key)
+                    return (
+                      <div
+                        key={key}
+                        className={styles.cell}
+                        role="group"
+                        aria-label={`Importance ${LEVEL_LABEL[levelOf(imp)]}, effort ${EFFORT_LABEL[eff]}${ZONES[key] ? `: ${ZONES[key]}` : ''}`}
+                        data-zone={ZONE_KEY[key] ?? 'none'}
+                        onDragOver={(e) => canEdit && e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault()
+                          const theme = themes.find((t) => t.id === e.dataTransfer.getData('text/plain'))
+                          if (theme && canEdit && !pending.has(theme.id) && cellKey(theme) !== key) onEdit(theme, matrixPatch(theme, imp, eff))
+                        }}
+                      >
+                        <div className={styles.cellHead}>
+                          <span className={styles.zone}>{ZONES[key]}</span>
+                          {here.length > 0 && <span className={styles.count}>{here.length}</span>}
+                        </div>
+                        {here.map((t) => (
+                          <PriorityNode key={t.id} theme={t} canEdit={canEdit} busy={pending.has(t.id)} onEdit={onEdit} />
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
             <div className={styles.footer}>
               <span />
               {EFFORT_COLUMNS.map((eff) => (
@@ -87,7 +97,7 @@ export function PrioritiesView({ state, project, themes, canEdit, pending, error
                 </span>
               ))}
             </div>
-            <span className={styles.axisX}>Effort</span>
+            <span className={styles.axisX}>Effort →</span>
           </div>
         </div>
       )}

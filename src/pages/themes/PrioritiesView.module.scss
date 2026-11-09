@@ -15,13 +15,59 @@
 .matrix {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xs);
+  gap: var(--at-space-sm);
 }
 
-.axisY,
+// The rows of the map, with the Importance axis (an arrow and its name, standing up) down the left edge.
+.plot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.axisY {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--at-space-xs);
+  inline-size: 1.5rem;
+  color: var(--at-muted);
+}
+
+// The line and head of the arrow, pointing up.
+.arrowY {
+  position: relative;
+  inline-size: 1px;
+  block-size: 4rem;
+  background: currentColor;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 50%;
+    inline-size: 0.5rem;
+    block-size: 0.5rem;
+    border-block-start: 1px solid currentColor;
+    border-inline-start: 1px solid currentColor;
+    transform: translateX(-50%) rotate(45deg) translate(0.125rem, 0.125rem);
+  }
+}
+
+.axisName,
 .axisX {
   @include tokens.role('eyebrow');
   color: var(--at-muted);
+}
+
+.axisName {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
 }
 
 .axisX {
@@ -31,24 +77,26 @@
 .row,
 .footer {
   display: grid;
-  grid-template-columns: 5rem repeat(3, minmax(0, 1fr));
-  gap: var(--at-space-xs);
+  grid-template-columns: 6.5rem repeat(3, minmax(0, 1fr));
+  gap: var(--at-space-md);
 }
 
 // On a narrow screen the row labels give up some width to the map.
 @media (max-width: 40rem) {
   .row,
   .footer {
-    grid-template-columns: 3.5rem repeat(3, minmax(0, 1fr));
+    grid-template-columns: 4.5rem repeat(3, minmax(0, 1fr));
   }
 }
 
 .rowLabel,
 .colLabel {
-  @include tokens.role('meta');
+  @include tokens.role('body-md');
   align-self: center;
-  color: var(--at-muted);
+  color: var(--at-body);
 }
+
+.rowLabel { padding-inline-start: 2rem; } // clear of the axis
 
 .colLabel {
   text-align: center;
@@ -57,19 +105,38 @@
 .cell {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xxs);
-  min-height: 9rem;
-  padding: var(--at-space-xs);
+  gap: var(--at-space-sm);
+  min-block-size: 12rem;
+  padding: var(--at-space-md);
   border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-md);
+  border-radius: var(--at-radius-lg);
   background: var(--at-canvas);
 
-  &[data-zone='true'] { background: var(--at-surface-soft); }
+  // The four named corners are tinted; the rest stay white.
+  &[data-zone='quick'] { background: var(--at-tint-mint); border-color: var(--at-signature-mint); --zone-ink: var(--at-signature-forest); }
+  &[data-zone='major'] { background: var(--at-tint-cream); border-color: var(--at-signature-cream); --zone-ink: var(--at-on-tint-cream); }
+  &[data-zone='fill'] { background: var(--at-surface-hover); --zone-ink: var(--at-muted); }
+  &[data-zone='reconsider'] { background: var(--at-tint-coral); border-color: var(--at-signature-peach); --zone-ink: var(--at-signature-coral); }
+}
+
+// The name of the corner at the left, how many themes are in the cell at the right.
+.cellHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-xs);
+  min-block-size: 1.25rem;
 }
 
 .zone {
   @include tokens.role('eyebrow-sm');
-  color: var(--at-muted);
+  color: var(--zone-ink, var(--at-muted));
+}
+
+.count {
+  @include tokens.role('meta');
+  margin-inline-start: auto;
+  color: var(--zone-ink, var(--at-muted));
 }
 
 // A theme on the map: the chip (what is dragged) and, for editors, the three-dot menu beside it.
@@ -82,6 +149,11 @@
   display: flex;
   gap: var(--at-space-xxs);
   align-items: flex-start;
+  padding: var(--at-space-xxs) var(--at-space-xxs) var(--at-space-xxs) var(--at-space-xs);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  box-shadow: var(--at-ring);
 }
 
 .chip {
@@ -94,6 +166,11 @@
   white-space: normal;
   text-align: start;
   overflow-wrap: break-word;
+  border: 0;
+  background: transparent;
+  color: var(--at-ink);
+  @include tokens.role('body-md');
+  &:hover { background: transparent; color: var(--at-ink); }
 }
 
 // What opens beside a node when the pointer has rested on it: the supporting detail the page used to keep in a side panel.
