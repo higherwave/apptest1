@@ -152,9 +152,9 @@
   --at-text-disabled: var(--at-border-strong);
 
   // Left application rail (the 88px toolbar)
-  --at-rail: #2b2f36;
-  --at-rail-hover: #3a3e46;
-  --at-rail-active: #4a4f58;
+  --at-rail: var(--at-surface-dark); // the app menu is the near-black ink, as the project's dark surfaces
+  --at-rail-hover: color-mix(in srgb, var(--at-rail-active) 60%, var(--at-rail));
+  --at-rail-active: var(--at-body);
   --at-rail-text: #c9ccd2;
 
   // Board status accents. Fill = the column's card edge; strong = progress bar and selection ring.

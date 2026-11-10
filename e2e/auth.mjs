@@ -72,6 +72,23 @@ try {
     pagesClean.push(!(await errorShown()))
   }
   ok('a visitor can open a project\'s pages without an error', pagesClean.every(Boolean))
+  // The app menu rests as a dark icon strip and opens over the page; the project's steps are a rail, neutral once every step is open.
+  await page.setViewport({ width: 1400, height: 900 })
+  await page.goto(`${BASE}/projects/${first.id}/plan`, { waitUntil: 'networkidle0' })
+  await page.mouse.move(900, 500)
+  await new Promise((r) => setTimeout(r, 400))
+  const menu = () => page.evaluate(() => { const a = document.querySelector('aside[aria-label="Main menu"]'); const r = a.getBoundingClientRect(); return { w: Math.round(r.width), bg: getComputedStyle(a).backgroundColor, op: getComputedStyle(a.querySelector('[class*="label"]')).opacity, pageLeft: Math.round(document.querySelector('h1').getBoundingClientRect().left) } })
+  const rest = await menu()
+  ok('the app menu rests as a 68px near-black icon strip with its names hidden', rest.w === 68 && rest.bg === 'rgb(24, 29, 38)' && rest.op === '0', JSON.stringify(rest))
+  await page.hover('aside[aria-label="Main menu"] a')
+  await new Promise((r) => setTimeout(r, 600))
+  const open = await menu()
+  ok('hovering opens it to 240px over the page, names showing, and the page does not move', open.w === 240 && open.op === '1' && open.pageLeft === rest.pageLeft, JSON.stringify(open))
+  await page.mouse.move(900, 500)
+  await new Promise((r) => setTimeout(r, 600))
+  ok('moving away closes it again', (await menu()).w === 68)
+  const states = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.state))
+  ok('the steps are a vertical rail of ten, and with every step open they all read neutral', states.length === 10 && (states.every((x) => x === 'done') || states.includes('locked')), states.join())
 
   // /sign-in sends someone who is already signed in straight to the projects.
   await signInAs('david@demo.signalflow.example')

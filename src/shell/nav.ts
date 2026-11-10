@@ -36,3 +36,31 @@ export const SECTION_TITLES: Record<string, string> = Object.fromEntries([
   ...INSIGHT_SECTIONS.map((s) => [s.key, s.label]),
   ...SETTINGS_SECTIONS.map((s) => [s.key, s.label]),
 ])
+
+// One line under each step's name in the project's step rail.
+export const STEP_NOTES: Record<string, string> = {
+  plan: 'Project and participants',
+  tasks: 'Questions and tasks',
+  transcripts: 'Meeting transcripts',
+  themes: 'AI-generated themes',
+  storyboard: 'Tell the story to the team',
+  prio: 'Impact vs effort',
+  requirements: 'AI-assisted docs',
+  design: 'Associate prototypes to requirements',
+  stories: 'Jira-ready tickets',
+  measure: 'Measure success',
+}
+
+export type StepState = 'done' | 'current' | 'ready' | 'locked'
+
+/**
+ * How each step reads in the rail, from which of them are open (the server says; steps open in order, with Priorities after Themes).
+ * While any step is locked the project is being set up ("guided"): the steps before the one to work on are done, that one is current,
+ * any other open step is ready and the rest are locked. Once every step is open the rail is neutral ("after"): they all read as done.
+ */
+export function stepStates(open: boolean[]): { mode: 'guided' | 'after'; states: StepState[] } {
+  const firstLocked = open.indexOf(false)
+  if (firstLocked === -1) return { mode: 'after', states: open.map(() => 'done') }
+  const current = Math.max(0, firstLocked - 1)
+  return { mode: 'guided', states: open.map((o, i) => (!o ? 'locked' : i < current ? 'done' : i === current ? 'current' : 'ready')) }
+}

@@ -1,9 +1,10 @@
 @use '../tokens' as tokens;
 
-// A dark rail down the left (the app's name and where to go), a slim bar across the top (the account), and inside a project a
-// project-name bar and a horizontal strip of steps (StepNav). Narrow screens drop the rail for a menu in the top bar.
+// A dark icon strip down the left that opens over the page on hover (the app's name and where to go), a slim bar across the top (the account),
+// and inside a project a project-name bar and the steps beside the page (StepNav: a rail when wide, a strip when narrow). Narrow screens drop the rail for a menu in the top bar.
 $header-height: 4rem;
-$rail-width: 12.5rem;
+$rail-width: 4.25rem; // the icon strip, always in place
+$rail-open: 15rem; // what the menu opens to over the page, while the pointer or focus is on it
 $context-height: 2.75rem;
 $narrow: 48rem;
 $column-width: 75rem; // every project step shares this width, centered
@@ -21,6 +22,9 @@ $column-width: 75rem; // every project step shares this width, centered
     margin-block-start: calc(#{$header-height} + #{$context-height} + var(--at-banner, 0rem));
     min-height: calc(100vh - #{$header-height} - #{$context-height});
   }
+
+  // Wide: the steps stand as a rail beside the page.
+  &[data-rail='true'] { flex-direction: row; }
   background: var(--at-page);
 }
 
@@ -28,10 +32,12 @@ $column-width: 75rem; // every project step shares this width, centered
   display: flex;
   flex: 1;
   flex-direction: column;
+  min-inline-size: 0;
   padding: var(--at-space-xl);
 }
 
-// The rail: dark, down the left edge, below the spend alert when there is one. The app's name on top, then where to go.
+// The rail: near-black, down the left edge, below the spend alert when there is one. It rests as a strip of icons and opens over the page
+// (the page does not move) while the pointer or keyboard focus is on it. The names are in the page all the time, only faded out.
 .rail {
   position: fixed;
   inset-block: var(--at-banner, 0rem) 0;
@@ -39,13 +45,31 @@ $column-width: 75rem; // every project step shares this width, centered
   z-index: var(--at-z-header);
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-lg);
+  gap: var(--at-space-xs);
+  box-sizing: border-box;
   inline-size: $rail-width;
-  padding: var(--at-space-md) var(--at-space-sm);
+  padding: var(--at-space-lg) var(--at-space-md);
+  overflow: hidden;
+  white-space: nowrap;
   background: var(--at-rail);
   color: var(--at-rail-text);
+  transition: inline-size 0.18s ease, box-shadow 0.18s ease;
+
+  &:hover,
+  &:focus-within {
+    inline-size: $rail-open;
+    box-shadow: 0.25rem 0 1rem color-mix(in srgb, var(--at-ink) 18%, transparent);
+  }
 
   @media (max-width: $narrow) { display: none; }
+}
+
+.label {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+
+  .rail:hover &,
+  .rail:focus-within & { opacity: 1; }
 }
 
 // The slim bar across the top, to the right of the rail: the account and editing state. On a narrow screen it also carries the
@@ -77,7 +101,7 @@ $column-width: 75rem; // every project step shares this width, centered
   align-items: center;
   gap: var(--at-space-sm);
   min-inline-size: 0;
-  padding: var(--at-space-xs) var(--at-space-xs) 0;
+  padding: 0 0 var(--at-space-lg);
 }
 
 .narrowBrand {
@@ -117,7 +141,7 @@ $column-width: 75rem; // every project step shares this width, centered
   display: flex;
   align-items: center;
   gap: var(--at-space-sm);
-  padding: var(--at-space-sm) var(--at-space-sm);
+  padding: var(--at-space-sm) var(--at-space-xs); // 20px icon + 8px each side = the strip's 36px, so the icon sits centered when closed
   border-radius: var(--at-radius-md);
   color: var(--at-rail-text);
   text-decoration: none;
@@ -143,7 +167,7 @@ $column-width: 75rem; // every project step shares this width, centered
 // Leaves the app: set apart from the places inside it.
 .areaExternal {
   margin-block-start: var(--at-space-md);
-  border-block-start: 1px solid var(--at-rail-hover);
+  border-block-start: 1px solid var(--at-rail-active);
   border-radius: 0 0 var(--at-radius-md) var(--at-radius-md);
   padding-block-start: var(--at-space-md);
 
@@ -288,13 +312,11 @@ $column-width: 75rem; // every project step shares this width, centered
   margin-inline: auto;
 }
 
-// The project-name bar's contents sit in the same column, so the name lines up with the page title below (on every page, the wide ones included).
+// The project-name bar's contents start at its left edge, over the step rail.
 .contextInner {
   display: flex;
   align-items: center;
   gap: var(--at-space-sm);
   inline-size: 100%;
-  max-inline-size: $column-width;
-  margin-inline: auto;
 }
 

@@ -1,45 +1,12 @@
 @use '../tokens' as tokens;
 
-// The project's steps as a horizontal strip under the app bar.
+// The app bar (4rem) and the project bar (2.75rem) above the page, which the rail sticks below. Kept in step with AppShell.module.scss.
+$chrome-top: 6.75rem;
+
+// The project's steps: on a narrow window a strip under the project bar (below), on a wide one a rail beside the page (.rail).
 .strip {
   background: var(--at-canvas); // white, like the bars above it; the hairline below separates it from the page
   border-block-end: 1px solid var(--at-hairline);
-}
-
-// The same column as the page below: 75rem of content between the side padding.
-.groups {
-  display: flex;
-  box-sizing: border-box;
-  max-inline-size: calc(75rem + 2 * var(--at-space-xl));
-  margin-inline: auto;
-  padding: var(--at-space-sm) var(--at-space-xl) 0 calc(var(--at-space-xl) - var(--at-space-xxs)); // the first label lines up with the page title below
-  overflow-x: auto;
-}
-
-.group {
-  flex: none;
-  padding-inline: var(--at-space-md);
-
-  & + & { border-inline-start: 1px solid var(--at-hairline); }
-  &:first-child { padding-inline-start: 0; }
-}
-
-.groupLabel {
-  @include tokens.role('eyebrow');
-  margin: 0;
-  padding: 0 var(--at-space-xxs) var(--at-space-xs);
-  color: var(--at-muted);
-}
-
-.groupLabelActive {
-  color: var(--at-ink);
-  font-weight: 700;
-}
-
-.tabs {
-  display: flex;
-  gap: var(--at-space-xxs);
-  overflow-x: auto;
 }
 
 .chips {
@@ -117,4 +84,118 @@
 .lock {
   flex: none;
   fill: currentColor;
+}
+
+// -- The rail (wide windows) --------------------------------------------------------------------------------------------------
+// A white column down the left of the project's pages: the four groups, each a label with a rule and its steps beneath.
+.rail {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  box-sizing: border-box;
+  inline-size: 12.5rem;
+  padding: var(--at-space-md) var(--at-space-xs);
+  border-block-end: 0;
+  border-inline-end: 1px solid var(--at-hairline);
+  // It stays in view beside a long page, scrolling by itself when a short window cannot hold all ten steps.
+  position: sticky;
+  inset-block-start: calc(#{$chrome-top} + var(--at-banner, 0rem));
+  align-self: flex-start;
+  max-block-size: calc(100vh - #{$chrome-top} - var(--at-banner, 0rem));
+  overflow-y: auto;
+}
+
+.railGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+}
+
+.railLabel {
+  @include tokens.role('eyebrow-sm');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin: 0;
+  padding: 0 var(--at-space-sm) var(--at-space-xs);
+  color: var(--at-muted);
+
+  &::after {
+    content: '';
+    flex: 1;
+    block-size: 1px;
+    background: var(--at-hairline);
+  }
+}
+
+// A group with every step still locked is dimmed.
+.railLabelLocked { color: var(--at-border-strong); }
+
+.row {
+  display: flex;
+  gap: var(--at-space-sm);
+  align-items: flex-start;
+  padding: var(--at-space-xs) var(--at-space-sm);
+  border-radius: var(--at-radius-md);
+  color: var(--at-body);
+  text-decoration: none;
+
+  &:hover:not([aria-disabled='true']) { background: var(--at-surface-hover); }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--at-ink);
+    outline-offset: -0.125rem;
+  }
+
+  &[aria-disabled='true'] { cursor: not-allowed; }
+}
+
+// The open step: a soft fill and the ink title, whatever else its state says.
+.rowActive.rowActive,
+.row[data-state='current'] {
+  background: color-mix(in srgb, var(--at-surface-hover) 50%, var(--at-surface-hover-strong));
+}
+
+.badge {
+  display: grid;
+  flex: none;
+  place-items: center;
+  box-sizing: border-box;
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin-block-start: 0.0625rem;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-full);
+  background: var(--at-canvas);
+  color: var(--at-muted);
+  @include tokens.role('meta');
+  font-weight: 500;
+
+  // While the project is being set up: the step to work on is ringed heavily, any other open step lightly.
+  .row[data-state='current'] & { border: 0.125rem solid var(--at-ink); color: var(--at-ink); }
+  .row[data-state='ready'] & { border-color: var(--at-ink); color: var(--at-ink); }
+  .row[data-state='locked'] & { color: var(--at-border-strong); }
+}
+
+.rowText {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
+}
+
+.rowTitle {
+  @include tokens.role('caption');
+  color: var(--at-body);
+
+  .rowActive & { color: var(--at-ink); }
+  .row[data-state='locked'] & { color: var(--at-border-strong); }
+}
+
+.rowNote {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+
+  .row[data-state='locked'] & { color: var(--at-border-strong); }
 }

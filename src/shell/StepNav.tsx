@@ -1,7 +1,7 @@
-import { Locked } from '@carbon/icons-react'
 import { Button } from '@carbon/react'
+import { Locked } from '@carbon/icons-react'
 import { useEffect, useState } from 'react'
-import { STEP_GROUPS, type StepGroup } from './nav'
+import { STEP_GROUPS, STEP_NOTES, type StepGroup, type StepState } from './nav'
 import styles from './StepNav.module.scss'
 
 export type StepItem = {
@@ -12,15 +12,18 @@ export type StepItem = {
   to: string
   active: boolean
   locked: boolean
+  /** How the step reads in the rail: set-up progress while the project is being built, neutral after. */
+  state: StepState
   /** Why a locked step is not open yet. */
   hint?: string
 }
 
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
 
-// True while the window is at least this wide. Below it, one group of steps is shown at a time.
-const WIDE = '(min-width: 65rem)'
-function useWide() {
+// True while the window is wide enough for the steps to stand as a rail beside the page (1024px, the tablet in landscape and up).
+// Below it, one group of steps is shown at a time in a strip under the project bar.
+const WIDE = '(min-width: 64rem)'
+export function useRailWide() {
   const [wide, setWide] = useState(() => (typeof window === 'undefined' || !window.matchMedia ? true : window.matchMedia(WIDE).matches))
   useEffect(() => {
     if (!window.matchMedia) return
@@ -33,15 +36,16 @@ function useWide() {
   return wide
 }
 
-// The project's steps as a horizontal strip under the app bar. Wide windows show every group in one line; narrow ones show a row
-// of group buttons and only the steps of the group being viewed, which starts as the group of the open step.
+// The project's steps. Wide windows show a vertical rail beside the page, the four groups stacked with their steps (a number, the name and one
+// line on what it is); narrow ones show a row of group buttons and only the steps of the group being viewed, which starts as the group of the open step.
 export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string) => void }) {
-  const wide = useWide()
+  const wide = useRailWide()
   const activeGroup = items.find((i) => i.active)?.group ?? STEP_GROUPS[0]
   // A group picked by hand holds only while the open step stays in the same group.
   const [picked, setPicked] = useState<{ from: StepGroup; group: StepGroup } | null>(null)
   const viewing = picked && picked.from === activeGroup ? picked.group : activeGroup
 
+  // The narrow strip's tab: a number over the name, a lock on a step that is not open yet.
   const tab = (item: StepItem) => (
     <a
       key={item.key}
@@ -66,17 +70,45 @@ export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string)
     </a>
   )
 
+  // The rail's row: a numbered badge, the step's name, and one line about it. The number stays on a finished step (a step such as Measure can
+  // stay unfinished for a long time, so a tick would mislead).
+  const row = (item: StepItem) => (
+    <a
+      key={item.key}
+      href={item.to}
+      data-label={item.label}
+      data-state={item.state}
+      aria-current={item.active ? 'page' : undefined}
+      aria-disabled={item.locked || undefined}
+      title={item.locked ? item.hint : undefined}
+      className={cx(styles.row, item.active && styles.rowActive)}
+      onClick={(e) => {
+        e.preventDefault()
+        if (!item.locked) onGo(item.to)
+      }}
+    >
+      <span className={styles.badge} aria-hidden>
+        {item.number}
+      </span>
+      <span className={styles.rowText}>
+        <span className={styles.rowTitle}>{item.label}</span>
+        <span className={styles.rowNote}>{STEP_NOTES[item.key]}</span>
+      </span>
+    </a>
+  )
+
   return (
-    <nav className={styles.strip} aria-label="Project steps" data-nav>
+    <nav className={cx(styles.strip, wide && styles.rail)} aria-label="Project steps" data-nav>
       {wide ? (
-        <div className={styles.groups}>
-          {STEP_GROUPS.map((group) => (
-            <div key={group} className={styles.group}>
-              <p className={cx(styles.groupLabel, group === activeGroup && styles.groupLabelActive)}>{group}</p>
-              <div className={styles.tabs}>{items.filter((i) => i.group === group).map(tab)}</div>
+        STEP_GROUPS.map((group) => {
+          const its = items.filter((i) => i.group === group)
+          return (
+            <div key={group} className={styles.railGroup}>
+              <p className={cx(styles.railLabel, its.every((i) => i.locked) && styles.railLabelLocked)}>{group}</p>
+              {its.map(row)}
             </div>
-          ))}
-        </div>
+          )
+        })
       ) : (
         <>
           <div className={styles.chips} role="group" aria-label="Step groups">

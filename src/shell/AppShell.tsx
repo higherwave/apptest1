@@ -6,8 +6,8 @@ import { useMe, useProject, useProjectStage } from '../api/hooks'
 import { AccessBar } from '../auth/AccessBar'
 import { AiBadge } from '../auth/AiBadge'
 import type { StepKey } from '../api/client'
-import { STEPS } from './nav'
-import { StepNav, type StepItem } from './StepNav'
+import { STEPS, stepStates } from './nav'
+import { StepNav, useRailWide, type StepItem } from './StepNav'
 import { Logo } from './Logo'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
@@ -50,6 +50,12 @@ export function AppShell() {
   const hasPanel = !!projectId || creating
 
   // The steps as the strip shows them: open, locked (with the reason) and which one is showing.
+  const open = STEPS.map((s) => {
+    const tab = projectId ? stage.data?.tabs[s.key as StepKey] : undefined
+    return creating ? s.key === 'plan' : tab ? tab.enabled : true
+  })
+  const { states } = stepStates(open)
+  const railWide = useRailWide()
   const stepItems: StepItem[] = STEPS.map((s, i) => {
     const tab = projectId ? stage.data?.tabs[s.key as StepKey] : undefined
     const locked = creating ? s.key !== 'plan' : tab ? !tab.enabled : false
@@ -61,6 +67,7 @@ export function AppShell() {
       to: creating ? '/projects/new' : `/projects/${projectId}/${s.key}`,
       active: creating ? s.key === 'plan' : project?.[2] === s.key,
       locked,
+      state: states[i],
       hint: creating ? 'Create the project first' : (tab?.hint ?? undefined),
     }
   })
@@ -85,27 +92,27 @@ export function AppShell() {
       <aside className={styles.rail} aria-label="Main menu">
         <div className={styles.brand}>
           <Logo />
-          <span className={styles.appName}>{brand.appName}</span>
+          <span className={cx(styles.appName, styles.label)}>{brand.appName}</span>
         </div>
 
         <nav className={styles.areas} aria-label="Navigation" data-nav>
           {areas.map((a) => (
             <a key={a.to} href={a.to} data-label={a.label} aria-current={a.active ? 'page' : undefined} className={cx(styles.area, a.active && styles.areaActive)} onClick={go(a.to)}>
               <a.icon size={20} aria-hidden />
-              {a.label}
+              <span className={styles.label}>{a.label}</span>
             </a>
           ))}
           {gallery && (
             <a href={gallery} data-label="Prototype gallery" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
               <Launch size={20} aria-hidden />
-              Prototype gallery
+              <span className={styles.label}>Prototype gallery</span>
               <span className={styles.srOnly}> (opens in a new tab)</span>
             </a>
           )}
           {decisionGuides && (
             <a href={decisionGuides} data-label="Decision Guides" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
               <Launch size={20} aria-hidden />
-              Decision Guides
+              <span className={styles.label}>Decision Guides</span>
               <span className={styles.srOnly}> (opens in a new tab)</span>
             </a>
           )}
@@ -169,7 +176,7 @@ export function AppShell() {
         </div>
       )}
 
-      <div className={styles.stage} data-project={hasPanel}>
+      <div className={styles.stage} data-project={hasPanel} data-rail={hasPanel && railWide}>
         {hasPanel && <StepNav items={stepItems} onGo={navigate} />}
         <main className={styles.content}>
           {hasPanel ? (
