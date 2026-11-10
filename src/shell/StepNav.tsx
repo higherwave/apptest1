@@ -94,15 +94,17 @@ export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string)
   return (
     <nav className={cx(styles.strip, wide && styles.rail)} aria-label="Project steps" data-nav>
       {wide ? (
-        STEP_GROUPS.map((group) => {
-          const its = items.filter((i) => i.group === group)
-          return (
-            <div key={group} className={styles.railGroup}>
-              <p className={cx(styles.railLabel, its.every((i) => i.locked) && styles.railLabelLocked)}>{group}</p>
-              {its.map(row)}
-            </div>
-          )
-        })
+        <div className={styles.railInner}>
+          {STEP_GROUPS.map((group) => {
+            const its = items.filter((i) => i.group === group)
+            return (
+              <div key={group} className={styles.railGroup}>
+                <p className={cx(styles.railLabel, its.every((i) => i.locked) && styles.railLabelLocked)}>{group}</p>
+                {its.map(row)}
+              </div>
+            )
+          })}
+        </div>
       ) : (
         <>
           <div className={styles.chips} role="group" aria-label="Step groups">

@@ -188,8 +188,10 @@ export function AppShell() {
           ) : (
             <Outlet />
           )}
-          <SiteFooter />
         </main>
+      </div>
+      <div className={styles.footer}>
+        <SiteFooter flush />
       </div>
     </div>
   )

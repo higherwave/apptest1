@@ -72,20 +72,24 @@ $chrome-top: 6.75rem;
 
 // -- The rail (wide windows) --------------------------------------------------------------------------------------------------
 // A white column down the left of the project's pages: the four groups, each a label with a rule and its steps beneath.
+// A white column that runs the whole height of the page beside the steps, down to the footer, even when the steps end sooner. The steps
+// themselves (.railInner) stay in view beside a long page, scrolling by themselves when a short window cannot hold all ten.
 .rail {
-  display: flex;
   flex: none;
+  box-sizing: border-box;
+  inline-size: 12.5rem;
+  border-block-end: 0;
+  border-inline-end: 1px solid var(--at-hairline);
+}
+
+.railInner {
+  display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
   box-sizing: border-box;
-  inline-size: 12.5rem;
   padding: var(--at-space-md) var(--at-space-xs);
-  border-block-end: 0;
-  border-inline-end: 1px solid var(--at-hairline);
-  // It stays in view beside a long page, scrolling by itself when a short window cannot hold all ten steps.
   position: sticky;
   inset-block-start: calc(#{$chrome-top} + var(--at-banner, 0rem));
-  align-self: flex-start;
   max-block-size: calc(100vh - #{$chrome-top} - var(--at-banner, 0rem));
   overflow-y: auto;
 }

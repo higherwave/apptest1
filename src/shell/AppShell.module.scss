@@ -9,18 +9,31 @@ $context-height: 2.75rem;
 $narrow: 48rem;
 $column-width: 75rem; // every project step shares this width, centered
 
+// The page is a column: the stage (project steps and page) takes whatever height is left, and the footer follows it across the full width
+// beside the app menu, at the foot of the window on a short page.
+.shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.footer {
+  margin-inline-start: $rail-width;
+
+  @media (max-width: $narrow) { margin-inline-start: 0; }
+}
+
 .stage {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   margin-block-start: calc(#{$header-height} + var(--at-banner, 0rem));
   margin-inline-start: $rail-width;
-  min-height: calc(100vh - #{$header-height});
 
   @media (max-width: $narrow) { margin-inline-start: 0; }
 
   &[data-project='true'] {
     margin-block-start: calc(#{$header-height} + #{$context-height} + var(--at-banner, 0rem));
-    min-height: calc(100vh - #{$header-height} - #{$context-height});
   }
 
   // Wide: the steps stand as a rail beside the page.

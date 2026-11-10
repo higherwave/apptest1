@@ -6,6 +6,16 @@
   padding-block-start: var(--at-space-xxl);
 }
 
+// On its own across the full width (the app shell): no padded page around it to reach out of, and the shell already pushes it down.
+.slot[data-flush='true'] {
+  margin-block-start: 0;
+  padding-block-start: 0;
+
+  .footer {
+    margin: 0;
+  }
+}
+
 // A grey band. The page around it is padded, so the band reaches back out to the edges of the content area.
 .footer {
   margin-inline: calc(-1 * var(--at-space-xl));

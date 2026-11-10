@@ -3,10 +3,10 @@ import styles from './SiteFooter.module.scss'
 import brand from '../../brand/brand.json'
 
 // The footer of every screen, the same as the landing page's: the mark and name, the testing-environment notice, and the links.
-// Inside the app it runs the full width of the page and sits at the foot of the window on a short page.
-export function SiteFooter() {
+// Inside the app it runs the full width beside the app menu and sits at the foot of the window on a short page.
+export function SiteFooter({ flush = false }: { /** True when the footer sits on its own across the full width, not inside a padded page. */ flush?: boolean }) {
   return (
-    <div className={styles.slot}>
+    <div className={styles.slot} data-flush={flush}>
       <footer className={styles.footer}>
         <div className={styles.inner}>
           <p className={styles.brand}>
