@@ -47,22 +47,7 @@ $chrome-top: 6.75rem;
   color: var(--at-ink);
   font-weight: 700;
 
-  &:hover { background: transparent; } // the open step needs no fill: the bold label, number and underline mark it
-}
-
-.number {
-  display: grid;
-  place-items: center;
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  border-radius: var(--at-radius-full);
-  color: var(--at-muted);
-  @include tokens.role('meta');
-
-  .tabActive & {
-    background: var(--at-ink);
-    color: var(--at-on-primary);
-  }
+  &:hover { background: transparent; } // the open step needs no fill: the bold label and underline mark it
 }
 
 .tabLabel {
@@ -78,7 +63,6 @@ $chrome-top: 6.75rem;
 
   &:hover { background: transparent; }
 
-  .number { color: var(--at-text-disabled); }
 }
 
 .lock {
@@ -134,7 +118,6 @@ $chrome-top: 6.75rem;
 
 .row {
   display: flex;
-  gap: var(--at-space-sm);
   align-items: flex-start;
   padding: var(--at-space-xs) var(--at-space-sm);
   border-radius: var(--at-radius-md);
@@ -151,31 +134,10 @@ $chrome-top: 6.75rem;
   &[aria-disabled='true'] { cursor: not-allowed; }
 }
 
-// The open step: a soft fill and the ink title, whatever else its state says.
+// The open step, and the one to work on while the project is being set up: a soft fill and the ink title.
 .rowActive.rowActive,
 .row[data-state='current'] {
   background: color-mix(in srgb, var(--at-surface-hover) 50%, var(--at-surface-hover-strong));
-}
-
-.badge {
-  display: grid;
-  flex: none;
-  place-items: center;
-  box-sizing: border-box;
-  inline-size: 1.25rem;
-  block-size: 1.25rem;
-  margin-block-start: 0.0625rem;
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-full);
-  background: var(--at-canvas);
-  color: var(--at-muted);
-  @include tokens.role('meta');
-  font-weight: 500;
-
-  // While the project is being set up: the step to work on is ringed heavily, any other open step lightly.
-  .row[data-state='current'] & { border: 0.125rem solid var(--at-ink); color: var(--at-ink); }
-  .row[data-state='ready'] & { border-color: var(--at-ink); color: var(--at-ink); }
-  .row[data-state='locked'] & { color: var(--at-border-strong); }
 }
 
 .rowText {
@@ -189,6 +151,9 @@ $chrome-top: 6.75rem;
   @include tokens.role('caption');
   color: var(--at-body);
 
+  // While the project is being set up: the step to work on is bold, any other open step is full ink.
+  .row[data-state='current'] & { color: var(--at-ink); font-weight: 700; }
+  .row[data-state='ready'] & { color: var(--at-ink); }
   .rowActive & { color: var(--at-ink); }
   .row[data-state='locked'] & { color: var(--at-border-strong); }
 }

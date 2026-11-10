@@ -36,7 +36,7 @@ export function useRailWide() {
   return wide
 }
 
-// The project's steps. Wide windows show a vertical rail beside the page, the four groups stacked with their steps (a number, the name and one
+// The project's steps. Wide windows show a vertical rail beside the page, the four groups stacked with their steps (the name and one
 // line on what it is); narrow ones show a row of group buttons and only the steps of the group being viewed, which starts as the group of the open step.
 export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string) => void }) {
   const wide = useRailWide()
@@ -45,7 +45,7 @@ export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string)
   const [picked, setPicked] = useState<{ from: StepGroup; group: StepGroup } | null>(null)
   const viewing = picked && picked.from === activeGroup ? picked.group : activeGroup
 
-  // The narrow strip's tab: a number over the name, a lock on a step that is not open yet.
+  // The narrow strip's tab: the name, with a lock on a step that is not open yet.
   const tab = (item: StepItem) => (
     <a
       key={item.key}
@@ -60,9 +60,6 @@ export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string)
         if (!item.locked) onGo(item.to)
       }}
     >
-      <span className={styles.number} aria-hidden>
-        {item.number}
-      </span>
       <span className={styles.tabLabel}>
         {item.label}
         {item.locked && <Locked size={16} className={styles.lock} aria-hidden />}
@@ -70,8 +67,8 @@ export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string)
     </a>
   )
 
-  // The rail's row: a numbered badge, the step's name, and one line about it. The number stays on a finished step (a step such as Measure can
-  // stay unfinished for a long time, so a tick would mislead).
+  // The rail's row: the step's name and one line about it, left-aligned with the group label above. Where the project is in its set-up shows
+  // in the row itself (data-state), not in a number.
   const row = (item: StepItem) => (
     <a
       key={item.key}
@@ -87,9 +84,6 @@ export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string)
         if (!item.locked) onGo(item.to)
       }}
     >
-      <span className={styles.badge} aria-hidden>
-        {item.number}
-      </span>
       <span className={styles.rowText}>
         <span className={styles.rowTitle}>{item.label}</span>
         <span className={styles.rowNote}>{STEP_NOTES[item.key]}</span>
