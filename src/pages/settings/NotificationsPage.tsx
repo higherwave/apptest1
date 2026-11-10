@@ -52,6 +52,11 @@ export function NotificationsPage() {
               </Button>
             </div>
             {test.data && <InlineNotification hideCloseButton lowContrast data-testid="reminder-result" data-outcome={test.data.outcome} {...MESSAGE[test.data.outcome]} />}
+            {test.data?.error && (
+              <p className={styles.detail} data-testid="reminder-error">
+                What the email service said: {test.data.error}
+              </p>
+            )}
             {test.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Something went wrong" subtitle="The request did not go through." />}
           </section>
           {!p.mailConfigured && <InlineNotification hideCloseButton lowContrast kind="warning" title="Email is not set up on this deployment" subtitle="Reminders will not be sent until the mail settings are added." />}
