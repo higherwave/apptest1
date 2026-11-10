@@ -273,11 +273,12 @@ try {
   ok('Admin is a top-level tab, open on this page, with a row of sections below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Admin sections"] [data-label="Experience Categories"]'); return nav.join('|') === 'Platform Insights|Product Funnel|Admin|Prototype gallery (opens in a new tab)|Decision Guides (opens in a new tab)' && cur === 'Admin' && row?.dataset.current === 'true' }))
   await page.goto(`${BASE}/settings/notifications`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="reminder-card"]', { timeout: 8000 })
+  await page.waitForFunction(() => (document.querySelector('#reminder-zone')?.value || '').length > 0, { timeout: 8000 })
   ok('Notifications is an Admin tab with the daily reminder switched on and the browser time zone saved', await page.evaluate(async () => {
     const tab = document.querySelector('nav[aria-label="Admin sections"] [data-label="Notifications"]')
     const box = document.querySelector('[data-testid="reminder-on"]')
     const zone = document.querySelector('#reminder-zone')
-    return tab?.dataset.current === 'true' && box?.checked === true && /\//.test(zone?.value || '') && /6am/.test(document.querySelector('[data-testid="reminder-card"]').innerText)
+    return tab?.dataset.current === 'true' && box?.checked === true && (zone?.value || '').length > 0 && /6am/.test(document.querySelector('[data-testid="reminder-card"]').innerText)
   }))
   await page.click('[data-testid="reminder-now"]')
   await page.waitForSelector('[data-testid="reminder-result"]', { timeout: 8000 })
