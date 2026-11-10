@@ -1,7 +1,7 @@
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useMe } from '../../api/hooks'
 
-// Who may open which Admin page: viewers none (they go back to the projects), editors only Experience Categories, owners all.
+// Who may open which Admin page: viewers none (they go back to the projects), editors Experience Categories and Notifications, owners all.
 export function SettingsGate() {
   const me = useMe()
   const { pathname } = useLocation()

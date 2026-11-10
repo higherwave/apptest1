@@ -1,0 +1,32 @@
+@use '../../tokens' as tokens;
+@use '../insights/body';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.head {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  max-inline-size: 40rem;
+}

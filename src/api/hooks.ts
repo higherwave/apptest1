@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSyncExternalStore } from 'react'
 import {
-  getAiStatus, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
+  getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, inviteMember, listAudit, listUsage, listMembers, removeMember,
@@ -268,3 +268,11 @@ export const useSaveMeasure = (projectId: string) => {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measure', projectId] }),
   })
 }
+
+// The signed-in person's reminder settings. Saving refreshes them; sending a test reminder changes nothing here.
+export const useNotificationPreferences = (enabled = true) => useQuery({ queryKey: ['notification-preferences'], queryFn: getNotificationPreferences, enabled })
+export const useSaveNotificationPreferences = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (body: Parameters<typeof saveNotificationPreferences>[0]) => saveNotificationPreferences(body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-preferences'] }) })
+}
+export const useSendReminderNow = () => useMutation({ mutationFn: () => sendReminderNow() })

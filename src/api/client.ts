@@ -65,6 +65,10 @@ export const getMeasure = (projectId: string) => request<Measure>(`/projects/${p
 // The row's version is 0 when nothing has been saved for the requirement yet.
 export const saveMeasureItem = (storyId: string, version: number, body: MeasureRequest) => request<MeasureItem>(`/stories/${storyId}/measure`, { method: 'PUT', body, version })
 
+export type NotificationPreferences = components['schemas']['NotificationPreferences']
+export const getNotificationPreferences = () => request<NotificationPreferences>('/notifications/preferences')
+export const saveNotificationPreferences = (body: { digestEnabled?: boolean; timeZone?: string }) => request<null>('/notifications/preferences', { method: 'PUT', body })
+export const sendReminderNow = () => request<{ outcome: 'sent' | 'nothing_left' | 'not_configured' | 'failed'; error?: string }>('/notifications/digest/test', { method: 'POST' })
 export const getAiStatus = () => request<AiStatus>('/ai/status')
 export const getMe = (token?: string | null) => request<Me>('/me', { token })
 export type SignInOption = components['schemas']['SignInOptionList']['data'][number]

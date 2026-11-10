@@ -457,6 +457,88 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /notifications/preferences:
+    get:
+      operationId: getNotificationPreferences
+      summary: >
+        The signed-in person's settings for the daily reminder email: whether it is on, their time zone (null until their browser has reported
+        it), whether they can receive it (owners and editors), and whether this deployment can send email at all.
+      responses:
+        '200':
+          description: The settings.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/NotificationPreferences' }
+        '401': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: saveNotificationPreferences
+      summary: Changes the signed-in person's reminder settings. Send only what changes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                digestEnabled: { type: boolean }
+                timeZone: { type: string, description: 'An IANA time zone such as Europe/London.' }
+      responses:
+        '204': { description: Saved. }
+        '401': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /notifications/digest/test:
+    post:
+      operationId: sendReminderNow
+      summary: >
+        Sends the signed-in owner or editor their reminder immediately, for testing and demos. It skips the 6am wait and the stop rule, and is
+        sent even when the reminder is switched off. `outcome` says what happened: `sent`, `nothing_left` (no project has a step to do),
+        `not_configured` (this deployment cannot send email) or `failed` (with `error`).
+      responses:
+        '200':
+          description: What happened.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [outcome]
+                properties:
+                  outcome: { type: string, enum: [sent, nothing_left, not_configured, failed] }
+                  error: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /notifications/unsubscribe:
+    get:
+      operationId: unsubscribeFromReminders
+      summary: >
+        The one-click link in every reminder email. Public: it is opened from an email and needs no session. A signed link (`u` the person, `t` the
+        signature) switches their reminder off and returns a small page; any other link returns 400 and changes nothing.
+      parameters:
+        - { name: u, in: query, required: true, schema: { type: string } }
+        - { name: t, in: query, required: true, schema: { type: string } }
+      responses:
+        '200': { description: Unsubscribed (an HTML page). }
+        '400': { description: The link is not valid (an HTML page). }
+  /cron/digest:
+    get:
+      operationId: runReminderJob
+      summary: >
+        The hourly job. Sends the daily reminder to everyone for whom it is 6am now. Needs `Authorization: Bearer <CRON_SECRET>`, which Vercel's
+        cron sends itself; 503 when `CRON_SECRET` is not set.
+      responses:
+        '200':
+          description: How many were sent, failed, had nothing to be told, or had already been sent today.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sent, failed, nothingToSay, alreadySent]
+                properties:
+                  sent: { type: integer }
+                  failed: { type: integer }
+                  nothingToSay: { type: integer }
+                  alreadySent: { type: integer }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /audit:
     get:
       operationId: listAudit
@@ -3121,6 +3203,15 @@ components:
               code: { type: string, description: 'For example ai_output_unusable, ai_credit_exhausted or ai_budget_reached.' }
               message: { type: string }
               detail: { type: [string, 'null'], description: 'What was wrong with the reply, or what the app did instead. Never research text.' }
+    NotificationPreferences:
+      type: object
+      required: [email, receives, digestEnabled, timeZone, mailConfigured]
+      properties:
+        email: { type: string, description: 'Where the reminder is sent.' }
+        receives: { type: boolean, description: 'True for owners and editors.' }
+        digestEnabled: { type: boolean }
+        timeZone: { type: [string, 'null'] }
+        mailConfigured: { type: boolean, description: 'False when this deployment has no email sender set up.' }
     Me:
       type: object
       required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso]

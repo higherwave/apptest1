@@ -127,6 +127,7 @@ export const inviteMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   role: z.enum(['owner', 'editor', 'viewer']),
 })
+export const notificationPrefsSchema = z.object({ digestEnabled: z.boolean().optional(), timeZone: z.string().min(1).max(64).optional() })
 export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
 
 // A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.

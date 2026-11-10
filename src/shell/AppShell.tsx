@@ -13,6 +13,7 @@ import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
 import { useTour } from '../tour/tourContext'
 import { noteVisit } from '../resume/recent'
+import { useReportTimeZone } from './useReportTimeZone'
 import styles from './AppShell.module.scss'
 import brand from '../../brand/brand.json'
 
@@ -31,6 +32,7 @@ export function AppShell() {
 
   // Remember the project page being viewed, so the Platform Insights home can offer a way straight back to it.
   useEffect(() => noteVisit(pathname, search), [pathname, search])
+  useReportTimeZone()
 
   const go = (to: string) => (event: MouseEvent) => {
     event.preventDefault()

@@ -6,12 +6,15 @@ import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
 import { signInOptions, ssoPolicy } from './sso.js'
 import { AlreadyMember, changeRole, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember } from './members.js'
 import { requestContext } from './context.js'
+import { getMailer, type Mailer } from './mailer.js'
+import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
+import { timingSafeEqual } from 'node:crypto'
 import {
   createProject, deleteProject, getProjectDetail, getProjectStage, getProjectSummary, listProjects, listTemplates, ProjectNotFound, savePlan, saveTasks,
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -39,7 +42,7 @@ import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -47,6 +50,7 @@ export function createApp(options: AppOptions = {}) {
   const getDb = options.getDb ?? lazyPgDb(env, getPool)
   const auth = options.auth ?? (authConfigured(env) ? makeBetterAuth(env, getPool) : undefined)
   const ai = makeAi(env, options.provider)
+  const mailer = options.mailer ?? getMailer(env)
   // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
   const capture = options.capture === null ? undefined : options.capture ?? makeCapture(env)
   const captureOn = () => !!capture && env.DESIGN_CAPTURE !== 'false'
@@ -1046,6 +1050,73 @@ export function createApp(options: AppOptions = {}) {
   })
 
   app.put('/projects/:id/tasks', withContext, (c) => save(c, saveTasksSchema, (id, v, input) => saveTasks(getDb(), c.get('ctx'), id, v, input)))
+
+  // Notifications. A person's own settings for the daily reminder email (owners and editors receive it; viewers have nothing to be reminded of).
+  const canBeReminded = (c: Context) => ['owner', 'editor'].includes(c.get('ctx').role)
+  app.get('/notifications/preferences', withContext, async (c) => {
+    const ctx = c.get('ctx')
+    const row = (
+      await getDb().query(
+        `select u.time_zone, coalesce(np.enabled, true) as enabled from core.users u
+           left join core.notification_preferences np on np.user_id = u.id and np.kind = $2 and np.channel = 'email' where u.id = $1`,
+        [ctx.userId, DIGEST],
+      )
+    ).rows[0]
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ email: ctx.email, receives: canBeReminded(c), digestEnabled: !!row?.enabled, timeZone: row?.time_zone ?? null, mailConfigured: mailer.live })
+  })
+
+  app.put('/notifications/preferences', withContext, async (c) => {
+    const ctx = c.get('ctx')
+    const input = parseBody(notificationPrefsSchema, await readJson(c))
+    if (input.timeZone !== undefined && !validTimeZone(input.timeZone)) throw new ApiError(422, 'validation_failed', 'That is not a time zone.', 'timeZone')
+    if (input.timeZone !== undefined) await getDb().query(`update core.users set time_zone = $2 where id = $1`, [ctx.userId, input.timeZone])
+    if (input.digestEnabled !== undefined) {
+      await getDb().query(
+        `insert into core.notification_preferences (user_id, kind, enabled) values ($1, $2, $3)
+         on conflict (user_id, kind, channel) do update set enabled = excluded.enabled, updated_at = now()`,
+        [ctx.userId, DIGEST, input.digestEnabled],
+      )
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+
+  // "Send me a reminder now": the reminder to this person immediately, for testing and demos.
+  app.post('/notifications/digest/test', withContext, async (c) => {
+    if (!canBeReminded(c)) throw new ApiError(403, 'forbidden', 'Only an owner or editor receives reminders.')
+    c.header('Cache-Control', 'no-store')
+    if (!mailer.live) return c.json({ outcome: 'not_configured' })
+    const r = await runDigest({ db: getDb(), env, mailer }, { userId: c.get('ctx').userId })
+    return c.json({ outcome: r.outcome ?? 'nothing_left', ...(r.error ? { error: r.error } : {}) })
+  })
+
+  // The one-click link in every reminder. Public (it is opened from an email, signed in or not) and it can only switch the reminder off.
+  app.get('/notifications/unsubscribe', async (c) => {
+    const u = c.req.query('u') ?? ''
+    const ok = UUID.test(u) && unsubscribeValid(env, u, c.req.query('t') ?? '')
+    if (ok) {
+      await getDb().query(
+        `insert into core.notification_preferences (user_id, kind, enabled) values ($1, $2, false)
+         on conflict (user_id, kind, channel) do update set enabled = false, updated_at = now()`,
+        [u, DIGEST],
+      )
+    }
+    c.header('Cache-Control', 'no-store')
+    c.header('Content-Type', 'text/html; charset=utf-8')
+    return c.html(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Reminders</title><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem"><h1>${ok ? 'You are unsubscribed' : 'That link did not work'}</h1><p>${ok ? 'You will not get the daily reminder any more. You can turn it back on under Settings, Notifications.' : 'Open Settings, Notifications in the app to change your reminders.'}</p></body>`, ok ? 200 : 400)
+  })
+
+  // The hourly job (vercel.json "crons"). Vercel sends CRON_SECRET as a Bearer token. Without that variable the route is closed.
+  app.get('/cron/digest', async (c) => {
+    const secret = env.CRON_SECRET
+    if (!secret) throw new ApiError(503, 'cron_not_configured', 'CRON_SECRET is not set.')
+    const got = Buffer.from(c.req.header('authorization') ?? '')
+    const want = Buffer.from(`Bearer ${secret}`)
+    if (got.length !== want.length || !timingSafeEqual(got, want)) throw new ApiError(401, 'unauthorized', 'Missing or invalid token.')
+    c.header('Cache-Control', 'no-store')
+    return c.json(await runDigest({ db: getDb(), env, mailer }))
+  })
 
   return app
 }

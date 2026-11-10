@@ -1,0 +1,24 @@
+# Calls the app's reminder route every hour. The route sends the daily reminder to each person for whom it is just after 6am where they are
+# (see server/notifications.ts), so one hourly caller covers every time zone. Vercel's Hobby plan only allows daily cron jobs, so the
+# schedule lives here instead. Nothing identifying is in this file: the address and the secret are repository secrets.
+#   REMINDERS_URL     the app's address, for example https://<your app host>
+#   REMINDERS_SECRET  the same value as CRON_SECRET in Vercel
+name: Reminders
+
+on:
+  schedule:
+    - cron: '7 * * * *'   # GitHub may run it several minutes late; the app allows for that
+  workflow_dispatch:
+
+jobs:
+  reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ask the app to send the reminders that are due
+        env:
+          REMINDERS_URL: ${{ secrets.REMINDERS_URL }}
+          REMINDERS_SECRET: ${{ secrets.REMINDERS_SECRET }}
+        run: |
+          test -n "$REMINDERS_URL" && test -n "$REMINDERS_SECRET" || { echo "Set the REMINDERS_URL and REMINDERS_SECRET repository secrets."; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 60 -H "Authorization: Bearer $REMINDERS_SECRET" "$REMINDERS_URL/api/v1/cron/digest"

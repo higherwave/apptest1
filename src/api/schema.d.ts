@@ -383,6 +383,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notifications/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The signed-in person's settings for the daily reminder email: whether it is on, their time zone (null until their browser has reported it), whether they can receive it (owners and editors), and whether this deployment can send email at all. */
+        get: operations["getNotificationPreferences"];
+        /** Changes the signed-in person's reminder settings. Send only what changes. */
+        put: operations["saveNotificationPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/digest/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Sends the signed-in owner or editor their reminder immediately, for testing and demos. It skips the 6am wait and the stop rule, and is sent even when the reminder is switched off. `outcome` says what happened: `sent`, `nothing_left` (no project has a step to do), `not_configured` (this deployment cannot send email) or `failed` (with `error`). */
+        post: operations["sendReminderNow"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/notifications/unsubscribe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The one-click link in every reminder email. Public: it is opened from an email and needs no session. A signed link (`u` the person, `t` the signature) switches their reminder off and returns a small page; any other link returns 400 and changes nothing. */
+        get: operations["unsubscribeFromReminders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cron/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The hourly job. Sends the daily reminder to everyone for whom it is 6am now. Needs `Authorization: Bearer <CRON_SECRET>`, which Vercel's cron sends itself; 503 when `CRON_SECRET` is not set. */
+        get: operations["runReminderJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/audit": {
         parameters: {
             query?: never;
@@ -2480,6 +2549,16 @@ export interface components {
                 detail: string | null;
             }[];
         };
+        NotificationPreferences: {
+            /** @description Where the reminder is sent. */
+            email: string;
+            /** @description True for owners and editors. */
+            receives: boolean;
+            digestEnabled: boolean;
+            timeZone: string | null;
+            /** @description False when this deployment has no email sender set up. */
+            mailConfigured: boolean;
+        };
         Me: {
             userId: string;
             email: string;
@@ -3524,6 +3603,136 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationPreferences"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    saveNotificationPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    digestEnabled?: boolean;
+                    /** @description An IANA time zone such as Europe/London. */
+                    timeZone?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    sendReminderNow: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What happened. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        outcome: "sent" | "nothing_left" | "not_configured" | "failed";
+                        error?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    unsubscribeFromReminders: {
+        parameters: {
+            query: {
+                u: string;
+                t: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unsubscribed (an HTML page). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The link is not valid (an HTML page). */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    runReminderJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description How many were sent, failed, had nothing to be told, or had already been sent today. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sent: number;
+                        failed: number;
+                        nothingToSay: number;
+                        alreadySent: number;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

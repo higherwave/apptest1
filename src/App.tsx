@@ -7,6 +7,7 @@ import { AreasPage } from './pages/areas/AreasPage'
 import { MembersPage } from './pages/members/MembersPage'
 import { AppStatusPage } from './pages/settings/AppStatusPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
+import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { UsagePage } from './pages/settings/UsagePage'
 import { SettingsGate } from './pages/settings/SettingsGate'
 import { CustomersPage } from './pages/insights/CustomersPage'
@@ -69,6 +70,7 @@ export function App() {
           <Route index element={<Navigate to="/settings/categories" replace />} />
           <Route path="areas" element={<Navigate to="/settings/categories" replace />} />
           <Route path="categories" element={<AreasPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="status" element={<AppStatusPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="members" element={<MembersPage />} />
