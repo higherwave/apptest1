@@ -84,6 +84,7 @@ try {
   await new Promise((r) => setTimeout(r, 600))
   const open = await menu()
   ok('hovering opens it to 240px over the page, names showing, and the page does not move', open.w === 240 && open.op === '1' && open.pageLeft === rest.pageLeft, JSON.stringify(open))
+  ok('the open menu sits above the app bar and the project bar', await page.evaluate(() => [[150, 30], [150, 85], [200, 300]].every(([x, y]) => !!document.elementFromPoint(x, y)?.closest('aside[aria-label="Main menu"]'))))
   await page.mouse.move(900, 500)
   await new Promise((r) => setTimeout(r, 600))
   ok('moving away closes it again', (await menu()).w === 68)

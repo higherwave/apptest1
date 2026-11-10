@@ -42,7 +42,7 @@ $column-width: 75rem; // every project step shares this width, centered
   position: fixed;
   inset-block: var(--at-banner, 0rem) 0;
   inset-inline-start: 0;
-  z-index: var(--at-z-header);
+  z-index: var(--at-z-menu);
   display: flex;
   flex-direction: column;
   gap: var(--at-space-xs);
