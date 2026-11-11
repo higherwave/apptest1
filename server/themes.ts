@@ -111,12 +111,12 @@ async function withQuotes(db: Queryable, themes: Theme[]): Promise<Theme[]> {
   }))
 }
 
-// The current analysis's themes, strongest first. Optional filter by category and optional quotes.
+// The current analysis's themes, highest priority first (the priority shown, so a person's edit counts), then strongest score within a priority. Optional filter by category and optional quotes.
 export async function listThemes(db: Queryable, projectId: string, opts: { category?: string; quotes?: boolean } = {}): Promise<Theme[]> {
   const run = await currentAnalysisRun(db, projectId)
   if (!run) return []
   const rows = (
-    await db.query(`${THEME_SQL} where t.project_id = $1 and t.run_id = $2 ${opts.category ? 'and t.category = $3' : ''} order by t.score desc nulls last, t.title`, opts.category ? [projectId, run.id, opts.category] : [projectId, run.id])
+    await db.query(`${THEME_SQL} where t.project_id = $1 and t.run_id = $2 ${opts.category ? 'and t.category = $3' : ''} order by case coalesce(o.priority, t.suggested_priority) when 'high' then 0 when 'medium' then 1 else 2 end, t.score desc nulls last, t.title`, opts.category ? [projectId, run.id, opts.category] : [projectId, run.id])
   ).rows
   const themes = rows.map(toTheme)
   return opts.quotes ? withQuotes(db, themes) : themes

@@ -852,7 +852,10 @@ test('GET themes returns the current analysis strongest first, with suggestions 
   const { app, p1 } = await themesFixture()
   const res = await app.request(`/api/v1/projects/${p1}/themes`)
   const body = await expectSpec(res, '/projects/{id}/themes')
-  assert.deepEqual(body.data.map((t: any) => t.title), PROTOTYPE_THEMES)
+  assert.deepEqual([...body.data.map((t: any) => t.title)].sort(), [...PROTOTYPE_THEMES].sort())
+  // Highest priority first (the priority shown, so a person's edit counts), then the stronger score within a priority.
+  const rank = (t: any) => ({ high: 0, medium: 1, low: 2 })[t.priority as 'high' | 'medium' | 'low']
+  assert.ok(body.data.every((t: any, i: number, all: any[]) => i === 0 || rank(all[i - 1]) < rank(t) || (rank(all[i - 1]) === rank(t) && all[i - 1].score >= t.score)), 'no medium before a high, and strongest first within a priority')
   assert.equal(body.stages.length, 5)
   assert.match(res.headers.get('cache-control') ?? '', /public/)
   const top = body.data[0]
