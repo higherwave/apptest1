@@ -1,5 +1,5 @@
 import { Analytics, ChevronDown, ChevronLeft, Filter, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
-import { Button, Tag } from '@carbon/react'
+import { Button } from '@carbon/react'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useMe, useProject, useProjectStage } from '../api/hooks'
@@ -11,6 +11,7 @@ import { StepNav, useRailWide, type StepItem } from './StepNav'
 import { Logo } from './Logo'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
+import { StatusTag } from './StatusTag'
 import { useTour } from '../tour/tourContext'
 import { noteVisit } from '../resume/recent'
 import { useReportTimeZone } from './useReportTimeZone'
@@ -170,9 +171,7 @@ export function AppShell() {
             </a>
             <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
             {projectDetail.data && !creating && (
-              <Tag size="sm" type={projectDetail.data.status === 'analyzed' ? 'green' : 'gray'}>
-                {projectDetail.data.status === 'analyzed' ? 'Analyzed' : 'Draft'}
-              </Tag>
+              <StatusTag status={projectDetail.data.status} />
             )}
           </div>
         </div>

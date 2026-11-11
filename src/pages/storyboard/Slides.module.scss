@@ -294,6 +294,25 @@
   color: var(--at-ink);
 }
 
+// The trade-offs under a solution, when they fit on this slide (see slidePlan).
+.tradeoffs {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin: 0;
+
+  dt {
+    @include tokens.role('eyebrow-sm');
+    color: var(--at-muted);
+  }
+
+  dd {
+    @include tokens.role('meta');
+    margin: 0;
+    color: var(--at-body);
+  }
+}
+
 // 5. Trade-offs ----------------------------------------------------------------------------------------------------
 
 .table {

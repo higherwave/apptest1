@@ -164,6 +164,16 @@ export function Slide({ n, deck, author, onAllThemes }: { n: number; deck: Deck;
                   </ul>
                 </div>
               )}
+              {spec.inline && (
+                <dl className={styles.tradeoffs} aria-label={`Trade-offs of ${s.name}`}>
+                  {[s.benefit, s.cost, s.risk, s.giveUp, s.alternatives].map((v, k) => (
+                    <div key={TRADE_OFF_COLUMNS[k]}>
+                      <dt>{TRADE_OFF_COLUMNS[k]}</dt>
+                      <dd>{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              )}
             </li>
           ))}
         </ol>

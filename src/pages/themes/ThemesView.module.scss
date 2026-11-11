@@ -49,7 +49,7 @@
 }
 
 .cardTitle {
-  @include tokens.role('title-sm');
+  @include tokens.role('label-md'); // 16px, a step below the 18px title-sm
   margin: var(--at-space-xs) 0 var(--at-space-xxs);
   color: var(--at-ink);
 }

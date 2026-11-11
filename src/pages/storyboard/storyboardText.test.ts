@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { clip, dateRange, draftLabel, heardTitle, longDate, paginateRows, rowHeight, slidePlan, slideTitle } from './storyboardText'
+import { clip, dateRange, draftLabel, heardTitle, inlineHeight, longDate, paginateRows, rowHeight, slidePlan, slideTitle } from './storyboardText'
 
 test('dates read in UTC and share the year and month', () => {
   assert.equal(longDate('2026-11-12'), '12 November 2026')
@@ -24,7 +24,7 @@ test('the slide wording', () => {
   assert.match(draftLabel('model'), /best guess/)
 })
 
-const row = (len: number, name = 'Account risk timeline') => ({ name, benefit: 'b'.repeat(len), cost: 'c'.repeat(len), risk: 'r'.repeat(len), giveUp: 'g'.repeat(len), alternatives: 'a'.repeat(len) })
+const row = (len: number, name = 'Account risk timeline') => ({ name, description: 'A short description of the solution.', themes: [{ title: 'The health score cannot be explained' }], benefit: 'b'.repeat(len), cost: 'c'.repeat(len), risk: 'r'.repeat(len), giveUp: 'g'.repeat(len), alternatives: 'a'.repeat(len) })
 
 test('short trade-offs share one slide; long ones carry on to a continued slide, and no row is left out or split', () => {
   assert.deepEqual(paginateRows([row(60), row(60), row(60)]), [[0, 1, 2]])
@@ -38,8 +38,18 @@ test('short trade-offs share one slide; long ones carry on to a continued slide,
   assert.ok(rowHeight(row(160)) > rowHeight(row(40)))
 })
 
+test('the trade-offs sit under their solution when they fit there, and get slides of their own only when they do not', () => {
+  const short = slidePlan([row(40)])
+  assert.deepEqual(short.map((s) => s.kind), ['title', 'problem', 'heard', 'solutions', 'close'])
+  assert.equal(short[3].inline, true)
+  assert.ok(!slidePlan([row(160)]).some((s) => s.inline), 'long trade-offs do not fit under one solution')
+  assert.ok(!slidePlan([row(40), row(40), row(40)]).some((s) => s.inline), 'three columns are too narrow for five trade-offs each')
+  assert.ok(slidePlan([row(160), row(160)]).some((s) => s.kind === 'tradeoffs'))
+  assert.ok(inlineHeight(row(160), 1) > inlineHeight(row(40), 1))
+})
+
 test('the deck is five slides, plus one for each further page of trade-offs, with the closing slide last', () => {
-  assert.deepEqual(slidePlan([row(60), row(60)]).map((s) => s.kind), ['title', 'problem', 'heard', 'solutions', 'tradeoffs', 'close'])
+  assert.deepEqual(slidePlan([row(60), row(60), row(60)]).map((s) => s.kind), ['title', 'problem', 'heard', 'solutions', 'tradeoffs', 'close'])
   const plan = slidePlan([row(160), row(160), row(160)])
   assert.deepEqual(plan.map((s) => s.kind), ['title', 'problem', 'heard', 'solutions', ...plan.filter((s) => s.kind === 'tradeoffs').map(() => 'tradeoffs'), 'close'])
   const trade = plan.filter((s) => s.kind === 'tradeoffs')

@@ -44,10 +44,10 @@ export const STEP_NOTES: Record<string, string> = {
   participants: 'Who you will speak with',
   transcripts: 'Meeting transcripts',
   themes: 'AI-generated themes',
-  storyboard: 'Tell the story to the team',
+  storyboard: 'Stakeholder communications',
   prio: 'Impact vs effort',
   requirements: 'AI-assisted docs',
-  design: 'Associate prototypes to requirements',
+  design: 'Designs by Requirement',
   stories: 'Jira-ready tickets',
   measure: 'Measure success',
 }

@@ -1,6 +1,6 @@
 export type SlideKind = 'title' | 'problem' | 'heard' | 'solutions' | 'tradeoffs' | 'close'
 /** One slide of the deck: what it is and, for the trade-offs, which solutions' rows it carries and which part of the table it is. */
-export type SlideSpec = { kind: SlideKind; rows?: number[]; part?: number; parts?: number }
+export type SlideSpec = { kind: SlideKind; rows?: number[]; part?: number; parts?: number; /** On the solutions slide: each solution carries its own trade-offs, so there is no separate trade-offs slide. */ inline?: boolean }
 
 const KIND_TITLE: Record<SlideKind, string> = { title: 'Title', problem: 'The problem and what we did', heard: 'What we heard', solutions: 'Recommended solutions', tradeoffs: 'Trade-offs', close: 'Recommendation and the ask' }
 export const slideTitle = (s: SlideSpec) => (s.kind === 'tradeoffs' && (s.part ?? 1) > 1 ? 'Trade-offs (continued)' : KIND_TITLE[s.kind])
@@ -40,8 +40,48 @@ export function paginateRows(solutions: Parameters<typeof rowHeight>[0][]): numb
   return pages
 }
 
-/** The slides of a deck in order: five fixed ones, with the trade-offs carried over onto further slides when its rows do not fit on one. */
-export function slidePlan(solutions: Parameters<typeof rowHeight>[0][]): SlideSpec[] {
+// Where the trade-offs go. THE RULE: they belong on the solutions slide, under the solution they are about, and get a slide of their own only when
+// there is not room for them there. Each solution is a column of the slide (up to three), so how much fits depends on how many solutions there are
+// and how long their words are. The estimate below is made in rem on the slide's fixed canvas, and errs towards the separate slide: a trade-off that
+// does not fit would be cut off, a separate slide never is.
+type SolutionText = Parameters<typeof rowHeight>[0] & { description: string; themes: { title: string }[] }
+
+const SLIDE_WIDTH_REM = 60
+const SLIDE_SIDE_PADDING_REM = 6 // 3rem each side
+const COLUMN_GAP_REM = 1.5
+const INLINE_ROOM_REM = 25 // 33.75 less the band (4), the grid's padding (2 above, 2 below) and a margin; measured: a column of about 25.7 fits without touching the padding
+const READING_CHAR_REM = 0.58 // the width of an average 16px character, counted wide so lines are over- rather than under-counted
+const TITLE_CHAR_REM = 0.72 // 20px
+const META_CHAR_REM = 0.44 // 12px
+const READING_LINE_REM = 1.55
+const TITLE_LINE_REM = 1.79
+const META_LINE_REM = 1.0125
+const BLOCK_GAP_REM = 0.75
+const lines = (text: string, widthRem: number, charRem: number) => Math.max(1, Math.ceil((text.length * charRem) / widthRem))
+
+/** About how tall a solution's column is with its five trade-offs under it, in rem, when there are `count` solutions side by side. */
+export function inlineHeight(s: SolutionText, count: number): number {
+  const cols = Math.min(Math.max(count, 1), 3)
+  const width = (SLIDE_WIDTH_REM - SLIDE_SIDE_PADDING_REM - COLUMN_GAP_REM * (cols - 1)) / cols
+  const top = 1.2 // the rule and the padding above the number
+  const num = META_LINE_REM
+  const name = lines(s.name, width, TITLE_CHAR_REM) * TITLE_LINE_REM
+  const description = lines(s.description, width, READING_CHAR_REM) * READING_LINE_REM
+  const chipRows = s.themes.length ? lines(s.themes.map((t) => `${t.title}    `).join(''), width, META_CHAR_REM) : 0
+  const chips = chipRows ? META_LINE_REM + 0.5 + chipRows * 1.51 : 0
+  const fields = [s.benefit, s.cost, s.risk, s.giveUp, s.alternatives].reduce((sum, v) => sum + META_LINE_REM + 0.1 + lines(v, width, META_CHAR_REM) * META_LINE_REM + 0.5, 0)
+  const blocks = chipRows ? 4 : 3 // the gaps between the column's blocks (number, name, description, themes, trade-offs)
+  return top + num + name + description + chips + fields + blocks * BLOCK_GAP_REM
+}
+
+/** Whether every solution's trade-offs fit under it on the solutions slide. */
+export function tradeoffsFitInline(solutions: SolutionText[]): boolean {
+  return solutions.length > 0 && solutions.length <= 3 && solutions.every((s) => inlineHeight(s, solutions.length) <= INLINE_ROOM_REM)
+}
+
+/** The slides of a deck in order: five fixed ones, the trade-offs on the solutions slide when they fit there (four slides, then), otherwise on slides of their own. */
+export function slidePlan(solutions: SolutionText[]): SlideSpec[] {
+  if (tradeoffsFitInline(solutions)) return [{ kind: 'title' }, { kind: 'problem' }, { kind: 'heard' }, { kind: 'solutions', inline: true }, { kind: 'close' }]
   const pages = paginateRows(solutions)
   return [
     { kind: 'title' },

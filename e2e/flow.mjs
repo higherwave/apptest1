@@ -462,6 +462,7 @@ try {
   await navTo('Storyboard')
   await page.waitForSelector('[aria-roledescription="slide"]', { timeout: 20000 })
   ok('the Storyboard was written by the analysis itself: slides and a download, no Generate button', await page.evaluate(() => { const t = [...document.querySelectorAll('button')].map((b) => b.innerText.trim()); return !t.includes('Generate the storyboard') && t.includes('Download as PDF') && t.includes('Regenerate') }))
+  ok('no slide of the deck has its content cut off', await page.evaluate(() => [...document.querySelectorAll('section')].filter((x) => /slide/.test(x.className)).every((x) => x.scrollHeight <= x.clientHeight + 1)))
   ok('a green banner under the title says what the deck is and that it updates after each analysis', await page.evaluate(() => { const b = document.querySelector('section[aria-label="About this deck"]'); return !!b && /Updated automatically after each analysis\. Download a copy to edit\./.test(b.innerText) && /short deck to share with product leaders/.test(b.innerText) && getComputedStyle(b).backgroundColor !== 'rgba(0, 0, 0, 0)' }))
   ok('the step is called Storyboard, and the old Journey Map is gone from the steps', await page.evaluate(() => { const labels = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); return labels.includes('Storyboard') && !labels.includes('Journey Map') }))
   const slide = () => page.evaluate(() => document.querySelector('[aria-roledescription="slide"]').getAttribute('aria-label'))

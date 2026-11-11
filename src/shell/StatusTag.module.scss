@@ -1,0 +1,7 @@
+// Carbon's green tag is a saturated mint. Analyzed is a status that is there most of the time, so it sits back: the lightest mint tint, a hairline
+// of the analyzed green around it, and the dark forest text.
+.analyzed:global(.cds--tag) {
+  background: var(--at-tint-mint);
+  color: var(--at-signature-forest);
+  box-shadow: inset 0 0 0 1px var(--at-analyzed);
+}

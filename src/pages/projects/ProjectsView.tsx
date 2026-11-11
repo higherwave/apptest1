@@ -1,7 +1,8 @@
-import { Button, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tag, Tile } from '@carbon/react'
+import { Button, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tile } from '@carbon/react'
 import { useState } from 'react'
 import type { Project } from '../../api/client'
 import { PageHero } from '../../shell/PageHero'
+import { StatusTag } from '../../shell/StatusTag'
 import { ProjectCard } from './ProjectCard'
 import { goTo, STAT_STEPS, stepHref, type ProjectStep } from './ProjectStats'
 import styles from './ProjectsView.module.scss'
@@ -113,9 +114,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                       {project.methods.length ? project.methods.join(', ') : 'No methods'}
                     </span>
                     <span role="cell">
-                      <Tag size="sm" type={project.status === 'analyzed' ? 'green' : 'gray'}>
-                        {project.status === 'analyzed' ? 'Analyzed' : 'Draft'}
-                      </Tag>
+                      <StatusTag status={project.status} />
                     </span>
                     {STAT_STEPS.map((s) => (
                       <span key={s.key} role="cell">
