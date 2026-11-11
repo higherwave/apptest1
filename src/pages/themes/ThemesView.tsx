@@ -41,7 +41,7 @@ export function ThemesView({ state, project, themes, category, selectedId, canEd
 
   return (
     <div className={styles.page}>
-      {project && <ProjectHeader title="Themes" description="What participants said, grouped by what it means. Each one is placed on the journey map and the priorities map for you to review." />}
+      {project && <ProjectHeader title="Themes" description="What participants said, grouped by what it means. Each one is placed on the priorities map for you to review." />}
 
       {state === 'loading' && <Loading small withOverlay={false} description="Loading themes" />}
       {state === 'error' && <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes" subtitle={errorText} />}
