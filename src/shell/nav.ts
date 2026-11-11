@@ -44,7 +44,7 @@ export const STEP_NOTES: Record<string, string> = {
   participants: 'Who you will speak with',
   transcripts: 'Meeting transcripts',
   themes: 'AI-generated themes',
-  storyboard: 'Stakeholder communications',
+  storyboard: 'Team communications',
   prio: 'Impact vs effort',
   requirements: 'AI-assisted docs',
   design: 'Designs by Requirement',
