@@ -2,6 +2,7 @@ import { Add, TrashCan } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, TextInput } from '@carbon/react'
 import type { ProjectDetail } from '../../api/client'
 import type { TaskForm } from '../testplan/form'
+import { PlanTabs } from './PlanTabs'
 import { ProjectHeader } from './ProjectHeader'
 import { SaveAlerts, type SaveBarProps } from './SaveBar'
 import { AreaPicker } from '../areas/AreaPicker'
@@ -18,14 +19,15 @@ export type TaskListViewProps = {
 
 // Presentational: the questions and follow-ups participants will be asked, in order.
 export function TaskListView({ state, project, tasks, errorText, save, onChange }: TaskListViewProps) {
-  if (state === 'loading') return <Loading small withOverlay={false} description="Loading the task list" />
-  if (state === 'error' || !project) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Task List" subtitle={errorText} />
+  if (state === 'loading') return <Loading small withOverlay={false} description="Loading the questions and tasks" />
+  if (state === 'error' || !project) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Test Plan" subtitle={errorText} />
   const readOnly = !save.canEdit
   const setTask = (i: number, patch: Partial<TaskForm[number]>) => onChange(tasks.map((t, j) => (j === i ? { ...t, ...patch } : t)))
 
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Task List" description="The questions to ask and the tasks to observe as you take participants through the session, with follow-ups." save={save} />
+      <ProjectHeader title="Test Plan" description="The questions to ask and the tasks to observe as you take participants through the session, with follow-ups." save={save} />
+      <PlanTabs projectId={project.id} active="ask" />
       <SaveAlerts {...save} />
 
       {tasks.length > 0 && (

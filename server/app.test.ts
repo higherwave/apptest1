@@ -485,7 +485,7 @@ test('GET /projects/:id/stage: the server decides which steps are open', async (
     assert.deepEqual([r2.themes.enabled, r2.requirements.enabled, r2.stories.enabled, r2.stories.hint], [true, true, false, 'Publish the requirements first'])
     // Draft: only the plan steps.
     const draft = await tabs('New patient intake (draft)')
-    assert.deepEqual(open(draft), { plan: true, tasks: true, transcripts: true, themes: false, storyboard: false, prio: false, requirements: false, design: false, stories: false, measure: false })
+    assert.deepEqual(open(draft), { plan: true, participants: true, transcripts: true, themes: false, storyboard: false, prio: false, requirements: false, design: false, stories: false, measure: false })
     assert.equal(draft.themes.hint, 'Save and analyze a transcript first')
   })
 })

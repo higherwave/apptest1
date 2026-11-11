@@ -6,7 +6,7 @@ import { EDITING_LOCKED } from '../../auth/messages'
 import { emptyForm, toRequest, validate, type FieldErrors, type PlanForm } from './form'
 import { NewTestPlanView } from './NewTestPlanView'
 
-// Container: holds the form, validates it, creates the project, and opens its Task List. A server-side 422
+// Container: holds the form, validates it, creates the project, and opens its What to ask or observe tab. A server-side 422
 // puts the message on the field it names.
 export function NewTestPlanPage() {
   const navigate = useNavigate()
@@ -28,7 +28,7 @@ export function NewTestPlanPage() {
     if (!canEdit) return setSubmitError(EDITING_LOCKED)
     try {
       const created = await create.mutateAsync(toRequest(form))
-      navigate(`/projects/${created.id}/tasks`)
+      navigate(`/projects/${created.id}/plan/ask`)
     } catch (err) {
       if (err instanceof ApiRequestError && err.code === 'validation_failed' && err.field) setErrors({ [err.field]: err.message })
       else setSubmitError(friendlyMessage(err))

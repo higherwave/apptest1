@@ -11,6 +11,13 @@ test('a test plan needs a project name', () => {
   assert.deepEqual(validate(filled()), {})
 })
 
+test('the Test Plan and Participants pages each check only what they show', () => {
+  const bad = filled({ name: ' ', participants: [{ ...ada, email: 'nope' }] })
+  assert.deepEqual(Object.keys(validate(bad, 'test')), ['name'])
+  assert.deepEqual(Object.keys(validate(bad, 'participants')), ['participants.0.email'])
+  assert.deepEqual(Object.keys(validate(bad)).sort(), ['name', 'participants.0.email'])
+})
+
 test('the description and methods are optional', () => assert.deepEqual(validate(filled({ description: '', methods: [] })), {}))
 
 test('it needs one participant with a name and a valid email', () => {

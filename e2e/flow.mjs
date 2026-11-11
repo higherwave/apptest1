@@ -105,9 +105,9 @@ try {
   await retype('#p-email-0', 'ada@example.com')
   await clickText('Save test plan')
 
-  // 4. Create lands on the Task List, and the project is in the list as a draft.
-  await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/tasks$/.test(location.pathname), { timeout: 10000 })
-  ok('creating opens the new project’s Task List', true, page.url().replace(BASE, ''))
+  // 4. Create lands on the Test Plan's What to ask or observe tab, and the project is in the list as a draft.
+  await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan\/ask$/.test(location.pathname), { timeout: 10000 })
+  ok('creating opens the new project’s What to ask or observe tab', true, page.url().replace(BASE, ''))
   const createdId = page.url().match(/projects\/([0-9a-f-]{36})\//)[1]
   const created = await (await fetch(`${API}/api/v1/projects/${createdId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   ok('the chosen session length is saved with the participant', created.participants[0].sessionMinutes === 45)
@@ -137,7 +137,7 @@ try {
   ok('confirming deletes it', (await cardNames()).length === 4)
 
 
-  // 6. Open the draft project: locked steps, editing the Test Plan, a conflict with someone else, and the Task List.
+  // 6. Open the draft project: locked steps, editing the Test Plan, a conflict with someone else, and the Participants and What to ask or observe pages.
   await page.evaluate(() => [...document.querySelectorAll('[data-status]')].find((c) => c.innerText.startsWith('New patient intake')).querySelector('a').click())
   await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan$/.test(location.pathname), { timeout: 8000 })
   await waitText('Test Plan')
@@ -146,10 +146,11 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-nav] a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
   const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-nav] a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.dataset.label, { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
   ok('Discovery steps are open and Analysis, Strategy and Delivery steps are locked with a hint',
-    !navState['Test Plan'].disabled && !navState['Task List'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Storyboard', 'Priorities', 'Requirements', 'Stories', 'Measure'].every((k) => navState[k].disabled && navState[k].hint),
+    !navState['Test Plan'].disabled && !navState['Participants'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Storyboard', 'Priorities', 'Requirements', 'Stories', 'Measure'].every((k) => navState[k].disabled && navState[k].hint),
     JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
   await page.waitForSelector('#project-name')
-  ok('the plan loads the project’s data', await page.evaluate(() => document.querySelector('#project-name').value === 'New patient intake (draft)' && document.querySelector('#p-name-0').value === 'Riley Brooks'))
+  ok('the plan loads the project’s data', await page.evaluate(() => document.querySelector('#project-name').value === 'New patient intake (draft)' && !document.querySelector('#p-name-0')))
+  ok('the Test Plan has two tabs, What to test and What to ask or observe, and the rail has no separate Task List', await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].map((t) => t.innerText.trim()).join('|') === 'What to test|What to ask or observe' && ![...document.querySelectorAll('[data-nav] a')].some((a) => a.dataset.label === 'Task List') && document.querySelector('[role="tab"][aria-selected="true"]').innerText.trim() === 'What to test'))
   ok('nothing is unsaved yet', (await text()).includes('All changes saved'))
 
   await retype('#project-name', 'Intake v2')
@@ -187,21 +188,27 @@ try {
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('#project-name')
 
-  // Participants: add one, save, and the existing ones keep their identity.
+  // Participants are their own step: add one, save, and the existing ones keep their identity.
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Participants').click())
+  await page.waitForSelector('#p-name-0')
+  ok('Participants is its own page, with the table and none of the plan’s fields', await page.evaluate(() => document.querySelector('h1').innerText === 'Participants' && document.querySelector('#p-name-0').value === 'Riley Brooks' && !document.querySelector('#project-name') && !document.querySelector('#project-description')))
   const before = (await apiGet()).participants.map((p) => p.id)
   await clickText('+ Add participant')
   await page.waitForSelector('#p-name-2')
   await page.type('#p-name-2', 'Zed Zeta')
   await page.type('#p-email-2', 'zed@example.com')
-  await clickText('Save test plan')
+  await clickText('Save participants')
   await waitText('All changes saved at')
   const after = (await apiGet()).participants
   ok('a new participant is added and the others keep their ids', after.length === 3 && after[2].name === 'Zed Zeta' && before.every((id, i) => after[i].id === id))
 
-  // Task List.
-  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Task List').click())
+  // What to ask or observe: the second tab of the Test Plan.
+  await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Test Plan').click())
+  await page.waitForSelector('[data-testid="plan-tab-ask"]')
+  await page.click('[data-testid="plan-tab-ask"]')
   await waitText('Question to Ask / Task to Observe')
-  ok('the Task List shows the template’s starter tasks', await page.evaluate(() => document.querySelector('#task-0').value.length > 0 && document.querySelector('#task-0-followup-0')?.value.length > 0))
+  ok('the tab has its own address and the old Task List address leads to it', await (async () => { const at = page.url(); await page.goto(`${BASE}/projects/${projectId}/tasks`, { waitUntil: 'networkidle0' }); await page.waitForSelector('#task-0'); return /\/plan\/ask$/.test(at) && /\/plan\/ask$/.test(page.url()) })())
+  ok('What to ask or observe shows the template’s starter tasks', await page.evaluate(() => document.querySelector('#task-0').value.length > 0 && document.querySelector('#task-0-followup-0')?.value.length > 0))
   await clickText('Add question / task')
   await page.waitForSelector('#task-2')
   await page.type('#task-2', 'What would you do next?')
@@ -388,9 +395,9 @@ try {
   // Experience categories on themes: the analysis filed each theme under an area by what it is about; a person can correct it.
   const areaLabels = await page.evaluate(() => [...document.querySelectorAll('p[data-testid^="theme-area-"]')].map((e) => e.innerText.trim()))
   ok('every theme card says its experience category, or No category', areaLabels.length === 9 && areaLabels.every((l) => l === 'Appointments' || l === 'No category'), areaLabels.join('|'))
-  ok('themes about booking and rescheduling are filed under the area made from the Task List', areaLabels.filter((l) => l === 'Appointments').length >= 2 && areaLabels.includes('No category'))
+  ok('themes about booking and rescheduling are filed under the area made from the questions', areaLabels.filter((l) => l === 'Appointments').length >= 2 && areaLabels.includes('No category'))
   await page.waitForSelector('#theme-area', { timeout: 5000 })
-  ok('the open theme has an Experience category picker, and the question on the Task List named one', await page.evaluate(() => !!document.querySelector('#theme-area') && document.body.innerText.includes('Experience category')))
+  ok('the open theme has an Experience category picker, and the question in the test plan named one', await page.evaluate(() => !!document.querySelector('#theme-area') && document.body.innerText.includes('Experience category')))
   const noArea = await page.evaluate(() => [...document.querySelectorAll('p[data-testid^="theme-area-"]')].find((e) => e.innerText.trim() === 'No category')?.dataset.testid.replace('theme-area-', ''))
   await page.$eval(`[data-testid="theme-area-${noArea}"]`, (el) => el.closest('button, [role="button"], .cds--tile').scrollIntoView({ block: 'center' }))
   await page.click(`[data-testid="theme-area-${noArea}"]`)
@@ -565,7 +572,7 @@ try {
   for (const width of [744, 1024]) {
     await page.setViewport({ width, height: 900 })
     const wide = []
-    for (const path of ['/projects', '/projects/new', `/projects/${projectId}/plan`, `/projects/${projectId}/tasks`, `/projects/${projectId}/transcripts`, `/projects/${projectId}/themes`, `/projects/${projectId}/storyboard`, `/projects/${projectId}/prio`, '/insights/themes', '/insights/personas', '/insights/journey', '/insights/case-studies']) {
+    for (const path of ['/projects', '/projects/new', `/projects/${projectId}/plan`, `/projects/${projectId}/plan/ask`, `/projects/${projectId}/participants`, `/projects/${projectId}/tasks`, `/projects/${projectId}/transcripts`, `/projects/${projectId}/themes`, `/projects/${projectId}/storyboard`, `/projects/${projectId}/prio`, '/insights/themes', '/insights/personas', '/insights/journey', '/insights/case-studies']) {
       await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
       await new Promise((r) => setTimeout(r, 300))
       if (await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)) wide.push(path.replace(projectId, ':id'))

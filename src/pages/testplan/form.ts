@@ -19,9 +19,9 @@ export const emptyForm = (): PlanForm => ({ name: '', description: '', methods: 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const hasContent = (p: PlanParticipant) => [p.name, p.role, p.email, p.phone, p.sessionMinutes].some((v) => v.trim())
 
-export function validate(form: PlanForm): FieldErrors {
+export function validate(form: PlanForm, part: 'all' | 'test' | 'participants' = 'all'): FieldErrors {
   const errors: FieldErrors = {}
-  if (!form.name.trim()) errors.name = 'Enter a project name.'
+  if (part !== 'participants' && !form.name.trim()) errors.name = 'Enter a project name.'
   form.participants.forEach((p, i) => {
     if (!hasContent(p)) return
     if (!p.name.trim()) errors[`participants.${i}.name`] = 'Enter a name.'
@@ -32,6 +32,8 @@ export function validate(form: PlanForm): FieldErrors {
     errors['participants.0.name'] = 'Add at least one participant.'
     errors['participants.0.email'] = 'Enter an email address.'
   }
+  // Each of the two pages checks only what it shows, so a problem on the other page never blocks a save with nothing to see.
+  if (part === 'test') return errors.name ? { name: errors.name } : {}
   return errors
 }
 

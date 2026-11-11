@@ -59,7 +59,7 @@ export async function runAnalysis(db: Db, ai: Ai, ctx: Actor, projectId: string,
     // The monthly budget or the account's credit is used up: the simulation ran instead, and the run says so.
     if (fallback) await db.query(`update core.agent_runs set provider = $2, prompt_version = 'keyword-v1' where id = $1`, [runId, simulatedProvider.name])
     // The simulation has no judgement of its own, so it files each theme under the area whose name, other names and definition it shares
-    // the most words with (the same free matching the Task List uses). A model names the area itself.
+    // the most words with (the same free matching the questions and tasks use). A model names the area itself.
     const live = (await db.query(`select id, name, definition, aliases from insights.feature_areas where workspace_id = $1 and retired_at is null`, [ctx.workspaceId])).rows as { id: string; name: string; definition: string | null; aliases: string[] }[]
     for (const th of themes) if (th.area === undefined) th.area = suggestAreas(`${th.title} ${th.desc}`, live).find((s) => s.score >= 2)?.area.name ?? null
     const result = await store(db, ctx, projectId, expected, runId, themes)

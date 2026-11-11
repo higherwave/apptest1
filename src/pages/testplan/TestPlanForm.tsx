@@ -3,15 +3,28 @@ import { Button, Dropdown, TextArea, TextInput } from '@carbon/react'
 import { blankParticipant, SESSION_LENGTHS, type FieldErrors, type PlanForm, type PlanParticipant } from './form'
 import styles from './TestPlanForm.module.scss'
 
-type TestPlanFormProps = { form: PlanForm; errors: FieldErrors; methodOptions: string[]; readOnly?: boolean; onChange: (next: PlanForm) => void }
+type TestPlanFormProps = {
+  form: PlanForm
+  errors: FieldErrors
+  methodOptions: string[]
+  readOnly?: boolean
+  /** The whole form (a new project), or one of the two project pages: the plan (name, description, methods) or the participants. */
+  show?: 'all' | 'test' | 'participants'
+  onChange: (next: PlanForm) => void
+}
 
-// The whole test plan on one page: name, a short project description, methods and participants. The specific questions and tasks are on the Task List.
-// Shared by New test plan and a project's Test Plan step.
-export function TestPlanForm({ form, errors, methodOptions, readOnly = false, onChange }: TestPlanFormProps) {
+// The test plan form: name, a short project description, methods and participants. The specific questions and tasks are on the Test Plan's
+// What to ask or observe tab. New test plan shows all of it; a project's Test Plan tab and its Participants page each show their part.
+// Both parts save through the same request, so whatever one page does not show it sends back unchanged.
+export function TestPlanForm({ form, errors, methodOptions, readOnly = false, show = 'all', onChange }: TestPlanFormProps) {
+  const plan = show !== 'participants'
+  const participants = show !== 'test'
   const setParticipant = (i: number, patch: Partial<PlanParticipant>) => onChange({ ...form, participants: form.participants.map((p, j) => (j === i ? { ...p, ...patch } : p)) })
 
   return (
     <div className={styles.form}>
+      {plan && (
+        <>
       <TextInput
         id="project-name"
         labelText="Project name"
@@ -26,7 +39,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
       <TextArea
         id="project-description"
         labelText="Project description"
-        helperText="A sentence or two on what this research is for. The specific questions and tasks go on the Task List."
+        helperText="A sentence or two on what this research is for. The specific questions and tasks go on the What to ask or observe tab."
         placeholder="e.g. Whether first-time patients can find a provider and book without calling the clinic"
         rows={3}
         maxCount={2000}
@@ -59,8 +72,12 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
         </div>
       </section>
 
+        </>
+      )}
+
+      {participants && (
       <section className={styles.section} aria-labelledby="participants-label">
-        <h2 id="participants-label" className={styles.label}>Participants</h2>
+        {show === 'all' ? <h2 id="participants-label" className={styles.label}>Participants</h2> : <h2 id="participants-label" className={styles.srOnly}>Participants</h2>}
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Participants">
             <div className={styles.row} role="row">
@@ -121,6 +138,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, on
           </Button>
         )}
       </section>
+      )}
     </div>
   )
 }

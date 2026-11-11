@@ -1424,7 +1424,7 @@ export interface components {
         StageInfo: {
             tabs: {
                 plan: components["schemas"]["StageTab"];
-                tasks: components["schemas"]["StageTab"];
+                participants: components["schemas"]["StageTab"];
                 transcripts: components["schemas"]["StageTab"];
                 themes: components["schemas"]["StageTab"];
                 storyboard: components["schemas"]["StageTab"];

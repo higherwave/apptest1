@@ -4,7 +4,7 @@ export type StepGroup = (typeof STEP_GROUPS)[number]
 
 export const STEPS: { key: string; label: string; group: StepGroup }[] = [
   { key: 'plan', label: 'Test Plan', group: 'Discovery' },
-  { key: 'tasks', label: 'Task List', group: 'Discovery' },
+  { key: 'participants', label: 'Participants', group: 'Discovery' },
   { key: 'transcripts', label: 'Transcripts', group: 'Discovery' },
   { key: 'themes', label: 'Themes', group: 'Analysis' },
   { key: 'storyboard', label: 'Storyboard', group: 'Analysis' },
@@ -40,8 +40,8 @@ export const SECTION_TITLES: Record<string, string> = Object.fromEntries([
 
 // One line under each step's name in the project's step rail.
 export const STEP_NOTES: Record<string, string> = {
-  plan: 'Project and participants',
-  tasks: 'Questions and tasks',
+  plan: 'What to test, what to ask',
+  participants: 'Who you will speak with',
   transcripts: 'Meeting transcripts',
   themes: 'AI-generated themes',
   storyboard: 'Tell the story to the team',

@@ -1871,10 +1871,10 @@ components:
       properties:
         tabs:
           type: object
-          required: [plan, tasks, transcripts, themes, storyboard, prio, requirements, design, stories, measure]
+          required: [plan, participants, transcripts, themes, storyboard, prio, requirements, design, stories, measure]
           properties:
             plan: { $ref: '#/components/schemas/StageTab' }
-            tasks: { $ref: '#/components/schemas/StageTab' }
+            participants: { $ref: '#/components/schemas/StageTab' }
             transcripts: { $ref: '#/components/schemas/StageTab' }
             themes: { $ref: '#/components/schemas/StageTab' }
             storyboard: { $ref: '#/components/schemas/StageTab' }
@@ -1912,7 +1912,7 @@ components:
             methods:
               type: array
               items: { type: string }
-        description: { type: [string, 'null'], description: A short, high-level orientation for the whole project. The specifics are the questions and tasks on the Task List. }
+        description: { type: [string, 'null'], description: A short, high-level orientation for the whole project. The specifics are the questions and tasks on the Test Plan's What to ask or observe tab. }
         stages:
           type: array
           items:

@@ -127,7 +127,7 @@ export function AreasPage() {
       )}
       {areas.isPending && <Loading small withOverlay={false} description="Loading the experience categories" />}
       {areas.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Could not load the categories" subtitle={friendlyMessage(areas.error)} />}
-      {areas.isSuccess && live.length === 0 && <p className={styles.empty}>No experience categories yet. Add the first one, or type one in the Experience category box on a question in a task list.</p>}
+      {areas.isSuccess && live.length === 0 && <p className={styles.empty}>No experience categories yet. Add the first one, or type one in the Experience category box on a question in the Test Plan.</p>}
       {live.length > 0 && (
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Experience categories">

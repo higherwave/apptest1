@@ -36,6 +36,12 @@ function JourneyRedirect() {
   return <Navigate to={`/projects/${projectId}/storyboard`} replace />
 }
 
+// The Task List is now the Test Plan's second tab.
+function TasksRedirect() {
+  const { projectId = '' } = useParams()
+  return <Navigate to={`/projects/${projectId}/plan/ask`} replace />
+}
+
 export function App() {
   return (
     <AuthGate>
@@ -45,8 +51,10 @@ export function App() {
         <Route index element={<Navigate to="/insights/themes" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<NewTestPlanPage />} />
-        <Route path="projects/:projectId/plan" element={<TestPlanPage />} />
-        <Route path="projects/:projectId/tasks" element={<TaskListPage />} />
+        <Route path="projects/:projectId/plan" element={<TestPlanPage section="test" />} />
+        <Route path="projects/:projectId/plan/ask" element={<TaskListPage />} />
+        <Route path="projects/:projectId/participants" element={<TestPlanPage section="participants" />} />
+        <Route path="projects/:projectId/tasks" element={<TasksRedirect />} />
         <Route path="projects/:projectId/transcripts" element={<TranscriptsPage />} />
         <Route path="projects/:projectId/themes" element={<ThemesPage />} />
         <Route path="projects/:projectId/storyboard" element={<StoryboardPage />} />

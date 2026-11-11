@@ -22,7 +22,7 @@ export const participantSchema = z.object({
   sessionMinutes: z.union([z.literal(30), z.literal(45), z.literal(60)], 'Choose 30 minutes, 45 minutes or 1 hour.').nullish().transform((v) => v ?? null),
 })
 
-// The project description: a short, high-level orientation for the whole project. Specifics live in the Task List.
+// The project description: a short, high-level orientation for the whole project. Specifics live in the Test Plan's What to ask or observe tab.
 const projectDescription = optionalText(2000)
 
 export const createProjectSchema = z.object({

@@ -7,7 +7,7 @@ import { TestPlanView } from './TestPlanView'
 import { useSaveFlow } from './useSaveFlow'
 
 // Container: loads the project, edits a copy of its test plan, and saves it in one request.
-export function TestPlanPage() {
+export function TestPlanPage({ section }: { section: 'test' | 'participants' }) {
   const { projectId = '' } = useParams()
   const project = useProject(projectId)
   const templates = useTemplates() // only for the list of test methods
@@ -34,7 +34,7 @@ export function TestPlanPage() {
 
   const doSave = async (overwrite: boolean) => {
     if (!saved || !form) return
-    const found = validate(form)
+    const found = validate(form, section)
     setErrors(found)
     if (Object.keys(found).length) return
     const after = await flow.save((version) => saveStudy.mutateAsync({ version, body: toPlanRequest(form) }), overwrite)
@@ -49,10 +49,11 @@ export function TestPlanPage() {
       project={saved}
       form={form ?? emptyPlan}
       errors={errors}
+      section={section}
       methodOptions={templates.data?.methodOptions ?? []}
       errorText={project.isError ? friendlyMessage(project.error) : undefined}
       save={{
-        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: 'Save test plan',
+        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: section === 'test' ? 'Save test plan' : 'Save participants',
         onSave: () => doSave(false),
         onOverwrite: () => doSave(true),
         onReload: async () => {
