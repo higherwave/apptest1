@@ -440,9 +440,7 @@ try {
   const renamed = async () => (await apiThemes()).some((t) => t.title === 'Hard to see who is free' && t.originalTitle === 'Provider availability is hard to see')
   for (let i = 0; i < 24 && !(await renamed()); i++) await new Promise((r) => setTimeout(r, 250))
   ok('renaming keeps the original visible', await renamed())
-  await choose('theme-stage', 'Confirm & pay')
-  await new Promise((r) => setTimeout(r, 600))
-  ok('choosing a stage saves it', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 2)
+  ok('there is no journey stage dropdown on a theme', !(await page.$('#theme-stage')) && !(await text()).includes('Journey stage'))
 
   // Storyboard: written by itself when the analysis ran; six slides that cannot be edited, and a PDF to download.
   await navTo('Storyboard')
@@ -495,14 +493,10 @@ try {
   await page.goto(`${BASE}/projects/${projectId}/journey`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-nav] a[data-label="Themes"]', { timeout: 8000 })
   ok('the old Journey Map address leads to the Storyboard', await page.evaluate(() => /\/storyboard$/.test(location.pathname)))
-  // A theme's stage is still set on the Themes page (it was also movable on the old Journey Map).
   await navTo('Themes')
   await page.waitForFunction(() => document.querySelectorAll('ul[aria-label="Themes"] li').length === 9, { timeout: 8000 })
   await page.evaluate(() => [...document.querySelectorAll('ul[aria-label="Themes"] li')].find((li) => li.innerText.includes('Hard to see who is free')).querySelector('a, button').click())
   await waitText('Theme name')
-  await choose('theme-stage', 'Find a provider')
-  await new Promise((r) => setTimeout(r, 600))
-  ok('a theme’s stage is set from the Themes page', (await apiThemes()).find((t) => t.title === 'Hard to see who is free').stagePosition === 0)
 
   // Priorities: the map has the whole width and no side panel. A node moves with its three-dot menu (for people who cannot drag) or by dragging; its details
   // open beside it after two seconds of rest (or at once on a click), and the menu also resets it.

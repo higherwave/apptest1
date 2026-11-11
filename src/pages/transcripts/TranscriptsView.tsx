@@ -81,7 +81,10 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
                 <div className={styles.panel}>
       {!readOnly && (
         <section className={styles.add} aria-label="Add a transcript">
-          <InlineNotification kind="info" lowContrast hideCloseButton title={here.title} subtitle={here.how} />
+          <div className={styles.guide}>
+            <h3 className={styles.guideTitle}>{here.title}</h3>
+            <p className={styles.guideText}>{here.how}</p>
+          </div>
           <div className={styles.tools} role="group" aria-label="Meeting tool">
             {PLATFORMS.map((p) => (
               <Button key={p} kind={tool === p ? 'primary' : 'tertiary'} size="md" aria-pressed={tool === p} onClick={() => setTool(p)}>

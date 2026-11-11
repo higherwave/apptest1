@@ -19,3 +19,6 @@
   &[data-state='active'] { color: var(--at-ink); }
   &[data-state='done'] { color: var(--at-signature-forest); }
 }
+
+// Carbon's small spinner is already icon-sized; keep it from shrinking in the row.
+.spin { flex: none; }

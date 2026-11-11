@@ -146,3 +146,25 @@
 .tabPanel {
   padding: 0;
 }
+
+// The same light green panel as the ready banner on Requirements and the decisions on Design.
+.guide {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-tint-mint);
+}
+
+.guideTitle {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.guideText {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}

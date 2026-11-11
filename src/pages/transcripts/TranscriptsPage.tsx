@@ -77,7 +77,7 @@ export function TranscriptsPage() {
         version = (await transcriptApi.project(projectId)).version
       }
       if (willAnalyze && (changed || needsAnalysis)) {
-        startProgress(['Parsing transcripts', 'Identifying speakers', 'Clustering statements', 'Scoring and prioritizing', 'Porting themes to journey map'])
+        startProgress(['Parsing transcripts', 'Identifying speakers', 'Clustering statements', 'Scoring and prioritizing', 'Porting themes to project'])
         try {
           const [run] = await Promise.all([transcriptApi.analyze(projectId, version), wait(STEP_MS * 5)])
           result = run

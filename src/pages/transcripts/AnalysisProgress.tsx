@@ -1,5 +1,5 @@
 import { CheckmarkFilled, CircleDash } from '@carbon/icons-react'
-import { Modal } from '@carbon/react'
+import { Loading, Modal } from '@carbon/react'
 import styles from './AnalysisProgress.module.scss'
 
 type AnalysisProgressProps = { open: boolean; steps: string[]; current: number }
@@ -11,7 +11,7 @@ export function AnalysisProgress({ open, steps, current }: AnalysisProgressProps
       <ol className={styles.steps}>
         {steps.map((title, i) => (
           <li key={title} className={styles.step} data-state={i < current ? 'done' : i === current ? 'active' : 'waiting'}>
-            {i < current ? <CheckmarkFilled aria-label="Done" /> : <CircleDash aria-label={i === current ? 'In progress' : 'Waiting'} />}
+            {i < current ? <CheckmarkFilled aria-label="Done" /> : i === current ? <Loading className={styles.spin} small withOverlay={false} description="In progress" /> : <CircleDash aria-label="Waiting" />}
             <span>{title}</span>
           </li>
         ))}
