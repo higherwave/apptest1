@@ -3,11 +3,11 @@ import { useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMe, useProject, useSaveStudy, useTemplates } from '../../api/hooks'
 import { formFromProject, planChanged, toPlanRequest, validate, type FieldErrors, type PlanForm } from '../testplan/form'
-import { TestPlanView } from './TestPlanView'
+import { ParticipantsView } from './ParticipantsView'
 import { useSaveFlow } from './useSaveFlow'
 
-// Container: loads the project, edits a copy of its test plan, and saves it in one request.
-export function TestPlanPage({ section }: { section: 'test' | 'participants' }) {
+// Container: loads the project and edits its participants. They save through the plan's request, which carries the rest of the plan back unchanged.
+export function ParticipantsPage() {
   const { projectId = '' } = useParams()
   const project = useProject(projectId)
   const templates = useTemplates() // only for the list of test methods
@@ -34,7 +34,7 @@ export function TestPlanPage({ section }: { section: 'test' | 'participants' }) 
 
   const doSave = async (overwrite: boolean) => {
     if (!saved || !form) return
-    const found = validate(form, section)
+    const found = validate(form, 'participants')
     setErrors(found)
     if (Object.keys(found).length) return
     const after = await flow.save((version) => saveStudy.mutateAsync({ version, body: toPlanRequest(form) }), overwrite)
@@ -44,16 +44,15 @@ export function TestPlanPage({ section }: { section: 'test' | 'participants' }) 
   const state = project.isPending || form === null ? (project.isError ? 'error' : 'loading') : project.isError ? 'error' : 'ready'
 
   return (
-    <TestPlanView
+    <ParticipantsView
       state={state}
       project={saved}
       form={form ?? emptyPlan}
       errors={errors}
-      section={section}
       methodOptions={templates.data?.methodOptions ?? []}
       errorText={project.isError ? friendlyMessage(project.error) : undefined}
       save={{
-        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: section === 'test' ? 'Save test plan' : 'Save participants',
+        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: 'Save participants',
         onSave: () => doSave(false),
         onOverwrite: () => doSave(true),
         onReload: async () => {

@@ -19,13 +19,13 @@ import { MeasurePage } from './pages/measure/MeasurePage'
 import { StoriesPage } from './pages/stories/StoriesPage'
 import { Placeholder } from './pages/Placeholder'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
-import { TaskListPage } from './pages/project/TaskListPage'
+import { ParticipantsPage } from './pages/project/ParticipantsPage'
 import { RequirementsEntryPage } from './pages/requirements/RequirementsEntryPage'
 import { WriterPage } from './pages/requirements/WriterPage'
 import { StoryboardPage } from './pages/storyboard/StoryboardPage'
 import { PrioritiesPage } from './pages/themes/PrioritiesPage'
 import { ThemesPage } from './pages/themes/ThemesPage'
-import { TestPlanPage } from './pages/project/TestPlanPage'
+import { TestPlanTabsPage } from './pages/project/TestPlanTabsPage'
 import { TranscriptsPage } from './pages/transcripts/TranscriptsPage'
 import { NewTestPlanPage } from './pages/testplan/NewTestPlanPage'
 
@@ -51,9 +51,8 @@ export function App() {
         <Route index element={<Navigate to="/insights/themes" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<NewTestPlanPage />} />
-        <Route path="projects/:projectId/plan" element={<TestPlanPage section="test" />} />
-        <Route path="projects/:projectId/plan/ask" element={<TaskListPage />} />
-        <Route path="projects/:projectId/participants" element={<TestPlanPage section="participants" />} />
+        <Route path="projects/:projectId/plan/*" element={<TestPlanTabsPage />} />
+        <Route path="projects/:projectId/participants" element={<ParticipantsPage />} />
         <Route path="projects/:projectId/tasks" element={<TasksRedirect />} />
         <Route path="projects/:projectId/transcripts" element={<TranscriptsPage />} />
         <Route path="projects/:projectId/themes" element={<ThemesPage />} />
