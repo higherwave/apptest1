@@ -79,7 +79,7 @@ export function AppShell() {
   const canSettings = me.data?.role === 'owner' || me.data?.role === 'editor'
   const areas = [
     { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
-    { to: '/projects', label: 'Product Funnel', active: !insights && !settings, icon: Filter },
+    { to: '/projects', label: 'Projects', active: !insights && !settings, icon: Filter },
     ...(canSettings ? [{ to: '/settings/categories', label: 'Admin', active: settings, icon: SettingsIcon }] : []),
   ]
   const current = areas.find((a) => a.active) ?? areas[0]

@@ -32,7 +32,7 @@ try {
   await signInAs(null)
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Continue with Google')
-  ok('signed out, with public viewing off, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Product Funnel'))
+  ok('signed out, with public viewing off, the sign-in screen is shown instead of the app', (await text()).includes('invite-only') && !(await text()).includes('Projects'))
 
   // The privacy page is public, even when signing in is required, and the notice is at the foot of the sign-in screen.
   ok('the sign-in screen carries the privacy notice', (await text()).includes('development, testing, and demonstration environment'))
@@ -47,7 +47,7 @@ try {
   // Signed out, with public viewing on: the app, read-only, with a Sign in button.
   await fetch(`${API}/__test/public-view/true`, { method: 'POST' })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Product Funnel')
+  await waitText('Projects')
   const visitor = await page.evaluate(() => document.querySelector('header')?.innerText ?? '')
   ok('a visitor can look around: projects load, the header says read-only and offers Sign in', visitor.includes('Read-only demo') && visitor.includes('Sign in') && (await page.$$('[data-status]')).length >= 3)
   ok('a visitor cannot start a project or remove one', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true) && (await page.$$('.cds--overflow-menu')).length === 0)
@@ -101,7 +101,7 @@ try {
   // A signed-in owner: the app, with their name and role and an account menu.
   await signInAs('david@demo.signalflow.example')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Product Funnel')
+  await waitText('Projects')
   const header = await page.evaluate(() => document.querySelector('header')?.innerText ?? '')
   ok('an owner sees no token controls in the header (the role is in the account panel)', !header.includes('Editing unlocked') && !header.includes('Unlock editing') && !header.includes('Lock'))
   // AI status is a link in the account menu (a canned live status stands in for the always-simulated test API).
@@ -109,7 +109,7 @@ try {
   const canned = (req) => new URL(req.url()).pathname === '/api/v1/ai/status' ? req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 1, spendLevel: 'ok', month: '2026-11' }) }) : req.continue()
   page.on('request', canned)
   await page.reload({ waitUntil: 'networkidle0' })
-  await waitText('Product Funnel')
+  await waitText('Projects')
   ok('the AI badge sits at the left of the header, the account picture at the right', await page.evaluate(() => {
     const bar = document.querySelector('header').getBoundingClientRect()
     const badge = [...document.querySelectorAll('header .cds--tag')].find((t) => t.innerText.startsWith('AI:'))?.getBoundingClientRect()
@@ -137,7 +137,7 @@ try {
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })
-  await waitText('Product Funnel')
+  await waitText('Projects')
   await page.goto(`${BASE}/members`, { waitUntil: 'networkidle0' })
   ok('the old Members address lands on the Admin Members tab', await page.evaluate(() => location.pathname === '/settings/members' && document.querySelector('nav[aria-label="Admin sections"] [data-label="Members"]')?.dataset.current === 'true'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
@@ -168,7 +168,7 @@ try {
   // The invited person signs in: linked, read-only, and no invite form.
   await signInAs('e2e.person@example.com')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Product Funnel')
+  await waitText('Projects')
   ok('a viewer does not see Admin in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Admin'))))
   for (const path of ['/settings/categories', '/settings/members', '/settings/audit', '/settings/usage', '/members']) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
@@ -178,14 +178,14 @@ try {
   ok('the server refuses a viewer the member list, the audit log, system usage and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && (await fetch('/api/v1/usage')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  await waitText('Product Funnel')
+  await waitText('Projects')
   ok('a viewer cannot start a new project', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'New project')?.disabled === true))
 
   // A Google account nobody invited.
   await signInAs('stranger@example.com')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('You have not been invited')
-  ok('an uninvited account gets the not-invited screen with its address', (await text()).includes('stranger@example.com') && !(await text()).includes('Product Funnel'))
+  ok('an uninvited account gets the not-invited screen with its address', (await text()).includes('stranger@example.com') && !(await text()).includes('Projects'))
 
   // The owner removes the person, who is then locked out.
   await signInAs('david@demo.signalflow.example')

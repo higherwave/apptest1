@@ -50,7 +50,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
   return (
     <div className={styles.page}>
-      <PageHero title="Product Funnel Projects" description="Plan a study, analyze transcripts, and turn themes into requirements.">
+      <PageHero title="Projects" description="From research to release">
         <Button kind="primary" disabled={readOnly} onClick={onNew}>
           New project
         </Button>
@@ -88,7 +88,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
               ))}
             </div>
           ) : (
-            <div className={styles.list} role="table" aria-label="Product funnel">
+            <div className={styles.list} role="table" aria-label="Projects">
               <div className={`${styles.listRow} ${styles.listHead}`} role="row">
                 <span role="columnheader">Project</span>
                 <span role="columnheader">Methods</span>

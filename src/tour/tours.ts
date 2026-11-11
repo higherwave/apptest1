@@ -85,7 +85,7 @@ export const TOURS: Tour[] = [
     steps: [
       {
         title: 'One question, one project',
-        body: 'Each research project starts with a question. Anchor CX\'s was: why do customers distrust the health score? This is the Product Funnel, where every project lives. We will follow one from the first conversation to the last ticket.',
+        body: 'Each research project starts with a question. Anchor CX\'s was: why do customers distrust the health score? This is Projects, where every project lives. We will follow one from the first conversation to the last ticket.',
         route: '/projects',
         target: '[data-status]',
       },
