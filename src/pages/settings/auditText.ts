@@ -6,7 +6,7 @@ export const GROUP_LABEL: Record<AuditGroup, string> = {
   teams: 'Teams',
   categories: 'Experience categories',
   projects: 'Projects',
-  workflows: 'Workflows',
+  workflows: 'Journeys',
   jira: 'Jira hand-offs',
 }
 
@@ -16,7 +16,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.team_memberships': 'Team member',
   'insights.feature_areas': 'Experience category',
   'core.projects': 'Project',
-  'insights.workflows': 'Workflow',
+  'insights.workflows': 'Journey',
   'delivery.story_tickets': 'Jira ticket',
 }
 export const entityLabel = (entity: string) => ENTITY_LABEL[entity] ?? entity

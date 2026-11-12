@@ -133,7 +133,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  padding-block-start: var(--at-space-lg);
 }
 
 .blurb {
@@ -155,6 +154,7 @@
   padding: var(--at-space-md) var(--at-space-lg);
   border-radius: var(--at-radius-lg);
   background: var(--at-tint-mint);
+  margin-block-end: var(--at-space-xs); // with the section's gap, as far above the tool buttons as the tabs are above the banner (1.5rem)
 }
 
 .guideTitle {

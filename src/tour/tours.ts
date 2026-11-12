@@ -60,7 +60,7 @@ export const TOURS: Tour[] = [
       },
       {
         title: 'The journey the customer is on',
-        body: 'Workflows lay the whole customer-success lifecycle out as a service blueprint: what the customer does, what the team does behind the scenes, and where research found friction. Every project is placed on it, so gaps and overlaps show up quickly.',
+        body: 'Journeys lay the whole customer-success lifecycle out as a service blueprint: what the customer does, what the team does behind the scenes, and where research found friction. Every project is placed on it, so gaps and overlaps show up quickly.',
         route: '/insights/journey',
         target: '[data-testid="workflow-map"], [data-tour="journey-map"]',
       },

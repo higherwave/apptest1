@@ -1202,7 +1202,7 @@ try {
   await page.waitForFunction((id) => location.pathname === '/insights/themes' && location.search === `?theme=${id}`, { timeout: 8000 }, chip.id)
   await page.waitForFunction((id) => document.querySelector(`[data-testid="platform-theme-${id}"]`)?.dataset.open === 'true', { timeout: 8000 }, chip.id)
   ok('a case study’s theme chip opens that theme’s row', true)
-  await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Workflows').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Journeys').click())
   await page.waitForSelector('[data-testid^="journey-stage-"]', { timeout: 8000 })
   const journey = await (await fetch(`${API}/api/v1/insights/journey`)).json()
   ok('the platform journey uses the same map format: a dark stage row, then Themes, Pain points, Sentiment and Opportunity rows', await page.evaluate((j) => { const heads = [...document.querySelectorAll('[data-testid^="journey-stage-"]')]; const labels = [...document.querySelectorAll('[class*="rowLabel"]')].map((e) => e.textContent.trim()); const themes = [...document.querySelectorAll('article[data-category]')].map((a) => a.innerText); return heads.length === j.stages.length && heads.every((h, i) => h.innerText.toLowerCase().includes(j.stages[i].name.toLowerCase()) && h.innerText.toLowerCase().includes(`stage ${i + 1}`)) && labels.join() === 'Themes,Pain points,Sentiment,Opportunity' && j.stages.every((st) => st.themes.every((t) => themes.some((x) => x.includes(t.title)))) && !!document.querySelector('[role="img"][aria-label^="Sentiment by stage"]') && heads.length === document.querySelector('[data-columns]').getAttribute('data-columns') * 1 }, journey))
@@ -1218,7 +1218,7 @@ try {
     await h.asElement().evaluate((el) => el.scrollIntoView({ block: 'center' }))
     await h.asElement().click()
   }
-  // Workflows: the service blueprint, edited once under Platform Insights > Workflows and read by each project that is on it.
+  // Workflows: the service blueprint, edited once under Platform Insights > Journeys and read by each project that is on it.
   const pickOption = async (selector, label) => {
     await page.$eval(selector, (el) => el.scrollIntoView({ block: 'center' })) // the fixed bars would cover a control at the edge
     await page.click(selector)
@@ -1229,12 +1229,12 @@ try {
   await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => [...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the Anchor CX example')), { timeout: 8000 })
   ok('with no workflow yet, an editor is offered the Anchor CX example', true)
-  ok('the Platform Insights tab is called Workflows', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Platform Insights sections"] [data-label]')].map((b) => b.dataset.label).join('|') === 'Platform Themes|Personas|Workflows|Case studies'))
-  ok('New Workflow is a black button above the content at its right edge, as Save is on the Test Plan', await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'New Workflow'); if (!b) return false; const r = b.getBoundingClientRect(); const bg = getComputedStyle(b).backgroundColor.match(/\d+/g).map(Number); const tabs = document.querySelector('nav[aria-label="Platform Insights sections"]').getBoundingClientRect(); const first = [...document.querySelectorAll('p')].find((p) => /A workflow is the blueprint/.test(p.innerText)); return bg.slice(0, 3).every((v) => v < 90) && Math.abs(r.right - tabs.right) < 40 && r.top > tabs.bottom && !!first && r.bottom <= first.getBoundingClientRect().top }))
+  ok('the Platform Insights tab is called Journeys', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Platform Insights sections"] [data-label]')].map((b) => b.dataset.label).join('|') === 'Platform Themes|Personas|Journeys|Case studies'))
+  ok('New Journey is a black button above the content at its right edge, as Save is on the Test Plan', await page.evaluate(() => { const b = [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'New Journey'); if (!b) return false; const r = b.getBoundingClientRect(); const bg = getComputedStyle(b).backgroundColor.match(/\d+/g).map(Number); const tabs = document.querySelector('nav[aria-label="Platform Insights sections"]').getBoundingClientRect(); const first = [...document.querySelectorAll('p')].find((p) => /A journey is the blueprint/.test(p.innerText)); return bg.slice(0, 3).every((v) => v < 90) && Math.abs(r.right - tabs.right) < 40 && r.top > tabs.bottom && !!first && r.bottom <= first.getBoundingClientRect().top }))
   await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.includes('Add the Anchor CX example')).click())
   await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
   ok('adding it opens the Anchor CX workflow as a blueprint: its five journey stages, what good looks like, backstage with owners, marked as from the blueprint', await page.evaluate(() => { const t = document.body.innerText; const heads = [...document.querySelectorAll('[data-testid^="journey-stage-"]')].map((h) => h.innerText.split('\n').pop().trim()); return heads.join('|') === 'Prepare for a customer|Judge account health|Spot risk early|Hand off to the right team|Renew and report' && /Customer success lifecycle/.test(t) && /what good looks like/i.test(t) && /Owner: /.test(t) && /Customer 360 timeline/.test(t) && /from the blueprint/i.test(t) }))
-  ok('it is not offered again once the example is there, and no project is on it here (this demo’s stages are the clinic’s)', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the Anchor CX example')) && /No project is on this workflow yet/.test(document.body.innerText)))
+  ok('it is not offered again once the example is there, and no project is on it here (this demo’s stages are the clinic’s)', await page.evaluate(() => ![...document.querySelectorAll('button')].some((b) => b.innerText.includes('Add the Anchor CX example')) && /No project is on this journey yet/.test(document.body.innerText)))
   // The clinic demo this test runs on needs a workflow of its own stages to go on: made through the API.
   const entry = (kind, name, owner) => ({ kind, name, owner })
   const clinicFlow = { name: 'Patient access and scheduling', description: 'How a patient finds a provider, books, pays, prepares and follows up.', stages: [
@@ -1263,7 +1263,7 @@ try {
   // The platform journey for that workflow lays the project's research over the blueprint, and a persona can be traced.
   await page.goto(`${BASE}/insights/journey`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
-  ok('the workflow opens by default now that a project is on it, with that project’s themes and personas in the stages', await page.evaluate(() => /Research from 1 project on this workflow/.test(document.body.innerText) && document.querySelectorAll('article[data-category]').length > 0 && !!document.querySelector('[data-testid="persona-row"]')))
+  ok('the workflow opens by default now that a project is on it, with that project’s themes and personas in the stages', await page.evaluate(() => /Research from 1 project on this journey/.test(document.body.innerText) && document.querySelectorAll('article[data-category]').length > 0 && !!document.querySelector('[data-testid="persona-row"]')))
   const traceChip = await page.evaluate(() => document.querySelector('[data-testid^="trace-"]')?.dataset.testid ?? null)
   if (traceChip) {
     await page.evaluate((c) => document.querySelector(`[data-testid="${c}"]`).click(), traceChip)
@@ -1284,11 +1284,11 @@ try {
   await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
 
   // Editing the blueprint in place, and the audit log keeping the record.
-  ok('Edit Workflow sits just to the right of the picker, and New Workflow is on the same row at the right edge, both text only', await page.evaluate(() => { const btn = (t) => [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === t); const e = btn('Edit Workflow'); const n = btn('New Workflow'); const pick = document.querySelector('#workflow-picker'); if (!e || !n || !pick) return false; const er = e.getBoundingClientRect(); const nr = n.getBoundingClientRect(); const p = pick.getBoundingClientRect(); const tabs = document.querySelector('nav[aria-label="Platform Insights sections"]').getBoundingClientRect(); const bottom = (r) => Math.round(r.bottom); return er.left > p.right && er.left - p.right < 80 && Math.abs(bottom(er) - bottom(p)) < 6 && Math.abs(bottom(nr) - bottom(p)) < 6 && nr.left > er.right && Math.abs(nr.right - tabs.right) < 40 && !e.querySelector('svg') && !n.querySelector('svg') }))
-  await clickText('Edit Workflow')
+  ok('Edit Journey sits just to the right of the picker, and New Journey is on the same row at the right edge, both text only', await page.evaluate(() => { const btn = (t) => [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === t); const e = btn('Edit Journey'); const n = btn('New Journey'); const pick = document.querySelector('#workflow-picker'); if (!e || !n || !pick) return false; const er = e.getBoundingClientRect(); const nr = n.getBoundingClientRect(); const p = pick.getBoundingClientRect(); const tabs = document.querySelector('nav[aria-label="Platform Insights sections"]').getBoundingClientRect(); const bottom = (r) => Math.round(r.bottom); return er.left > p.right && er.left - p.right < 80 && Math.abs(bottom(er) - bottom(p)) < 6 && Math.abs(bottom(nr) - bottom(p)) < 6 && nr.left > er.right && Math.abs(nr.right - tabs.right) < 40 && !e.querySelector('svg') && !n.querySelector('svg') }))
+  await clickText('Edit Journey')
   await page.waitForSelector('[data-testid="blueprint-editor"]', { timeout: 8000 })
-  ok('Edit Workflow opens a box for every stage’s name, what good looks like, signal and handoff, and its backstage entries', await page.evaluate(() => document.querySelectorAll('[data-testid="blueprint-editor"] textarea[id$="-good"], [data-testid="blueprint-editor"] textarea[id$="-signal"], [data-testid="blueprint-editor"] textarea[id$="-handoff"]').length === 15 && document.querySelectorAll('[data-testid="backstage-entry"]').length >= 5))
-  ok('Delete, Cancel and Save sit at the right of the workflow name and description, on their row, with nothing at the bottom, and Edit Workflow has given way to them', await page.evaluate(() => { const editor = document.querySelector('[data-testid="blueprint-editor"]'); const btn = (t) => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === t && !b.closest('.cds--modal')); const name = document.querySelector('#bp-name').getBoundingClientRect(); const desc = document.querySelector('#bp-description').getBoundingClientRect(); const names = ['Delete', 'Cancel', 'Save']; const level = (b) => { const r = b.getBoundingClientRect(); return !!(editor.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING) && r.left >= desc.right - 2 && Math.abs((r.top + r.bottom) / 2 - (name.top + name.bottom) / 2) < 40 }; const below = [...document.querySelectorAll('button')].filter((b) => [...names, 'Add stage'].includes(b.innerText.trim()) && !b.closest('.cds--modal') && (editor.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)); return names.every((t) => !!btn(t) && level(btn(t))) && !btn('Edit Workflow') && !btn('New Workflow') && !btn('Add stage') && !btn('Delete workflow') && below.length === 0 }))
+  ok('Edit Journey opens a box for every stage’s name, what good looks like, signal and handoff, and its backstage entries', await page.evaluate(() => document.querySelectorAll('[data-testid="blueprint-editor"] textarea[id$="-good"], [data-testid="blueprint-editor"] textarea[id$="-signal"], [data-testid="blueprint-editor"] textarea[id$="-handoff"]').length === 15 && document.querySelectorAll('[data-testid="backstage-entry"]').length >= 5))
+  ok('Delete, Cancel and Save sit at the right of the workflow name and description, on their row, with nothing at the bottom, and Edit Journey has given way to them', await page.evaluate(() => { const editor = document.querySelector('[data-testid="blueprint-editor"]'); const btn = (t) => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === t && !b.closest('.cds--modal')); const name = document.querySelector('#bp-name').getBoundingClientRect(); const desc = document.querySelector('#bp-description').getBoundingClientRect(); const names = ['Delete', 'Cancel', 'Save']; const level = (b) => { const r = b.getBoundingClientRect(); return !!(editor.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_PRECEDING) && r.left >= desc.right - 2 && Math.abs((r.top + r.bottom) / 2 - (name.top + name.bottom) / 2) < 40 }; const below = [...document.querySelectorAll('button')].filter((b) => [...names, 'Add stage'].includes(b.innerText.trim()) && !b.closest('.cds--modal') && (editor.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING)); return names.every((t) => !!btn(t) && level(btn(t))) && !btn('Edit Journey') && !btn('New Journey') && !btn('Add stage') && !btn('Delete workflow') && below.length === 0 }))
   ok('Add stage is a slim lane at the far right of the stages, in the dark header row', await page.evaluate(() => { const add = document.querySelector('[data-testid="add-stage"]'); const stageInputs = [...document.querySelectorAll('[data-testid="blueprint-editor"] input[id$="-name"]')]; const last = stageInputs[stageInputs.length - 1].getBoundingClientRect(); const r = add.getBoundingClientRect(); const head = add.closest('[class*="addHead"]').getBoundingClientRect(); return r.left > last.right && head.width < 80 && head.right > last.right }))
   await page.evaluate(() => document.querySelector('[data-testid="add-stage"]').click())
   await page.waitForFunction(() => [...document.querySelectorAll('[data-testid="blueprint-editor"] input[id$="-name"]')].length === 6, { timeout: 8000 })
@@ -1296,7 +1296,7 @@ try {
   await clickPage('Cancel')
   await page.waitForFunction(() => !document.querySelector('[data-testid="blueprint-editor"]'), { timeout: 8000 })
   ok('Cancel leaves the workflow as it was (still five stages)', await page.evaluate(() => document.querySelectorAll('[data-testid^="journey-stage-"]').length === 5))
-  await clickText('Edit Workflow')
+  await clickText('Edit Journey')
   await page.waitForSelector('[data-testid="blueprint-editor"]', { timeout: 8000 })
   ok('Save waits for a change', await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Save').disabled === true))
   await page.$eval('textarea[id$="-good"]', (el) => { el.scrollIntoView({ block: 'center' }); el.focus(); el.setSelectionRange(el.value.length, el.value.length) })
@@ -1305,14 +1305,14 @@ try {
   await page.waitForFunction(() => !document.querySelector('[data-testid="blueprint-editor"]'), { timeout: 8000 })
   await page.waitForFunction(() => /Edited by the browser test\./.test(document.body.innerText), { timeout: 8000 })
   const log = await (await fetch(`${API}/api/v1/audit?group=workflows`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  ok('after saving, Edit Workflow is back and the editing buttons are gone', await page.evaluate(() => { const t = [...document.querySelectorAll('button')].map((b) => b.innerText.trim()); return t.includes('Edit Workflow') && !t.includes('Add stage') && !t.includes('Save') }))
+  ok('after saving, Edit Journey is back and the editing buttons are gone', await page.evaluate(() => { const t = [...document.querySelectorAll('button')].map((b) => b.innerText.trim()); return t.includes('Edit Journey') && !t.includes('Add stage') && !t.includes('Save') }))
   ok('the edit shows on the journey and the audit log records what changed', log.data.some((e) => e.verb === 'edited' && e.after.changes.some((c) => /^Changed what good looks like of Find a provider/.test(c))))
   // Delete asks first. A workflow with a project on it is refused; one nobody uses is removed once confirmed, and the audit log keeps the record.
-  await clickText('Edit Workflow')
+  await clickText('Edit Journey')
   await page.waitForSelector('[data-testid="blueprint-editor"]', { timeout: 8000 })
   await clickPage('Delete')
   await page.waitForSelector('.cds--modal.is-visible', { timeout: 8000 })
-  ok('Delete on a workflow with a project on it says the project will be taken off it, and offers Delete and Cancel', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible'); const b = [...m.querySelectorAll('button')].map((x) => x.innerText.trim()).filter(Boolean); return /Delete Patient access and scheduling\?/.test(m.innerText) && /project is on this workflow and will be taken off it/i.test(m.innerText) && b.includes('Delete') && b.includes('Cancel') }))
+  ok('Delete on a workflow with a project on it says the project will be taken off it, and offers Delete and Cancel', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible'); const b = [...m.querySelectorAll('button')].map((x) => x.innerText.trim()).filter(Boolean); return /Delete Patient access and scheduling\?/.test(m.innerText) && /project is on this journey and will be taken off it/i.test(m.innerText) && b.includes('Delete') && b.includes('Cancel') }))
   await clickInOpenDialog('Cancel')
   await new Promise((r) => setTimeout(r, 400))
   await clickPage('Cancel')
@@ -1320,7 +1320,7 @@ try {
   const throwaway = await (await fetch(`${API}/api/v1/workflows`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Throwaway workflow', stages: [{ name: 'Only stage', backstage: [] }] }) })).json()
   await page.goto(`${BASE}/insights/journey?workflow=${throwaway.id}`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="workflow-map"]', { timeout: 8000 })
-  await clickText('Edit Workflow')
+  await clickText('Edit Journey')
   await page.waitForSelector('[data-testid="blueprint-editor"]', { timeout: 8000 })
   await clickPage('Delete')
   await page.waitForSelector('.cds--modal.is-visible', { timeout: 8000 })

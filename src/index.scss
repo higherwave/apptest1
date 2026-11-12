@@ -7,6 +7,10 @@ body,
   height: 100%;
 }
 
+// Links have no underline until the pointer is over them. Written with :where so any link that sets its own rule (menu rows, cards) keeps it.
+:where(a) { text-decoration: none; }
+:where(a:hover) { text-decoration: underline; }
+
 body {
   margin: 0;
   background: var(--cds-background);

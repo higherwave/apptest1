@@ -28,7 +28,7 @@ export function AuditLogView(p: AuditLogViewProps) {
   return (
     <div className={styles.page}>
       <SettingsHeader />
-      <p className={styles.intro}>What changed in this workspace, and who changed it: people and roles, experience categories, projects, workflows and Jira hand-offs.</p>
+      <p className={styles.intro}>What changed in this workspace, and who changed it: people and roles, experience categories, projects, journeys and Jira hand-offs.</p>
 
       <div>
         <div className={styles.filter}>

@@ -50,5 +50,5 @@ test('a change makes the draft dirty, and what is missing is named', () => {
   const changed = patchStage(original, original.stages[0].key, { good: 'Quick' })
   assert.ok(isDirty(changed, original))
   const bad = patchStage({ ...original, name: 'x' }, original.stages[0].key, { name: ' ' })
-  assert.deepEqual(problems(bad), ['Give the workflow a name of at least 2 characters.', 'Give every stage a name.'])
+  assert.deepEqual(problems(bad), ['Give the journey a name of at least 2 characters.', 'Give every stage a name.'])
 })

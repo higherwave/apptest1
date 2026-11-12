@@ -31,7 +31,7 @@ export function BlueprintEditor({ draft, onChange: set, errorText, actions }: Bl
     <div className={styles.editor}>
       <div className={styles.editorTop}>
         <div className={styles.editorFields}>
-          <TextInput id="bp-name" labelText="Workflow name" value={draft.name} maxLength={80} onChange={(e) => set({ ...draft, name: e.target.value })} />
+          <TextInput id="bp-name" labelText="Journey name" value={draft.name} maxLength={80} onChange={(e) => set({ ...draft, name: e.target.value })} />
           <TextInput id="bp-description" labelText="What it covers (optional)" value={draft.description} maxLength={400} onChange={(e) => set({ ...draft, description: e.target.value })} />
         </div>
         {actions && <div className={styles.editorActions}>{actions}</div>}

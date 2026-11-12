@@ -17,6 +17,7 @@ $stage-min-edit: 12rem; // and its stages are a little narrower, so five and the
   overflow-x: auto;
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
+  background: var(--at-canvas); // the lanes are white; the pain points and the backstage keep their own colour
 }
 
 // The number of stages sets the columns: a study has three to six, and the platform journey folds every study's stages together, so it can have
@@ -168,10 +169,6 @@ $stage-min-edit: 12rem; // and its stages are a little narrower, so five and the
   margin: 0;
   color: var(--at-muted);
   font-weight: 400;
-}
-
-.sentimentRow {
-  background: var(--at-surface-soft);
 }
 
 // The chart spans every stage column. Dots are positioned in percentages so they stay round; the line is stretched.

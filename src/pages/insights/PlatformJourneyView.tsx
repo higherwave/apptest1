@@ -52,7 +52,7 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
   const personas = journey && onWorkflow ? journeyPersonas(journey) : []
   return (
     <div className={cx(map.page, styles.page)}>
-      <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, with the teams and systems behind each stage" />
+      <InsightsHeader title="Platform Insights" description="The customer’s journey, stage by stage, with goals and themes" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
 
       {!p.editor && (p.workflows.length > 0 || p.canEdit) && (
@@ -60,8 +60,8 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
           {p.workflows.length > 0 && (
             <Dropdown
               id="workflow-picker"
-              titleText="Workflow"
-              label="Choose a workflow"
+              titleText="Journey"
+              label="Choose a journey"
               size="md"
               className={flow.picker}
               items={picks}
@@ -79,14 +79,14 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
               )}
               {onWorkflow && (
                 <Button kind="tertiary" size="md" onClick={p.onEdit}>
-                  Edit Workflow
+                  Edit Journey
                 </Button>
               )}
             </div>
           )}
           {p.canEdit && (
             <Button kind="primary" size="md" className={flow.newButton} onClick={p.onNew}>
-              New Workflow
+              New Journey
             </Button>
           )}
         </div>
@@ -98,7 +98,7 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
       {!p.editor && p.workflows.length === 0 && state !== 'loading' && p.canEdit && (
         <div className={flow.emptyBox}>
           <p className={styles.muted}>
-            A workflow is the blueprint of one app or feature: its stages, and the teams, systems and processes that work behind each one. Edit it once here and every project on it shows it.
+            A journey is the blueprint of one app or feature: its stages, and the teams, systems and processes that work behind each one. Edit it once here and every project on it shows it.
           </p>
           <Button kind="primary" size="md" disabled={p.addingSamples} onClick={p.onAddSamples}>
             {p.addingSamples ? 'Adding…' : 'Add the Anchor CX example'}
@@ -112,8 +112,8 @@ export function PlatformJourneyView(p: PlatformJourneyViewProps) {
           <p className={flow.pageNote}>
             {journey.workflow.description ? `${journey.workflow.description} ` : ''}
             {journey.workflow.projects === 0
-              ? 'No project is on this workflow yet, so no research is laid over it.'
-              : `Research from ${plural(journey.workflow.projects, 'project')} on this workflow.`}
+              ? 'No project is on this journey yet, so no research is laid over it.'
+              : `Research from ${plural(journey.workflow.projects, 'project')} on this journey.`}
           </p>
           {personas.length > 0 && (
             <div className={flow.trace} role="group" aria-label="Trace a persona">

@@ -16,7 +16,7 @@ export type BlueprintActionsProps = {
   onDelete?: () => void
 }
 
-// The buttons of Edit Workflow: Delete, Cancel and Save, at the right of the workflow's name and description. Delete asks first (the dialog below), which says how
+// The buttons of Edit Journey: Delete, Cancel and Save, at the right of the workflow's name and description. Delete asks first (the dialog below), which says how
 // many projects it takes off the workflow. What is still missing before it can be saved is named beside them.
 export function BlueprintActions({ draft, initial, projectCount, saving, deleting, onSave, onCancel, onDelete }: BlueprintActionsProps) {
   const [askDelete, setAskDelete] = useState(false)
@@ -41,7 +41,7 @@ export function BlueprintActions({ draft, initial, projectCount, saving, deletin
         open={askDelete}
         danger
         size="sm"
-        modalHeading={`Delete ${initial.name || 'this workflow'}?`}
+        modalHeading={`Delete ${initial.name || 'this journey'}?`}
         primaryButtonText={deleting ? 'Deleting…' : 'Delete'}
         secondaryButtonText="Cancel"
         primaryButtonDisabled={deleting}
@@ -49,7 +49,7 @@ export function BlueprintActions({ draft, initial, projectCount, saving, deletin
         onRequestSubmit={() => onDelete?.()}
       >
         <p className={styles.confirm}>
-          {projectCount > 0 && `${projectCount === 1 ? 'A project is' : `${projectCount} projects are`} on this workflow and will be taken off it. `}
+          {projectCount > 0 && `${projectCount === 1 ? 'A project is' : `${projectCount} projects are`} on this journey and will be taken off it. `}
           Its stages and backstage are removed. This cannot be undone, though the audit log keeps a record.
         </p>
       </Modal>

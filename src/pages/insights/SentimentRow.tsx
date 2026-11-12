@@ -8,7 +8,7 @@ export function SentimentRow({ stages }: { stages: { name: string; sentiment: nu
   const points = stages.flatMap((s, i) => (s.sentiment === null ? [] : [{ index: i, sentiment: s.sentiment, left: ((i + 0.5) / stages.length) * 100, top: sentimentTop(s.sentiment) }]))
   const label = points.length ? 'Sentiment by stage: ' + points.map((p) => `${stages[p.index].name} ${p.sentiment < 0 ? 'negative' : 'positive'}`).join(', ') : 'No sentiment to show'
   return (
-    <div className={cx(map.row, map.sentimentRow)}>
+    <div className={map.row}>
       <div className={map.rowLabel}>Sentiment</div>
       <div className={map.sentiment} role="img" aria-label={label}>
         <span className={map.axisTop}>Positive</span>

@@ -57,7 +57,7 @@ export function WorkflowJourneyMap({ journey, persona, onOpenTheme }: WorkflowJo
           ))}
         </div>
 
-        <div className={cx(map.row, styles.personaRow)} data-testid="persona-row">
+        <div className={map.row} data-testid="persona-row">
           <div className={map.rowLabel}>Personas</div>
           {stages.map((s, i) => {
             const people = s.personas ?? []

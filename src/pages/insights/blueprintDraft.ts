@@ -54,7 +54,7 @@ const text = (s: string) => (s.trim() ? s.trim() : null)
 /** What the person still has to fix before it can be saved: a name for the workflow, every stage and every backstage entry. */
 export function problems(d: Draft): string[] {
   const out: string[] = []
-  if (d.name.trim().length < 2) out.push('Give the workflow a name of at least 2 characters.')
+  if (d.name.trim().length < 2) out.push('Give the journey a name of at least 2 characters.')
   if (d.stages.some((s) => !s.name.trim())) out.push('Give every stage a name.')
   if (d.stages.some((s) => s.backstage.some((b) => !b.name.trim()))) out.push('Give every backstage entry a name.')
   return out

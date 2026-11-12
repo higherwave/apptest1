@@ -126,9 +126,8 @@
 .storyLink {
   @include tokens.role('label-md');
   color: var(--at-link);
-  text-decoration: underline;
 
-  &:hover { color: var(--at-link-active); }
+  &:hover { color: var(--at-link-active); text-decoration: underline; }
 }
 
 .srOnly {
