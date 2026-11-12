@@ -38,6 +38,7 @@ they are not in; the read-only demo viewer sees everything. Rules live in `serve
 - A list or rollup of projects takes the caller's visible teams (`visibleTeamIds(ctx)`): `listProjects`, `listSpecs`, and every Platform Insights
   reader (`currentThemes(visible)`). Code that WRITES platform data keeps reading `CURRENT_THEMES` (all teams), or it would treat another team's themes as gone.
 - `ctx.role` is the role for everything that is not about one project (owner = leader). A project's own role is `projectAccess()`.
+- With `SSO_TEAM_GROUP_PREFIX` set, sign-in groups decide people's places in every team but the default (`server/team-groups.ts`, run from `memberFor`); the Teams page then refuses to edit those people.
 - Migration 0036's triggers keep the default team in step with workspace memberships and new projects, so the previous code still works during a deploy.
 
 ## Database

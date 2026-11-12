@@ -671,6 +671,7 @@ paths:
         projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
       parameters:
         - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, categories, projects, workflows, jira] } }
+        - { name: teamId, in: query, required: false, schema: { type: string }, description: 'Only changes about this team: its people, its projects and the team itself.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
         - { name: cursor, in: query, required: false, schema: { type: string } }
       responses:
@@ -3318,6 +3319,16 @@ components:
         spentUsd: { type: number }
         spendLevel: { type: string, enum: [ok, half, high, reached], description: 'How far through the month''s budget the spend is: half from 50%, high from 80%, reached at 100%. Sent with budgetUsd and spentUsd.' }
         month: { type: string, description: 'The month the spend counts, as YYYY-MM (UTC).' }
+        byTeam:
+          type: array
+          description: 'Owners only, with the spend. Where this month''s spend went, by the team of the project each call was for; a call for no one project has no team. One budget governs the whole workspace.'
+          items:
+            type: object
+            required: [teamId, name, spentUsd]
+            properties:
+              teamId: { type: [string, 'null'] }
+              name: { type: [string, 'null'] }
+              spentUsd: { type: number }
         problems:
           type: array
           description: The most recent problems with model calls in the past 30 days (up to 10, newest first). Only owners and editors receive it, and only when there are some.
@@ -3341,7 +3352,7 @@ components:
         mailConfigured: { type: boolean, description: 'False when this deployment has no email sender set up.' }
     Me:
       type: object
-      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso, teams]
+      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso, teamsManagedBySso, teams]
       properties:
         userId: { type: string }
         email: { type: string }
@@ -3353,6 +3364,7 @@ components:
         via: { type: string, enum: [session, token, open, anonymous], description: 'How this request was let in.' }
         signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
         rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
+        teamsManagedBySso: { type: boolean, description: 'True when SSO_TEAM_GROUP_PREFIX is set: people''s places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`.' }
         teams:
           type: array
           description: 'The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team''s projects whether or not they belong to it.'
@@ -3664,10 +3676,17 @@ components:
           items: { $ref: '#/components/schemas/UsageRow' }
     AuditEntry:
       type: object
-      required: [id, createdAt, actor, group, entity, entityId, verb, before, after]
+      required: [id, createdAt, actor, group, entity, entityId, verb, before, after, team]
       properties:
         id: { type: string }
         createdAt: { type: string, format: date-time }
+        team:
+          type: [object, 'null']
+          description: The team the change was about (a project's team, or the team itself), when it has one.
+          required: [id, name]
+          properties:
+            id: { type: string }
+            name: { type: string }
         actor:
           type: [object, 'null']
           required: [id, name]

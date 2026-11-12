@@ -10,6 +10,10 @@ export type AuditLogViewProps = {
   state: 'loading' | 'error' | 'ready'
   entries: AuditEntry[]
   group: AuditGroup | 'all'
+  /** The workspace's teams, to narrow the log to one (shown when there is more than one). */
+  teams: { id: string; name: string }[]
+  team: string
+  onTeam: (id: string) => void
   errorText?: string
   hasMore: boolean
   loadingMore: boolean
@@ -28,6 +32,18 @@ export function AuditLogView(p: AuditLogViewProps) {
 
       <div>
         <div className={styles.filter}>
+          {p.teams.length > 1 && (
+            <Dropdown
+              id="audit-team"
+              titleText="Team"
+              label="All teams"
+              size="md"
+              items={[{ id: 'all', name: 'All teams' }, ...p.teams]}
+              itemToString={(t) => t?.name ?? ''}
+              selectedItem={p.team === 'all' ? { id: 'all', name: 'All teams' } : (p.teams.find((t) => t.id === p.team) ?? null)}
+              onChange={({ selectedItem }) => selectedItem && p.onTeam(selectedItem.id)}
+            />
+          )}
           <Dropdown
             id="audit-group"
             titleText="Show"
@@ -62,7 +78,10 @@ export function AuditLogView(p: AuditLogViewProps) {
                     {when(e.createdAt)}
                   </div>
                   <div role="cell">{e.actor?.name ?? 'The system'}</div>
-                  <div role="cell">{d.what}</div>
+                  <div role="cell">
+                    {d.what}
+                    {e.team && p.teams.length > 1 && <span className={styles.muted}> · {e.team.name}</span>}
+                  </div>
                   <div role="cell" className={styles.muted}>
                     {d.detail}
                   </div>

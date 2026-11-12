@@ -2612,6 +2612,12 @@ export interface components {
             spendLevel?: "ok" | "half" | "high" | "reached";
             /** @description The month the spend counts, as YYYY-MM (UTC). */
             month?: string;
+            /** @description Owners only, with the spend. Where this month's spend went, by the team of the project each call was for; a call for no one project has no team. One budget governs the whole workspace. */
+            byTeam?: {
+                teamId: string | null;
+                name: string | null;
+                spentUsd: number;
+            }[];
             /** @description The most recent problems with model calls in the past 30 days (up to 10, newest first). Only owners and editors receive it, and only when there are some. */
             problems?: {
                 /** Format: date-time */
@@ -2654,6 +2660,8 @@ export interface components {
             signInAvailable: boolean;
             /** @description True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`. */
             rolesManagedBySso: boolean;
+            /** @description True when SSO_TEAM_GROUP_PREFIX is set: people's places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`. */
+            teamsManagedBySso: boolean;
             /** @description The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team's projects whether or not they belong to it. */
             teams: {
                 id: string;
@@ -2900,6 +2908,11 @@ export interface components {
             id: string;
             /** Format: date-time */
             createdAt: string;
+            /** @description The team the change was about (a project's team, or the team itself), when it has one. */
+            team: {
+                id: string;
+                name: string;
+            } | null;
             actor: {
                 id: string;
                 name: string;
@@ -4041,6 +4054,8 @@ export interface operations {
         parameters: {
             query?: {
                 group?: "members" | "teams" | "categories" | "projects" | "workflows" | "jira";
+                /** @description Only changes about this team: its people, its projects and the team itself. */
+                teamId?: string;
                 limit?: number;
                 cursor?: string;
             };

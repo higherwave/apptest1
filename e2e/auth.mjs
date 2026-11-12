@@ -188,6 +188,13 @@ try {
   ok('moving a project from the default team to Support puts it in Support', !!movedId)
   ok('the owner is a leader, so still sees it, but cannot change it: not a member of Support', await page.evaluate(async (id) => (await fetch(`/api/v1/projects/${id}`)).status === 200 && (await fetch(`/api/v1/projects/${id}/tasks`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '1' }, body: JSON.stringify({ tasks: [] }) })).status === 403, movedId))
 
+  await page.goto(`${BASE}/settings/audit`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#audit-team', { timeout: 8000 })
+  await page.click('#audit-team')
+  await page.waitForSelector('[role=option]', { visible: true })
+  await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.trim() === 'Support').click())
+  await new Promise((r) => setTimeout(r, 800))
+  ok('the audit log can be narrowed to one team: its creation and the project moved into it, each naming the team', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid="audit-row"]')].map((r) => r.innerText); return rows.length >= 2 && rows.every((r) => r.includes('Support')) && rows.some((r) => /project moved/i.test(r)) }))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('#project-team-filter', { timeout: 8000 })
   ok('with two teams the list names each project’s team and marks a leader’s read-only view', await page.evaluate(() => { const t = [...document.querySelectorAll('[data-testid="project-team"]')].map((e) => e.innerText.replace(/\s+/g, ' ').trim()); return t.some((x) => x === 'Support · View only') && t.some((x) => x === 'General') }))

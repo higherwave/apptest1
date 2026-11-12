@@ -15,7 +15,11 @@
 }
 
 .filter {
-  max-inline-size: 18rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-md);
+
+  > * { inline-size: 16rem; }
 }
 
 .tableWrap {

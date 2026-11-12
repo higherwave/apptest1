@@ -45,6 +45,15 @@ export function AppStatusPage() {
                 max={Math.max(ai.data.budgetUsd, 0.01)}
                 helperText={`$${(ai.data.spentUsd ?? 0).toFixed(2)} of $${ai.data.budgetUsd.toFixed(2)} (${pct(ai.data.spentUsd ?? 0, ai.data.budgetUsd)}%)`}
               />
+              {ai.data.byTeam && ai.data.byTeam.filter((t) => t.teamId).length > 0 && (
+                <ul className={styles.problems} aria-label="Spend by team" data-testid="spend-by-team">
+                  {ai.data.byTeam.map((t) => (
+                    <li key={t.teamId ?? 'workspace'} className={styles.meta}>
+                      {t.name ?? 'Workspace (not for one project)'}: ${t.spentUsd.toFixed(2)}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <p className={styles.text}>Alerts appear at 50%, 80% and 100% of the budget. At 100% AI steps use the simulation until next month or a higher AI_MONTHLY_BUDGET_USD.</p>
             </section>
           )}

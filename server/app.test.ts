@@ -1762,8 +1762,9 @@ test('a costly provider is recorded, and at the monthly budget the run falls bac
   const runs = (await pg.query<any>(`select provider, status::text s from core.agent_runs where project_id = $1 and kind = 'analysis' order by started_at`, [id])).rows
   assert.deepEqual(runs, [{ provider: 'fake', s: 'complete' }, { provider: 'stub', s: 'complete' }].map((r) => ({ provider: r.provider, s: r.s })), 'the second run is recorded as simulated')
   const status = await (await app.request('/api/v1/ai/status', { headers: auth })).json()
-  const { problems, ...rest } = status
+  const { problems, byTeam, ...rest } = status
   assert.deepEqual(rest, { mode: 'live', enabled: true, budgetUsd: 10, spentUsd: 12, spendLevel: 'reached', month: new Date().toISOString().slice(0, 7) })
+  assert.deepEqual(byTeam.map((t: any) => [t.name, t.spentUsd]), [['General', 6], [null, 6]], 'the owner sees where the spend went: the project’s team, and calls for no one project')
   assert.deepEqual(problems.map((p: any) => [p.purpose, p.code]), [['storyboard', 'ai_budget_reached'], ['analysis', 'ai_budget_reached']], 'the owner sees that the run, and the storyboard written after it, fell back to the simulation')
   assert.ok(problems[0].message && problems[0].detail && problems[0].at)
   assert.deepEqual(await (await app.request('/api/v1/ai/status')).json(), { mode: 'live', enabled: true })

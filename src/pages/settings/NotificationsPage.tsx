@@ -27,7 +27,7 @@ export function NotificationsPage() {
           <section className={styles.card} aria-label="Daily reminder" data-testid="reminder-card">
             <h2 className={styles.head}>Daily reminder</h2>
             <p className={styles.text}>
-              Around 6am your time we email {p.email} when a project has a step still to do, with a link straight to that step. Once a project has said the same thing three days in a row, it stops
+              Around 6am your time we email {p.email} when a project of a team you edit in has a step still to do, with a link straight to that step (grouped by team if you edit in more than one). Once a project has said the same thing three days in a row, it stops
               until something changes. Measure is not included yet.
             </p>
             <Checkbox id="reminder-on" data-testid="reminder-on" labelText="Email me this reminder" checked={p.digestEnabled} onChange={(_, { checked }) => save.mutate({ digestEnabled: checked })} />

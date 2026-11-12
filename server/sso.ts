@@ -31,6 +31,11 @@ export type SsoPolicy = {
   defaultRoleFor: (email: string) => Exclude<Role, 'owner'> | null
   /** True when any SSO_*_GROUPS is set: the identity provider decides roles, and the Members page is read-only. */
   managedByGroups: boolean
+  /**
+   * SSO_TEAM_GROUP_PREFIX, for example `signalflow-`: groups named `<prefix><team>-<role>` (signalflow-support-editors) put a person in that team with that
+   * role at every sign-in, and take them out when the group goes. The default team is not managed this way. Null when not set.
+   */
+  teamGroupPrefix: string | null
 }
 
 const list = (v: string | undefined) => (v ?? '').split(',').map((s) => s.trim()).filter(Boolean)
@@ -51,7 +56,35 @@ export function ssoPolicy(env: Env): SsoPolicy {
     groups,
     defaultRole,
     managedByGroups: groups.owner.length + groups.editor.length + groups.viewer.length > 0,
+    teamGroupPrefix: env.SSO_TEAM_GROUP_PREFIX?.trim() || null,
   }
+}
+
+/** A team's name as it appears in a group name: lower case, runs of anything but letters and digits as one hyphen ("Customer Success" is customer-success). */
+export const teamSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+
+const ROLE_WORD: Record<string, Role> = { owner: 'owner', owners: 'owner', editor: 'editor', editors: 'editor', viewer: 'viewer', viewers: 'viewer' }
+const RANK: Record<Role, number> = { viewer: 0, editor: 1, owner: 2 }
+
+/**
+ * The roles a person's groups give in each team, by team slug (the highest wins where several groups name one team). A group counts when it starts with
+ * the prefix and ends in -owner(s), -editor(s) or -viewer(s); what is between is the team. Names match without regard to case.
+ */
+export function teamRolesFromGroups(prefix: string | null, groups: string[]): Map<string, Role> {
+  const out = new Map<string, Role>()
+  if (!prefix) return out
+  const lead = prefix.toLowerCase()
+  for (const g of groups) {
+    const name = g.trim().toLowerCase()
+    if (!name.startsWith(lead)) continue
+    const m = /^(.+)-([a-z]+)$/.exec(name.slice(lead.length))
+    const role = m ? ROLE_WORD[m[2]] : undefined
+    if (!m || !role) continue
+    const slug = teamSlug(m[1])
+    if (!slug) continue
+    if (!out.has(slug) || RANK[role] > RANK[out.get(slug)!]) out.set(slug, role)
+  }
+  return out
 }
 
 /** The group names in a token's claims: an array, or one string (some providers send a single group that way). */

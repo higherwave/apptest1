@@ -67,6 +67,25 @@ export const monthlyBudgetUsd = (env: Env): number => {
   return env.AI_MONTHLY_BUDGET_USD && Number.isFinite(n) && n >= 0 ? n : 10
 }
 
+/**
+ * This month's spend by the team of the project each call was for. A call that was for no one project (matching themes across projects, for example)
+ * has no team and is listed as the workspace's own. One budget still governs the whole workspace; this only shows where it went.
+ */
+export async function spendByTeam(db: Queryable, workspaceId: string): Promise<{ teamId: string | null; name: string | null; spentUsd: number }[]> {
+  const { rows } = await db.query(
+    `select t.id as team_id, t.name, coalesce(sum(u.cost_usd), 0)::float8 as spent
+       from core.ai_usage u
+       left join core.agent_runs r on r.id = u.run_id
+       left join core.projects p on p.id = r.project_id
+       left join core.teams t on t.id = p.team_id
+      where u.workspace_id = $1 and u.created_at >= date_trunc('month', now())
+      group by t.id, t.name
+      order by sum(u.cost_usd) desc, lower(t.name)`,
+    [workspaceId],
+  )
+  return rows.map((r) => ({ teamId: (r.team_id ?? null) as string | null, name: (r.name ?? null) as string | null, spentUsd: r.spent as number }))
+}
+
 export async function spentThisMonthUsd(db: Queryable, workspaceId: string): Promise<number> {
   const r = await db.query(`select coalesce(sum(cost_usd), 0)::float8 as spent from core.ai_usage where workspace_id = $1 and created_at >= date_trunc('month', now())`, [workspaceId])
   return r.rows[0].spent as number

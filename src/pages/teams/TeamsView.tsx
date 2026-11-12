@@ -25,6 +25,8 @@ export type TeamsViewProps = {
   people: Member[]
   selected?: Team
   errorText?: string
+  /** True when people's places in non-default teams come from sign-in groups (SSO_TEAM_GROUP_PREFIX). */
+  groupsManage: boolean
   newName: string
   nameDraft: string
   addPerson: Member | null
@@ -53,6 +55,8 @@ export function TeamsView(p: TeamsViewProps) {
   const inTeam = new Set(team?.members.map((m) => m.memberId))
   const candidates = p.people.filter((m) => !inTeam.has(m.id))
   const others = p.teams.filter((t) => t.id !== team?.id)
+  // In a team whose people come from sign-in groups, the list is shown but not edited here.
+  const locked = p.groupsManage && !!team && !team.isDefault
   return (
     <div className={styles.page}>
       <SettingsHeader />
@@ -60,6 +64,9 @@ export function TeamsView(p: TeamsViewProps) {
         A team owns projects, and a person has a role in each team they belong to. Owners of the workspace see every team’s projects; everyone else sees only their own teams’.
         Anyone invited to the workspace starts in the default team.
       </p>
+      {p.groupsManage && (
+        <InlineNotification kind="info" lowContrast hideCloseButton title="People come from your sign-in groups" subtitle="Who is in each team (except the default team) and with what role follows their groups at every sign-in. Change it in your identity provider. Teams and their projects are still managed here." />
+      )}
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading teams" />}
 
@@ -107,6 +114,9 @@ export function TeamsView(p: TeamsViewProps) {
                           <p className={styles.email}>{m.email}</p>
                         </div>
                         <div role="cell">
+                          {locked ? (
+                            <span>{roleOf(m.role).label}</span>
+                          ) : (
                           <Dropdown
                             id={`team-role-${m.memberId}`}
                             titleText={`Role of ${m.email}`}
@@ -120,14 +130,16 @@ export function TeamsView(p: TeamsViewProps) {
                             selectedItem={roleOf(m.role)}
                             onChange={({ selectedItem }) => selectedItem && selectedItem.key !== m.role && p.onChangeRole(m.memberId, selectedItem.key)}
                           />
+                          )}
                         </div>
                         <div role="cell" className={styles.remove}>
-                          <Button kind="ghost" size="lg" hasIconOnly renderIcon={Close} iconDescription={`Take ${m.email} out of ${team.name}`} tooltipPosition="left" onClick={() => p.onRemovePerson(m.memberId)} />
+                          {!locked && <Button kind="ghost" size="lg" hasIconOnly renderIcon={Close} iconDescription={`Take ${m.email} out of ${team.name}`} tooltipPosition="left" onClick={() => p.onRemovePerson(m.memberId)} />}
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
+                {!locked && (
                 <div className={styles.addRow}>
                   <Dropdown
                     id="team-add-person"
@@ -156,6 +168,7 @@ export function TeamsView(p: TeamsViewProps) {
                     Add to team
                   </Button>
                 </div>
+                )}
               </div>
 
               <div>

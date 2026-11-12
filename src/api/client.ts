@@ -79,9 +79,10 @@ export type AuditEntry = components['schemas']['AuditEntry']
 export type AuditGroup = AuditEntry['group']
 export type AuditPage = components['schemas']['AuditPage']
 // The admin audit log (owners only), a page at a time.
-export const listAudit = (q: { group?: AuditGroup; cursor?: string }) => {
+export const listAudit = (q: { group?: AuditGroup; teamId?: string; cursor?: string }) => {
   const params = new URLSearchParams()
   if (q.group) params.set('group', q.group)
+  if (q.teamId) params.set('teamId', q.teamId)
   if (q.cursor) params.set('cursor', q.cursor)
   const qs = params.toString()
   return request<AuditPage>(`/audit${qs ? `?${qs}` : ''}`)

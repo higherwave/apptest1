@@ -4,8 +4,11 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { parse } from 'yaml'
 import { createApp } from './app.js'
-import { createDemoDatabase } from './test-utils.js'
+import { createDemoDatabase, fakeAuth } from './test-utils.js'
 import { effectiveRole, scopeOf } from './teams.js'
+import { teamRolesFromGroups, teamSlug } from './sso.js'
+import { spendByTeam } from './ai.js'
+import { composeDigest } from './notifications.js'
 
 declare global {
   interface Response {
@@ -254,4 +257,66 @@ test('Platform Insights shows a team member only their teams’ research; leader
   const theme = leader.themes[0].id
   assert.equal((await f.as('alex').request(`/api/v1/insights/themes/${theme}`, { method: 'PATCH', headers: auth, body: JSON.stringify({ title: 'Renamed by an editor' }) })).status, 403)
   assert.equal((await f.as('alex').request('/api/v1/insights/merge-suggestions/run', { method: 'POST', headers: auth })).status, 403)
+})
+
+test('AI spend is shown by the team of the project each call was for; a call for no one project is the workspace’s own', async () => {
+  const f = await fixture()
+  const run = (await f.q(`select id from core.agent_runs where project_id = $1 limit 1`, [f.project]))[0].id
+  await f.q(`insert into core.ai_usage (workspace_id, run_id, purpose, provider, cost_usd) values ($1, $2, 'analysis', 't', 0.5), ($1, $2, 'spec_step', 't', 0.25), ($1, null, 'theme_match', 't', 0.1)`, [f.ws, run])
+  const rows = await spendByTeam(f.db, f.ws)
+  assert.deepEqual(rows.map((r) => [r.name, Number(r.spentUsd.toFixed(2))]), [['Support', 0.75], [null, 0.1]])
+})
+
+test('the audit log can be narrowed to one team, and says which team a change was about', async () => {
+  const f = await fixture()
+  const call = (method: string, path: string, body?: unknown) => f.david.request(`/api/v1${path}`, { method, headers: auth, body: body === undefined ? undefined : JSON.stringify(body) })
+  const billing = (await (await call('POST', '/teams', { name: 'Billing' })).json()).id as string
+  await call('PUT', `/teams/${billing}/projects/${f.other}`)
+  const all = (await (await call('GET', '/audit?group=teams')).json()).data
+  assert.ok(all.every((e: any) => e.team === null || typeof e.team.name === 'string'))
+  const ofBilling = (await (await call('GET', `/audit?teamId=${billing}`)).json()).data
+  assert.ok(ofBilling.length >= 2 && ofBilling.every((e: any) => e.team?.id === billing), 'the team’s own creation and the project moved into it')
+  assert.deepEqual(ofBilling.map((e: any) => e.verb).sort(), ['created', 'project_moved'])
+  assert.equal((await call('GET', '/audit?teamId=nope')).status, 422)
+})
+
+test('the reminder groups projects under their team when a person edits in several', () => {
+  const item = (name: string, teamName: string) => ({ projectId: name, teamId: teamName, teamName, name, text: 'Next', path: `/projects/${name}/plan`, fingerprint: name })
+  const two = composeDigest({ name: 'Pat', items: [item('Alpha', 'Support'), item('Beta', 'Billing'), item('Gamma', 'Support')], base: 'https://x.test', settingsUrl: 'https://x.test/s', unsubscribe: null })
+  assert.match(two.text, /Billing\n- Beta[^]*Support\n- Alpha[^]*- Gamma/)
+  assert.match(two.html, /<strong>Billing<\/strong>/)
+  const one = composeDigest({ name: 'Pat', items: [item('Alpha', 'Support'), item('Gamma', 'Support')], base: 'https://x.test', settingsUrl: 'https://x.test/s', unsubscribe: null })
+  assert.ok(!one.text.includes('Support\n'), 'one team: nothing to group')
+})
+
+test('sign-in groups name teams and roles: signalflow-<team>-<role>, highest role wins, other groups are ignored', () => {
+  const got = (groups: string[]) => Object.fromEntries(teamRolesFromGroups('signalflow-', groups))
+  assert.deepEqual(got(['signalflow-support-editors', 'Signalflow-Billing-Viewer', 'other-support-owners', 'signalflow-support-viewers']), { support: 'editor', billing: 'viewer' })
+  assert.deepEqual(got(['SIGNALFLOW-Customer-Success-OWNERS']), { 'customer-success': 'owner' })
+  assert.deepEqual(got(['signalflow-support', 'signalflow--editors', 'signalflow-support-admins']), {}, 'no role word, no team, or an unknown role: not a team group')
+  assert.deepEqual(teamRolesFromGroups(null, ['signalflow-support-editors']), new Map(), 'without a prefix nothing is read')
+  assert.equal(teamSlug('Customer Success'), 'customer-success')
+  assert.equal(teamSlug(' Support & Ops! '), 'support-ops')
+})
+
+test('with team groups on, signing in puts a person in the teams their groups name and takes them out when the group goes', async () => {
+  const f = await fixture()
+  const env = { SSO_TEAM_GROUP_PREFIX: 'signalflow-', DEV_TOKEN: 's3cret' }
+  const app = createApp({ env, getDb: () => f.db, auth: fakeAuth() })
+  const as = (groups: string[]) => ({ 'x-test-user': JSON.stringify({ id: 'sub-alex', email: 'alex@demo.signalflow.example', groups }) })
+  const me = async (groups: string[]) => (await (await app.request('/api/v1/me', { headers: as(groups) })).json()) as { teams: { name: string; role: string }[]; teamsManagedBySso: boolean }
+  const mine = (m: { teams: { name: string; role: string }[] }) => Object.fromEntries(m.teams.map((t) => [t.name, t.role]))
+  const first = await me(['SignalFlow-Support-Editors', 'signalflow-nowhere-viewers', 'signalflow-general-owners'])
+  assert.equal(first.teamsManagedBySso, true)
+  assert.deepEqual(mine(first), { General: 'editor', Support: 'editor' }, 'Support from the group; the default team is not managed by groups; a group for a team that does not exist is ignored')
+  assert.deepEqual(mine(await me(['signalflow-support-viewers'])), { General: 'editor', Support: 'viewer' }, 'a changed group changes the role')
+  assert.deepEqual(mine(await me([])), { General: 'editor' }, 'no group, no place in the team')
+  const verbs = (await f.q(`select verb from core.audit_log where entity = 'core.team_memberships' and verb like '%sign-in groups' order by created_at, id`)).map((r) => r.verb)
+  assert.deepEqual(verbs, ['added by sign-in groups', 'role set by sign-in groups', 'removed by sign-in groups'])
+  // The Teams page may not edit those teams' people (they would be undone at the next sign-in), but still manages the default team's.
+  const leader = createApp({ env: { ...env }, getDb: () => f.db })
+  const alexMember = (await f.q(`select m.id from core.memberships m join core.users u on u.id = m.user_id where u.email like 'alex@%'`))[0].id
+  const put = (team: string) => leader.request(`/api/v1/teams/${team}/members/${alexMember}`, { method: 'PUT', headers: auth, body: JSON.stringify({ role: 'viewer' }) })
+  assert.equal((await put(f.support)).status, 409)
+  assert.equal((await put(f.general)).status, 200)
 })

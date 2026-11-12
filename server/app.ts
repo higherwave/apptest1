@@ -36,7 +36,7 @@ import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from '
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
-import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
+import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spendByTeam, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
@@ -109,7 +109,8 @@ export function createApp(options: AppOptions = {}) {
     const budgetUsd = monthlyBudgetUsd(env)
     const spentUsd = await spentThisMonthUsd(getDb(), ctx.workspaceId)
     // spendLevel is what the alerts follow: half (50%), high (80%) or reached (100%) of the month's budget. month says which month it counts.
-    return c.json({ mode, enabled: true, budgetUsd, spentUsd, spendLevel: spendLevel(spentUsd, budgetUsd), month: new Date().toISOString().slice(0, 7), ...lastProblem })
+    const byTeam = await spendByTeam(getDb(), ctx.workspaceId).catch(() => [])
+    return c.json({ mode, enabled: true, budgetUsd, spentUsd, spendLevel: spendLevel(spentUsd, budgetUsd), month: new Date().toISOString().slice(0, 7), byTeam, ...lastProblem })
   })
 
   // Reaches the database, so it needs the same access as the data routes.
@@ -127,6 +128,7 @@ export function createApp(options: AppOptions = {}) {
       userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, avatarUrl: ctx.avatarUrl, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
       signInAvailable: !!auth,
       rolesManagedBySso: ssoPolicy(env).managedByGroups,
+      teamsManagedBySso: !!ssoPolicy(env).teamGroupPrefix,
       teams,
     })
   })
@@ -268,9 +270,17 @@ export function createApp(options: AppOptions = {}) {
     return c.body(null, 204)
   })
 
+  // With team groups on, people's places in every team but the default one come from their sign-in groups, so a change here would be undone at their next sign-in.
+  const requireTeamMembersEditable = async (id: string) => {
+    if (!ssoPolicy(env).teamGroupPrefix) return
+    const t = (await getDb().query(`select is_default from core.teams where id = $1`, [id])).rows[0]
+    if (t && !t.is_default) throw new ApiError(409, 'managed_by_sso', 'People’s places in this team come from your sign-in groups. Change them in your identity provider.')
+  }
+
   app.put('/teams/:id/members/:memberId', withContext, async (c) => {
     requireLeader(c)
     const id = teamId(c)
+    await requireTeamMembersEditable(id)
     const member = c.req.param('memberId') ?? ''
     if (!UUID.test(member)) throw new ApiError(404, 'not_found', 'No such member.')
     const input = parseBody(changeRoleSchema, await readJson(c))
@@ -285,6 +295,7 @@ export function createApp(options: AppOptions = {}) {
 
   app.delete('/teams/:id/members/:memberId', withContext, async (c) => {
     requireLeader(c)
+    await requireTeamMembersEditable(teamId(c))
     const member = c.req.param('memberId') ?? ''
     if (!UUID.test(member)) throw new ApiError(404, 'not_found', 'No such member.')
     try {
@@ -323,8 +334,10 @@ export function createApp(options: AppOptions = {}) {
     const group = c.req.query('group')
     if (group && !(group in AUDIT_GROUPS)) throw new ApiError(422, 'validation_failed', 'Unknown group.', 'group')
     const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50) || 50))
+    const team = c.req.query('teamId')
+    if (team && !UUID.test(team)) throw new ApiError(422, 'validation_failed', 'Not a team id.', 'teamId')
     c.header('Cache-Control', 'private, no-store')
-    return c.json(await listAudit(getDb(), c.get('ctx').workspaceId, { group: group as AuditGroup | undefined, limit, cursor: c.req.query('cursor') }).catch((err) => {
+    return c.json(await listAudit(getDb(), c.get('ctx').workspaceId, { group: group as AuditGroup | undefined, teamId: team, limit, cursor: c.req.query('cursor') }).catch((err) => {
       if (err instanceof BadCursor) throw new ApiError(422, 'validation_failed', 'That page marker is not valid.', 'cursor')
       throw err
     }))

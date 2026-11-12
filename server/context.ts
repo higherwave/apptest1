@@ -5,6 +5,7 @@ import type { Db, Env } from './db.js'
 import { ssoSetRole } from './members.js'
 import { roleFromGroups, ssoPolicy, type Role, type SsoPolicy } from './sso.js'
 import { effectiveRole, loadTeamRoles, type TeamRoles } from './teams.js'
+import { syncTeamsFromGroups } from './team-groups.js'
 
 export type RequestContext = {
   /** True when the request carried no token and is acting as the read-only demo viewer. */
@@ -93,7 +94,9 @@ async function memberFor(db: Db, slug: string, who: AuthUser, policy: SsoPolicy)
     avatarUrl = who.image
     await db.query(`update core.users set avatar_url = $2 where id = $1`, [row.user_id, who.image])
   }
-  const teams = await loadTeamRoles(db, row.workspace_id, row.user_id)
+  let teams = await loadTeamRoles(db, row.workspace_id, row.user_id)
+  // With team groups on, the groups decide the person's place in every team but the default one.
+  if (policy.teamGroupPrefix) teams = await syncTeamsFromGroups(db, row.workspace_id, row.user_id, policy.teamGroupPrefix, who.groups ?? [], teams)
   return {
     anonymous: false, via: 'session', userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName, avatarUrl, workspaceName: row.workspace_name,
   }

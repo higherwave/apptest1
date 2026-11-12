@@ -55,10 +55,10 @@ export const useRetireArea = () => {
 export const useSignInOptions = () => useQuery({ queryKey: ['sign-in-options'], queryFn: getSignInOptions, staleTime: 5 * 60_000 })
 
 export const useUsage = () => useQuery({ queryKey: ['usage'], queryFn: listUsage })
-export const useAudit = (group?: AuditGroup) =>
+export const useAudit = (group?: AuditGroup, teamId?: string) =>
   useInfiniteQuery({
-    queryKey: ['audit', group ?? 'all'],
-    queryFn: ({ pageParam }) => listAudit({ group, cursor: pageParam }),
+    queryKey: ['audit', group ?? 'all', teamId ?? 'all'],
+    queryFn: ({ pageParam }) => listAudit({ group, teamId, cursor: pageParam }),
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })

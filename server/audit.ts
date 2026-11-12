@@ -20,6 +20,8 @@ export type AuditEntry = {
   group: AuditGroup
   entity: string
   entityId: string | null
+  /** The team the change was about: a project's team, or the team itself. */
+  team: { id: string; name: string } | null
   verb: string
   before: unknown
   after: unknown
@@ -32,7 +34,7 @@ const CURSOR = /^[0-9:. +\-TZ]+\|[0-9a-f-]{36}$/i
 export class BadCursor extends Error {}
 
 /** Newest first, a page at a time. The cursor is the last row's timestamp and id, so a page never repeats or skips a row. */
-export async function listAudit(db: Queryable, workspaceId: string, opts: { group?: AuditGroup; limit: number; cursor?: string }): Promise<AuditPage> {
+export async function listAudit(db: Queryable, workspaceId: string, opts: { group?: AuditGroup; teamId?: string; limit: number; cursor?: string }): Promise<AuditPage> {
   const entities: string[] = opts.group ? [...AUDIT_GROUPS[opts.group]] : Object.values(AUDIT_GROUPS).flatMap((l) => [...l])
   const params: unknown[] = [workspaceId, entities]
   let after = ''
@@ -42,12 +44,22 @@ export async function listAudit(db: Queryable, workspaceId: string, opts: { grou
     params.push(ts, id)
     after = `and (a.created_at, a.id) < ($3::timestamptz, $4::uuid)`
   }
+  // A change is about a team when it is the team (or someone's place in it), or a project that belongs to it (a moved project counts for the team it went to).
+  let about = ''
+  if (opts.teamId) {
+    params.push(opts.teamId)
+    about = `and coalesce(t.id, p.team_id) = $${params.length}::uuid`
+  }
   params.push(opts.limit + 1)
   const rows = (
     await db.query(
-      `select a.id, a.created_at::text as ts, a.actor_id, u.display_name, a.entity, a.entity_id, a.verb, a.before, a.after
-       from core.audit_log a left join core.users u on u.id = a.actor_id
-       where a.workspace_id = $1 and a.entity = any($2::text[]) ${after}
+      `select a.id, a.created_at::text as ts, a.actor_id, u.display_name, a.entity, a.entity_id, a.verb, a.before, a.after, tm.id as team_id, tm.name as team_name
+       from core.audit_log a
+       left join core.users u on u.id = a.actor_id
+       left join core.teams t on t.id = a.entity_id and a.entity in ('core.teams', 'core.team_memberships')
+       left join core.projects p on p.id = a.entity_id and a.entity in ('core.projects', 'core.teams')
+       left join core.teams tm on tm.id = coalesce(t.id, p.team_id)
+       where a.workspace_id = $1 and a.entity = any($2::text[]) ${after} ${about}
        order by a.created_at desc, a.id desc limit $${params.length}`,
       params,
     )
@@ -62,6 +74,7 @@ export async function listAudit(db: Queryable, workspaceId: string, opts: { grou
       group: groupOf(r.entity),
       entity: r.entity,
       entityId: r.entity_id ?? null,
+      team: r.team_id ? { id: r.team_id, name: r.team_name } : null,
       verb: r.verb,
       before: r.before ?? null,
       after: r.after ?? null,

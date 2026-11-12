@@ -35,7 +35,7 @@ export function nextStep(p: Pick<ProjectSummary, 'id' | 'status' | 'sessions' | 
     : step('Review the themes and set priorities', at('themes'))
 }
 
-export type DigestItem = { projectId: string; teamId: string | null; name: string; text: string; path: string; fingerprint: string }
+export type DigestItem = { projectId: string; teamId: string | null; teamName?: string | null; name: string; text: string; path: string; fingerprint: string }
 
 // Every project in the workspace that still has a step to do, in the order the project list shows them.
 export async function openItems(db: Queryable, workspaceId: string): Promise<DigestItem[]> {
@@ -45,7 +45,7 @@ export async function openItems(db: Queryable, workspaceId: string): Promise<Dig
   const out: DigestItem[] = []
   for (const p of projects) {
     const s = nextStep(p, facts.get(p.id) ?? { exists: false, published: false })
-    if (s) out.push({ projectId: p.id, teamId: p.teamId, name: p.name, ...s })
+    if (s) out.push({ projectId: p.id, teamId: p.teamId, teamName: p.teamName, name: p.name, ...s })
   }
   return out
 }
@@ -93,22 +93,26 @@ export function composeDigest(opts: { name: string; items: DigestItem[]; base: s
   const n = items.length
   const subject = `Signal Flow: ${n} ${n === 1 ? 'project is' : 'projects are'} waiting on you`
   const link = (i: DigestItem) => `${base}${i.path}`
+  // Someone who edits in several teams gets the projects grouped under their team; with one team there is nothing to group.
+  const teamNames = [...new Set(items.map((i) => i.teamName).filter((t): t is string => !!t))]
+  const grouped = teamNames.length > 1
+  const groups: { team: string | null; items: DigestItem[] }[] = grouped ? teamNames.sort((a, b) => a.localeCompare(b)).map((team) => ({ team, items: items.filter((i) => i.teamName === team) })) : [{ team: null, items }]
+  const intro = `${n === 1 ? 'One project has' : `${n} projects have`} a next step:`
   const text = [
     `Hi ${first},`,
     '',
-    `${n === 1 ? 'One project has' : `${n} projects have`} a next step:`,
+    intro,
     '',
-    ...items.map((i) => `- ${i.name}: ${i.text}\n  ${link(i)}`),
+    ...groups.flatMap((g) => [...(g.team ? [`${g.team}`] : []), ...g.items.map((i) => `- ${i.name}: ${i.text}\n  ${link(i)}`), ...(g.team ? [''] : [])]),
     '',
     `Change or stop these reminders: ${opts.settingsUrl}`,
     ...(opts.unsubscribe ? [`Unsubscribe in one click: ${opts.unsubscribe}`] : []),
   ].join('\n')
+  const list = (xs: DigestItem[]) => ['<ul>', ...xs.map((i) => `<li><strong>${esc(i.name)}</strong>: <a href="${esc(link(i))}">${esc(i.text)}</a></li>`), '</ul>']
   const html = [
     `<p>Hi ${esc(first)},</p>`,
-    `<p>${n === 1 ? 'One project has' : `${n} projects have`} a next step:</p>`,
-    '<ul>',
-    ...items.map((i) => `<li><strong>${esc(i.name)}</strong>: <a href="${esc(link(i))}">${esc(i.text)}</a></li>`),
-    '</ul>',
+    `<p>${intro}</p>`,
+    ...groups.flatMap((g) => [...(g.team ? [`<p><strong>${esc(g.team)}</strong></p>`] : []), ...list(g.items)]),
     `<p><small><a href="${esc(opts.settingsUrl)}">Change or stop these reminders</a>${opts.unsubscribe ? ` · <a href="${esc(opts.unsubscribe)}">Unsubscribe in one click</a>` : ''}</small></p>`,
   ].join('\n')
   return { subject, text, html }

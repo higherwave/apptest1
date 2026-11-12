@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { friendlyMessage, type Member, type MemberRole } from '../../api/client'
-import { useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useSetTeamMember, useTeams } from '../../api/hooks'
+import { useMe, useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useSetTeamMember, useTeams } from '../../api/hooks'
 import { TeamsView } from './TeamsView'
 
 // Container: the teams, which one is open, and the leader-only changes.
 export function TeamsPage() {
   const teams = useTeams()
+  const me = useMe()
   const members = useMembers()
   const create = useCreateTeam()
   const rename = useRenameTeam()
@@ -34,6 +35,7 @@ export function TeamsPage() {
       teams={list}
       people={members.data?.data ?? []}
       selected={selected}
+      groupsManage={!!me.data?.teamsManagedBySso}
       errorText={teams.isError ? friendlyMessage(teams.error) : members.isError ? friendlyMessage(members.error) : failure ? friendlyMessage(failure) : undefined}
       newName={newName}
       nameDraft={nameDraft}
