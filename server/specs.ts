@@ -4,6 +4,7 @@ import { ApiError } from './errors.js'
 import { currentAnalysisRun } from './transcripts.js'
 import { insertMany } from './sql.js'
 import type { Actor } from './versioning.js'
+import { teamCondition, type Scope } from './teams.js'
 
 // The eight fixed steps of the requirements writer, in order. They are the same for every project, so every product
 // manager follows the same approach; the version is recorded on the run (prompt_version).
@@ -218,9 +219,10 @@ export async function getSpec(db: Queryable, workspaceId: string, specId: string
   }
 }
 
-export async function listSpecs(db: Queryable, workspaceId: string, filter: { projectId?: string; standalone?: boolean }): Promise<SpecSummary[]> {
+export async function listSpecs(db: Queryable, workspaceId: string, filter: { projectId?: string; standalone?: boolean }, scope?: Pick<Scope, 'anonymous' | 'role' | 'teams'>): Promise<SpecSummary[]> {
   const where = ['s.workspace_id = $1']
   const params: unknown[] = [workspaceId]
+  if (scope) { const cond = teamCondition(scope, 'p', params.length + 1); where.push(cond.sql); params.push(...cond.params) }
   if (filter.projectId) { params.push(filter.projectId); where.push(`s.project_id = $${params.length}`) }
   if (filter.standalone) where.push(`p.kind = 'standalone'`)
   const rows = (
@@ -346,9 +348,9 @@ export async function createProjectSpec(db: Db, ai: Ai, ctx: Actor, projectId: s
 
 // A stand-alone document has no research behind it: it is drafted from the description alone, so it lives in a project of
 // its own kind and never appears in the research projects list.
-export async function createStandaloneSpec(db: Db, ai: Ai, ctx: Actor, input: { name: string; what: string }): Promise<string> {
+export async function createStandaloneSpec(db: Db, ai: Ai, ctx: Actor, input: { name: string; what: string }, teamId?: string): Promise<string> {
   const specId = await db.transaction(async (tx) => {
-    const projectId = (await tx.query(`insert into core.projects (workspace_id, name, kind, owner_id, created_by, updated_by) values ($1, $2, 'standalone', $3, $3, $3) returning id`, [ctx.workspaceId, input.name, ctx.userId])).rows[0].id as string
+    const projectId = (await tx.query(`insert into core.projects (workspace_id, name, kind, owner_id, created_by, updated_by, team_id) values ($1, $2, 'standalone', $3, $3, $3, $4) returning id`, [ctx.workspaceId, input.name, ctx.userId, teamId ?? null])).rows[0].id as string
     await insertMany(tx, 'research.studies', [{ project_id: projectId, workspace_id: ctx.workspaceId, what_testing: input.what, created_by: ctx.userId, updated_by: ctx.userId }])
     return createSpecRows(tx, ctx, projectId, input.name, [])
   })

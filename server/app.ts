@@ -1,4 +1,4 @@
-import { Hono, type Context } from 'hono'
+import { Hono, type Context, type MiddlewareHandler } from 'hono'
 import { z } from 'zod'
 import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
@@ -40,6 +40,7 @@ import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, 
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
+import { enforceProjectScope, newProjectTeam } from './teams.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer }
@@ -63,8 +64,15 @@ export function createApp(options: AppOptions = {}) {
   })
   app.notFound((c) => c.json(envelope('not_found', `No route for ${c.req.method} ${c.req.path}.`), 404))
 
-  const withContext = requestContext({ env, getDb, auth }) // strict: a signed-in person, or the token
-  const withReadContext = requestContext({ env, getDb, auth }, 'read') // reads are also open to the read-only demo viewer, before sign-in exists
+  // The request's identity, then the team check: a route that names a project (or a theme, document, story or step of one) is refused as
+  // not found when the project is another team's, and refused as forbidden for a write when the caller may only read in that team.
+  const inTeams = (identity: MiddlewareHandler): MiddlewareHandler => async (c, next) => {
+    await identity(c, async () => {})
+    await enforceProjectScope(getDb(), c.get('ctx'), c.req.method, c.req.path.replace(/^\/api\/v1/, ''))
+    await next()
+  }
+  const withContext = inTeams(requestContext({ env, getDb, auth })) // strict: a signed-in person, or the token
+  const withReadContext = inTeams(requestContext({ env, getDb, auth }, 'read')) // reads are also open to the read-only demo viewer, before sign-in exists
 
   // Anonymous reads may be cached by the CDN for a minute, so repeated requests never reach (or wake) the
   // database. Requests with the token are never cached.
@@ -109,13 +117,16 @@ export function createApp(options: AppOptions = {}) {
     return c.json({ status: 'ok', database: 'reachable', migrations: rows[0].migrations })
   })
 
-  app.get('/me', withReadContext, (c) => {
+  app.get('/me', withReadContext, async (c) => {
     const ctx = c.get('ctx')
+    const teamIds = Object.keys(ctx.teams)
+    const teams = teamIds.length ? (await getDb().query(`select id, name from core.teams where workspace_id = $1 and id = any($2::uuid[]) order by lower(name)`, [ctx.workspaceId, teamIds])).rows.map((t) => ({ id: t.id as string, name: t.name as string, role: ctx.teams[t.id as string] })) : []
     c.header('Cache-Control', 'private, no-store')
     return c.json({
       userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, avatarUrl: ctx.avatarUrl, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
       signInAvailable: !!auth,
       rolesManagedBySso: ssoPolicy(env).managedByGroups,
+      teams,
     })
   })
 
@@ -210,7 +221,7 @@ export function createApp(options: AppOptions = {}) {
   })
 
   app.get('/projects', withReadContext, async (c) => {
-    const data = await listProjects(getDb(), c.get('ctx').workspaceId)
+    const data = await listProjects(getDb(), c.get('ctx').workspaceId, c.get('ctx'))
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json({ data, next_cursor: null })
@@ -242,7 +253,7 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(createProjectSchema, await readJson(c))
     let id: string
     try {
-      id = await createProject(getDb(), ctx, input)
+      id = await createProject(getDb(), { ...ctx, teamId: await newProjectTeam(getDb(), ctx, input.teamId) }, input)
     } catch (err) {
       if (err instanceof TemplateMissing) throw new ApiError(422, 'validation_failed', 'That template does not exist in this workspace.', 'templateKey')
       throw err
@@ -434,7 +445,7 @@ export function createApp(options: AppOptions = {}) {
   app.get('/specs', withReadContext, async (c) => {
     const projectId = c.req.query('projectId')
     if (projectId && !UUID.test(projectId)) throw new ApiError(422, 'validation_failed', 'Not a project id.', 'projectId')
-    const data = await listSpecs(getDb(), c.get('ctx').workspaceId, { projectId, standalone: c.req.query('standalone') === 'true' })
+    const data = await listSpecs(getDb(), c.get('ctx').workspaceId, { projectId, standalone: c.req.query('standalone') === 'true' }, c.get('ctx'))
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json({ data })
@@ -457,7 +468,8 @@ export function createApp(options: AppOptions = {}) {
   app.post('/specs/standalone', withContext, async (c) => {
     requireEditor(c)
     const input = parseBody(standaloneSpecSchema, await readJson(c))
-    const created = await createStandaloneSpec(getDb(), ai, c.get('ctx'), input)
+    const ctx = c.get('ctx')
+    const created = await createStandaloneSpec(getDb(), ai, ctx, input, await newProjectTeam(getDb(), ctx))
     c.header('Cache-Control', 'no-store')
     return c.json(await specDetail(c, created), 201)
   })

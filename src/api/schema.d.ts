@@ -1505,6 +1505,8 @@ export interface components {
             methods?: string[];
             /** @description A short */
             description?: string | null;
+            /** @description The team to add the project to; the caller must be an editor or owner there. Optional when the caller edits in one team, or in the default team. */
+            teamId?: string;
             /** @description At least one. Name and a valid email are required. */
             participants: components["schemas"]["ParticipantInput"][];
         };
@@ -2340,6 +2342,9 @@ export interface components {
             measurements: number;
             createdAt: string;
             version: number;
+            /** @description The team the project belongs to. */
+            teamId: string | null;
+            teamName: string | null;
         };
         DesignItem: {
             storyId: string;
@@ -2578,6 +2583,13 @@ export interface components {
             signInAvailable: boolean;
             /** @description True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`. */
             rolesManagedBySso: boolean;
+            /** @description The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team's projects whether or not they belong to it. */
+            teams: {
+                id: string;
+                name: string;
+                /** @enum {string} */
+                role: "owner" | "editor" | "viewer";
+            }[];
         };
         CaptureHealth: {
             ok: boolean;

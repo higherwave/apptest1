@@ -1969,6 +1969,7 @@ components:
           type: array
           items: { type: string }
         description: { type: [string, 'null'], description: A short, high-level orientation for the whole project, at most 2000 characters. }
+        teamId: { type: string, description: 'The team to add the project to; the caller must be an editor or owner there. Optional when the caller edits in one team, or in the default team.' }
         participants:
           type: array
           description: At least one. Name and a valid email are required.
@@ -2958,7 +2959,7 @@ components:
           type: [string, 'null']
     ProjectSummary:
       type: object
-      required: [id, name, color, template, methods, status, sessions, themes, highPriority, measurements, createdAt, version]
+      required: [id, name, color, template, methods, status, sessions, themes, highPriority, measurements, createdAt, version, teamId, teamName]
       properties:
         id: { type: string }
         name: { type: string }
@@ -2978,6 +2979,8 @@ components:
         measurements: { type: integer, description: 'Requirements with a metric or a finding recorded in the Measure step.' }
         createdAt: { type: string }
         version: { type: integer }
+        teamId: { type: [string, 'null'], description: The team the project belongs to. }
+        teamName: { type: [string, 'null'] }
     DesignItem:
       type: object
       required: [storyId, key, title, priority, summary, whyItMatters, theme, prototypeUrl, notes, hasImage, imageSource, version]
@@ -3214,7 +3217,7 @@ components:
         mailConfigured: { type: boolean, description: 'False when this deployment has no email sender set up.' }
     Me:
       type: object
-      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso]
+      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso, teams]
       properties:
         userId: { type: string }
         email: { type: string }
@@ -3226,6 +3229,16 @@ components:
         via: { type: string, enum: [session, token, open, anonymous], description: 'How this request was let in.' }
         signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
         rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
+        teams:
+          type: array
+          description: 'The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team''s projects whether or not they belong to it.'
+          items:
+            type: object
+            required: [id, name, role]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              role: { type: string, enum: [owner, editor, viewer] }
     CaptureHealth:
       type: object
       required: [ok, enabled, node, platform, arch, checkedAt, steps]

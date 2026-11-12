@@ -35,7 +35,7 @@ export function nextStep(p: Pick<ProjectSummary, 'id' | 'status' | 'sessions' | 
     : step('Review the themes and set priorities', at('themes'))
 }
 
-export type DigestItem = { projectId: string; name: string; text: string; path: string; fingerprint: string }
+export type DigestItem = { projectId: string; teamId: string | null; name: string; text: string; path: string; fingerprint: string }
 
 // Every project in the workspace that still has a step to do, in the order the project list shows them.
 export async function openItems(db: Queryable, workspaceId: string): Promise<DigestItem[]> {
@@ -45,7 +45,7 @@ export async function openItems(db: Queryable, workspaceId: string): Promise<Dig
   const out: DigestItem[] = []
   for (const p of projects) {
     const s = nextStep(p, facts.get(p.id) ?? { exists: false, published: false })
-    if (s) out.push({ projectId: p.id, name: p.name, ...s })
+    if (s) out.push({ projectId: p.id, teamId: p.teamId, name: p.name, ...s })
   }
   return out
 }
@@ -143,7 +143,7 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
          from core.memberships m
          join core.users u on u.id = m.user_id
          left join core.notification_preferences np on np.user_id = u.id and np.kind = $1 and np.channel = 'email'
-        where ${canEdit}${only ? ' and u.id = $2' : ''}`,
+        where exists (select 1 from core.team_memberships tm where tm.user_id = u.id and tm.workspace_id = m.workspace_id and tm.role in ('owner', 'editor'))${only ? ' and u.id = $2' : ''}`,
       only ? [DIGEST, only.userId] : [DIGEST],
     )
   ).rows as Recipient[]
@@ -159,7 +159,9 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
       localDate = local.date
     }
     if (!itemsByWorkspace.has(who.workspace_id)) itemsByWorkspace.set(who.workspace_id, await openItems(db, who.workspace_id))
-    let items = itemsByWorkspace.get(who.workspace_id)!
+    // Only projects of teams they edit: a project of another team is not theirs to be reminded about.
+    const editing = new Set((await db.query(`select team_id from core.team_memberships where user_id = $1 and workspace_id = $2 and role in ('owner', 'editor')`, [who.user_id, who.workspace_id])).rows.map((r) => r.team_id as string))
+    let items = itemsByWorkspace.get(who.workspace_id)!.filter((i) => i.teamId !== null && editing.has(i.teamId))
     const states = new Map<string, { fingerprint: string; sent_count: number }>()
     if (!only) {
       for (const r of (await db.query(`select project_id, fingerprint, sent_count from core.reminder_state where user_id = $1`, [who.user_id])).rows) states.set(r.project_id as string, { fingerprint: r.fingerprint as string, sent_count: r.sent_count as number })

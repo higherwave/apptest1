@@ -30,6 +30,7 @@ export const createProjectSchema = z.object({
   templateKey: z.enum(['usability', 'discovery', 'concept', 'blank']).default('blank'),
   methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
   description: projectDescription,
+  teamId: z.string().uuid().optional(),
   participants: z.array(participantSchema).min(1, 'Add at least one participant.'),
 })
 export type CreateProjectInput = z.infer<typeof createProjectSchema>

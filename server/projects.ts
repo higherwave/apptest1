@@ -4,6 +4,7 @@ import { DEFAULT_STAGES, TINTS } from './schemas.js'
 import { assertAreasUsable } from './areas.js'
 import { insertMany } from './sql.js'
 import { claimVersion } from './versioning.js'
+import { teamCondition, type Scope } from './teams.js'
 
 // New projects take tints in the order the prototype hands them out.
 const PALETTE = ['cream', 'mint', 'coral', 'yellow', 'lavender', 'sky', 'blue', 'rose'] as const satisfies readonly (typeof TINTS)[number][]
@@ -23,12 +24,15 @@ export type ProjectSummary = {
   measurements: number
   createdAt: string
   version: number
+  /** The team the project belongs to. */
+  teamId: string | null
+  teamName: string | null
 }
 
 // Themes are counted from the project's current analysis run only: the latest completed run that no
 // newer run has replaced. Status is derived from that count, never stored.
 const LIST_SQL = `
-  select p.id, p.name, p.color, tpl.name as template, p.created_at, p.version,
+  select p.id, p.name, p.color, tpl.name as template, p.created_at, p.version, p.team_id, tm.name as team_name,
          coalesce((select st.methods from research.studies st where st.project_id = p.id), '{}') as methods,
          (select count(*) from research.transcripts tr where tr.project_id = p.id)::int as sessions,
          coalesce(t.themes, 0)::int as themes,
@@ -39,6 +43,7 @@ const LIST_SQL = `
            where sp.project_id = p.id and (m.metric is not null or jsonb_array_length(m.checkins) > 0))::int as measurements
   from core.projects p
   left join core.templates tpl on tpl.id = p.template_id
+  left join core.teams tm on tm.id = p.team_id
   left join lateral (
     select count(*) as themes, count(*) filter (where th.suggested_priority = 'high') as high
     from research.themes th
@@ -48,11 +53,13 @@ const LIST_SQL = `
         where r.project_id = p.id and r.kind = 'analysis' and r.status = 'complete' and r.superseded_at is null
         order by r.started_at desc limit 1)
   ) t on true
-  where p.workspace_id = $1 and p.kind = 'research'
+  where p.workspace_id = $1 and p.kind = 'research' and __TEAM__
   order by p.created_at desc, p.name`
 
-export async function listProjects(db: Queryable, workspaceId: string): Promise<ProjectSummary[]> {
-  const { rows } = await db.query(LIST_SQL, [workspaceId])
+// With a scope the list holds only the projects of teams the caller may see; without one (a script, a digest) it holds the workspace's.
+export async function listProjects(db: Queryable, workspaceId: string, scope?: Pick<Scope, 'anonymous' | 'role' | 'teams'>): Promise<ProjectSummary[]> {
+  const cond = scope ? teamCondition(scope, 'p', 2) : { sql: 'true', params: [] }
+  const { rows } = await db.query(LIST_SQL.replace('__TEAM__', cond.sql), [workspaceId, ...cond.params])
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
@@ -66,6 +73,8 @@ export async function listProjects(db: Queryable, workspaceId: string): Promise<
     measurements: r.measurements,
     createdAt: new Date(r.created_at).toISOString(),
     version: r.version,
+    teamId: r.team_id ?? null,
+    teamName: r.team_name ?? null,
   }))
 }
 
@@ -109,7 +118,7 @@ export class TemplateMissing extends Error {}
 
 // Creates the project, its test plan, journey stages, participants and the template's starter tasks in
 // one transaction, and records it in the audit log.
-export async function createProject(db: Db, ctx: { workspaceId: string; userId: string }, input: CreateProjectInput): Promise<string> {
+export async function createProject(db: Db, ctx: { workspaceId: string; userId: string; teamId?: string }, input: CreateProjectInput): Promise<string> {
   return db.transaction(async (tx) => {
     const tpl = (await tx.query(`select id, body from core.templates where workspace_id = $1 and kind = 'study' and key = $2`, [ctx.workspaceId, input.templateKey])).rows[0]
     if (!tpl) throw new TemplateMissing(input.templateKey)
@@ -120,9 +129,9 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
 
     const projectId = (
       await tx.query(
-        `insert into core.projects (workspace_id, name, color, kind, template_id, owner_id, created_by, updated_by)
-         values ($1, $2, $3, 'research', $4, $5, $5, $5) returning id`,
-        [ctx.workspaceId, input.name, color, tpl.id, ctx.userId],
+        `insert into core.projects (workspace_id, name, color, kind, template_id, owner_id, created_by, updated_by, team_id)
+         values ($1, $2, $3, 'research', $4, $5, $5, $5, $6) returning id`,
+        [ctx.workspaceId, input.name, color, tpl.id, ctx.userId, ctx.teamId ?? null],
       )
     ).rows[0].id as string
 

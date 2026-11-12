@@ -1,0 +1,11 @@
+drop trigger projects_default_team on core.projects;
+drop function core.project_default_team();
+drop trigger memberships_role_default_team on core.memberships;
+drop function core.membership_role_default_team();
+drop trigger memberships_default_team on core.memberships;
+drop function core.membership_default_team();
+drop trigger workspaces_default_team on core.workspaces;
+drop function core.workspace_default_team();
+alter table core.projects drop column team_id;
+drop table core.team_memberships;
+drop table core.teams;

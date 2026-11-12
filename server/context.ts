@@ -4,13 +4,17 @@ import type { AuthService, AuthUser } from './auth.js'
 import type { Db, Env } from './db.js'
 import { ssoSetRole } from './members.js'
 import { roleFromGroups, ssoPolicy, type Role, type SsoPolicy } from './sso.js'
+import { effectiveRole, loadTeamRoles, type TeamRoles } from './teams.js'
 
 export type RequestContext = {
   /** True when the request carried no token and is acting as the read-only demo viewer. */
   anonymous: boolean
   userId: string
   workspaceId: string
+  /** The role for everything that is not about one project: owner for a leader, editor if they edit in any team, else viewer. A project's own role comes from its team (teams.ts). */
   role: 'owner' | 'editor' | 'viewer'
+  /** Their role in each team, by team id. */
+  teams: TeamRoles
   email: string
   displayName: string
   /** The picture from the sign-in provider, when there is one. */
@@ -89,8 +93,9 @@ async function memberFor(db: Db, slug: string, who: AuthUser, policy: SsoPolicy)
     avatarUrl = who.image
     await db.query(`update core.users set avatar_url = $2 where id = $1`, [row.user_id, who.image])
   }
+  const teams = await loadTeamRoles(db, row.workspace_id, row.user_id)
   return {
-    anonymous: false, via: 'session', userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName, avatarUrl, workspaceName: row.workspace_name,
+    anonymous: false, via: 'session', userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName, avatarUrl, workspaceName: row.workspace_name,
   }
 }
 
@@ -158,8 +163,9 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
       if (row) row = { ...row, email: 'visitor@demo.signalflow.example', display_name: 'Visitor', avatar_url: null }
     }
     if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Create the workspace with: node db/init-workspace.mjs (or load the demo with the seed).`)
+    const teams = await loadTeamRoles(deps.getDb(), row.workspace_id, row.user_id)
     const value: RequestContext = {
-      anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: row.role, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,
+      anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,
     }
     cache.set(key, { at: Date.now(), value })
     c.set('ctx', { ...value, anonymous, via, role: anonymous ? 'viewer' : value.role })

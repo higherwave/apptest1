@@ -78,6 +78,8 @@ export async function removeMember(db: Db, ctx: RequestContext, id: string): Pro
     if (before.role === 'owner' && (await ownerCount(tx, ctx.workspaceId)) <= 1) throw new LastOwner()
     const user = (await tx.query(`select u.id, u.auth_subject from core.memberships m join core.users u on u.id = m.user_id where m.id = $1`, [id])).rows[0]
     await tx.query(`delete from core.memberships where workspace_id = $1 and id = $2`, [ctx.workspaceId, id])
+    // Out of the workspace means out of every team.
+    if (user) await tx.query(`delete from core.team_memberships where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, user.id])
     // Their open sessions end now, not when the cookie expires.
     if (user?.auth_subject) await tx.query(`delete from public.auth_session where user_id = $1`, [user.auth_subject])
     await audit(tx, ctx, 'removed', id, { email: before.email, role: before.role }, null)

@@ -106,7 +106,7 @@ test('"Send me a reminder now" ignores the clock, the switch and the stop rule, 
 })
 
 test('the email escapes what people typed and names no sender', () => {
-  const mail = composeDigest({ name: 'Pat <b>', items: [{ projectId: 'p', name: 'A & <script>', text: 'Go', path: '/projects/p/plan', fingerprint: 'f' }], base: 'https://x.test', settingsUrl: 'https://x.test/s', unsubscribe: null })
+  const mail = composeDigest({ name: 'Pat <b>', items: [{ projectId: 'p', teamId: null, name: 'A & <script>', text: 'Go', path: '/projects/p/plan', fingerprint: 'f' }], base: 'https://x.test', settingsUrl: 'https://x.test/s', unsubscribe: null })
   assert.ok(!mail.html.includes('<script>') && !mail.html.includes('<b>'))
   assert.match(mail.html, /A &amp; &lt;script&gt;/)
 })
@@ -158,4 +158,19 @@ test('routes: settings, the test button, the signed unsubscribe link and the clo
   assert.equal((await app.request('/api/v1/cron/digest', { headers: { authorization: 'Bearer cron-s3cret' } })).status, 200)
   const closed = createApp({ env: { ...ENV, CRON_SECRET: undefined }, getDb: () => db, mailer })
   assert.equal((await closed.request('/api/v1/cron/digest')).status, 503)
+})
+
+test('a reminder lists only the projects of teams the person edits', async () => {
+  const { db, david, mailer } = await setup()
+  const deps = { db, env: ENV, mailer }
+  const ws = (await db.query(`select id from core.workspaces limit 1`)).rows[0].id as string
+  const support = (await db.query(`insert into core.teams (workspace_id, name) values ($1, 'Support') returning id`, [ws])).rows[0].id as string
+  // Every project David could be reminded about goes to a team he is not in: nothing is left to tell him.
+  await db.query(`update core.projects set team_id = $1 where kind = 'research'`, [support])
+  const r = await runDigest({ ...deps, now: DAY(0) }, { userId: david })
+  assert.equal(r.outcome, 'nothing_left', 'another team’s projects are not his to be reminded about')
+  assert.equal(mailer.sent.length, 0)
+  // Once he edits in that team, they are.
+  await db.query(`insert into core.team_memberships (workspace_id, team_id, user_id, role) values ($1, $2, $3, 'editor')`, [ws, support, david])
+  assert.equal((await runDigest({ ...deps, now: DAY(0) }, { userId: david })).outcome, 'sent')
 })
