@@ -149,7 +149,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     const key = `${slug}|${email}`
     const hit = cache.get(key)
     if (hit && Date.now() - hit.at < 60_000) {
-      c.set('ctx', { ...hit.value, anonymous, via, role: anonymous ? 'viewer' : hit.value.role })
+      c.set('ctx', { ...hit.value, anonymous, via, role: anonymous ? 'viewer' : hit.value.role, teams: anonymous ? {} : hit.value.teams })
       return next()
     }
     const { rows } = await deps.getDb().query(IDENTITY_SQL, [slug, email])
@@ -168,7 +168,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
       anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,
     }
     cache.set(key, { at: Date.now(), value })
-    c.set('ctx', { ...value, anonymous, via, role: anonymous ? 'viewer' : value.role })
+    c.set('ctx', { ...value, anonymous, via, role: anonymous ? 'viewer' : value.role, teams: anonymous ? {} : value.teams })
     return next()
   }
 }

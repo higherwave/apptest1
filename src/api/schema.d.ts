@@ -262,6 +262,77 @@ export interface paths {
         patch: operations["changeMemberRole"];
         trace?: never;
     };
+    "/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners (leaders) only, 403 otherwise. Every team with its people (and their role in it) and its research projects, the default team first. */
+        get: operations["listTeams"];
+        put?: never;
+        /** Owners only. Creates a team. 409 `team_name_taken` if the name is in use (case does not matter). */
+        post: operations["createTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Owners only. Deletes an empty team and its memberships. 409 `team_is_default` for the default team, and `team_has_projects` while it still has projects (move them first). */
+        delete: operations["deleteTeam"];
+        options?: never;
+        head?: never;
+        /** Owners only. Renames a team. 409 `team_name_taken`. */
+        patch: operations["renameTeam"];
+        trace?: never;
+    };
+    "/teams/{id}/members/{memberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners only. Puts a workspace member in the team with a role, or changes their role there. `memberId` is the id from the Members list. 404 if the team or the member does not exist. */
+        put: operations["setTeamMember"];
+        post?: never;
+        /** Owners only. Takes a person out of the team (they stay in the workspace). */
+        delete: operations["removeTeamMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{id}/projects/{projectId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners only. Moves a research project into this team. 404 if the team or the project does not exist. */
+        put: operations["moveProjectToTeam"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workflows": {
         parameters: {
             query?: never;
@@ -2834,7 +2905,7 @@ export interface components {
                 name: string;
             } | null;
             /** @enum {string} */
-            group: "members" | "categories" | "projects" | "workflows" | "jira";
+            group: "members" | "teams" | "categories" | "projects" | "workflows" | "jira";
             /** @description What changed, for example insights.feature_areas. */
             entity: string;
             entityId: string | null;
@@ -2856,6 +2927,31 @@ export interface components {
             email: string;
             /** @enum {string} */
             role: "owner" | "editor" | "viewer";
+        };
+        TeamList: {
+            data: components["schemas"]["Team"][];
+        };
+        Team: {
+            id: string;
+            name: string;
+            /** @description The team new people and new projects land in when no other is named. It cannot be deleted. */
+            isDefault: boolean;
+            members: {
+                /** @description The id from the Members list. */
+                memberId: string;
+                email: string;
+                displayName: string;
+                /** @enum {string} */
+                role: "owner" | "editor" | "viewer";
+            }[];
+            projects: {
+                id: string;
+                name: string;
+            }[];
+        };
+        TeamNameRequest: {
+            /** @description 1 to 60 characters. */
+            name: string;
         };
         ChangeRoleRequest: {
             /** @enum {string} */
@@ -3374,6 +3470,199 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    listTeams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The teams. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamNameRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    deleteTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    renameTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamNameRequest"];
+            };
+        };
+        responses: {
+            /** @description Renamed. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    setTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description The team as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                memberId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    moveProjectToTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                projectId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The team as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
     listWorkflows: {
         parameters: {
             query?: never;
@@ -3751,7 +4040,7 @@ export interface operations {
     listAudit: {
         parameters: {
             query?: {
-                group?: "members" | "categories" | "projects" | "workflows" | "jira";
+                group?: "members" | "teams" | "categories" | "projects" | "workflows" | "jira";
                 limit?: number;
                 cursor?: string;
             };

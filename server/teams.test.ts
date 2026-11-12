@@ -116,6 +116,7 @@ test('roles in a team: a leader outside it can read but not change; a viewer rea
   // The visitor with no token sees everything, read-only, as the demo always did.
   const visitor = createApp({ env: TOKEN, getDb: () => f.db })
   assert.equal((await visitor.request(`/api/v1/projects/${f.project}`)).status, 200)
+  assert.deepEqual((await (await visitor.request('/api/v1/me')).json()).teams, [], 'the visitor is shown no one’s teams')
 })
 
 test('new projects go to a team the person edits', async () => {
@@ -144,6 +145,7 @@ const NOT_ONE_PROJECT: Record<string, string> = {
   '/health': 'no data', '/health/db': 'no data', '/health/capture': 'no data', '/ai/status': 'workspace-wide', '/me': 'the caller', '/sign-in-options': 'no data',
   '/members': 'workspace administration', '/members/{id}': 'workspace administration', '/usage': 'workspace administration', '/audit': 'workspace administration',
   '/notifications/preferences': 'the caller', '/notifications/digest/test': 'the caller', '/notifications/unsubscribe': 'the caller', '/cron/digest': 'the scheduler',
+  '/teams': 'team administration, owners only', '/teams/{id}': 'team administration, owners only', '/teams/{id}/members/{memberId}': 'team administration, owners only', '/teams/{id}/projects/{projectId}': 'team administration, owners only',
   '/templates': 'workspace-wide', '/projects': 'a list, scoped by the team filter (checked above)', '/specs': 'a list, scoped by the team filter (checked above)', '/specs/standalone': 'creates a project in a team the caller edits',
   // Shared across teams until Platform Insights is scoped to teams (the next slice of the Teams work).
   '/areas': 'shared categories', '/areas/proposals': 'shared categories', '/areas/proposals/accept': 'shared categories', '/areas/proposals/dismiss': 'shared categories', '/areas/{id}': 'shared categories', '/areas/{id}/merge': 'shared categories', '/areas/{id}/retire': 'shared categories',
@@ -180,4 +182,46 @@ test('every route about a project refuses a caller outside its team (the API spe
   }
   assert.deepEqual(unlisted, [], 'routes that are neither about a project nor listed as exceptions')
   assert.ok(checked >= 30, `checked ${checked} routes`)
+})
+
+test('team administration: leaders create, rename, fill, move projects into and delete teams; nobody else may', async () => {
+  const f = await fixture()
+  const call = (who: ReturnType<typeof f.as>, method: string, path: string, body?: unknown) => who.request(`/api/v1${path}`, { method, headers: auth, body: body === undefined ? undefined : JSON.stringify(body) })
+  assert.equal((await call(f.alex, 'GET', '/teams')).status, 403, 'an editor cannot see the team admin')
+  assert.equal((await call(f.sam, 'POST', '/teams', { name: 'X' })).status, 403)
+  const created = await call(f.david, 'POST', '/teams', { name: 'Billing' })
+  assert.equal(created.status, 201)
+  const billing = (await created.json()).id as string
+  assert.equal((await call(f.david, 'POST', '/teams', { name: ' billing ' })).status, 409, 'a team name is unique, ignoring case')
+  assert.equal((await call(f.david, 'POST', '/teams', { name: '  ' })).status, 422)
+  assert.equal((await call(f.david, 'PATCH', `/teams/${billing}`, { name: 'Billing and plans' })).status, 200)
+  const alexMember = (await f.q(`select m.id from core.memberships m join core.users u on u.id = m.user_id where u.email like 'alex@%'`))[0].id
+  const added = await call(f.david, 'PUT', `/teams/${billing}/members/${alexMember}`, { role: 'viewer' })
+  assert.equal(added.status, 200)
+  assert.deepEqual((await added.json()).members.map((m: any) => [m.email.split('@')[0], m.role]), [['alex', 'viewer']])
+  assert.equal((await call(f.david, 'PUT', `/teams/${billing}/members/${alexMember}`, { role: 'editor' })).status, 200, 'the same call changes the role')
+  assert.equal((await call(f.david, 'PUT', `/teams/${billing}/members/11111111-1111-4111-8111-111111111111`, { role: 'editor' })).status, 404)
+  // The team's projects: move one in, and the team cannot then be deleted.
+  const moved = await call(f.david, 'PUT', `/teams/${billing}/projects/${f.other}`)
+  assert.equal(moved.status, 200)
+  assert.deepEqual((await moved.json()).projects.map((p: any) => p.id), [f.other])
+  assert.equal((await call(f.david, 'DELETE', `/teams/${billing}`)).status, 409, 'a team with projects cannot be deleted')
+  assert.equal((await call(f.david, 'DELETE', `/teams/${f.general}`)).status, 409, 'the default team cannot be deleted')
+  await call(f.david, 'PUT', `/teams/${f.general}/projects/${f.other}`)
+  assert.equal((await call(f.david, 'DELETE', `/teams/${billing}/members/${alexMember}`)).status, 204)
+  assert.equal((await call(f.david, 'DELETE', `/teams/${billing}`)).status, 204)
+  const list = (await (await call(f.david, 'GET', '/teams')).json()).data
+  assert.deepEqual(list.map((t: any) => t.name), ['General', 'Support'])
+  // Every change is in the audit log, under its own group.
+  const audit = (await (await call(f.david, 'GET', '/audit?group=teams')).json()).data.map((e: any) => `${e.entity}:${e.verb}`)
+  for (const want of ['core.teams:created', 'core.teams:renamed', 'core.team_memberships:added', 'core.team_memberships:role_changed', 'core.teams:project_moved', 'core.team_memberships:removed', 'core.teams:deleted']) assert.ok(audit.includes(want), `the audit log has ${want}`)
+})
+
+test('removing a person from the workspace takes them out of every team', async () => {
+  const f = await fixture()
+  const sam = (await f.q(`select m.id, m.user_id from core.memberships m join core.users u on u.id = m.user_id where u.email like 'sam@%'`))[0]
+  await f.q(`insert into core.team_memberships (workspace_id, team_id, user_id, role) values ($1, $2, $3, 'viewer')`, [f.ws, f.support, sam.user_id])
+  const res = await f.david.request(`/api/v1/members/${sam.id}`, { method: 'DELETE', headers: auth })
+  assert.equal(res.status, 204)
+  assert.equal((await f.q(`select count(*)::int n from core.team_memberships where user_id = $1`, [sam.user_id]))[0].n, 0)
 })

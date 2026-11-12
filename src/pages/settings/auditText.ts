@@ -3,6 +3,7 @@ import type { AuditEntry, AuditGroup } from '../../api/client'
 // The words the audit log uses for what changed. No React in here, so it is easy to test.
 export const GROUP_LABEL: Record<AuditGroup, string> = {
   members: 'People and roles',
+  teams: 'Teams',
   categories: 'Experience categories',
   projects: 'Projects',
   workflows: 'Workflows',
@@ -11,6 +12,8 @@ export const GROUP_LABEL: Record<AuditGroup, string> = {
 
 const ENTITY_LABEL: Record<string, string> = {
   'core.memberships': 'Member',
+  'core.teams': 'Team',
+  'core.team_memberships': 'Team member',
   'insights.feature_areas': 'Experience category',
   'core.projects': 'Project',
   'insights.workflows': 'Workflow',

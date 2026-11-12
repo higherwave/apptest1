@@ -130,6 +130,7 @@ export const inviteMemberSchema = z.object({
 })
 export const notificationPrefsSchema = z.object({ digestEnabled: z.boolean().optional(), timeZone: z.string().min(1).max(64).optional() })
 export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
+export const teamNameSchema = z.object({ name: z.string().trim().min(1, 'Enter a team name.').max(60) })
 
 // A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.
 export const measureSchema = z.object({

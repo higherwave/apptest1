@@ -295,6 +295,130 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /teams:
+    get:
+      operationId: listTeams
+      summary: >
+        Owners (leaders) only, 403 otherwise. Every team with its people (and their role in it) and its research projects, the default team first.
+      responses:
+        '200':
+          description: The teams.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createTeam
+      summary: Owners only. Creates a team. 409 `team_name_taken` if the name is in use (case does not matter).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamNameRequest' }
+      responses:
+        '201':
+          description: Created.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Team' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /teams/{id}:
+    patch:
+      operationId: renameTeam
+      summary: Owners only. Renames a team. 409 `team_name_taken`.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamNameRequest' }
+      responses:
+        '200':
+          description: Renamed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Team' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: deleteTeam
+      summary: >
+        Owners only. Deletes an empty team and its memberships. 409 `team_is_default` for the default team, and `team_has_projects` while it still has
+        projects (move them first).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Deleted. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /teams/{id}/members/{memberId}:
+    put:
+      operationId: setTeamMember
+      summary: >
+        Owners only. Puts a workspace member in the team with a role, or changes their role there. `memberId` is the id from the Members list. 404 if the
+        team or the member does not exist.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: memberId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ChangeRoleRequest' }
+      responses:
+        '200':
+          description: The team as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Team' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: removeTeamMember
+      summary: Owners only. Takes a person out of the team (they stay in the workspace).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: memberId, in: path, required: true, schema: { type: string } }
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /teams/{id}/projects/{projectId}:
+    put:
+      operationId: moveProjectToTeam
+      summary: Owners only. Moves a research project into this team. 404 if the team or the project does not exist.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: projectId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The team as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Team' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /workflows:
     get:
       operationId: listWorkflows
@@ -546,7 +670,7 @@ paths:
         Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories,
         projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
       parameters:
-        - { name: group, in: query, required: false, schema: { type: string, enum: [members, categories, projects, workflows, jira] } }
+        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, categories, projects, workflows, jira] } }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
         - { name: cursor, in: query, required: false, schema: { type: string } }
       responses:
@@ -3550,7 +3674,7 @@ components:
           properties:
             id: { type: string }
             name: { type: string }
-        group: { type: string, enum: [members, categories, projects, workflows, jira] }
+        group: { type: string, enum: [members, teams, categories, projects, workflows, jira] }
         entity: { type: string, description: 'What changed, for example insights.feature_areas.' }
         entityId: { type: [string, 'null'] }
         verb: { type: string, description: 'For example created, edited, merged, retired.' }
@@ -3577,6 +3701,43 @@ components:
       properties:
         email: { type: string }
         role: { type: string, enum: [owner, editor, viewer] }
+    TeamList:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items: { $ref: '#/components/schemas/Team' }
+    Team:
+      type: object
+      required: [id, name, isDefault, members, projects]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        isDefault: { type: boolean, description: The team new people and new projects land in when no other is named. It cannot be deleted. }
+        members:
+          type: array
+          items:
+            type: object
+            required: [memberId, email, displayName, role]
+            properties:
+              memberId: { type: string, description: The id from the Members list. }
+              email: { type: string }
+              displayName: { type: string }
+              role: { type: string, enum: [owner, editor, viewer] }
+        projects:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string }
+              name: { type: string }
+    TeamNameRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: 1 to 60 characters. }
     ChangeRoleRequest:
       type: object
       required: [role]

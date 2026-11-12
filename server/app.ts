@@ -14,7 +14,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -41,6 +41,7 @@ import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
 import { enforceProjectScope, newProjectTeam } from './teams.js'
+import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer }
@@ -198,6 +199,115 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
+  })
+
+  // Teams: leaders (workspace owners) manage them. Everyone else learns their own teams from /me.
+  const requireLeader = (c: Context) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can manage teams.')
+  }
+  const teamErrors = (err: unknown): never => {
+    if (err instanceof TeamNotFound) throw new ApiError(404, 'not_found', 'No such team.')
+    if (err instanceof TeamNameTaken) throw new ApiError(409, 'team_name_taken', 'A team with that name already exists.', 'name')
+    if (err instanceof TeamIsDefault) throw new ApiError(409, 'team_is_default', 'The default team cannot be deleted.')
+    if (err instanceof TeamNotEmpty) throw new ApiError(409, 'team_has_projects', 'Move the team’s projects to another team first.')
+    if (err instanceof PersonNotInWorkspace) throw new ApiError(404, 'not_found', 'No such member.')
+    if (err instanceof TeamProjectNotFound) throw new ApiError(404, 'not_found', 'No such project.')
+    throw err
+  }
+  const teamId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such team.')
+    return id
+  }
+  const oneTeam = async (c: Context, id: string) => {
+    const team = (await listTeams(getDb(), c.get('ctx').workspaceId)).find((t) => t.id === id)
+    if (!team) throw new ApiError(404, 'not_found', 'No such team.')
+    return team
+  }
+
+  app.get('/teams', withContext, async (c) => {
+    requireLeader(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ data: await listTeams(getDb(), c.get('ctx').workspaceId) })
+  })
+
+  app.post('/teams', withContext, async (c) => {
+    requireLeader(c)
+    const input = parseBody(teamNameSchema, await readJson(c))
+    let id: string
+    try {
+      id = await createTeam(getDb(), c.get('ctx'), input.name)
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneTeam(c, id), 201)
+  })
+
+  app.patch('/teams/:id', withContext, async (c) => {
+    requireLeader(c)
+    const id = teamId(c)
+    const input = parseBody(teamNameSchema, await readJson(c))
+    try {
+      await renameTeam(getDb(), c.get('ctx'), id, input.name)
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneTeam(c, id))
+  })
+
+  app.delete('/teams/:id', withContext, async (c) => {
+    requireLeader(c)
+    try {
+      await deleteTeam(getDb(), c.get('ctx'), teamId(c))
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+
+  app.put('/teams/:id/members/:memberId', withContext, async (c) => {
+    requireLeader(c)
+    const id = teamId(c)
+    const member = c.req.param('memberId') ?? ''
+    if (!UUID.test(member)) throw new ApiError(404, 'not_found', 'No such member.')
+    const input = parseBody(changeRoleSchema, await readJson(c))
+    try {
+      await setTeamMember(getDb(), c.get('ctx'), id, member, input.role)
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneTeam(c, id))
+  })
+
+  app.delete('/teams/:id/members/:memberId', withContext, async (c) => {
+    requireLeader(c)
+    const member = c.req.param('memberId') ?? ''
+    if (!UUID.test(member)) throw new ApiError(404, 'not_found', 'No such member.')
+    try {
+      await removeTeamMember(getDb(), c.get('ctx'), teamId(c), member)
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+
+  app.put('/teams/:id/projects/:projectId', withContext, async (c) => {
+    requireLeader(c)
+    const id = teamId(c)
+    const project = c.req.param('projectId') ?? ''
+    if (!UUID.test(project)) throw new ApiError(404, 'not_found', 'No such project.')
+    try {
+      await moveProject(getDb(), c.get('ctx'), id, project)
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneTeam(c, id))
   })
 
   // System usage: owners only. How much of each limit the app has used (today the database's size).

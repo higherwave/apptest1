@@ -103,6 +103,15 @@ export const listMembers = () => request<components['schemas']['MemberList']>('/
 export const inviteMember = (input: components['schemas']['InviteMemberRequest']) => request<Member>('/members', { method: 'POST', body: input })
 export const changeMemberRole = (id: string, role: MemberRole) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { role } })
 export const removeMember = (id: string) => request<null>(`/members/${id}`, { method: 'DELETE' })
+// Teams: leaders (workspace owners) manage them.
+export type Team = components['schemas']['Team']
+export const listTeams = () => request<components['schemas']['TeamList']>('/teams')
+export const createTeam = (name: string) => request<Team>('/teams', { method: 'POST', body: { name } })
+export const renameTeam = (id: string, name: string) => request<Team>(`/teams/${id}`, { method: 'PATCH', body: { name } })
+export const deleteTeam = (id: string) => request<null>(`/teams/${id}`, { method: 'DELETE' })
+export const setTeamMember = (id: string, memberId: string, role: MemberRole) => request<Team>(`/teams/${id}/members/${memberId}`, { method: 'PUT', body: { role } })
+export const removeTeamMember = (id: string, memberId: string) => request<null>(`/teams/${id}/members/${memberId}`, { method: 'DELETE' })
+export const moveProjectToTeam = (id: string, projectId: string) => request<Team>(`/teams/${id}/projects/${projectId}`, { method: 'PUT' })
 export type Template = components['schemas']['Template']
 export type CreateProjectRequest = components['schemas']['CreateProjectRequest']
 export const listTemplates = () => request<components['schemas']['TemplateList']>('/templates')

@@ -8,6 +8,6 @@ export function SettingsGate() {
   if (!me.data) return null
   const role = me.data.role
   if (role !== 'owner' && role !== 'editor') return <Navigate to="/projects" replace />
-  if (role !== 'owner' && (pathname === '/settings/status' || pathname === '/settings/usage' || pathname === '/settings/members' || pathname === '/settings/audit')) return <Navigate to="/settings/categories" replace />
+  if (role !== 'owner' && (pathname === '/settings/status' || pathname === '/settings/usage' || pathname === '/settings/members' || pathname === '/settings/teams' || pathname === '/settings/audit')) return <Navigate to="/settings/categories" replace />
   return <Outlet />
 }

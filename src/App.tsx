@@ -4,6 +4,7 @@ import { TourProvider } from './tour/TourProvider'
 import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
+import { TeamsPage } from './pages/teams/TeamsPage'
 import { MembersPage } from './pages/members/MembersPage'
 import { AppStatusPage } from './pages/settings/AppStatusPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
@@ -80,6 +81,7 @@ export function App() {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="status" element={<AppStatusPage />} />
           <Route path="usage" element={<UsagePage />} />
+          <Route path="teams" element={<TeamsPage />} />
           <Route path="members" element={<MembersPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>

@@ -4,7 +4,7 @@ import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
-  changeMemberRole, inviteMember, listAudit, listUsage, listMembers, removeMember,
+  changeMemberRole, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
@@ -75,6 +75,22 @@ export const useRemoveMember = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (id: string) => removeMember(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
 }
+
+// Teams. Every change can move people and projects between teams, so each refreshes the teams, the project list and who I am.
+export const useTeams = () => useQuery({ queryKey: ['teams'], queryFn: listTeams })
+function useTeamMutation<T>(fn: (input: T) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => Promise.all(['teams', 'projects', 'me', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
+  })
+}
+export const useCreateTeam = () => useTeamMutation((name: string) => createTeam(name))
+export const useRenameTeam = () => useTeamMutation(({ id, name }: { id: string; name: string }) => renameTeam(id, name))
+export const useDeleteTeam = () => useTeamMutation((id: string) => deleteTeam(id))
+export const useSetTeamMember = () => useTeamMutation(({ id, memberId, role }: { id: string; memberId: string; role: MemberRole }) => setTeamMember(id, memberId, role))
+export const useRemoveTeamMember = () => useTeamMutation(({ id, memberId }: { id: string; memberId: string }) => removeTeamMember(id, memberId))
+export const useMoveProject = () => useTeamMutation(({ id, projectId }: { id: string; projectId: string }) => moveProjectToTeam(id, projectId))
 
 export const useAiStatus = () => {
   const token = useToken()

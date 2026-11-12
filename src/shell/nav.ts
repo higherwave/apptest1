@@ -22,12 +22,13 @@ export const INSIGHT_SECTIONS = [
   { key: 'case-studies', label: 'Case studies' },
 ]
 
-// The Admin tab (its pages live under /settings/<key>): Experience Categories and Notifications for owners and editors; AI usage and costs, System usage, Members and the Audit log are for owners (SettingsHeader hides the ones a person cannot use).
+// The Admin tab (its pages live under /settings/<key>): Experience Categories and Notifications for owners and editors; AI usage and costs, System usage, Teams, Members and the Audit log are for owners (SettingsHeader hides the ones a person cannot use).
 export const SETTINGS_SECTIONS = [
   { key: 'categories', label: 'Experience Categories' },
   { key: 'notifications', label: 'Notifications' },
   { key: 'status', label: 'AI usage and costs' },
   { key: 'usage', label: 'System usage' },
+  { key: 'teams', label: 'Teams' },
   { key: 'members', label: 'Members' },
   { key: 'audit', label: 'Audit log' },
 ]

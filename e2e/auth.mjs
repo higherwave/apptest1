@@ -165,6 +165,29 @@ try {
   await page.waitForSelector('[data-testid="audit-row"]', { timeout: 8000 })
   ok('the Audit log tab lists who changed what, newest first, including the invitation and the role change just made', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid="audit-row"]')].map((r) => r.innerText); return location.pathname === '/settings/audit' && rows.length >= 2 && /Member/.test(rows[0]) && rows.some((r) => /e2e\.person@example\.com/.test(r) && /role/i.test(r)) && rows.some((r) => /Created|Invited/i.test(r) && /e2e\.person@example\.com/.test(r)) }))
 
+  // Teams: the owner makes a team, moves a project into it, and a person who is not in it no longer sees that project.
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Teams"]').click())
+  await page.waitForSelector('#new-team', { timeout: 8000 })
+  await waitText('Default team')
+  ok('Teams is an Admin tab for owners: the default team holds the demo people and the projects', await page.evaluate(async () => { const r = await (await fetch('/api/v1/teams')).json(); const g = r.data.find((t) => t.isDefault); return location.pathname === '/settings/teams' && g?.name === 'General' && g.members.length >= 3 && g.projects.length >= 3 }))
+  await page.type('#new-team', 'Support')
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Add team').click())
+  await page.waitForSelector('[data-testid="team-Support"]', { timeout: 8000 })
+  ok('a new team opens empty, ready for people and projects', await page.evaluate(() => /No one is in this team yet/.test(document.body.innerText) && /no projects/i.test(document.body.innerText)))
+  // Open General, and move its first project to Support.
+  await page.click('#team-pick')
+  await page.waitForSelector('[role=option]', { visible: true })
+  await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.startsWith('General')).click())
+  await page.waitForSelector('[data-testid^="team-project-"]', { timeout: 8000 })
+  const moving = await page.evaluate(() => document.querySelector('[data-testid^="team-project-"]').getAttribute('data-testid').replace('team-project-', ''))
+  await page.click('[data-testid^="team-project-"] [id^="move-"]')
+  await page.waitForSelector('[role=option]', { visible: true })
+  await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.trim() === 'Support').click())
+  await new Promise((r) => setTimeout(r, 800))
+  const movedId = await page.evaluate(async (name) => { const r = await (await fetch('/api/v1/teams')).json(); return r.data.find((t) => t.name === 'Support').projects.find((p) => p.name === name)?.id ?? null }, moving)
+  ok('moving a project from the default team to Support puts it in Support', !!movedId)
+  ok('the owner is a leader, so still sees it, but cannot change it: not a member of Support', await page.evaluate(async (id) => (await fetch(`/api/v1/projects/${id}`)).status === 200 && (await fetch(`/api/v1/projects/${id}/tasks`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '1' }, body: JSON.stringify({ tasks: [] }) })).status === 403, movedId))
+
   // The invited person signs in: linked, read-only, and no invite form.
   await signInAs('e2e.person@example.com')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
@@ -176,6 +199,7 @@ try {
   }
   ok('a viewer who types an Admin address is sent back to the projects', true)
   ok('the server refuses a viewer the member list, the audit log, system usage and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && (await fetch('/api/v1/usage')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
+  ok('a person in another team does not see the project at all: not in their list, not found by address', await page.evaluate(async (id, name) => { const list = (await (await fetch('/api/v1/projects')).json()).data; return !list.some((p) => p.id === id) && list.length > 0 && (await fetch(`/api/v1/projects/${id}`)).status === 404 && (await fetch(`/api/v1/projects/${id}/themes`)).status === 404 }, movedId, moving))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Projects')
