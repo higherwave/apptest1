@@ -8,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 import { parseTranscript, scoreTheme } from '../../../shared/providers.mjs';
+import { compatFields } from '../../../shared/measure.mjs';
 import * as D from './data.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -187,7 +188,15 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
       });
       s.criteria.forEach(([kind, text, met], i) => checkRows.push({ id: aid(`check:${s.key}:${i}`), workspace_id: WS, story_id: STORY, kind, text, met, position: i }));
       if (s.design) designRows.push({ id: aid('design:' + s.key), workspace_id: WS, story_id: STORY, notes: s.design, created_by: USER, updated_by: USER });
-      if (s.measure) measureRows.push({ id: aid('measure:' + s.key), workspace_id: WS, story_id: STORY, metric: s.measure.metric, source: s.measure.source, baseline: s.measure.baseline, target: s.measure.target, checkins: JSON.stringify(s.measure.checkins), created_by: USER, updated_by: USER });
+      if (s.measure) {
+        const m = s.measure;
+        // The plain metric, baseline and target are written from the sentence's parts, as the app does when a row is saved.
+        const plain = compatFields(m);
+        measureRows.push({
+          id: aid('measure:' + s.key), workspace_id: WS, story_id: STORY, metric: plain.metric, source: m.source, baseline: plain.baseline, target: plain.target, checkins: JSON.stringify(m.checkins),
+          metric_kind: m.metricKind, detail: m.detail, comparison: m.comparison, value_a: m.valueA, value_b: m.valueB, unit: m.unit || null, trend: m.trend ? JSON.stringify(m.trend) : null, created_by: USER, updated_by: USER,
+        });
+      }
     }
     await insert(db, 'delivery.requirements', reqRows);
     await insert(db, 'delivery.stories', storyRows);

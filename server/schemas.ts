@@ -138,6 +138,13 @@ export const measureSchema = z.object({
   source: z.enum(['telemetry', 'kpi', 'support_tickets', 'research', 'other']).nullish().transform((v) => v ?? null),
   baseline: optionalText(200),
   target: optionalText(200),
+  // The sentence the row is entered as; when metricKind is sent, metric, baseline and target are written from these.
+  metricKind: z.enum(['tickets', 'adoption', 'engagement', 'time_to_value', 'retention', 'feedback', 'other']).nullish().transform((v) => v ?? null),
+  detail: optionalText(300),
+  comparison: z.enum(['change', 'below', 'above', 'between', 'reach']).nullish().transform((v) => v ?? null),
+  valueA: optionalText(60),
+  valueB: optionalText(60),
+  unit: optionalText(40),
   checkins: z
     .array(
       z.object({

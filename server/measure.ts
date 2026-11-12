@@ -1,5 +1,6 @@
 // The Measure step: for each requirement on the board, how we will know it worked and what the check-ins since have shown. The newest
 // check-in's verdict is the requirement's result; the project's result is the count of each.
+import { compatFields } from '../shared/measure.mjs'
 import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import { NoBoard, StoryNotFound } from './stories.js'
@@ -7,6 +8,8 @@ import type { Actor } from './versioning.js'
 
 export type Verdict = 'worked' | 'needs_attention' | 'too_early'
 export type MeasureSource = 'telemetry' | 'kpi' | 'support_tickets' | 'research' | 'other'
+export type MeasureKind = 'tickets' | 'adoption' | 'engagement' | 'time_to_value' | 'retention' | 'feedback' | 'other'
+export type MeasureComparison = 'change' | 'below' | 'above' | 'between' | 'reach'
 export type Checkin = { on: string; value: string; verdict: Verdict; note: string | null }
 export type MeasureItem = {
   storyId: string
@@ -19,7 +22,16 @@ export type MeasureItem = {
   source: MeasureSource | null
   baseline: string | null
   target: string | null
-  /** Oldest first. */
+  /** The measure as one sentence: what, the detail, how it is compared and the values. Null on a row saved before the sentence existed. */
+  metricKind: MeasureKind | null
+  detail: string | null
+  comparison: MeasureComparison | null
+  valueA: string | null
+  valueB: string | null
+  unit: string | null
+  /** A short series of readings, oldest first, for a small chart; sample data in the demo until a data source is connected. */
+  trend: number[] | null
+  /** Today a requirement has one reading: the latest, with its status. Oldest first. */
   checkins: Checkin[]
   /** The newest check-in's verdict, or null before the first one. */
   result: Verdict | null
@@ -43,7 +55,8 @@ const keyNumber = (key: string) => Number(key.replace(/\D/g, '')) || 0
 
 const ITEM_SQL = `
   select s.id as story_id, s.key, s.title, s.priority, s.summary, s.why_it_matters,
-         m.metric, m.source, m.baseline, m.target, coalesce(m.checkins, '[]'::jsonb) as checkins, coalesce(m.version, 0) as version
+         m.metric, m.source, m.baseline, m.target, m.metric_kind, m.detail, m.comparison, m.value_a, m.value_b, m.unit, m.trend,
+         coalesce(m.checkins, '[]'::jsonb) as checkins, coalesce(m.version, 0) as version
   from delivery.stories s
   left join delivery.success_measures m on m.story_id = s.id`
 
@@ -52,6 +65,8 @@ function toItem(r: Record<string, any>): MeasureItem {
   return {
     storyId: r.story_id, key: r.key, title: r.title, priority: r.priority, summary: r.summary ?? null, whyItMatters: r.why_it_matters ?? null,
     metric: r.metric ?? null, source: r.source ?? null, baseline: r.baseline ?? null, target: r.target ?? null,
+    metricKind: r.metric_kind ?? null, detail: r.detail ?? null, comparison: r.comparison ?? null, valueA: r.value_a ?? null, valueB: r.value_b ?? null, unit: r.unit ?? null,
+    trend: Array.isArray(r.trend) ? r.trend.map(Number).filter((n: number) => Number.isFinite(n)) : null,
     checkins, result: checkins.length ? checkins[checkins.length - 1].verdict : null, version: r.version,
   }
 }
@@ -79,7 +94,19 @@ export async function getMeasureItem(db: Queryable, workspaceId: string, storyId
   return r ? toItem(r) : undefined
 }
 
-export type MeasureInput = { metric: string | null; source: MeasureSource | null; baseline: string | null; target: string | null; checkins: Checkin[] }
+export type MeasureInput = {
+  metric: string | null
+  source: MeasureSource | null
+  baseline: string | null
+  target: string | null
+  metricKind: MeasureKind | null
+  detail: string | null
+  comparison: MeasureComparison | null
+  valueA: string | null
+  valueB: string | null
+  unit: string | null
+  checkins: Checkin[]
+}
 
 // Saves what is on screen for one requirement against the version the person was looking at (0 when nothing was saved yet).
 export async function saveMeasureItem(db: Db, ctx: Actor, storyId: string, expected: number, input: MeasureInput): Promise<void> {
@@ -90,13 +117,21 @@ export async function saveMeasureItem(db: Db, ctx: Actor, storyId: string, expec
     const current = row?.version ?? 0
     if (current !== expected) throw new MeasureConflict(current)
     const checkins = JSON.stringify(input.checkins)
+    // With the sentence's parts, the plain metric, baseline and target are written from them, so Platform Insights, the case studies and the counts keep reading what they always read.
+    const written = compatFields(input) ?? { metric: input.metric, baseline: input.baseline, target: input.target }
+    const parts = input.metricKind ? [input.metricKind, input.detail, input.comparison, input.valueA, input.valueB, input.unit] : [null, null, null, null, null, null]
     if (!row) {
       await tx.query(
-        `insert into delivery.success_measures (workspace_id, story_id, metric, source, baseline, target, checkins, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8)`,
-        [ctx.workspaceId, storyId, input.metric, input.source, input.baseline, input.target, checkins, ctx.userId],
+        `insert into delivery.success_measures (workspace_id, story_id, metric, source, baseline, target, checkins, created_by, updated_by, metric_kind, detail, comparison, value_a, value_b, unit)
+         values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $8, $9, $10, $11, $12, $13, $14)`,
+        [ctx.workspaceId, storyId, written.metric, input.source, written.baseline, written.target, checkins, ctx.userId, ...parts],
       )
     } else {
-      await tx.query(`update delivery.success_measures set metric = $2, source = $3, baseline = $4, target = $5, checkins = $6::jsonb, updated_by = $7 where id = $1`, [row.id, input.metric, input.source, input.baseline, input.target, checkins, ctx.userId])
+      await tx.query(
+        `update delivery.success_measures set metric = $2, source = $3, baseline = $4, target = $5, checkins = $6::jsonb, updated_by = $7,
+                metric_kind = $8, detail = $9, comparison = $10, value_a = $11, value_b = $12, unit = $13 where id = $1`,
+        [row.id, written.metric, input.source, written.baseline, written.target, checkins, ctx.userId, ...parts],
+      )
     }
     await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.success_measures', entity_id: storyId, verb: row ? 'updated' : 'created' }])
   })

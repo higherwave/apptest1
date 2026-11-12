@@ -1,0 +1,168 @@
+@use '../../tokens' as tokens;
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  padding: var(--at-space-lg);
+}
+
+.titleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+}
+
+.key {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.title {
+  @include tokens.role('title-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.why {
+  @include tokens.role('reading-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.head {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// The measure as one sentence: words and the controls that complete it run together and wrap as text does.
+.sentence {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend {
+  @include tokens.role('eyebrow');
+  margin: 0 0 var(--at-space-xs);
+  padding: 0;
+  color: var(--at-muted);
+}
+
+.flow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.words {
+  @include tokens.role('reading-lg');
+  color: var(--at-body);
+}
+
+// Each control keeps its own width so the sentence wraps like text instead of stretching a field across the line.
+.kind { flex: none; inline-size: 12rem; }
+.comparison { flex: none; inline-size: 9.5rem; }
+.detail { flex: none; inline-size: 14rem; }
+.value { flex: none; inline-size: 6rem; }
+.unit { flex: none; inline-size: 8rem; }
+
+.suggest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+}
+
+.suggestLabel {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+.suggestion {
+  max-inline-size: 100%;
+  white-space: normal;
+  text-align: start;
+}
+
+.source { max-inline-size: 16rem; }
+
+.latest {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+
+  &[data-status='worked'] { background: var(--at-tint-mint); }
+  &[data-status='needs_attention'] { background: var(--at-tint-coral); }
+  &[data-status='too_early'] { background: var(--at-tint-cream); }
+}
+
+.big {
+  @include tokens.role('display-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.meta {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.readingFields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--at-space-sm);
+}
+
+.noteField { grid-column: 1 / -1; }
+
+.statusBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.statuses {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-xs);
+}
+
+.statusButton {
+  inline-size: 100%;
+  max-inline-size: none;
+  white-space: normal;
+}
+
+.foot {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.storyLink {
+  @include tokens.role('label-md');
+  color: var(--at-link);
+  text-decoration: underline;
+
+  &:hover { color: var(--at-link-active); }
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

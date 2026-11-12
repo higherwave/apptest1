@@ -46,233 +46,145 @@
   gap: var(--at-space-md);
 }
 
-// The result so far, one count for each verdict.
 .listTools {
   display: flex;
   justify-content: flex-end;
 }
 
+// The cards on the left; on a wide window the chosen requirement's measure sits beside them and stays in view as the list scrolls.
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--at-space-lg);
+  align-items: start;
+
+  &[data-wide='true'] { grid-template-columns: minmax(0, 1fr) minmax(22rem, 28rem); }
+}
+
+.aside {
+  position: sticky;
+  inset-block-start: 5rem;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
 .list {
   display: flex;
   flex-direction: column;
+  gap: var(--at-space-md);
   margin: 0;
   padding: 0;
   list-style: none;
+}
+
+// One requirement: its top line (title, what is measured, status) and, unless folded, its latest reading. The chosen card has the dark outline.
+.card {
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-lg);
   background: var(--at-canvas);
   overflow: hidden;
+
+  &[data-selected='true'] {
+    border-color: var(--at-ink);
+    box-shadow: 0 0 0 1px var(--at-ink);
+  }
 }
 
-.item + .item { border-block-start: 1px solid var(--at-hairline); }
+.top {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--at-space-md);
+  padding: var(--at-space-xs) var(--at-space-md) var(--at-space-xs) 0;
+}
 
-// The open row is off-white, head and details together, against the white table (as on Platform Insights > Themes across projects).
-.item[data-open='true'] { background: var(--at-surface-soft); }
-
-.itemHead { margin: 0; }
-
-.headButton {
-  inline-size: 100%;
+.select {
+  flex: 1;
   max-inline-size: none;
-  min-block-size: 3.5rem;
+  min-block-size: 0;
+  min-inline-size: 0;
   white-space: normal;
   color: var(--at-ink);
   text-align: start;
+  align-items: flex-start;
+  padding-block: var(--at-space-md);
 
   &:hover { background: var(--at-surface-soft); }
 }
 
-.headText {
-  display: flex;
-  flex: 1;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--at-space-xs) var(--at-space-md);
-  min-inline-size: 0;
-}
-
-.status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--at-space-xs);
-}
-
-.count {
-  @include tokens.role('meta');
-  color: var(--at-muted);
-}
-
-.itemBody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-md);
-  padding: var(--at-space-xs) var(--at-space-lg) var(--at-space-lg);
-}
-
-.why {
-  @include tokens.role('reading-lg');
-  margin: 0;
-  color: var(--at-ink);
-}
-
-// Two columns that share their rows, so the fields line up across them: heading, description, then three rows of fields.
-// The check-in form's rows sit in the right column's grid (the form itself takes no box), with the list of check-ins below them.
-.split {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: repeat(8, auto);
-  column-gap: var(--at-space-xl);
-  row-gap: var(--at-space-md);
-
-  @media (max-width: 64rem) {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: none;
-  }
-}
-
-.cell {
-  display: grid;
-  grid-row: span 8;
-  grid-template-rows: subgrid;
-  min-inline-size: 0;
-
-  @media (max-width: 64rem) {
-    display: flex;
-    flex-direction: column;
-    grid-row: auto;
-    gap: var(--at-space-md);
-  }
-}
-
-.colHead {
-  @include tokens.role('eyebrow');
-  margin: 0;
-  color: var(--at-muted);
-}
-
-.pair {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: var(--at-space-md);
-}
-
-.findings {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-sm);
-  padding: var(--at-space-md) var(--at-space-lg);
-  border-radius: var(--at-radius-lg);
-  background: var(--at-canvas);
-  border: 1px solid var(--at-hairline);
-
-  &[data-result='worked'] { background: var(--at-tint-mint); border-color: transparent; }
-  &[data-result='needs_attention'] { background: var(--at-tint-coral); border-color: transparent; }
-  &[data-result='too_early'] { background: var(--at-tint-cream); border-color: transparent; }
-}
-
-.findingsHead {
-  display: flex;
-  align-items: center;
-  gap: var(--at-space-sm);
-}
-
-.checkins {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-sm);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.checkin {
+.selectText {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-xxs);
-  padding-block-end: var(--at-space-sm);
-  border-block-end: 1px solid var(--at-hairline);
+  min-inline-size: 0;
 }
 
-.checkinLine {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--at-space-xs) var(--at-space-sm);
-}
-
-.day {
+.reqTitle {
   @include tokens.role('label-md');
+  color: var(--at-ink);
+}
+
+.reqKey {
   color: var(--at-muted);
   font-weight: 400;
 }
 
-.seen {
+.signal {
   @include tokens.role('body-md');
-  flex: 1 1 8rem;
-  min-inline-size: 0;
-  color: var(--at-ink);
-  // One line; the full text is in the tooltip.
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  color: var(--at-muted);
 }
 
-// The "what did you see" box takes the next two rows, so its edges line up with the fields beside it.
-.valueCell {
-  grid-row: span 2;
+.statusSlot {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--at-space-xxs);
+  padding-block-start: var(--at-space-md);
+}
+
+// The latest reading under the top line: tinted by the status.
+.strip {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--at-space-lg);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-block-start: 1px solid var(--at-hairline);
+  background: var(--at-surface-soft);
+
+  &[data-result='worked'] { background: var(--at-tint-mint); }
+  &[data-result='needs_attention'] { background: var(--at-tint-coral); }
+  &[data-result='too_early'] { background: var(--at-tint-cream); }
+}
+
+.stripText {
   display: flex;
   flex-direction: column;
-
-  > :global(.cds--form-item),
-  :global(.cds--text-area__wrapper) {
-    display: flex;
-    flex: 1;
-    flex-direction: column;
-    min-block-size: 0;
-  }
-
-  textarea {
-    flex: 1;
-    block-size: 100%;
-    min-block-size: 6rem;
-    resize: none;
-  }
-
-  @media (max-width: 64rem) {
-    grid-row: auto;
-    inline-size: 100%;
-  }
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
 }
 
-.noteText {
+.stripSource {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.stripValue {
+  @include tokens.role('title-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+// The small chart of readings, larger here than where it sits in a table row.
+.strip svg {
+  inline-size: 9rem;
+  block-size: 3rem;
+  flex: none;
+}
+
+.stripNote {
   @include tokens.role('body-md');
   margin: 0;
   color: var(--at-body);
-}
-
-.add {
-  display: contents;
-
-  button { align-self: start; justify-self: start; }
-
-  @media (max-width: 64rem) {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--at-space-md);
-
-    > div { inline-size: 100%; }
-  }
-}
-
-.foot {
-  display: flex;
-  justify-content: flex-end;
-}
-
-.storyLink {
-  @include tokens.role('label-md');
-  color: var(--at-link);
-  white-space: nowrap;
 }

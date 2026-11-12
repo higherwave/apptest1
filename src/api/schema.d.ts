@@ -2496,7 +2496,25 @@ export interface components {
             source: "telemetry" | "kpi" | "support_tickets" | "research" | "other" | null;
             baseline: string | null;
             target: string | null;
-            /** @description Oldest first. */
+            /**
+             * @description What is measured, in the sentence the row is entered as. Null on a row saved before the sentence existed (it then has only metric, baseline and target).
+             * @enum {string|null}
+             */
+            metricKind: "tickets" | "adoption" | "engagement" | "time_to_value" | "retention" | "feedback" | "other" | null;
+            /** @description Which tickets, which adoption: free text, completing the sentence. */
+            detail: string | null;
+            /**
+             * @description go from (valueA to valueB), stay below, rise above, stay between (valueA and valueB) or reach valueA.
+             * @enum {string|null}
+             */
+            comparison: "change" | "below" | "above" | "between" | "reach" | null;
+            valueA: string | null;
+            valueB: string | null;
+            /** @description The unit or period, for example a month or %. */
+            unit: string | null;
+            /** @description A short series of readings, oldest first, for a small chart. Read-only: sample data in the demo, to be filled by a connected data source later. */
+            trend: number[] | null;
+            /** @description Oldest first. A requirement has one reading today, the latest, with its status (older rows may have several). */
             checkins: components["schemas"]["Checkin"][];
             /**
              * @description The newest check-in's verdict, null before the first one.
@@ -2520,6 +2538,17 @@ export interface components {
             items: components["schemas"]["MeasureItem"][];
         };
         MeasureRequest: {
+            /**
+             * @description When sent, metric, baseline and target are written from the sentence parts below.
+             * @enum {string|null}
+             */
+            metricKind?: "tickets" | "adoption" | "engagement" | "time_to_value" | "retention" | "feedback" | "other" | null;
+            detail?: string | null;
+            /** @enum {string|null} */
+            comparison?: "change" | "below" | "above" | "between" | "reach" | null;
+            valueA?: string | null;
+            valueB?: string | null;
+            unit?: string | null;
             metric?: string | null;
             /** @enum {string|null} */
             source?: "telemetry" | "kpi" | "support_tickets" | "research" | "other" | null;

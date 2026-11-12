@@ -2143,6 +2143,33 @@ test('saving a measure keeps its check-ins; the newest verdict is the result and
   assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, undefined)).status, 428)
 })
 
+test('a measure is entered as a sentence: the parts are saved, the plain metric, baseline and target are written from them, and a reading can have no value', async () => {
+  const { app, pg, p1, send } = await boardFixture()
+  const items = async () => (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
+  const r1 = (await items()).find((i: any) => i.key === 'R1')
+  assert.deepEqual([r1.metricKind, r1.detail, r1.comparison, r1.valueA, r1.valueB, r1.unit, r1.trend], [null, null, null, null, null, null, null], 'nothing is made up for a requirement that has no measure')
+  const parts = { metricKind: 'tickets', detail: 'asking why a score changed', comparison: 'change', valueA: '48', valueB: '15', unit: 'a month', source: 'support_tickets', checkins: [] }
+  const saved = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, parts, 0), '/stories/{id}/measure', 'put')
+  assert.deepEqual([saved.metricKind, saved.detail, saved.comparison, saved.valueA, saved.valueB, saved.unit], ['tickets', 'asking why a score changed', 'change', '48', '15', 'a month'])
+  assert.deepEqual([saved.metric, saved.baseline, saved.target], ['Support tickets asking why a score changed', '48 a month', '15 a month'], 'what Platform Insights and the case studies read')
+  // One status with one reading; a status can come with no reading yet.
+  const withReading = { ...parts, checkins: [{ on: '2027-01-05', value: '11 a month', verdict: 'worked', note: 'Below the goal.' }] }
+  assert.equal((await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, withReading, 1), '/stories/{id}/measure', 'put')).result, 'worked')
+  const noValue = { ...parts, comparison: 'below', valueB: null, checkins: [{ on: '2027-01-06', value: '', verdict: 'too_early', note: null }] }
+  const second = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, noValue, 2), '/stories/{id}/measure', 'put')
+  assert.deepEqual([second.result, second.target, second.baseline, second.checkins[0].value], ['too_early', 'below 48 a month', null, ''])
+  // The series for the small chart is not written by a save, and a save does not lose it.
+  await pg.query(`update delivery.success_measures set trend = '[48, 44, 40]'::jsonb where story_id = $1`, [r1.storyId])
+  const current = (await items()).find((i: any) => i.key === 'R1')
+  const third = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { ...noValue, trend: [1, 2] }, current.version), '/stories/{id}/measure', 'put')
+  assert.deepEqual(third.trend, [48, 44, 40])
+  // A save without the parts (an older client) keeps the metric it was given and clears the parts, so the two never disagree.
+  const legacy = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { metric: 'Calls about fees', source: 'kpi', baseline: '120 a week', target: '60 a week', checkins: [] }, third.version), '/stories/{id}/measure', 'put')
+  assert.deepEqual([legacy.metric, legacy.metricKind, legacy.detail, legacy.comparison, legacy.valueA], ['Calls about fees', null, null, null, null])
+  assert.equal((await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { ...parts, metricKind: 'bogus' }, legacy.version)).status, 422)
+  assert.equal((await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { ...parts, comparison: 'sideways' }, legacy.version)).status, 422)
+})
+
 test('a measure rejects a bad date, an unknown verdict or source; open questions have no measure', async () => {
   const { app, story, send } = await boardFixture()
   const r1 = await story('R1')

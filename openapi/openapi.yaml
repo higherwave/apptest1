@@ -3178,7 +3178,7 @@ components:
         note: { type: [string, 'null'] }
     MeasureItem:
       type: object
-      required: [storyId, key, title, priority, summary, whyItMatters, metric, source, baseline, target, checkins, result, version]
+      required: [storyId, key, title, priority, summary, whyItMatters, metric, source, baseline, target, metricKind, detail, comparison, valueA, valueB, unit, trend, checkins, result, version]
       properties:
         storyId: { type: string }
         key: { type: string, description: 'R1, R2 ...' }
@@ -3192,9 +3192,19 @@ components:
           enum: [telemetry, kpi, support_tickets, research, other, null]
         baseline: { type: [string, 'null'] }
         target: { type: [string, 'null'] }
+        metricKind: { type: [string, 'null'], enum: [tickets, adoption, engagement, time_to_value, retention, feedback, other, null], description: 'What is measured, in the sentence the row is entered as. Null on a row saved before the sentence existed (it then has only metric, baseline and target).' }
+        detail: { type: [string, 'null'], description: 'Which tickets, which adoption: free text, completing the sentence.' }
+        comparison: { type: [string, 'null'], enum: [change, below, above, between, reach, null], description: 'go from (valueA to valueB), stay below, rise above, stay between (valueA and valueB) or reach valueA.' }
+        valueA: { type: [string, 'null'] }
+        valueB: { type: [string, 'null'] }
+        unit: { type: [string, 'null'], description: 'The unit or period, for example a month or %.' }
+        trend:
+          type: [array, 'null']
+          items: { type: number }
+          description: 'A short series of readings, oldest first, for a small chart. Read-only: sample data in the demo, to be filled by a connected data source later.'
         checkins:
           type: array
-          description: Oldest first.
+          description: 'Oldest first. A requirement has one reading today, the latest, with its status (older rows may have several).'
           items: { $ref: '#/components/schemas/Checkin' }
         result:
           type: [string, 'null']
@@ -3224,6 +3234,12 @@ components:
       type: object
       required: [checkins]
       properties:
+        metricKind: { type: [string, 'null'], enum: [tickets, adoption, engagement, time_to_value, retention, feedback, other, null], description: 'When sent, metric, baseline and target are written from the sentence parts below.' }
+        detail: { type: [string, 'null'] }
+        comparison: { type: [string, 'null'], enum: [change, below, above, between, reach, null] }
+        valueA: { type: [string, 'null'] }
+        valueB: { type: [string, 'null'] }
+        unit: { type: [string, 'null'] }
         metric: { type: [string, 'null'] }
         source:
           type: [string, 'null']
