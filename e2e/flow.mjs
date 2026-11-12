@@ -879,10 +879,6 @@ try {
   ok('changing how it is compared rewrites the goal, and the second value goes away', m1b.comparison === 'below' && /below 120 a week/.test(m1b.target ?? '') && await page.evaluate(() => !document.querySelector('#measure-b-R1')))
   await choose('measure-comparison-R1', 'go from')
   await page.waitForSelector('#measure-b-R1')
-  // Suggestions complete the detail in one click.
-  await page.evaluate(() => [...document.querySelectorAll('[data-testid="measure-panel-R1"] [role="group"] button')].find((b) => b.innerText.trim() === 'about missing or wrong data').click())
-  await new Promise((r) => setTimeout(r, 700))
-  ok('a common detail fills the sentence at once', await page.evaluate(() => document.querySelector('#measure-detail-R1').value === 'about missing or wrong data') && (await measureApi()).items.find((i) => i.key === 'R1').detail === 'about missing or wrong data')
   // A status is one click; a reading goes with it. There is no history: the requirement keeps only its latest reading.
   await page.evaluate(() => [...document.querySelectorAll('[aria-label="Status of R1"] button')].find((b) => b.innerText.trim() === 'Needs attention').click())
   await page.waitForFunction(() => document.querySelector('[data-testid="measure-R1"]')?.dataset.result === 'needs_attention', { timeout: 8000 })

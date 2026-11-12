@@ -43,7 +43,7 @@ type PanelProps = {
 }
 
 // One requirement's measure, as one sentence with its latest reading and status. Text fields save when they are left, if they changed; a choice
-// from a list, a suggestion or a status saves at once. A requirement keeps only its latest reading: changing the reading or the status replaces it.
+// from a list or a status saves at once. A requirement keeps only its latest reading: changing the reading or the status replaces it.
 export function MeasurePanel({ item, projectId, canEdit, onSave, onViewStory, showTitle = true }: PanelProps) {
   const [detail, setDetail] = useState(item.detail ?? (item.metricKind ? '' : (item.metric ?? '')))
   const [a, setA] = useState(item.valueA ?? (item.comparison ? '' : (item.baseline ?? '')))
@@ -121,7 +121,7 @@ export function MeasurePanel({ item, projectId, canEdit, onSave, onViewStory, sh
       )}
 
       <fieldset className={styles.sentence} disabled={!canEdit}>
-        <legend className={styles.legend}>How we will know it worked</legend>
+        <legend className={styles.srOnly}>How we will know it worked</legend>
         <div className={styles.flow} data-testid={`measure-sentence-${item.key}`}>
           <span className={styles.words}>We’ll know this worked when</span>
           <Dropdown
@@ -175,16 +175,6 @@ export function MeasurePanel({ item, projectId, canEdit, onSave, onViewStory, sh
           <span className={styles.words}>.</span>
         </div>
         {sentence && <p className={styles.srOnly}>{sentence}</p>}
-        {canEdit && kindInfo.details.length > 0 && (
-          <div className={styles.suggest} role="group" aria-label={`Common details for ${kindInfo.label.toLowerCase()}`}>
-            <span className={styles.suggestLabel}>Common details:</span>
-            {kindInfo.details.map((d) => (
-              <Button key={d} kind="tertiary" size="sm" className={styles.suggestion} onClick={() => { setDetail(d); save({}, { detail: d }) }}>
-                {d}
-              </Button>
-            ))}
-          </div>
-        )}
       </fieldset>
 
       <section className={styles.latest} aria-label={`Latest reading for ${item.key}`} data-status={status}>

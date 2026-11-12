@@ -48,13 +48,6 @@
   border: 0;
 }
 
-.legend {
-  @include tokens.role('eyebrow');
-  margin: 0 0 var(--at-space-xs);
-  padding: 0;
-  color: var(--at-muted);
-}
-
 .flow {
   display: flex;
   flex-wrap: wrap;
@@ -73,24 +66,6 @@
 .detail { flex: none; inline-size: 14rem; }
 .value { flex: none; inline-size: 6rem; }
 .unit { flex: none; inline-size: 8rem; }
-
-.suggest {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--at-space-xs);
-}
-
-.suggestLabel {
-  @include tokens.role('meta');
-  color: var(--at-muted);
-}
-
-.suggestion {
-  max-inline-size: 100%;
-  white-space: normal;
-  text-align: start;
-}
 
 .latest {
   display: flex;

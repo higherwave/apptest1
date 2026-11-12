@@ -1,6 +1,6 @@
 export type MeasureKindKey = 'tickets' | 'adoption' | 'engagement' | 'time_to_value' | 'retention' | 'feedback' | 'other'
 export type MeasureComparisonKey = 'change' | 'below' | 'above' | 'between' | 'reach'
-export const MEASURE_KINDS: { key: MeasureKindKey; label: string; hint: string; details: string[] }[]
+export const MEASURE_KINDS: { key: MeasureKindKey; label: string; hint: string }[]
 export const MEASURE_COMPARISONS: { key: MeasureComparisonKey; label: string; mid: string; two: boolean; hint: string }[]
 export type MeasureParts = {
   metricKind?: string | null

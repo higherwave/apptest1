@@ -4,15 +4,15 @@
 //   We'll know this worked when <kind> <detail> <comparison> <value> [<mid> <value>] <unit>.
 //   We'll know this worked when support tickets asking why a score changed go from 48 to 15 a month.
 
-/** What is being measured. `details` are generic starting points for the detail, not a list to stay inside: the detail is free text. */
+/** What is being measured; the detail that completes the sentence is free text. */
 export const MEASURE_KINDS = [
-  { key: 'tickets', label: 'Support tickets', hint: 'Volume of tickets on a topic', details: ['asking about this feature', 'about missing or wrong data', 'escalated to engineering'] },
-  { key: 'adoption', label: 'Adoption', hint: 'Share of people who start using it', details: ['of this feature by the people it is for', 'of the new flow after launch', 'of the first step'] },
-  { key: 'engagement', label: 'Engagement', hint: 'How often people use it', details: ['with this feature each week', 'with its notifications or emails', 'with the main action'] },
-  { key: 'time_to_value', label: 'Time-to-value', hint: 'How long until it pays off', details: ['for a new person to get a first result', 'to complete the main task', 'to understand what changed'] },
-  { key: 'retention', label: 'Retention', hint: 'Whether people keep coming back', details: ['of people using it every week', 'of accounts still active after a month', 'of people who come back after a first use'] },
-  { key: 'feedback', label: 'Feedback', hint: 'What people say in sessions or surveys', details: ['from participants who finish the task unaided', 'from people who rate it clear', 'from people who say it caught a real problem'] },
-  { key: 'other', label: 'Something else', hint: 'Describe it in your own words', details: [] },
+  { key: 'tickets', label: 'Support tickets', hint: 'Volume of tickets on a topic' },
+  { key: 'adoption', label: 'Adoption', hint: 'Share of people who start using it' },
+  { key: 'engagement', label: 'Engagement', hint: 'How often people use it' },
+  { key: 'time_to_value', label: 'Time-to-value', hint: 'How long until it pays off' },
+  { key: 'retention', label: 'Retention', hint: 'Whether people keep coming back' },
+  { key: 'feedback', label: 'Feedback', hint: 'What people say in sessions or surveys' },
+  { key: 'other', label: 'Something else', hint: 'Describe it in your own words' },
 ]
 
 /** How the measure is compared with the number. `two` means there is a second value, joined to the first by `mid`. */
