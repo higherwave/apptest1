@@ -188,6 +188,15 @@ try {
   ok('moving a project from the default team to Support puts it in Support', !!movedId)
   ok('the owner is a leader, so still sees it, but cannot change it: not a member of Support', await page.evaluate(async (id) => (await fetch(`/api/v1/projects/${id}`)).status === 200 && (await fetch(`/api/v1/projects/${id}/tasks`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '1' }, body: JSON.stringify({ tasks: [] }) })).status === 403, movedId))
 
+  await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#project-team-filter', { timeout: 8000 })
+  ok('with two teams the list names each project’s team and marks a leader’s read-only view', await page.evaluate(() => { const t = [...document.querySelectorAll('[data-testid="project-team"]')].map((e) => e.innerText.replace(/\s+/g, ' ').trim()); return t.some((x) => x === 'Support · View only') && t.some((x) => x === 'General') }))
+  await page.click('#project-team-filter')
+  await page.waitForSelector('[role=option]', { visible: true })
+  await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.trim() === 'Support').click())
+  await new Promise((r) => setTimeout(r, 400))
+  ok('the team filter narrows the list to that team’s projects', await page.evaluate(() => /^1 project$/.test(document.body.innerText.match(/\d+ projects?/)?.[0] ?? '') && document.querySelectorAll('[data-testid="project-team"]').length === 1))
+
   // The invited person signs in: linked, read-only, and no invite form.
   await signInAs('e2e.person@example.com')
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })

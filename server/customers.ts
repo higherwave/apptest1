@@ -1,7 +1,7 @@
 // Customer profiles: the participants of every analysed project, grouped by who they are (the text of their role before the first
 // comma, so "Working parent, new patient" and "Working parent" are one group), with what that group struggles with and what they said.
 import type { Queryable } from './db.js'
-import { CURRENT_THEMES, getThemesOverview, projectsWithAnalysis, type Category, type ThemeStatus } from './insights.js'
+import { currentThemes, getThemesOverview, projectsWithAnalysis, type Category, type ThemeStatus } from './insights.js'
 
 export type CustomerQuote = { id: string; text: string; speaker: string; session: string; projectId: string; themeTitle: string }
 export type CustomerGroup = {
@@ -25,17 +25,17 @@ const QUOTES_SHOWN = 3
 const segmentOf = (role: string) => role.split(',')[0].trim()
 const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
 
-export async function getCustomers(db: Queryable, workspaceId: string): Promise<Customers> {
-  const projects = await projectsWithAnalysis(db, workspaceId)
+export async function getCustomers(db: Queryable, workspaceId: string, visible?: string[] | null): Promise<Customers> {
+  const projects = await projectsWithAnalysis(db, workspaceId, visible)
   const ids = projects.map((p) => p.id)
   if (ids.length === 0) return { totalParticipants: 0, groups: [] }
   const [overview, people, said] = await Promise.all([
-    getThemesOverview(db, workspaceId),
+    getThemesOverview(db, workspaceId, visible),
     db.query(`select id, project_id, role from research.participants where workspace_id = $1 and project_id = any($2::uuid[]) and role is not null and btrim(role) <> ''`, [workspaceId, ids]),
     db.query(
       `select sp.participant_id, s.platform_theme_id, u.id as utterance_id, u.text, sp.name as speaker, tr.name as session, c.project_id, tr.created_at, u.position
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.theme_quotes tq on tq.theme_id = s.theme_id
        join research.utterances u on u.id = tq.utterance_id
        join research.transcript_speakers sp on sp.id = u.speaker_id

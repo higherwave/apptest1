@@ -149,13 +149,13 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
 export const isSuccess = (b: Pick<CaseBrief, 'results'>) => !!b.results && b.results.summary.worked >= 1 && b.results.summary.needsAttention === 0
 
 // A brief for every project that qualifies, newest project first.
-export async function listCaseBriefs(db: Queryable, workspaceId: string): Promise<CaseBrief[]> {
+export async function listCaseBriefs(db: Queryable, workspaceId: string, visible?: string[] | null): Promise<CaseBrief[]> {
   const ids = (
     await db.query(
-      `select p.id from core.projects p where p.workspace_id = $1 and p.kind = 'research'
+      `select p.id from core.projects p where p.workspace_id = $1 and p.kind = 'research' and ($2::uuid[] is null or p.team_id = any($2::uuid[]))
          and exists (select 1 from core.agent_runs r where r.project_id = p.id and r.kind = 'analysis' and r.status = 'complete' and r.superseded_at is null)
        order by p.created_at desc, p.name`,
-      [workspaceId],
+      [workspaceId, visible ?? null],
     )
   ).rows
   const out: CaseBrief[] = []

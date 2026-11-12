@@ -22,6 +22,16 @@
   gap: var(--at-space-md);
 }
 
+.countRow {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-md);
+}
+
+.teamFilter {
+  inline-size: 12rem;
+}
+
 .count {
   @include tokens.role('meta');
   margin: 0;

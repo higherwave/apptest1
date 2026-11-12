@@ -225,3 +225,33 @@ test('removing a person from the workspace takes them out of every team', async 
   assert.equal(res.status, 204)
   assert.equal((await f.q(`select count(*)::int n from core.team_memberships where user_id = $1`, [sam.user_id]))[0].n, 0)
 })
+
+test('Platform Insights shows a team member only their teams’ research; leaders see all; platform curation is for leaders', async () => {
+  const f = await fixture()
+  const get = async (who: ReturnType<typeof f.as>, path: string) => (await who.request(`/api/v1${path}`, { headers: auth })).json()
+  const name = 'Clinic booking, usability round 1'
+  const leader = await get(f.david, '/insights/themes')
+  const member = await get(f.alex, '/insights/themes')
+  assert.ok(leader.projects.some((p: any) => p.id === f.project), 'the leader sees the project in Support')
+  assert.ok(!member.projects.some((p: any) => p.id === f.project), 'Alex is not in Support')
+  assert.ok(member.projects.length > 0 && member.projects.length < leader.projects.length)
+  assert.ok(member.totalParticipants < leader.totalParticipants, 'the people behind the other team’s project are not counted')
+  assert.ok(member.themes.length <= leader.themes.length && member.themes.every((t: any) => t.sources.length > 0), 'no theme without research in Alex’s teams')
+  assert.ok(member.themes.every((t: any) => t.sources.every((s: any) => s.projectId !== f.project)))
+  for (const path of ['/insights/themes', '/insights/customers', '/insights/journey', '/insights/case-studies', '/insights/case-briefs', '/workflows']) {
+    const text = JSON.stringify(await get(f.alex, path))
+    assert.ok(!text.includes(f.project) && !text.includes(name), `${path} leaves out the other team’s project`)
+  }
+  assert.ok(JSON.stringify(await get(f.david, '/insights/customers')).includes(f.project), 'and the leader still has it')
+  // A project's own workflow count only counts what the caller can see.
+  const blueprintCount = (data: any) => data.data.reduce((n: number, w: any) => n + w.projectCount, 0)
+  assert.ok(blueprintCount(await get(f.alex, '/workflows')) <= blueprintCount(await get(f.david, '/workflows')))
+  // Joining the team shows it.
+  await f.q(`insert into core.team_memberships (workspace_id, team_id, user_id, role) values ($1, $2, $3, 'viewer')`, [f.ws, f.support, await f.user('alex')])
+  const joined = await get(f.as('alex'), '/insights/themes')
+  assert.ok(joined.projects.some((p: any) => p.id === f.project))
+  // Platform themes belong to everyone's data, so only leaders curate them.
+  const theme = leader.themes[0].id
+  assert.equal((await f.as('alex').request(`/api/v1/insights/themes/${theme}`, { method: 'PATCH', headers: auth, body: JSON.stringify({ title: 'Renamed by an editor' }) })).status, 403)
+  assert.equal((await f.as('alex').request('/api/v1/insights/merge-suggestions/run', { method: 'POST', headers: auth })).status, 403)
+})

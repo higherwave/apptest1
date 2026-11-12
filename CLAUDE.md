@@ -26,6 +26,20 @@ After a push, confirm `GET /api/v1/health` reports `version` equal to the short 
 `openapi/openapi.yaml` is written first and the tests check every route against it. After editing it run `npm run gen:api`;
 `npm run check:api-types` fails if `src/api/schema.d.ts` is stale. Writes need an owner or editor; reads work as the read-only viewer.
 
+## Teams
+
+A team owns projects; a person has a role per team (`core.team_memberships`); workspace owners are leaders who see every team, read-only in teams
+they are not in; the read-only demo viewer sees everything. Rules live in `server/teams.ts` and are enforced in the API, never only in screens:
+
+- Any route that names a project, directly or through a theme, document, story or agent step, must start with `/projects/{id}`, `/themes/{id}`,
+  `/specs/{id}`, `/stories/{id}` or `/agent-steps/{id}`: `withContext`/`withReadContext` then answer 404 to a caller outside the team and 403 to a
+  write by someone who may only read. A route about something else goes in `NOT_ONE_PROJECT` in `server/teams.test.ts` with its reason. That test walks
+  the API spec, so a forgotten route fails the build.
+- A list or rollup of projects takes the caller's visible teams (`visibleTeamIds(ctx)`): `listProjects`, `listSpecs`, and every Platform Insights
+  reader (`currentThemes(visible)`). Code that WRITES platform data keeps reading `CURRENT_THEMES` (all teams), or it would treat another team's themes as gone.
+- `ctx.role` is the role for everything that is not about one project (owner = leader). A project's own role is `projectAccess()`.
+- Migration 0036's triggers keep the default team in step with workspace memberships and new projects, so the previous code still works during a deploy.
+
 ## Database
 
 - A migration is `db/migrations/NNNN_name.sql` plus `NNNN_name.down.sql`. Never edit one that has been applied anywhere.

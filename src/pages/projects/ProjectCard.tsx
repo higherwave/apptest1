@@ -11,11 +11,15 @@ type ProjectCardProps = {
   onGo: (project: Project, step: ProjectStep) => void
   /** Present only when the person can edit; the menu is not shown otherwise. */
   onRemove?: (project: Project) => void
+  /** The team's name, shown when the person sees more than one team's projects. */
+  team?: string
+  /** A project of a team the person is not in (a leader's view): readable, not changeable. */
+  viewOnly?: boolean
 }
 
 // Presentational: one project as a card. The name is the main link and stretches over the whole card, so a click anywhere opens
 // the project; the three counts and the menu sit above that and are links of their own (a link must not sit inside a link).
-export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProps) {
+export function ProjectCard({ project, onOpen, onGo, onRemove, team, viewOnly }: ProjectCardProps) {
   const analyzed = project.status === 'analyzed'
   const openStep: ProjectStep = analyzed ? 'themes' : 'plan'
   return (
@@ -31,6 +35,12 @@ export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProp
         <p className={styles.template} title={project.methods.length > 1 ? project.methods.join(', ') : undefined}>
           {project.methods.length ? project.methods.join(', ') : 'No methods'}
         </p>
+        {team && (
+          <p className={styles.team} data-testid="project-team">
+            {team}
+            {viewOnly && ' · View only'}
+          </p>
+        )}
         <div className={styles.bottom}>
           {analyzed ? (
             <dl className={styles.stats}>
@@ -55,7 +65,7 @@ export function ProjectCard({ project, onOpen, onGo, onRemove }: ProjectCardProp
           <p className={styles.status}>{analyzed ? 'Analyzed' : 'Draft'}</p>
         </div>
       </Tile>
-      {onRemove && (
+      {onRemove && !viewOnly && (
         <div className={styles.menu}>
           <OverflowMenu iconDescription={`Actions for ${project.name}`} flipped size="sm">
             <OverflowMenuItem itemText="Remove project" isDelete onClick={() => onRemove(project)} />

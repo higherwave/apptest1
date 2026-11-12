@@ -39,7 +39,8 @@ export function InsightThemesPage() {
       }}
       errorText={overview.isError ? friendlyMessage(overview.error) : undefined}
       curation={{
-        canEdit: me.data?.role === 'owner' || me.data?.role === 'editor',
+        // Platform themes hold every team's research, so only owners (leaders) curate them.
+        canEdit: me.data?.role === 'owner',
         busy: actions.some((m) => m.isPending),
         error: failed ? friendlyMessage(failed.error) : undefined,
         onRationale: run(() => tidy.rationale.mutate()),
@@ -48,7 +49,7 @@ export function InsightThemesPage() {
         onClearArea: (themeId) => run(() => tidy.clearArea.mutate(themeId))(),
         onAssignArea: (themeId, areaId) => run(() => tidy.assignArea.mutate({ themeId, areaId }))(),
       }}
-      canReview={me.data?.role === 'owner' || me.data?.role === 'editor'}
+      canReview={me.data?.role === 'owner'}
       reviewing={reviewed.isPending}
       onReviewed={(id) => reviewed.mutate(id)}
       onToggle={(id) => {

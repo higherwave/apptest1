@@ -2,7 +2,7 @@
 // theme sits in the stage most of its project themes were placed in, so the page reads as where, along the customer's path, the
 // pain is, how it feels, and which of it nobody has addressed.
 import type { Queryable } from './db.js'
-import { CURRENT_THEMES, getThemesOverview, projectsWithAnalysis, type Category, type ThemeStatus } from './insights.js'
+import { currentThemes, getThemesOverview, projectsWithAnalysis, type Category, type ThemeStatus } from './insights.js'
 import { listWorkflows, type WorkflowBackstage } from './workflows.js'
 
 export type JourneyTheme = { id: string; title: string; category: Category; participantCount: number; projectCount: number; status: ThemeStatus; opportunity: boolean }
@@ -26,16 +26,16 @@ export type JourneyStage = {
 }
 export type PlatformJourney = { projectCount: number; totalParticipants: number; stages: JourneyStage[]; workflow?: { id: string; name: string; description: string | null; version: number; projects: number } }
 
-export async function getPlatformJourney(db: Queryable, workspaceId: string): Promise<PlatformJourney> {
-  const projects = await projectsWithAnalysis(db, workspaceId)
+export async function getPlatformJourney(db: Queryable, workspaceId: string, visible?: string[] | null): Promise<PlatformJourney> {
+  const projects = await projectsWithAnalysis(db, workspaceId, visible)
   if (projects.length === 0) return { projectCount: 0, totalParticipants: 0, stages: [] }
   const [overview, stageRows, placed] = await Promise.all([
-    getThemesOverview(db, workspaceId),
+    getThemesOverview(db, workspaceId, visible),
     db.query(`select study_id, position, name from research.study_stages where workspace_id = $1 and study_id = any($2::uuid[])`, [workspaceId, projects.map((p) => p.id)]),
     db.query(
       `select s.platform_theme_id, t.project_id, t.severity::float8 as severity, ss.name as stage
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.themes t on t.id = s.theme_id
        left join research.theme_overrides o on o.theme_id = t.id
        join research.study_stages ss on ss.study_id = t.project_id and ss.position = coalesce(o.stage_position, t.stage_position)
@@ -85,10 +85,10 @@ const upperFirst = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
  * One workflow's journey: the blueprint's own stages (curated, in order, even where nothing has been found yet), with the research of the projects that are
  * on the workflow laid over them (their journey stages are mapped to the blueprint's), the backstage under each stage, and who is in it. null if there is no such workflow.
  */
-export async function getWorkflowJourney(db: Queryable, workspaceId: string, workflowId: string): Promise<PlatformJourney | null> {
-  const flow = (await listWorkflows(db, workspaceId, workflowId))[0]
+export async function getWorkflowJourney(db: Queryable, workspaceId: string, workflowId: string, visible?: string[] | null): Promise<PlatformJourney | null> {
+  const flow = (await listWorkflows(db, workspaceId, workflowId, visible))[0]
   if (!flow) return null
-  const analysed = await projectsWithAnalysis(db, workspaceId)
+  const analysed = await projectsWithAnalysis(db, workspaceId, visible)
   const onFlow = new Set((await db.query(`select project_id from insights.project_workflows where workspace_id = $1 and workflow_id = $2`, [workspaceId, workflowId])).rows.map((r) => r.project_id as string))
   const projects = analysed.filter((p) => onFlow.has(p.id))
   const ids = projects.map((p) => p.id)
@@ -98,11 +98,11 @@ export async function getWorkflowJourney(db: Queryable, workspaceId: string, wor
   if (ids.length === 0) return { projectCount: 0, totalParticipants: 0, workflow, stages: flow.stages.map((s) => ({ ...empty, ...frame(s) })) }
 
   const [overview, placed, counts, people] = await Promise.all([
-    getThemesOverview(db, workspaceId),
+    getThemesOverview(db, workspaceId, visible),
     db.query(
       `select s.platform_theme_id, ss.workflow_stage_id as stage_id, t.severity::float8 as severity
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.themes t on t.id = s.theme_id
        left join research.theme_overrides o on o.theme_id = t.id
        join research.study_stages ss on ss.study_id = t.project_id and ss.position = coalesce(o.stage_position, t.stage_position)
@@ -112,7 +112,7 @@ export async function getWorkflowJourney(db: Queryable, workspaceId: string, wor
     db.query(`select workflow_stage_id as stage_id, count(distinct study_id)::int as n from research.study_stages where workspace_id = $1 and study_id = any($2::uuid[]) and workflow_stage_id is not null group by 1`, [workspaceId, ids]),
     db.query(
       `select ss.workflow_stage_id as stage_id, p.id as participant_id, p.role, t.title
-       from (${CURRENT_THEMES}) c
+       from (${currentThemes(visible)}) c
        join research.themes t on t.id = c.id
        left join research.theme_overrides o on o.theme_id = t.id
        join research.study_stages ss on ss.study_id = t.project_id and ss.position = coalesce(o.stage_position, t.stage_position)

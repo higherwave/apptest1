@@ -1,4 +1,4 @@
-import { Button, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tile } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tile } from '@carbon/react'
 import { useState } from 'react'
 import type { Project } from '../../api/client'
 import { PageHero } from '../../shell/PageHero'
@@ -25,6 +25,8 @@ export type ProjectsViewProps = {
   removeError?: string
   onConfirmRemove: () => void
   onCancelRemove: () => void
+  /** Whether the person may change this project (they edit in its team). Projects they may only read show "View only" and have no remove menu. */
+  canChange: (project: Project) => boolean
 }
 
 type Layout = 'cards' | 'list'
@@ -38,8 +40,13 @@ const readLayout = (): Layout => {
 }
 
 // Presentational: loading, error, empty and ready are all declared here. Data comes from the container.
-export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onGo, onNew, onRemove, removing, removePending, removeError, onConfirmRemove, onCancelRemove }: ProjectsViewProps) {
+export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onGo, onNew, onRemove, removing, removePending, removeError, onConfirmRemove, onCancelRemove, canChange }: ProjectsViewProps) {
   const [layout, setLayout] = useState<Layout>(readLayout)
+  const [teamFilter, setTeamFilter] = useState('all')
+  // With more than one team's projects in the list, each says which team it is, and the list can be narrowed to one.
+  const teams = [...new Map(projects.filter((p) => p.teamId).map((p) => [p.teamId as string, p.teamName ?? ''])).entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
+  const showTeams = teams.length > 1
+  const shown = showTeams && teamFilter !== 'all' ? projects.filter((p) => p.teamId === teamFilter) : projects
   const choose = (next: Layout) => {
     setLayout(next)
     try {
@@ -72,7 +79,23 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
       {state === 'ready' && (
         <>
           <div className={styles.toolbar}>
-            <p className={styles.count}>{projects.length === 1 ? '1 project' : `${projects.length} projects`}</p>
+            <div className={styles.countRow}>
+              <p className={styles.count}>{shown.length === 1 ? '1 project' : `${shown.length} projects`}</p>
+              {showTeams && (
+                <Dropdown
+                  id="project-team-filter"
+                  className={styles.teamFilter}
+                  titleText="Team"
+                  hideLabel
+                  label="All teams"
+                  size="sm"
+                  items={[{ id: 'all', name: 'All teams' }, ...teams]}
+                  itemToString={(t) => t?.name ?? ''}
+                  selectedItem={teamFilter === 'all' ? { id: 'all', name: 'All teams' } : (teams.find((t) => t.id === teamFilter) ?? null)}
+                  onChange={({ selectedItem }) => selectedItem && setTeamFilter(selectedItem.id)}
+                />
+              )}
+            </div>
             <div className={styles.switch} role="group" aria-label="Show projects as">
               <Button kind={layout === 'cards' ? 'primary' : 'ghost'} size="sm" aria-pressed={layout === 'cards'} onClick={() => choose('cards')}>
                 Cards
@@ -84,8 +107,8 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
           </div>
           {layout === 'cards' ? (
             <div className={styles.grid}>
-              {projects.map((project) => (
-                <ProjectCard key={project.id} project={project} onOpen={onOpen} onGo={onGo} onRemove={onRemove} />
+              {shown.map((project) => (
+                <ProjectCard key={project.id} project={project} onOpen={onOpen} onGo={onGo} onRemove={onRemove} team={showTeams ? (project.teamName ?? undefined) : undefined} viewOnly={!canChange(project)} />
               ))}
             </div>
           ) : (
@@ -101,7 +124,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                 ))}
                 <span role="columnheader" aria-label="Actions" />
               </div>
-              {projects.map((project) => {
+              {shown.map((project) => {
                 const openStep: ProjectStep = project.status === 'analyzed' ? 'themes' : 'plan'
                 return (
                   <div key={project.id} className={styles.listRow} role="row" data-testid={`project-row-${project.id}`} data-status={project.status}>
@@ -112,6 +135,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                     </span>
                     <span role="cell" className={styles.rowMuted} title={project.methods.length > 1 ? project.methods.join(', ') : undefined}>
                       {project.methods.length ? project.methods.join(', ') : 'No methods'}
+                      {showTeams && project.teamName ? ` · ${project.teamName}${canChange(project) ? '' : ' · View only'}` : ''}
                     </span>
                     <span role="cell">
                       <StatusTag status={project.status} />
@@ -128,7 +152,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                       </span>
                     ))}
                     <span role="cell">
-                      {onRemove && (
+                      {onRemove && canChange(project) && (
                         <OverflowMenu iconDescription={`Actions for ${project.name}`} flipped size="sm">
                           <OverflowMenuItem itemText="Remove project" isDelete onClick={() => onRemove(project)} />
                         </OverflowMenu>

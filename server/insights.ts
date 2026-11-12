@@ -166,13 +166,26 @@ export const CURRENT_THEMES = `
   select t.id, t.project_id from research.themes t join core.agent_runs r on r.id = t.run_id
   where t.workspace_id = $1 and r.status = 'complete' and r.superseded_at is null`
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+/**
+ * The current themes of the projects in the given teams, or of every project when `visible` is null or left out. Every number and quote Platform
+ * Insights shows comes from this, so a caller who sees only some teams sees only those teams' research. Anything that WRITES platform data reads
+ * CURRENT_THEMES (all projects) instead, so it never mistakes another team's themes for gone.
+ */
+export function currentThemes(visible?: string[] | null): string {
+  if (visible == null) return CURRENT_THEMES
+  const ids = visible.filter((id) => UUID_RE.test(id)) // team ids come from our own tables; checked anyway because they are written into the SQL
+  return `${CURRENT_THEMES}
+  and ${ids.length ? `t.project_id in (select p.id from core.projects p where p.team_id in (${ids.map((id) => `'${id}'`).join(', ')}))` : 'false'}`
+}
+
 // A person is one participant per project: matched speakers by participant, unmatched ones by lower-cased name,
 // the same key research.theme_stats uses.
 // Reach is customers only: a speaker in a team conversation is not counted.
-const PEOPLE = `
+const peopleSql = (visible?: string[] | null) => `
   select s.platform_theme_id, c.project_id, coalesce(sp.participant_id::text, 'sp:' || lower(sp.name)) as person
   from insights.platform_theme_sources s
-  join (${CURRENT_THEMES}) c on c.id = s.theme_id
+  join (${currentThemes(visible)}) c on c.id = s.theme_id
   join research.theme_quotes tq on tq.theme_id = s.theme_id
   join research.utterances u on u.id = tq.utterance_id
   join research.transcripts tr on tr.id = u.transcript_id and tr.source = 'customer'
@@ -180,22 +193,22 @@ const PEOPLE = `
   where s.workspace_id = $1`
 
 // Where each theme was heard: how many customer and team quotes, and in how many team conversations (from the theme's project themes).
-const ORIGIN = `
+const originSql = (visible?: string[] | null) => `
   select s.platform_theme_id, count(distinct tq.utterance_id) filter (where tr.source = 'customer') as customer_quotes,
          count(distinct tq.utterance_id) filter (where tr.source = 'team') as team_quotes, count(distinct tr.id) filter (where tr.source = 'team') as team_sessions
   from insights.platform_theme_sources s
-  join (${CURRENT_THEMES}) c on c.id = s.theme_id
+  join (${currentThemes(visible)}) c on c.id = s.theme_id
   join research.theme_quotes tq on tq.theme_id = s.theme_id
   join research.utterances u on u.id = tq.utterance_id
   join research.transcripts tr on tr.id = u.transcript_id
   where s.workspace_id = $1
   group by s.platform_theme_id`
 
-export async function projectsWithAnalysis(db: Queryable, workspaceId: string): Promise<InsightProject[]> {
+export async function projectsWithAnalysis(db: Queryable, workspaceId: string, visible?: string[] | null): Promise<InsightProject[]> {
   const rows = (
     await db.query(
       `select p.id, p.name, p.color, max(st.total_participants)::int as participants
-       from (${CURRENT_THEMES}) c
+       from (${currentThemes(visible)}) c
        join core.projects p on p.id = c.project_id
        join research.theme_stats st on st.theme_id = c.id
        group by p.id, p.name, p.color, p.created_at order by p.created_at, p.name`,
@@ -206,7 +219,7 @@ export async function projectsWithAnalysis(db: Queryable, workspaceId: string): 
 }
 
 // Themes across every analysed project, the recommendations drawn from them, and the numbers behind both.
-export async function getThemesOverview(db: Queryable, workspaceId: string): Promise<ThemesOverview> {
+export async function getThemesOverview(db: Queryable, workspaceId: string, visible?: string[] | null): Promise<ThemesOverview> {
   const areaOf = await platformAreaRefs(db, workspaceId)
   // The latest thing done to each theme's area by a person, from the audit log: filed ('area set') or taken back ('area cleared').
   const lastAreaAction = new Map(
@@ -218,11 +231,11 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
       )
     ).rows.map((r) => [r.entity_id as string, { verb: r.verb as string, areaId: r.area_id as string | null }]),
   )
-  const originRows = (await db.query(ORIGIN, [workspaceId])).rows
+  const originRows = (await db.query(originSql(visible), [workspaceId])).rows
   const [projects, themeRows, people, recRows, recLinks, storyRows, describedRows, matchRows, aliasRows, suggestionRows] = await Promise.all([
-    projectsWithAnalysis(db, workspaceId),
+    projectsWithAnalysis(db, workspaceId, visible),
     db.query(`select id, title, category, needs_review, rationale from insights.platform_themes where workspace_id = $1 order by position, title`, [workspaceId]),
-    db.query(PEOPLE, [workspaceId]),
+    db.query(peopleSql(visible), [workspaceId]),
     db.query(`select id, title, why, priority from insights.recommendations where workspace_id = $1 order by position, title`, [workspaceId]),
     db.query(
       `select rt.recommendation_id, pt.id as theme_id, pt.title from insights.recommendation_themes rt join insights.platform_themes pt on pt.id = rt.platform_theme_id
@@ -232,7 +245,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     db.query(
       `select distinct s.platform_theme_id, st.id as story_id, st.key, st.title, sp.project_id, m.checkins
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join delivery.stories st on st.theme_id = s.theme_id and st.kind = 'requirement'
        join delivery.specs sp on sp.id = st.spec_id
        left join delivery.success_measures m on m.story_id = st.id
@@ -242,7 +255,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     db.query(
       `select s.platform_theme_id, c.project_id, t.description
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.themes t on t.id = c.id
        where s.workspace_id = $1 and coalesce(trim(t.description), '') <> ''`,
       [workspaceId],
@@ -250,7 +263,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     db.query(
       `select s.platform_theme_id, s.match_method, s.confidence::float8 as confidence, s.reason, t.title as theme_title, p.name as project_name
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.themes t on t.id = s.theme_id
        join core.projects p on p.id = c.project_id
        where s.workspace_id = $1 order by p.created_at, p.name, t.title`,
@@ -277,7 +290,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
     }
     return { participants: [...per.values()].reduce((n, s) => n + s.size, 0), projects: per.size }
   }
-  const themes: PlatformThemeRow[] = themeRows.rows.map((t) => {
+  const everyTheme: PlatformThemeRow[] = themeRows.rows.map((t) => {
     const c = count([t.id])
     const sources = [...(byTheme.get(t.id) ?? [])].map(([projectId, set]) => ({ projectId, participantCount: set.size })).sort((a, b) => projects.findIndex((p) => p.id === a.projectId) - projects.findIndex((p) => p.id === b.projectId))
     const requirements = storyRows.rows
@@ -300,6 +313,8 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
       matches, priority: null, rationale: (t.rationale ?? null) as string | null, aliases: aliasRows.rows.filter((a) => a.platform_theme_id === t.id).map((a) => a.alias as string),
     }
   })
+  // A caller who sees only some teams sees only the themes those teams' research raised, not the names of the rest.
+  const themes = visible == null ? everyTheme : everyTheme.filter((t) => t.sources.length > 0)
   // Suggested roadmap order: how widely it was raised (people and projects), weighed by what became of it. Delights are not ranked.
   const totalPeople = projects.reduce((n, p) => n + p.participants, 0)
   // A theme only the team has raised is never ranked: internal feedback confirms what customers say, it does not stand alone.
@@ -310,10 +325,12 @@ export async function getThemesOverview(db: Queryable, workspaceId: string): Pro
   scored.forEach((x, i) => (x.t.priority = { rank: i + 1, score: x.score }))
   // Reach first: raised in the most projects, then by the most people.
   themes.sort((a, b) => b.projectCount - a.projectCount || b.participantCount - a.participantCount || a.title.localeCompare(b.title))
-  const recommendations: Recommendation[] = recRows.rows.map((r) => {
-    const linked = recLinks.rows.filter((l) => l.recommendation_id === r.id)
+  const shownThemes = new Set(themes.map((t) => t.id))
+  const recommendations: Recommendation[] = recRows.rows.flatMap((r) => {
+    const linked = recLinks.rows.filter((l) => l.recommendation_id === r.id && (visible == null || shownThemes.has(l.theme_id)))
+    if (visible != null && linked.length === 0) return []
     const c = count(linked.map((l) => l.theme_id))
-    return { id: r.id, title: r.title, why: r.why ?? null, priority: r.priority, themes: linked.map((l) => ({ id: l.theme_id, title: l.title })), participantCount: c.participants, projectCount: c.projects }
+    return [{ id: r.id, title: r.title, why: r.why ?? null, priority: r.priority, themes: linked.map((l) => ({ id: l.theme_id, title: l.title })), participantCount: c.participants, projectCount: c.projects }]
   })
   const summary = {
     recurring: themes.filter((t) => t.projectCount >= 2 && t.category !== 'delight').length,
@@ -373,16 +390,16 @@ export function pickQuotes<T extends { id: string; text: string; speaker: string
 }
 
 // One platform theme: which projects raised it and how many of their participants, and the few quotes that make its point.
-export async function getPlatformTheme(db: Queryable, workspaceId: string, id: string): Promise<PlatformThemeDetail | undefined> {
+export async function getPlatformTheme(db: Queryable, workspaceId: string, id: string, visible?: string[] | null): Promise<PlatformThemeDetail | undefined> {
   const theme = (await db.query(`select id, title, category, needs_review from insights.platform_themes where id = $1 and workspace_id = $2`, [id, workspaceId])).rows[0]
   if (!theme) return undefined
   const [projects, rows] = await Promise.all([
-    projectsWithAnalysis(db, workspaceId),
+    projectsWithAnalysis(db, workspaceId, visible),
     db.query(
       `select c.project_id, s.match_method, coalesce(sp.participant_id::text, 'sp:' || lower(sp.name)) as person,
               u.id as utterance_id, u.text, sp.name as speaker, tr.name as session, u.timestamp_label, tr.created_at, u.position
        from insights.platform_theme_sources s
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.theme_quotes tq on tq.theme_id = s.theme_id
        join research.utterances u on u.id = tq.utterance_id
        join research.transcript_speakers sp on sp.id = u.speaker_id
@@ -401,6 +418,7 @@ export async function getPlatformTheme(db: Queryable, workspaceId: string, id: s
       matchMethod: mine.some((r) => r.match_method === 'manual') ? 'manual' : 'auto',
     })
   }
+  if (visible != null && sources.length === 0) return undefined // nothing of it in the teams the caller sees
   const nameOf = new Map(projects.map((p) => [p.id, p.name]))
   const seen = new Set<string>()
   const all = rows.rows
@@ -413,7 +431,7 @@ export async function getPlatformTheme(db: Queryable, workspaceId: string, id: s
   }
 }
 
-export async function listCaseStudies(db: Queryable, workspaceId: string): Promise<CaseStudy[]> {
+export async function listCaseStudies(db: Queryable, workspaceId: string, visible?: string[] | null): Promise<CaseStudy[]> {
   const [cases, links, said, overview] = await Promise.all([
     db.query(`select id, title, summary, outcome, owner_team, occurred_on::text as occurred_on, color from insights.case_studies where workspace_id = $1 order by occurred_on desc nulls last, title`, [workspaceId]),
     db.query(
@@ -426,7 +444,7 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
        from insights.case_study_themes ct
        join insights.platform_themes pt on pt.id = ct.platform_theme_id
        join insights.platform_theme_sources s on s.platform_theme_id = pt.id
-       join (${CURRENT_THEMES}) c on c.id = s.theme_id
+       join (${currentThemes(visible)}) c on c.id = s.theme_id
        join research.theme_quotes tq on tq.theme_id = s.theme_id
        join research.utterances u on u.id = tq.utterance_id
        join research.transcript_speakers sp on sp.id = u.speaker_id
@@ -435,12 +453,13 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
        order by tr.created_at, tr.name, u.position`,
       [workspaceId],
     ),
-    getThemesOverview(db, workspaceId),
+    getThemesOverview(db, workspaceId, visible),
   ])
   const opportunity = new Set(overview.themes.filter((t) => t.opportunity).map((t) => t.id))
   const areaOf = new Map(overview.themes.map((t) => [t.id, t.area]))
-  return cases.rows.map((c) => {
-    const themes = links.rows.filter((l) => l.case_study_id === c.id).map((l) => ({ id: l.id as string, title: l.title as string, area: areaOf.get(l.id as string) ?? null }))
+  const seen = new Set(overview.themes.map((t) => t.id))
+  return cases.rows.flatMap((c) => {
+    const themes = links.rows.filter((l) => l.case_study_id === c.id && (visible == null || seen.has(l.id as string))).map((l) => ({ id: l.id as string, title: l.title as string, area: areaOf.get(l.id as string) ?? null }))
     // Words about a problem first, then anything, from different people.
     const mine = said.rows.filter((r) => r.case_study_id === c.id)
     const quotes: CaseStudy['quotes'] = []
@@ -451,12 +470,13 @@ export async function listCaseStudies(db: Queryable, workspaceId: string): Promi
         quotes.push({ id: r.utterance_id, text: r.text, speaker: r.speaker, session: String(r.session).replace(/\.\w+$/, '') })
       }
     }
+    if (visible != null && themes.length === 0) return [] // a case study none of whose themes the caller's teams raised is not shown
     const study = { title: c.title as string, ownerTeam: (c.owner_team ?? null) as string | null, summary: (c.summary ?? null) as string | null, outcome: (c.outcome ?? null) as string | null }
-    return {
+    return [{
       id: c.id, ...study, date: c.occurred_on ?? null, color: c.color, themes, quotes,
       opportunities: themes.filter((t) => opportunity.has(t.id)).length,
       prompt: buildCaseStudyPrompt({ ...study, themes, quotes }),
-    }
+    }]
   })
 }
 

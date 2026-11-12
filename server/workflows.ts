@@ -38,12 +38,14 @@ const audit = (tx: Queryable, ctx: RequestContext, entity: string, verb: string,
   ])
 
 /** Every workflow with its stages and backstage, by name. */
-export async function listWorkflows(db: Queryable, workspaceId: string, only?: string): Promise<Workflow[]> {
+export async function listWorkflows(db: Queryable, workspaceId: string, only?: string, visible?: string[] | null): Promise<Workflow[]> {
   const filter = only ? 'and w.id = $2' : ''
   const args = only ? [workspaceId, only] : [workspaceId]
+  // How many projects are on a workflow, counting only those of teams the caller sees.
+  const teamsOf = visible == null ? '' : ` and exists (select 1 from core.projects pr where pr.id = p.project_id and pr.team_id = any('{${visible.filter((id) => /^[0-9a-f-]{36}$/i.test(id)).join(',')}}'::uuid[]))`
   const [flows, stages, backstage] = await Promise.all([
     db.query(
-      `select w.id, w.name, w.description, w.version, (select count(*)::int from insights.project_workflows p where p.workflow_id = w.id) as projects
+      `select w.id, w.name, w.description, w.version, (select count(*)::int from insights.project_workflows p where p.workflow_id = w.id${teamsOf}) as projects
        from insights.workflows w where w.workspace_id = $1 ${filter} order by lower(w.name)`,
       args,
     ),

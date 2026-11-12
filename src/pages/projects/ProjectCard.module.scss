@@ -123,6 +123,12 @@
   overflow: hidden;
 }
 
+.team {
+  @include tokens.role('meta');
+  margin: var(--at-space-xxs) 0 0;
+  color: var(--at-muted);
+}
+
 .bottom {
   display: flex;
   flex-direction: column;

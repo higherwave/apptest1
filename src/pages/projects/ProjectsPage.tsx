@@ -12,6 +12,9 @@ export function ProjectsPage() {
   const remove = useDeleteProject()
   const [removing, setRemoving] = useState<Project | null>(null)
   const canEdit = me.data?.role === 'owner' || me.data?.role === 'editor'
+  // A project can be changed by someone who edits in its team; a leader sees the others read-only. Without teams on the project (older data) the person's own role decides.
+  const editing = new Set((me.data?.teams ?? []).filter((t) => t.role !== 'viewer').map((t) => t.id))
+  const canChange = (p: Project) => (p.teamId ? editing.has(p.teamId) : canEdit)
 
   const state = projects.isPending ? 'loading' : projects.isError ? 'error' : projects.data.length === 0 ? 'empty' : 'ready'
 
@@ -26,6 +29,7 @@ export function ProjectsPage() {
       onGo={(p, step) => navigate(`/projects/${p.id}/${step}`)}
       onNew={() => navigate('/projects/new')}
       onRemove={canEdit ? setRemoving : undefined}
+      canChange={canChange}
       removing={removing}
       removePending={remove.isPending}
       removeError={remove.isError ? friendlyMessage(remove.error) : undefined}

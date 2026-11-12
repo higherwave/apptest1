@@ -40,7 +40,7 @@ import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spentThisMonthUsd, 
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
-import { enforceProjectScope, newProjectTeam } from './teams.js'
+import { enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
 import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
@@ -202,8 +202,8 @@ export function createApp(options: AppOptions = {}) {
   })
 
   // Teams: leaders (workspace owners) manage them. Everyone else learns their own teams from /me.
-  const requireLeader = (c: Context) => {
-    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can manage teams.')
+  const requireLeader = (c: Context, what = 'teams') => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', `Only an owner can manage ${what}.`)
   }
   const teamErrors = (err: unknown): never => {
     if (err instanceof TeamNotFound) throw new ApiError(404, 'not_found', 'No such team.')
@@ -790,7 +790,7 @@ export function createApp(options: AppOptions = {}) {
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     const ws = c.get('ctx').workspaceId
-    return c.json({ data: await listWorkflows(getDb(), ws), sampleMissing: await sampleMissing(getDb(), ws) })
+    return c.json({ data: await listWorkflows(getDb(), ws, undefined, visibleTeamIds(c.get('ctx'))), sampleMissing: await sampleMissing(getDb(), ws) })
   })
   app.post('/workflows/sample', withContext, async (c) => {
     requireEditor(c)
@@ -951,19 +951,20 @@ export function createApp(options: AppOptions = {}) {
   // Platform Insights ------------------------------------------------------------------------------------
 
   app.get('/insights/themes', withReadContext, async (c) => {
-    const body = await getThemesOverview(getDb(), c.get('ctx').workspaceId)
+    const body = await getThemesOverview(getDb(), c.get('ctx').workspaceId, visibleTeamIds(c.get('ctx')))
     cacheHeaders(c)
     return c.json(body)
   })
   app.get('/insights/themes/:id', withReadContext, async (c) => {
     const id = c.req.param('id') ?? ''
-    const theme = UUID.test(id) ? await getPlatformTheme(getDb(), c.get('ctx').workspaceId, id) : undefined
+    const theme = UUID.test(id) ? await getPlatformTheme(getDb(), c.get('ctx').workspaceId, id, visibleTeamIds(c.get('ctx'))) : undefined
     if (!theme) throw new ApiError(404, 'not_found', 'No such platform theme.')
     cacheHeaders(c)
     return c.json(theme)
   })
   app.post('/insights/themes/:id/reviewed', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     const id = c.req.param('id') ?? ''
     if (!UUID.test(id) || !(await markThemeReviewed(getDb(), c.get('ctx').workspaceId, id))) throw new ApiError(404, 'not_found', 'No such platform theme.')
     c.header('Cache-Control', 'no-store')
@@ -986,6 +987,7 @@ export function createApp(options: AppOptions = {}) {
   // Takes back a person's filing of a theme under an area.
   app.delete('/insights/themes/:id/area', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     const id = themeId(c)
     c.header('Cache-Control', 'no-store')
     return c.json(await clearThemeArea(getDb(), c.get('ctx'), id).catch(themeErrors))
@@ -993,6 +995,7 @@ export function createApp(options: AppOptions = {}) {
   // Fills in the area of a theme that has none (the Group by Experience category table). A theme that has one is not changed here.
   app.put('/insights/themes/:id/area', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     const id = themeId(c)
     const input = parseBody(z.object({ areaId: z.uuid('Choose an experience category.') }), await readJson(c))
     c.header('Cache-Control', 'no-store')
@@ -1000,12 +1003,14 @@ export function createApp(options: AppOptions = {}) {
   })
   app.patch('/insights/themes/:id', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     const input = parseBody(z.object({ title: z.string().trim().min(3, 'Give the theme a title of at least 3 characters.').max(90, 'Keep the title to 90 characters.') }), await readJson(c))
     c.header('Cache-Control', 'no-store')
     return c.json(await renameTheme(getDb(), c.get('ctx'), themeId(c), input.title).catch(themeErrors))
   })
   app.post('/insights/themes/:id/merge', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     const id = themeId(c)
     const input = parseBody(z.object({ intoId: z.string().regex(UUID, 'Choose the theme to merge into.') }), await readJson(c))
     c.header('Cache-Control', 'no-store')
@@ -1020,6 +1025,7 @@ export function createApp(options: AppOptions = {}) {
   })
   app.post('/insights/merges/:id/undo', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     const id = c.req.param('id') ?? ''
     if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such merge.')
     c.header('Cache-Control', 'no-store')
@@ -1033,22 +1039,26 @@ export function createApp(options: AppOptions = {}) {
   })
   app.post('/insights/merge-suggestions/run', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     c.header('Cache-Control', 'no-store')
     return c.json(await findMergeSuggestions(getDb(), ai, c.get('ctx').workspaceId))
   })
   app.post('/insights/merge-suggestions/:id/accept', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     c.header('Cache-Control', 'no-store')
     return c.json(await acceptSuggestion(getDb(), c.get('ctx'), themeId(c)).catch(themeErrors))
   })
   app.post('/insights/merge-suggestions/:id/dismiss', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     if (!(await dismissSuggestion(getDb(), c.get('ctx').workspaceId, themeId(c)))) throw new ApiError(404, 'not_found', 'No such suggestion.')
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
   })
   app.post('/insights/roadmap/rationale', withContext, async (c) => {
     requireEditor(c)
+    requireLeader(c, 'the platform themes')
     c.header('Cache-Control', 'no-store')
     return c.json(await writeRankRationales(getDb(), ai, c.get('ctx').workspaceId))
   })
@@ -1079,26 +1089,27 @@ export function createApp(options: AppOptions = {}) {
     return c.json(brief)
   })
   app.get('/insights/case-briefs', withReadContext, async (c) => {
-    const data = await listCaseBriefs(getDb(), c.get('ctx').workspaceId)
+    const data = await listCaseBriefs(getDb(), c.get('ctx').workspaceId, visibleTeamIds(c.get('ctx')))
     cacheHeaders(c)
     return c.json({ data })
   })
   app.get('/insights/customers', withReadContext, async (c) => {
-    const body = await getCustomers(getDb(), c.get('ctx').workspaceId)
+    const body = await getCustomers(getDb(), c.get('ctx').workspaceId, visibleTeamIds(c.get('ctx')))
     cacheHeaders(c)
     return c.json(body)
   })
   app.get('/insights/journey', withReadContext, async (c) => {
     const workflow = c.req.query('workflow')
     if (workflow && !UUID.test(workflow)) throw new ApiError(404, 'not_found', 'No such workflow.')
-    const body = workflow ? await getWorkflowJourney(getDb(), c.get('ctx').workspaceId, workflow) : await getPlatformJourney(getDb(), c.get('ctx').workspaceId)
+    const visible = visibleTeamIds(c.get('ctx'))
+    const body = workflow ? await getWorkflowJourney(getDb(), c.get('ctx').workspaceId, workflow, visible) : await getPlatformJourney(getDb(), c.get('ctx').workspaceId, visible)
     if (!body) throw new ApiError(404, 'not_found', 'No such workflow.')
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json(body)
   })
   app.get('/insights/case-studies', withReadContext, async (c) => {
-    const data = await listCaseStudies(getDb(), c.get('ctx').workspaceId)
+    const data = await listCaseStudies(getDb(), c.get('ctx').workspaceId, visibleTeamIds(c.get('ctx')))
     cacheHeaders(c)
     return c.json({ data })
   })
