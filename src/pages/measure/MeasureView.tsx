@@ -6,7 +6,7 @@ import { goalText, readingText, signalText } from '../../../shared/measure.mjs'
 import { FilterCards } from '../../components/FilterCards'
 import { Sparkline } from '../insights/Sparkline'
 import { ProjectHeader } from '../project/ProjectHeader'
-import { latestOf, MeasurePanel, SOURCE_LABEL } from './MeasurePanel'
+import { latestOf, MeasurePanel, readingSource } from './MeasurePanel'
 import styles from './MeasureView.module.scss'
 
 export type MeasureViewProps = {
@@ -56,7 +56,7 @@ function Strip({ item }: { item: MeasureItem }) {
   const latest = latestOf(item)
   if (!latest) return null
   const reading = readingText(latest.value, item.unit)
-  const source = item.source ? SOURCE_LABEL[item.source] : 'Reading'
+  const source = readingSource(item)
   const series = item.trend && item.trend.length >= 2 ? item.trend : null
   return (
     <div className={styles.strip} data-result={item.result} data-testid={`measure-strip-${item.key}`}>

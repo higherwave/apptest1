@@ -879,8 +879,6 @@ try {
   ok('changing how it is compared rewrites the goal, and the second value goes away', m1b.comparison === 'below' && /below 120 a week/.test(m1b.target ?? '') && await page.evaluate(() => !document.querySelector('#measure-b-R1')))
   await choose('measure-comparison-R1', 'go from')
   await page.waitForSelector('#measure-b-R1')
-  await choose('measure-source-R1', 'Support tickets')
-  await new Promise((r) => setTimeout(r, 600))
   // Suggestions complete the detail in one click.
   await page.evaluate(() => [...document.querySelectorAll('[data-testid="measure-panel-R1"] [role="group"] button')].find((b) => b.innerText.trim() === 'about missing or wrong data').click())
   await new Promise((r) => setTimeout(r, 700))

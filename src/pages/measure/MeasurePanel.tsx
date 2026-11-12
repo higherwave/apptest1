@@ -16,7 +16,13 @@ export const STATUSES: { key: 'none' | Verdict; label: string }[] = [
   { key: 'needs_attention', label: 'Needs attention' },
 ]
 export const SOURCE_LABEL: Record<Source, string> = { telemetry: 'Product analytics', kpi: 'Business KPI', support_tickets: 'Support tickets', research: 'Feedback session', other: 'Other' }
-const SOURCES: { key: Source | null; label: string }[] = [{ key: null, label: 'Not set' }, ...(Object.keys(SOURCE_LABEL) as Source[]).map((key) => ({ key, label: SOURCE_LABEL[key] }))]
+
+/** Where a reading comes from, as the card and the panel say it. The first choice in the sentence decides it (Support tickets, Adoption, ...); a row from before the sentence, or "Something else", falls back to the source it was given, then to a plain "Reading". */
+export const readingSource = (item: Pick<MeasureItem, 'metricKind' | 'source'>): string => {
+  const kind = MEASURE_KINDS.find((k) => k.key === item.metricKind)
+  if (kind && kind.key !== 'other') return kind.label
+  return item.source ? SOURCE_LABEL[item.source] : 'Reading'
+}
 
 export const today = () => {
   const d = new Date()
@@ -179,22 +185,10 @@ export function MeasurePanel({ item, projectId, canEdit, onSave, onViewStory, sh
             ))}
           </div>
         )}
-        <Dropdown
-          id={`measure-source-${item.key}`}
-          className={styles.source}
-          size="sm"
-          titleText="Where the number comes from"
-          label="Not set"
-          items={SOURCES}
-          itemToString={(x) => x?.label ?? ''}
-          selectedItem={SOURCES.find((x) => x.key === item.source) ?? SOURCES[0]}
-          disabled={!canEdit}
-          onChange={({ selectedItem }) => selectedItem && selectedItem.key !== item.source && save({ source: selectedItem.key })}
-        />
       </fieldset>
 
       <section className={styles.latest} aria-label={`Latest reading for ${item.key}`} data-status={status}>
-        <h4 className={styles.head}>Latest reading{item.source ? ` · ${SOURCE_LABEL[item.source]}` : ''}</h4>
+        <h4 className={styles.head}>Latest reading · {readingSource(item)}</h4>
         <p className={styles.big} data-testid={`measure-reading-${item.key}`}>
           {reading || '–'}
         </p>
