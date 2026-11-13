@@ -41,6 +41,16 @@ they are not in; the read-only demo viewer sees everything. Rules live in `serve
 - With `SSO_TEAM_GROUP_PREFIX` set, sign-in groups decide people's places in every team but the default (`server/team-groups.ts`, run from `memberFor`); the Teams page then refuses to edit those people.
 - Migration 0036's triggers keep the default team in step with workspace memberships and new projects, so the previous code still works during a deploy.
 
+## Launch
+
+Launch (release readiness) is built in slices; the plan is the "Launch: build plan" doc. Rules so far:
+
+- A step with no reviewer is a **gap**, never hidden. "Not used" is a separate, explicit team setting (`core.team_launch_steps`). Never make a step disappear because nobody covers it.
+- Who covers a step comes from one function, `reviewersFor`/`coverageState` in `shared/launch.mjs`. Do not re-derive it in a screen or a query.
+- Approval authority comes from assignment in Signal Flow (members and teams), never from Slack membership. Slack carries conversation; Signal Flow keeps decisions.
+- An external member (`is_external`) is a viewer, covers named teams only, and is refused in the API everywhere except the routes made for them (`EXTERNAL_MAY_CALL` in `server/app.ts`). Add a route to that list only when it is meant for them.
+- One launch per project. Launch answers are append-only; a brief change reopens them.
+
 ## Database
 
 - A migration is `db/migrations/NNNN_name.sql` plus `NNNN_name.down.sql`. Never edit one that has been applied anywhere.
