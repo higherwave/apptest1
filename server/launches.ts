@@ -197,6 +197,25 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
   }
 }
 
+/**
+ * Every launch as the system sees it (all sections, all reviewers, nothing hidden), for messages that go out without a caller: who to ask, who answered,
+ * what is waiting. Never returned by a route.
+ */
+export async function launchForSystem(db: Queryable, workspaceId: string, id: string): Promise<(LaunchDetail & { createdBy: Person | null }) | null> {
+  const row = (await db.query(`${LAUNCH_SQL} where l.id = $1 and l.workspace_id = $2`, [id, workspaceId])).rows[0] as Row | undefined
+  if (!row) return null
+  const cover = await loadCover(db, workspaceId)
+  const ctx = { workspaceId, userId: '', anonymous: false, external: false, role: 'owner', teams: {} } as unknown as RequestContext
+  const detail = await build(db, ctx, row, cover, { kind: 'leader', canSetUp: false, steps: [] }, false)
+  const by = (await db.query(`select u.id, u.display_name, u.email from delivery.launches l join core.users u on u.id = l.created_by where l.id = $1`, [id])).rows[0]
+  return { ...detail, createdBy: by ? { userId: by.id, name: by.display_name, email: by.email } : null }
+}
+
+/** The ids of every launch (with their workspace), for the hourly sweep. */
+export async function allLaunchIds(db: Queryable): Promise<{ id: string; workspaceId: string }[]> {
+  return (await db.query(`select id, workspace_id from delivery.launches order by created_at`)).rows.map((r) => ({ id: r.id as string, workspaceId: r.workspace_id as string }))
+}
+
 /** The launch as the caller may see it, or null (not theirs, or none). */
 export async function getLaunch(db: Queryable, ctx: RequestContext, id: string): Promise<LaunchDetail | null> {
   const row = (await db.query(`${LAUNCH_SQL} where l.id = $1 and l.workspace_id = $2`, [id, ctx.workspaceId])).rows[0] as Row | undefined

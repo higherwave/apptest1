@@ -51,6 +51,7 @@ Launch (release readiness) is built in slices; the plan is the "Launch: build pl
 - An external member (`is_external`) is a viewer, covers named teams only, and is refused in the API everywhere except the routes made for them (`EXTERNAL_MAY_CALL` in `server/app.ts`). Add a route to that list only when it is meant for them.
 - One launch per project. Launch answers are append-only; a brief change reopens them (the answer keeps the `brief_key` it was given on; never overwrite or delete an answer).
 - Who may see or change a launch is `viewerOf` in `server/launches.ts`, not the team check: `/launches/{id}` routes are in `NOT_ONE_PROJECT` for that reason and answer 404 to anyone it does not cover. `EXTERNAL_MAY_CALL` allows `/me` and `/launches...` only.
+- Every launch email goes through `deliver` in `server/launch-notices.ts`, the one place the temporary recipient limit and the placeholder-address rule are applied (a message they exclude is stored as `held`, never dropped). A new launch message is a new `kind` and dedupe key there, never a direct `mailer.send`. A failed send must not fail the action that caused it.
 - Do not start a `data-testid` with `story-` for anything but a story card: the project tour points at `[data-testid^="story-"]`.
 
 ## Database

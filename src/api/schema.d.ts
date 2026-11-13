@@ -351,6 +351,23 @@ export interface paths {
         patch: operations["setUpLaunch"];
         trace?: never;
     };
+    "/launches/{id}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Editors of the project's team ask, by email, the primary reviewer of each step still waiting (or reopened) for their answer; one email per person lists their steps and links to the launch. Asking again for the same brief sends nothing more (`alreadyAsked`). Steps with no reviewer are returned as `missing`. A message kept back by the temporary recipient limit is returned as `held`. */
+        post: operations["requestLaunchAnswers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/launches/{id}/steps/{step}": {
         parameters: {
             query?: never;
@@ -3262,6 +3279,20 @@ export interface components {
             title?: string;
             url: string;
         };
+        LaunchRequestResult: {
+            asked: components["schemas"]["LaunchAsked"][];
+            alreadyAsked: components["schemas"]["LaunchAsked"][];
+            held: components["schemas"]["LaunchAsked"][];
+            missing: {
+                step: string;
+                label: string;
+            }[];
+        };
+        LaunchAsked: {
+            name: string;
+            /** @description The step names asked of this person. */
+            steps: string[];
+        };
         LaunchOpenItem: {
             step: string;
             label: string;
@@ -4197,6 +4228,31 @@ export interface operations {
             422: components["responses"]["Error"];
         };
     };
+    requestLaunchAnswers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Who was asked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchRequestResult"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     answerLaunchStep: {
         parameters: {
             query?: never;
@@ -4845,6 +4901,13 @@ export interface operations {
                         failed: number;
                         nothingToSay: number;
                         alreadySent: number;
+                        /** @description The launch messages sent by the same run (reopened answers, requests that have waited, a step nobody covers). */
+                        launches: {
+                            sent: number;
+                            /** @description Kept, not sent: the recipient limit is on, or the address is a placeholder. */
+                            held: number;
+                            failed: number;
+                        };
                     };
                 };
             };

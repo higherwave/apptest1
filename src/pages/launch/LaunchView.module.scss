@@ -67,6 +67,7 @@
   background: var(--at-canvas);
 
   &[data-state='not_used'] { opacity: 0.6; }
+  &[data-focus='true'] { border-color: var(--at-ink); box-shadow: 0 0 0 1px var(--at-ink); }
   &[data-state='changes_needed'], &[data-state='no_go'] { border-color: var(--at-ink); }
 }
 

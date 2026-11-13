@@ -461,6 +461,24 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/request:
+    post:
+      operationId: requestLaunchAnswers
+      summary: >
+        Editors of the project's team ask, by email, the primary reviewer of each step still waiting (or reopened) for their answer; one email per person
+        lists their steps and links to the launch. Asking again for the same brief sends nothing more (`alreadyAsked`). Steps with no reviewer are
+        returned as `missing`. A message kept back by the temporary recipient limit is returned as `held`.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Who was asked.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchRequestResult' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /launches/{id}/steps/{step}:
     put:
       operationId: answerLaunchStep
@@ -893,12 +911,20 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [sent, failed, nothingToSay, alreadySent]
+                required: [sent, failed, nothingToSay, alreadySent, launches]
                 properties:
                   sent: { type: integer }
                   failed: { type: integer }
                   nothingToSay: { type: integer }
                   alreadySent: { type: integer }
+                  launches:
+                    type: object
+                    description: The launch messages sent by the same run (reopened answers, requests that have waited, a step nobody covers).
+                    required: [sent, held, failed]
+                    properties:
+                      sent: { type: integer }
+                      held: { type: integer, description: 'Kept, not sent: the recipient limit is on, or the address is a placeholder.' }
+                      failed: { type: integer }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /audit:
@@ -4135,6 +4161,20 @@ components:
       properties:
         title: { type: string, maxLength: 120 }
         url: { type: string, maxLength: 2000 }
+    LaunchRequestResult:
+      type: object
+      required: [asked, alreadyAsked, held, missing]
+      properties:
+        asked: { type: array, items: { $ref: '#/components/schemas/LaunchAsked' } }
+        alreadyAsked: { type: array, items: { $ref: '#/components/schemas/LaunchAsked' } }
+        held: { type: array, items: { $ref: '#/components/schemas/LaunchAsked' } }
+        missing: { type: array, items: { type: object, required: [step, label], properties: { step: { type: string }, label: { type: string } } } }
+    LaunchAsked:
+      type: object
+      required: [name, steps]
+      properties:
+        name: { type: string }
+        steps: { type: array, items: { type: string }, description: 'The step names asked of this person.' }
     LaunchOpenItem:
       type: object
       required: [step, label, state, rationale]

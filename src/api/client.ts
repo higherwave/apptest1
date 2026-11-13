@@ -124,6 +124,8 @@ export const listLaunches = () => request<components['schemas']['LaunchList']>('
 export const setUpLaunch = (id: string, body: SetUpLaunchInput) => request<LaunchDetail>(`/launches/${id}`, { method: 'PATCH', body })
 export const answerLaunchStep = (id: string, step: string, body: LaunchAnswerInput) => request<LaunchDetail>(`/launches/${id}/steps/${step}`, { method: 'PUT', body })
 export const addLaunchLink = (id: string, step: string, body: { title?: string; url: string }) => request<LaunchDetail>(`/launches/${id}/steps/${step}/links`, { method: 'POST', body })
+export type LaunchRequestResult = components['schemas']['LaunchRequestResult']
+export const requestLaunchAnswers = (id: string) => request<LaunchRequestResult>(`/launches/${id}/request`, { method: 'POST' })
 export const removeLaunchLink = (id: string, linkId: string) => request<LaunchDetail>(`/launches/${id}/links/${linkId}`, { method: 'DELETE' })
 
 // Launch reviewers: standing assignments, the coverage grid, and which steps each team uses.

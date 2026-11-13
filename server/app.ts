@@ -5,6 +5,7 @@ import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
 import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
 import { signInOptions, ssoPolicy } from './sso.js'
 import { AlreadyMember, changeRole, ExternalNeedsViewer, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, setExternal } from './members.js'
+import { noticeAnswered, requestAnswers, sweepLaunch, sweepLaunches } from './launch-notices.js'
 import { addLink, answerStep, BadAnswer, BadLink, createLaunch, getLaunch, getProjectLaunch, LaunchExists, LaunchNotFound, LinkNotFound, listLaunches, NeedsRationale, NoThemes, NotTheReviewer, removeLink, setUpLaunch, StepNotUsed } from './launches.js'
 import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, ReviewerNotFound, reviewerOverview, setTeamSteps } from './reviewers.js'
 import { requestContext } from './context.js'
@@ -305,17 +306,31 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       return launchErrors(err)
     }
+    // A change to the brief notes reopens answers: the reviewers are asked to confirm now, not at the next hourly sweep.
+    if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
+  })
+  // The launch owner asks the reviewers of the steps still waiting (or reopened). Asking again for the same brief sends nothing more.
+  app.post('/launches/:id/request', withContext, async (c) => {
+    const id = launchId(c)
+    const launch = await oneLaunch(c, id)
+    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can ask for answers.')
+    const result = await requestAnswers({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, id)
+    c.header('Cache-Control', 'no-store')
+    return c.json(result)
   })
   app.put('/launches/:id/steps/:step', withContext, async (c) => {
     const id = launchId(c)
     const input = parseBody(launchAnswerSchema, await readJson(c))
+    const step = c.req.param('step') ?? ''
     try {
-      await answerStep(getDb(), c.get('ctx'), id, c.req.param('step') ?? '', input)
+      await answerStep(getDb(), c.get('ctx'), id, step, input)
     } catch (err) {
       return launchErrors(err)
     }
+    // The owner is told (the whole launch, for the final decision). A failed email never fails the answer.
+    await noticeAnswered({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, id, step, c.get('ctx').userId).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
   })
@@ -1446,7 +1461,10 @@ export function createApp(options: AppOptions = {}) {
     const want = Buffer.from(`Bearer ${secret}`)
     if (got.length !== want.length || !timingSafeEqual(got, want)) throw new ApiError(401, 'unauthorized', 'Missing or invalid token.')
     c.header('Cache-Control', 'no-store')
-    return c.json(await runDigest({ db: getDb(), env, mailer }))
+    const digest = await runDigest({ db: getDb(), env, mailer })
+    // The same hourly run also sends the launch messages that are due: reopened answers, requests that have waited, a step nobody covers.
+    const launches = await sweepLaunches({ db: getDb(), env, mailer })
+    return c.json({ ...digest, launches })
   })
 
   return app

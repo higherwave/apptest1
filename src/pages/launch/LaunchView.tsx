@@ -1,7 +1,7 @@
 import { Close } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
-import { useState } from 'react'
-import type { LaunchAnswer, LaunchDetail, LaunchStep } from '../../api/client'
+import { useEffect, useState } from 'react'
+import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchStep } from '../../api/client'
 import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { dayText, KIND_LABEL, momentText, reviewersLine, stateLabel, stateTag } from './launchText'
@@ -17,6 +17,10 @@ export type LaunchViewProps = {
   onAddLink: (step: string, title: string, url: string) => Promise<boolean>
   onRemoveLink: (linkId: string) => void
   onSetUp: (body: { name: string; targetDate: string | null; briefNotes: string }) => Promise<boolean>
+  /** Asks, by email, the reviewers of the steps still waiting. Resolves with who was asked, or null if it failed. */
+  onRequest: () => Promise<LaunchRequestResult | null>
+  /** The step an email link pointed at (?step=): scrolled to, with what is true of it now. */
+  focusStep?: string | null
   /** The address of Admin, Members, Reviewers, for an owner who finds a step with no reviewer. */
   reviewersHref?: string
 }
@@ -48,7 +52,7 @@ function AnswerBlock({ answer, step }: { answer: LaunchAnswer; step: string }) {
   )
 }
 
-function Section({ step, busy, reviewersHref, onAnswer, onAddLink, onRemoveLink }: { step: LaunchStep } & Pick<LaunchViewProps, 'busy' | 'reviewersHref' | 'onAnswer' | 'onAddLink' | 'onRemoveLink'>) {
+function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemoveLink }: { step: LaunchStep; focus: boolean } & Pick<LaunchViewProps, 'busy' | 'reviewersHref' | 'onAnswer' | 'onAddLink' | 'onRemoveLink'>) {
   const [mode, setMode] = useState<'idle' | 'answer' | 'link'>('idle')
   const [choice, setChoice] = useState<string>('')
   const [why, setWhy] = useState('')
@@ -61,7 +65,7 @@ function Section({ step, busy, reviewersHref, onAnswer, onAddLink, onRemoveLink 
   const close = () => { setMode('idle'); setChoice(''); setWhy(''); setTitle(''); setUrl('') }
   const reopened = step.state === 'reopened'
   return (
-    <article className={styles.section} data-testid={`section-${step.step}`} data-state={step.state} aria-label={step.label}>
+    <article className={styles.section} data-testid={`section-${step.step}`} data-state={step.state} data-focus={focus || undefined} aria-label={step.label}>
       <header className={styles.sectionHead}>
         <h3 className={styles.sectionTitle}>{step.label}</h3>
         <Tag size="sm" type={stateTag(step.state)} data-testid={`state-${step.step}`}>{stateLabel(step.state)}</Tag>
@@ -163,7 +167,7 @@ function Section({ step, busy, reviewersHref, onAnswer, onAddLink, onRemoveLink 
   )
 }
 
-function Summary({ launch, onEdit }: { launch: LaunchDetail; onEdit: () => void }) {
+function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () => void; onAsk: () => void }) {
   const s = launch.summary
   const rows: { key: string; label: string; n: number }[] = [
     { key: 'ready', label: 'Ready', n: s.counts.ready },
@@ -212,7 +216,12 @@ function Summary({ launch, onEdit }: { launch: LaunchDetail; onEdit: () => void 
         <div><dt>Project</dt><dd>{launch.projectName}{launch.teamName ? ` · ${launch.teamName}` : ''}</dd></div>
       </dl>
       <p className={styles.small}>{KIND_LABEL[launch.you.kind]}{launch.you.steps.length ? `: ${launch.you.steps.map((k) => launch.steps.find((x) => x.step === k)?.label ?? k).join(', ')}` : ''}</p>
-      {launch.you.canSetUp && <Button kind="tertiary" size="sm" onClick={onEdit} data-testid="edit-launch">Edit launch details</Button>}
+      {launch.you.canSetUp && (
+        <div className={styles.actions}>
+          <Button kind="primary" size="sm" onClick={onAsk} data-testid="ask-answers">Ask for answers</Button>
+          <Button kind="tertiary" size="sm" onClick={onEdit} data-testid="edit-launch">Edit launch details</Button>
+        </div>
+      )}
     </div>
   )
 }
@@ -255,6 +264,17 @@ function Brief({ launch }: { launch: LaunchDetail }) {
   )
 }
 
+// What is true now of the step an email link pointed at: a request that has since been answered says who answered it, so the link is never a dead end.
+function focusText(launch: LaunchDetail, key: string): string | null {
+  const s = launch.steps.find((x) => x.step === key)
+  if (!s) return null
+  if (!s.used) return `This team’s launches do not use ${s.label}.`
+  if (s.state === 'missing') return `${s.label} has no reviewer yet.`
+  if (s.state === 'reopened') return s.canAnswer ? `The brief changed after ${s.label} was answered. Please confirm it, or answer again.` : `The brief changed after ${s.label} was answered. Its reviewer is asked to confirm it.`
+  if (s.answer) return `${s.label} was answered by ${s.answer.by?.name ?? 'someone'} on ${momentText(s.answer.at)}: ${stateLabel(s.answer.answer).toLowerCase()}.${s.canAnswer ? ' You can answer again below.' : ''}`
+  return s.canAnswer ? `Your answer is wanted on ${s.label}.` : `${s.label} is waiting for ${reviewersLine(s.reviewers.primary, s.reviewers.alternate)}.`
+}
+
 // Presentational: a launch as its steps' go signals. Every section is visible to everyone with access; only a step's reviewer can change it.
 // The summary at the right says at a glance whether the launch is ready; the brief is what the answers were given on.
 export function LaunchView(p: LaunchViewProps) {
@@ -263,7 +283,25 @@ export function LaunchView(p: LaunchViewProps) {
   const [name, setName] = useState('')
   const [date, setDate] = useState('')
   const [notes, setNotes] = useState('')
+  const [asking, setAsking] = useState(false)
+  const [asked, setAsked] = useState<LaunchRequestResult | null>(null)
   const dateOk = date.trim() === '' || DAY.test(date.trim())
+  // An email link opens at one step: bring it into view once the launch is there.
+  useEffect(() => {
+    if (!p.focusStep || !launch) return
+    document.querySelector(`[data-testid="section-${p.focusStep}"]`)?.scrollIntoView({ block: 'center' })
+  }, [p.focusStep, launch?.id])
+  const focus = p.focusStep && launch ? focusText(launch, p.focusStep) : null
+  // Who an "Ask for answers" would reach: the primary reviewer of each step still waiting or reopened, one entry per person.
+  const toAsk = (() => {
+    const by = new Map<string, { name: string; steps: string[] }>()
+    for (const st of launch?.steps ?? []) {
+      if (!st.used || (st.state !== 'waiting' && st.state !== 'reopened')) continue
+      for (const person of st.reviewers.primary) by.set(person.userId, { name: person.name, steps: [...(by.get(person.userId)?.steps ?? []), st.label] })
+    }
+    return [...by.values()]
+  })()
+  const withoutReviewer = (launch?.steps ?? []).filter((st) => st.used && st.state === 'missing')
   const openEdit = () => {
     if (!launch) return
     setName(launch.name)
@@ -280,10 +318,26 @@ export function LaunchView(p: LaunchViewProps) {
       {p.state === 'ready' && launch && (
         <>
           <h2 className={styles.launchName} data-testid="launch-name">{launch.name}</h2>
+          {focus && <InlineNotification kind="info" lowContrast hideCloseButton title="From your email" subtitle={focus} data-testid="focus-banner" />}
+          {asked && (
+            <InlineNotification
+              kind="success"
+              lowContrast
+              title={asked.asked.length ? `Asked ${asked.asked.length} ${asked.asked.length === 1 ? 'reviewer' : 'reviewers'}` : asked.held.length ? 'Nobody was emailed' : 'Nobody new to ask'}
+              subtitle={[
+                asked.asked.length ? asked.asked.map((a) => `${a.name} (${a.steps.join(', ')})`).join('; ') : '',
+                asked.alreadyAsked.length ? `${asked.alreadyAsked.length} already asked for this brief.` : '',
+                asked.held.length ? `${asked.held.length} not emailed (a placeholder address, or the temporary recipient limit).` : '',
+                asked.missing.length ? `No reviewer for ${asked.missing.map((m) => m.label).join(', ')}.` : '',
+              ].filter(Boolean).join(' ')}
+              onCloseButtonClick={() => setAsked(null)}
+              data-testid="asked-result"
+            />
+          )}
           <div className={styles.layout}>
             <div className={styles.sections}>
               {launch.steps.map((s) => (
-                <Section key={s.step} step={s} busy={p.busy} reviewersHref={p.reviewersHref} onAnswer={p.onAnswer} onAddLink={p.onAddLink} onRemoveLink={p.onRemoveLink} />
+                <Section key={s.step} step={s} focus={s.step === p.focusStep} busy={p.busy} reviewersHref={p.reviewersHref} onAnswer={p.onAnswer} onAddLink={p.onAddLink} onRemoveLink={p.onRemoveLink} />
               ))}
             </div>
             <aside className={styles.aside} aria-label="Summary and brief">
@@ -293,12 +347,39 @@ export function LaunchView(p: LaunchViewProps) {
                   <Tab data-testid="tab-brief">Brief</Tab>
                 </TabList>
                 <TabPanels>
-                  <TabPanel className={styles.tabPanel}><Summary launch={launch} onEdit={openEdit} /></TabPanel>
+                  <TabPanel className={styles.tabPanel}><Summary launch={launch} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} /></TabPanel>
                   <TabPanel className={styles.tabPanel}><Brief launch={launch} /></TabPanel>
                 </TabPanels>
               </Tabs>
             </aside>
           </div>
+          <Modal
+            open={asking}
+            size="sm"
+            modalHeading="Ask for answers"
+            primaryButtonText={p.busy ? 'Asking…' : toAsk.length ? 'Ask by email' : 'Close'}
+            secondaryButtonText="Cancel"
+            primaryButtonDisabled={p.busy}
+            onRequestClose={() => setAsking(false)}
+            onRequestSubmit={async () => {
+              if (!toAsk.length) { setAsking(false); return }
+              const result = await p.onRequest()
+              setAsking(false)
+              if (result) setAsked(result)
+            }}
+          >
+            <div className={styles.modalForm} data-testid="ask-dialog">
+              {toAsk.length ? (
+                <>
+                  <p className={styles.notes}>These reviewers get one email each, with a link to their step:</p>
+                  <ul className={styles.plain}>{toAsk.map((a) => <li key={a.name}><strong>{a.name}</strong>: {a.steps.join(', ')}</li>)}</ul>
+                </>
+              ) : (
+                <p className={styles.notes}>No step is waiting on a reviewer who can be asked.</p>
+              )}
+              {withoutReviewer.length > 0 && <p className={styles.notes}>No reviewer is set up for {withoutReviewer.map((x) => x.label).join(', ')}, so nobody can be asked. An owner can add one under Admin, Members, Reviewers.</p>}
+            </div>
+          </Modal>
           <Modal
             open={editing}
             size="md"

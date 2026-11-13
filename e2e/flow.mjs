@@ -871,6 +871,17 @@ try {
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="answer-button-legal"]', { timeout: 8000 })
   ok('once a reviewer is set up, only that reviewer’s steps can be answered; the others stay visible but read-only', await page.evaluate(() => document.querySelector('[data-testid="section-legal"]').dataset.state === 'waiting' && !!document.querySelector('[data-testid="answer-button-final_decision"]') && !document.querySelector('[data-testid="answer-button-sales"]') && document.querySelector('[data-testid="section-sales"]').dataset.state === 'missing'))
+  // Ask for answers: who would be emailed, and a link from an email that opens at the step.
+  await tid('ask-answers')
+  await page.waitForSelector('[data-testid="ask-dialog"]', { timeout: 5000 })
+  ok('Ask for answers lists who will be asked, one entry per person with their steps, and which steps have no reviewer', await page.evaluate(() => { const t = document.querySelector('[data-testid="ask-dialog"]').innerText; return /David/.test(t) && /Legal, Final decision/.test(t) && /No reviewer is set up for .*Sales/.test(t) }))
+  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Ask by email').click())
+  await page.waitForSelector('[data-testid="asked-result"]', { timeout: 8000 })
+  ok('asking says who was asked, or that nobody was emailed (the demo’s addresses are placeholders, which are never mailed)', await page.evaluate(() => { const t = document.querySelector('[data-testid="asked-result"]').innerText; return /Nobody was emailed|Asked 1 reviewer/.test(t) && /placeholder|David/.test(t) }))
+  const launchId = (await (await fetch(`${API}/api/v1/projects/${projectId}/launch`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).launch.id
+  await page.goto(`${BASE}/launches/${launchId}?step=legal`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="focus-banner"]', { timeout: 8000 })
+  ok('a link from an email opens the launch at that step, says what is true of it now, and marks the step', await page.evaluate(() => /Your answer is wanted on Legal/.test(document.querySelector('[data-testid="focus-banner"]').innerText) && document.querySelector('[data-testid="section-legal"]').dataset.focus === 'true'))
   await tid('answer-button-legal')
   await page.evaluate(() => document.querySelector('label[for="answer-legal-changes_needed"]').click())
   ok('an answer that is not a plain ready needs a reason before it can be saved', await page.evaluate(() => document.querySelector('[data-testid="save-answer-legal"]').disabled === true))

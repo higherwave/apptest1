@@ -8,7 +8,7 @@ import styles from './LaunchesPage.module.scss'
 import { STEP_LABELS } from './stepLabels'
 
 // The launches the signed-in person may see, with what is waiting on them. How a reviewer finds a launch of a team they are not in.
-export function LaunchesPage({ title = 'Launches', description = 'The launches you can see, and where your answer is waiting.' }: { title?: string; description?: string }) {
+export function LaunchesPage({ title = 'My reviews', description = 'The launches you can see, and where your answer is waiting.' }: { title?: string; description?: string }) {
   const navigate = useNavigate()
   const list = useLaunches()
   const items = list.data?.data ?? []

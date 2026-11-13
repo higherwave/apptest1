@@ -126,6 +126,7 @@ try {
     const links = [...document.querySelectorAll('.cds--popover-content button')].map((b) => b.innerText.trim())
     return big > small * 2 && panel.innerText.toLowerCase().includes('owner') && links.includes('Sign out') && !links.includes('Members') && !links.includes('AI status')
   }))
+  ok('the account panel offers My reviews, the launches a person can see and where their answer waits', await page.evaluate(() => [...document.querySelectorAll('.cds--popover-content button')].some((b) => b.innerText.trim() === 'My reviews')))
   await page.keyboard.press('Escape')
   await page.goto(`${BASE}/settings/status`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => document.body.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })

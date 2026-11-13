@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  requestLaunchAnswers, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -100,6 +100,8 @@ export const useCreateLaunch = (projectId: string) => useLaunchMutation((body: {
 export const useSetUpLaunch = () => useLaunchMutation(({ id, body }: { id: string; body: SetUpLaunchInput }) => setUpLaunch(id, body))
 export const useAnswerLaunchStep = () => useLaunchMutation(({ id, step, body }: { id: string; step: string; body: LaunchAnswerInput }) => answerLaunchStep(id, step, body))
 export const useAddLaunchLink = () => useLaunchMutation(({ id, step, body }: { id: string; step: string; body: { title?: string; url: string } }) => addLaunchLink(id, step, body))
+// Asks the reviewers of the steps still waiting, by email. Nothing in the launch itself changes, so nothing is refreshed.
+export const useRequestLaunchAnswers = () => useMutation({ mutationFn: (id: string) => requestLaunchAnswers(id) })
 export const useRemoveLaunchLink = () => useLaunchMutation(({ id, linkId }: { id: string; linkId: string }) => removeLaunchLink(id, linkId))
 
 // Launch reviewers (owners only): who approves which step, and the coverage grid; each change returns the new picture.
