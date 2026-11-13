@@ -2,11 +2,11 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type AuditGroup, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -81,6 +81,26 @@ export const useSetMemberExternal = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: ({ id, external }: { id: string; external: boolean }) => setMemberExternal(id, external), onSuccess: () => Promise.all(['members', 'reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
 }
+
+// A launch (one per project). A mutation returns the launch as the caller now sees it, which replaces the cached copy.
+export const useProjectLaunch = (projectId: string | undefined) => useQuery({ queryKey: ['project-launch', projectId], queryFn: () => getProjectLaunch(projectId!), enabled: !!projectId })
+export const useLaunch = (id: string | undefined) => useQuery({ queryKey: ['launch', id], queryFn: () => getLaunch(id!), enabled: !!id, retry: false })
+export const useLaunches = (enabled = true) => useQuery({ queryKey: ['launches'], queryFn: listLaunches, enabled })
+function useLaunchMutation<T>(fn: (input: T) => Promise<LaunchDetail>) {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (launch) => {
+      queryClient.setQueryData(['launch', launch.id], launch)
+      return Promise.all(['launches', 'project-launch', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] })))
+    },
+  })
+}
+export const useCreateLaunch = (projectId: string) => useLaunchMutation((body: { name?: string; targetDate?: string | null }) => createLaunch(projectId, body))
+export const useSetUpLaunch = () => useLaunchMutation(({ id, body }: { id: string; body: SetUpLaunchInput }) => setUpLaunch(id, body))
+export const useAnswerLaunchStep = () => useLaunchMutation(({ id, step, body }: { id: string; step: string; body: LaunchAnswerInput }) => answerLaunchStep(id, step, body))
+export const useAddLaunchLink = () => useLaunchMutation(({ id, step, body }: { id: string; step: string; body: { title?: string; url: string } }) => addLaunchLink(id, step, body))
+export const useRemoveLaunchLink = () => useLaunchMutation(({ id, linkId }: { id: string; linkId: string }) => removeLaunchLink(id, linkId))
 
 // Launch reviewers (owners only): who approves which step, and the coverage grid; each change returns the new picture.
 export const useReviewers = (enabled = true) => useQuery({ queryKey: ['reviewers'], queryFn: getReviewers, enabled })

@@ -1,0 +1,246 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+}
+
+.launchName {
+  @include tokens.role('title-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.small {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.eyebrow {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// Steps on the left, all visible; the summary on the right (and above them on a narrower screen, where "are we ready?" should come first).
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--at-space-lg);
+  align-items: start;
+
+  @media (min-width: 64rem) { grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem); }
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+
+  @media (max-width: 63.99rem) { order: 2; }
+}
+
+.aside {
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+
+  @media (min-width: 64rem) {
+    position: sticky;
+    inset-block-start: 7.5rem;
+  }
+  @media (max-width: 63.99rem) { order: 1; }
+}
+
+.tabPanel { padding: var(--at-space-md); }
+
+// One step: independent of the others.
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+
+  &[data-state='not_used'] { opacity: 0.6; }
+  &[data-state='changes_needed'], &[data-state='no_go'] { border-color: var(--at-ink); }
+}
+
+.sectionHead {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.sectionTitle {
+  @include tokens.role('label-md');
+  flex: 1;
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 500;
+}
+
+.reviewers {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.answer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  background: var(--at-surface-soft);
+}
+
+.answerHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+  margin: 0;
+}
+
+.by {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+.rationale {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-ink);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.reopened {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  font-weight: 500;
+}
+
+.openItems {
+  ul {
+    @include tokens.role('body-md');
+    margin: 0;
+    padding-inline-start: var(--at-space-md);
+    color: var(--at-body);
+  }
+}
+
+.links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    @include tokens.role('body-md');
+    display: flex;
+    align-items: center;
+    gap: var(--at-space-xs);
+    overflow-wrap: anywhere;
+  }
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.legend {
+  @include tokens.role('label-md');
+  padding: 0;
+  margin-block-end: var(--at-space-xs);
+  color: var(--at-ink);
+}
+
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs) var(--at-space-lg);
+}
+
+// The summary and brief panel.
+.summary,
+.brief {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.stateLine { margin: 0; }
+
+.counts {
+  @include tokens.role('body-md');
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--at-body);
+}
+
+.plain {
+  @include tokens.role('body-md');
+  margin: 0;
+  padding-inline-start: var(--at-space-md);
+  color: var(--at-body);
+}
+
+.facts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin: 0;
+
+  div { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
+  dt { @include tokens.role('eyebrow'); color: var(--at-muted); }
+  dd { @include tokens.role('body-md'); margin: 0; color: var(--at-ink); overflow-wrap: anywhere; }
+}
+
+.notes {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.start {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  max-inline-size: 40rem;
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}

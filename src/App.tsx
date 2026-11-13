@@ -17,6 +17,9 @@ import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { PlatformJourneyPage } from './pages/insights/PlatformJourneyPage'
 import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
+import { LaunchPage } from './pages/launch/LaunchPage'
+import { LaunchByIdPage } from './pages/launch/LaunchByIdPage'
+import { LaunchesPage } from './pages/launch/LaunchesPage'
 import { MeasureOfProject } from './pages/measure/MeasureOfProject'
 import { StoriesPage } from './pages/stories/StoriesPage'
 import { Placeholder } from './pages/Placeholder'
@@ -66,6 +69,9 @@ export function App() {
         <Route path="requirements/:specId" element={<WriterPage />} />
         <Route path="projects/:projectId/design" element={<DesignPage />} />
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />
+        <Route path="projects/:projectId/launch" element={<LaunchPage />} />
+        <Route path="launches" element={<LaunchesPage />} />
+        <Route path="launches/:launchId" element={<LaunchByIdPage />} />
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />

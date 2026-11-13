@@ -1,9 +1,12 @@
 import { Button, InlineNotification } from '@carbon/react'
+import { Route, Routes } from 'react-router-dom'
 import { useState, type ReactNode } from 'react'
 import { ApiRequestError, type SignInOption } from '../api/client'
 import { useMe, useSignInOptions } from '../api/hooks'
 import { Logo } from '../shell/Logo'
 import { SiteFooter } from '../shell/SiteFooter'
+import { LaunchByIdPage } from '../pages/launch/LaunchByIdPage'
+import { LaunchesPage } from '../pages/launch/LaunchesPage'
 import { signInWith, signOut } from './authClient'
 import styles from './AuthGate.module.scss'
 import brand from '../../brand/brand.json'
@@ -16,7 +19,7 @@ export function AuthGate({ children }: { children: ReactNode }) {
   if (error?.code === 'unauthenticated') return <SignInScreen />
   if (error?.code === 'not_invited' || error?.code === 'email_unverified' || error?.code === 'not_in_group' || error?.code === 'account_mismatch') return <NoAccessScreen message={error.message} invited={error.code === 'not_invited'} />
   // An external member (outside counsel, a partner) reaches only the launches they are asked to review. Those screens arrive with the Launch page.
-  if (me.data?.external) return <ExternalScreen name={me.data.displayName} />
+  if (me.data?.external) return <ExternalApp name={me.data.displayName} />
   return <>{children}</>
 }
 
@@ -80,13 +83,26 @@ function NoAccessScreen({ message, invited }: { message: string; invited: boolea
   )
 }
 
-function ExternalScreen({ name }: { name: string }) {
+// An external reviewer's whole app: the launches they are asked to review, and each one opened by its address. Nothing else is open to them.
+function ExternalApp({ name }: { name: string }) {
   return (
-    <Screen title="You are signed in as an external reviewer">
-      <p className={styles.text}>Hello {name}. The launches you are asked to review will appear here, and you will get an email when one is waiting for you. There is nothing else to open.</p>
-      <Button kind="secondary" size="lg" onClick={signOut}>
-        Sign out
-      </Button>
-    </Screen>
+    <div className={styles.externalPage}>
+      <header className={styles.externalBar}>
+        <p className={styles.brand}>
+          <Logo />
+          <span>{brand.appName}</span>
+        </p>
+        <span className={styles.externalName}>{name} · external reviewer</span>
+        <Button kind="ghost" size="sm" onClick={signOut}>
+          Sign out
+        </Button>
+      </header>
+      <main className={styles.externalMain}>
+        <Routes>
+          <Route path="/launches/:launchId" element={<LaunchByIdPage />} />
+          <Route path="*" element={<LaunchesPage title="Launches to review" description="The launches you are asked to review. Open one to give your answer." />} />
+        </Routes>
+      </main>
+    </div>
   )
 }

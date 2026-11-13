@@ -89,7 +89,7 @@ try {
   await new Promise((r) => setTimeout(r, 600))
   ok('moving away closes it again', (await menu()).w === 68)
   const states = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.state))
-  ok('the steps are a vertical rail of nine, and with every step open they all read neutral', states.length === 9 && (states.every((x) => x === 'done') || states.includes('locked')), states.join())
+  ok('the steps are a vertical rail of ten, and with every step open they all read neutral', states.length === 10 && (states.every((x) => x === 'done') || states.includes('locked')), states.join())
 
   // /sign-in sends someone who is already signed in straight to the projects.
   await signInAs('david@demo.signalflow.example')
@@ -258,6 +258,14 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-testid="cell-General-legal"]')?.dataset.state === 'gap', { timeout: 8000 })
   ok('removing a reviewer makes the step a gap again', await page.evaluate(() => !document.querySelector('[data-testid^="reviewer-legal-alex@"]')))
   ok('reviewer changes are in the audit log under their own filter', await page.evaluate(async () => (await (await fetch('/api/v1/audit?group=reviewers')).json()).data.length >= 3))
+  // An external reviewer's whole app: a list of the launches they are asked to review (none yet), and none of the usual menu.
+  await signInAs('e2e.counsel@example.com')
+  await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
+  await waitText('Launches to review')
+  ok('an external member sees only the launches they are asked to review, with no menu and a way to sign out', await page.evaluate(() => /No launches yet/.test(document.body.innerText) && !document.querySelector('[data-nav]') && /external reviewer/.test(document.body.innerText) && [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Sign out')))
+  await signInAs('david@demo.signalflow.example')
+  await page.goto(`${BASE}/settings/members`, { waitUntil: 'networkidle0' })
+  await waitText('Invite')
   await page.evaluate(async (id) => { await fetch(`/api/v1/members/${id}`, { method: 'DELETE' }) }, counsel.id)
 
   // The invited person signs in: linked, read-only, and no invite form.

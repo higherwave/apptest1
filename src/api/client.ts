@@ -109,6 +109,23 @@ export const changeMemberRole = (id: string, role: MemberRole) => request<Member
 export const removeMember = (id: string) => request<null>(`/members/${id}`, { method: 'DELETE' })
 export const setMemberExternal = (id: string, external: boolean) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { external } })
 
+// A launch: one per project, answered step by step by each step's reviewer.
+export type LaunchDetail = components['schemas']['LaunchDetail']
+export type LaunchStep = components['schemas']['LaunchStep']
+export type LaunchAnswer = components['schemas']['LaunchAnswer']
+export type LaunchListItem = components['schemas']['LaunchListItem']
+export type ProjectLaunch = components['schemas']['ProjectLaunch']
+export type LaunchAnswerInput = components['schemas']['LaunchAnswerRequest']
+export type SetUpLaunchInput = components['schemas']['SetUpLaunchRequest']
+export const getProjectLaunch = (projectId: string) => request<ProjectLaunch>(`/projects/${projectId}/launch`)
+export const createLaunch = (projectId: string, body: components['schemas']['CreateLaunchRequest']) => request<LaunchDetail>(`/projects/${projectId}/launch`, { method: 'POST', body })
+export const getLaunch = (id: string) => request<LaunchDetail>(`/launches/${id}`)
+export const listLaunches = () => request<components['schemas']['LaunchList']>('/launches')
+export const setUpLaunch = (id: string, body: SetUpLaunchInput) => request<LaunchDetail>(`/launches/${id}`, { method: 'PATCH', body })
+export const answerLaunchStep = (id: string, step: string, body: LaunchAnswerInput) => request<LaunchDetail>(`/launches/${id}/steps/${step}`, { method: 'PUT', body })
+export const addLaunchLink = (id: string, step: string, body: { title?: string; url: string }) => request<LaunchDetail>(`/launches/${id}/steps/${step}/links`, { method: 'POST', body })
+export const removeLaunchLink = (id: string, linkId: string) => request<LaunchDetail>(`/launches/${id}/links/${linkId}`, { method: 'DELETE' })
+
 // Launch reviewers: standing assignments, the coverage grid, and which steps each team uses.
 export type ReviewerOverview = components['schemas']['ReviewerOverview']
 export type ReviewerAssignment = components['schemas']['ReviewerAssignment']
