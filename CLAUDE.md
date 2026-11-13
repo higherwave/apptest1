@@ -49,7 +49,9 @@ Launch (release readiness) is built in slices; the plan is the "Launch: build pl
 - Who covers a step comes from one function, `reviewersFor`/`coverageState` in `shared/launch.mjs`. Do not re-derive it in a screen or a query.
 - Approval authority comes from assignment in Signal Flow (members and teams), never from Slack membership. Slack carries conversation; Signal Flow keeps decisions.
 - An external member (`is_external`) is a viewer, covers named teams only, and is refused in the API everywhere except the routes made for them (`EXTERNAL_MAY_CALL` in `server/app.ts`). Add a route to that list only when it is meant for them.
-- One launch per project. Launch answers are append-only; a brief change reopens them.
+- One launch per project. Launch answers are append-only; a brief change reopens them (the answer keeps the `brief_key` it was given on; never overwrite or delete an answer).
+- Who may see or change a launch is `viewerOf` in `server/launches.ts`, not the team check: `/launches/{id}` routes are in `NOT_ONE_PROJECT` for that reason and answer 404 to anyone it does not cover. `EXTERNAL_MAY_CALL` allows `/me` and `/launches...` only.
+- Do not start a `data-testid` with `story-` for anything but a story card: the project tour points at `[data-testid^="story-"]`.
 
 ## Database
 
