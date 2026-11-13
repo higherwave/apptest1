@@ -15,6 +15,8 @@ export function AuthGate({ children }: { children: ReactNode }) {
   const error = me.error instanceof ApiRequestError ? me.error : null
   if (error?.code === 'unauthenticated') return <SignInScreen />
   if (error?.code === 'not_invited' || error?.code === 'email_unverified' || error?.code === 'not_in_group' || error?.code === 'account_mismatch') return <NoAccessScreen message={error.message} invited={error.code === 'not_invited'} />
+  // An external member (outside counsel, a partner) reaches only the launches they are asked to review. Those screens arrive with the Launch page.
+  if (me.data?.external) return <ExternalScreen name={me.data.displayName} />
   return <>{children}</>
 }
 
@@ -71,6 +73,17 @@ function NoAccessScreen({ message, invited }: { message: string; invited: boolea
     <Screen title={invited ? 'You have not been invited' : 'No access yet'}>
       <p className={styles.text}>{message}</p>
       <p className={styles.text}>Ask an owner to invite that address or add you to the right group, or sign out and use a different account.</p>
+      <Button kind="secondary" size="lg" onClick={signOut}>
+        Sign out
+      </Button>
+    </Screen>
+  )
+}
+
+function ExternalScreen({ name }: { name: string }) {
+  return (
+    <Screen title="You are signed in as an external reviewer">
+      <p className={styles.text}>Hello {name}. The launches you are asked to review will appear here, and you will get an email when one is waiting for you. There is nothing else to open.</p>
       <Button kind="secondary" size="lg" onClick={signOut}>
         Sign out
       </Button>

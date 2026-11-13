@@ -1,5 +1,5 @@
 import { Close } from '@carbon/icons-react'
-import { Button, Dropdown, InlineNotification, Loading, Modal, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, Dropdown, InlineNotification, Loading, Modal, Tag, TextInput } from '@carbon/react'
 import type { Member, MemberRole, Team } from '../../api/client'
 import { SettingsHeader } from '../settings/SettingsHeader'
 import styles from './TeamsView.module.scss'
@@ -33,6 +33,9 @@ export type TeamsViewProps = {
   addRole: MemberRole
   busy: boolean
   confirmDelete: boolean
+  /** The steps of a launch and which of them this team does not use (Admin, Members, Reviewers shows who covers them). */
+  launchSteps?: { steps: { key: string; label: string; optional: boolean }[]; off: string[] }
+  onLaunchStep: (step: string, used: boolean) => void
   onSelect: (id: string) => void
   onNewName: (v: string) => void
   onCreate: () => void
@@ -100,6 +103,27 @@ export function TeamsView(p: TeamsViewProps) {
                 </Button>
                 {team.isDefault ? <Tag size="sm" type="gray">Default team</Tag> : <Button kind="danger--ghost" size="md" onClick={p.onAskDelete}>Delete team</Button>}
               </div>
+
+              {p.launchSteps && (
+                <div data-testid="launch-steps">
+                  <h2 className={styles.heading}>Launch steps</h2>
+                  <p className={styles.note}>
+                    The steps this team’s launches use. A step the team uses that nobody covers shows as “approver missing”, so turn a step off here only if the team never needs it. Who covers each step is set under Members, Reviewers.
+                  </p>
+                  <div className={styles.steps}>
+                    {p.launchSteps.steps.map((s) => (
+                      <Checkbox
+                        key={s.key}
+                        id={`launch-step-${s.key}`}
+                        labelText={s.optional ? s.label : `${s.label} (always used)`}
+                        checked={!s.optional || !p.launchSteps!.off.includes(s.key)}
+                        disabled={!s.optional || p.busy}
+                        onChange={(_, { checked }) => p.onLaunchStep(s.key, checked)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <h2 className={styles.heading}>People</h2>

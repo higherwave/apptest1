@@ -4,7 +4,7 @@ import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
-  changeMemberRole, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
+  changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
@@ -65,7 +65,7 @@ export const useAudit = (group?: AuditGroup, teamId?: string) =>
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: listMembers })
 export const useInviteMember = () => {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (input: { email: string; role: MemberRole }) => inviteMember(input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
+  return useMutation({ mutationFn: (input: { email: string; role: MemberRole; external?: boolean }) => inviteMember(input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
 }
 export const useChangeMemberRole = () => {
   const queryClient = useQueryClient()
@@ -73,10 +73,25 @@ export const useChangeMemberRole = () => {
 }
 export const useRemoveMember = () => {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (id: string) => removeMember(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
+  return useMutation({ mutationFn: (id: string) => removeMember(id), onSuccess: () => Promise.all(['members', 'reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
 }
 
 // Teams. Every change can move people and projects between teams, so each refreshes the teams, the project list and who I am.
+export const useSetMemberExternal = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: ({ id, external }: { id: string; external: boolean }) => setMemberExternal(id, external), onSuccess: () => Promise.all(['members', 'reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+}
+
+// Launch reviewers (owners only): who approves which step, and the coverage grid; each change returns the new picture.
+export const useReviewers = (enabled = true) => useQuery({ queryKey: ['reviewers'], queryFn: getReviewers, enabled })
+function useReviewerMutation<T>(fn: (input: T) => Promise<unknown>) {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all(['reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+}
+export const useAddReviewer = () => useReviewerMutation((input: Parameters<typeof addReviewer>[0]) => addReviewer(input))
+export const useRemoveReviewer = () => useReviewerMutation((id: string) => removeReviewer(id))
+export const useSetTeamLaunchSteps = () => useReviewerMutation(({ id, used }: { id: string; used: Record<string, boolean> }) => setTeamLaunchSteps(id, used))
+
 export const useTeams = () => useQuery({ queryKey: ['teams'], queryFn: listTeams })
 function useTeamMutation<T>(fn: (input: T) => Promise<unknown>) {
   const queryClient = useQueryClient()

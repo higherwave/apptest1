@@ -110,6 +110,13 @@
   margin-block-start: var(--at-space-sm);
 }
 
+.steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs) var(--at-space-lg);
+  margin-block-start: var(--at-space-sm);
+}
+
 .confirm {
   @include tokens.role('body-md');
   margin: 0;

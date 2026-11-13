@@ -1,0 +1,175 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+}
+
+.intro {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.heading {
+  @include tokens.role('title-md');
+  margin: 0 0 var(--at-space-sm);
+  color: var(--at-ink);
+}
+
+.note {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+// The coverage grid: teams down the side, the steps across. Grids with table roles, because the design rules do not allow a raw table.
+.grid {
+  min-inline-size: 52rem;
+}
+
+.gridRow {
+  display: grid;
+  grid-template-columns: minmax(7rem, 1.1fr) repeat(6, minmax(6rem, 1fr));
+  gap: var(--at-space-sm);
+  align-items: start;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child { border-block-start: none; }
+}
+
+.head {
+  @include tokens.role('eyebrow');
+  padding: var(--at-space-xs) 0;
+  color: var(--at-muted);
+}
+
+.team {
+  @include tokens.role('label-md');
+  padding-block: var(--at-space-xs);
+  color: var(--at-ink);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xxs);
+  padding-block: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.who {
+  @include tokens.role('body-md');
+  color: var(--at-ink);
+  overflow-wrap: anywhere;
+}
+
+.alt,
+.scope {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+  overflow-wrap: anywhere;
+}
+
+.list {
+  min-inline-size: 40rem;
+}
+
+.listRow {
+  display: grid;
+  grid-template-columns: 9rem 8rem minmax(0, 2fr) 6rem 3rem;
+  gap: var(--at-space-sm);
+  align-items: center;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child { border-block-start: none; }
+}
+
+.name {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.email {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.tag { margin-inline-start: var(--at-space-xs); }
+
+.remove {
+  display: flex;
+  justify-content: center;
+}
+
+.add {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  max-inline-size: 48rem;
+}
+
+.addTop {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--at-space-sm);
+  align-items: end;
+}
+
+.fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-inline-size: 0;
+}
+
+.legend {
+  @include tokens.role('label-md');
+  padding: 0;
+  margin-block-end: var(--at-space-xs);
+  color: var(--at-ink);
+}
+
+.checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs) var(--at-space-lg);
+}
+
+.roleItem {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  text-align: start;
+}
+
+.roleName { @include tokens.role('label-md'); color: var(--at-ink); }
+.roleHelp { @include tokens.role('meta'); color: var(--at-muted); white-space: normal; }
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

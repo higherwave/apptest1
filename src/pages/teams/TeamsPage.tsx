@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { friendlyMessage, type Member, type MemberRole } from '../../api/client'
-import { useMe, useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useSetTeamMember, useTeams } from '../../api/hooks'
+import { useMe, useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useReviewers, useSetTeamLaunchSteps, useSetTeamMember, useTeams } from '../../api/hooks'
 import { TeamsView } from './TeamsView'
 
 // Container: the teams, which one is open, and the leader-only changes.
@@ -14,6 +14,8 @@ export function TeamsPage() {
   const setMember = useSetTeamMember()
   const removeMember = useRemoveTeamMember()
   const move = useMoveProject()
+  const reviewers = useReviewers()
+  const setSteps = useSetTeamLaunchSteps()
   const [pickedId, setPickedId] = useState<string | undefined>()
   const [newName, setNewName] = useState('')
   const [draft, setDraft] = useState<{ id: string; name: string } | null>(null)
@@ -25,9 +27,11 @@ export function TeamsPage() {
   const selected = list.find((t) => t.id === pickedId) ?? list[0]
   // The name box follows the open team until the person types in it.
   const nameDraft = draft && draft.id === selected?.id ? draft.name : (selected?.name ?? '')
-  const failure = [create, rename, del, setMember, removeMember, move].find((m) => m.isError)?.error
+  const failure = [create, rename, del, setMember, removeMember, move, setSteps].find((m) => m.isError)?.error
   const state = teams.isPending || members.isPending ? 'loading' : teams.isError || members.isError ? 'error' : 'ready'
-  const busy = [create, rename, del, setMember, removeMember, move].some((m) => m.isPending)
+  const busy = [create, rename, del, setMember, removeMember, move, setSteps].some((m) => m.isPending)
+  const stepsOf = reviewers.data?.teams.find((t) => t.id === selected?.id)
+  const launchSteps = reviewers.data && stepsOf ? { steps: reviewers.data.steps, off: stepsOf.stepsOff } : undefined
 
   return (
     <TeamsView
@@ -43,6 +47,8 @@ export function TeamsPage() {
       addRole={addRole}
       busy={busy}
       confirmDelete={confirmDelete}
+      launchSteps={launchSteps}
+      onLaunchStep={(step, used) => selected && setSteps.mutate({ id: selected.id, used: { [step]: used } })}
       onSelect={(id) => {
         setPickedId(id)
         setDraft(null)

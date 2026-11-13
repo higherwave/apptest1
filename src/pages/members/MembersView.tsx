@@ -1,5 +1,6 @@
 import { Close } from '@carbon/icons-react'
-import { Button, Dropdown, InlineNotification, Loading, Modal, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, Dropdown, InlineNotification, Loading, Modal, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextInput } from '@carbon/react'
+import type { ReactNode } from 'react'
 import type { Member, MemberRole } from '../../api/client'
 import { SettingsHeader } from '../settings/SettingsHeader'
 import styles from './MembersView.module.scss'
@@ -29,11 +30,20 @@ export type MembersViewProps = {
   notice?: string
   email: string
   role: MemberRole
+  /** The invite is for someone from outside the company: a viewer whose access is limited to the launches they review. */
+  external: boolean
+  /** 0 People, 1 Reviewers. */
+  tab: number
+  onTab: (tab: number) => void
+  /** The Reviewers tab's content, shown when that tab is open. */
+  reviewers: ReactNode
   inviting: boolean
   removing: Member | null
   removePending: boolean
   onEmail: (v: string) => void
   onRole: (r: MemberRole) => void
+  onExternal: (v: boolean) => void
+  onToggleExternal: (m: Member, v: boolean) => void
   onInvite: () => void
   onChangeRole: (m: Member, r: MemberRole) => void
   onAskRemove: (m: Member) => void
@@ -54,6 +64,15 @@ export function MembersView(p: MembersViewProps) {
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.notice && <InlineNotification kind="success" lowContrast hideCloseButton title="Invited" subtitle={p.notice} />}
 
+      <Tabs selectedIndex={p.tab} onChange={({ selectedIndex }) => p.onTab(selectedIndex)}>
+        <TabList aria-label="Members views">
+          <Tab data-testid="tab-people">People</Tab>
+          <Tab data-testid="tab-reviewers">Reviewers</Tab>
+        </TabList>
+        <TabPanels>
+          <TabPanel className={styles.tabPanel}>
+      {p.tab === 0 && (
+      <div className={styles.peoplePanel}>
       {p.isOwner && (
         <section className={styles.invite} aria-label="Invite someone">
           <TextInput
@@ -74,12 +93,14 @@ export function MembersView(p: MembersViewProps) {
             items={ROLES}
             itemToString={(r) => r?.label ?? ''}
             itemToElement={roleItem}
-            selectedItem={roleOf(p.role)}
+            selectedItem={roleOf(p.external ? 'viewer' : p.role)}
+            disabled={p.external}
             onChange={({ selectedItem }) => selectedItem && p.onRole(selectedItem.key)}
           />
           <Button kind="primary" size="md" disabled={!p.email.trim() || p.inviting} onClick={p.onInvite}>
             {p.inviting ? 'Inviting…' : 'Invite'}
           </Button>
+          <Checkbox id="invite-external" className={styles.inviteExternal} labelText="From outside the company (external): a viewer who can reach only the launches they are asked to review" checked={p.external} onChange={(_, { checked }) => p.onExternal(checked)} />
         </section>
       )}
       {!p.isOwner && (
@@ -97,7 +118,7 @@ export function MembersView(p: MembersViewProps) {
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Members">
             <div className={styles.row} role="row">
-              {['Member', 'Status', 'Role'].map((h) => (
+              {['Member', 'Status', 'Role', 'External'].map((h) => (
                 <div key={h} className={styles.head} role="columnheader">{h}</div>
               ))}
               <div className={styles.head} role="columnheader"><span className={styles.srOnly}>Remove</span></div>
@@ -130,6 +151,13 @@ export function MembersView(p: MembersViewProps) {
                     <span>{roleOf(m.role).label}</span>
                   )}
                 </div>
+                <div role="cell">
+                  {p.isOwner ? (
+                    <Checkbox id={`external-${m.id}`} labelText={`${m.email} is external`} hideLabel checked={m.external} disabled={!m.external && m.role !== 'viewer'} onChange={(_, { checked }) => p.onToggleExternal(m, checked)} />
+                  ) : m.external ? (
+                    <Tag size="sm" type="warm-gray">External</Tag>
+                  ) : null}
+                </div>
                 <div role="cell" className={styles.remove}>
                   {p.isOwner && <Button kind="ghost" size="lg" hasIconOnly renderIcon={Close} iconDescription={`Remove ${m.email}`} tooltipPosition="left" onClick={() => p.onAskRemove(m)} />}
                 </div>
@@ -138,6 +166,13 @@ export function MembersView(p: MembersViewProps) {
           </div>
         </div>
       )}
+
+      </div>
+      )}
+          </TabPanel>
+          <TabPanel className={styles.tabPanel}>{p.tab === 1 && p.reviewers}</TabPanel>
+        </TabPanels>
+      </Tabs>
 
       <Modal
         open={p.removing !== null}

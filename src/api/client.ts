@@ -104,6 +104,18 @@ export const listMembers = () => request<components['schemas']['MemberList']>('/
 export const inviteMember = (input: components['schemas']['InviteMemberRequest']) => request<Member>('/members', { method: 'POST', body: input })
 export const changeMemberRole = (id: string, role: MemberRole) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { role } })
 export const removeMember = (id: string) => request<null>(`/members/${id}`, { method: 'DELETE' })
+export const setMemberExternal = (id: string, external: boolean) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { external } })
+
+// Launch reviewers: standing assignments, the coverage grid, and which steps each team uses.
+export type ReviewerOverview = components['schemas']['ReviewerOverview']
+export type ReviewerAssignment = components['schemas']['ReviewerAssignment']
+export type CoverageCell = components['schemas']['CoverageCell']
+export type ReviewerRole = ReviewerAssignment['role']
+export type AddReviewerInput = components['schemas']['AddReviewerRequest']
+export const getReviewers = () => request<ReviewerOverview>('/reviewers')
+export const addReviewer = (input: components['schemas']['AddReviewerRequest']) => request<ReviewerOverview>('/reviewers', { method: 'POST', body: input })
+export const removeReviewer = (id: string) => request<ReviewerOverview>(`/reviewers/${id}`, { method: 'DELETE' })
+export const setTeamLaunchSteps = (id: string, used: Record<string, boolean>) => request<ReviewerOverview>(`/teams/${id}/launch-steps`, { method: 'PUT', body: { used } })
 // Teams: leaders (workspace owners) manage them.
 export type Team = components['schemas']['Team']
 export const listTeams = () => request<components['schemas']['TeamList']>('/teams')
