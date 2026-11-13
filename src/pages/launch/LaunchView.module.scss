@@ -31,7 +31,8 @@
   gap: var(--at-space-lg);
   align-items: start;
 
-  @media (min-width: 64rem) { grid-template-columns: minmax(0, 1fr) minmax(20rem, 24rem); }
+  // As wide as Measure's panel.
+  @media (min-width: 64rem) { grid-template-columns: minmax(0, 1fr) minmax(22rem, 28rem); }
 }
 
 .sections {
@@ -54,7 +55,7 @@
   @media (max-width: 63.99rem) { order: 1; }
 }
 
-.tabPanel { padding: var(--at-space-md); }
+.tabPanel { padding: var(--at-space-lg); }
 
 // One step: independent of the others.
 .section {
@@ -186,15 +187,39 @@
   gap: var(--at-space-xs) var(--at-space-lg);
 }
 
-// The summary and brief panel.
+// The summary and brief panel: the spacing, headings and type of the Measure panel.
 .summary,
 .brief {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-sm);
+  gap: var(--at-space-lg);
 }
 
-.stateLine { margin: 0; }
+// Where it stands, what holds it back and what it waits on: one coloured container, tinted by how it stands.
+.standing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+
+  &[data-tone='mint'] { background: var(--at-tint-mint); }
+  &[data-tone='coral'] { background: var(--at-tint-coral); }
+  &[data-tone='cream'] { background: var(--at-tint-cream); }
+}
+
+.big {
+  @include tokens.role('display-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+}
 
 .counts {
   @include tokens.role('body-md');
@@ -217,7 +242,7 @@
 .facts {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-xs);
+  gap: var(--at-space-md);
   margin: 0;
 
   div { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
@@ -226,7 +251,7 @@
 }
 
 .notes {
-  @include tokens.role('body-md');
+  @include tokens.role('reading-md');
   margin: 0;
   color: var(--at-body);
   white-space: pre-wrap;

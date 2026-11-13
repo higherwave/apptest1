@@ -27,12 +27,13 @@ export type LaunchViewProps = {
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/
 
-// One answer in the record: what was said, why, by whom and when; and, on a final decision, the steps it went past.
-function AnswerBlock({ answer, step }: { answer: LaunchAnswer; step: string }) {
+// One answer in the record: why, by whom and when; and, on a final decision, the steps it went past. The current answer's label is the tag at the top
+// right of its card, so it is not repeated here; an earlier answer, or one the brief has reopened, carries its own.
+function AnswerBlock({ answer, step, showTag }: { answer: LaunchAnswer; step: string; showTag: boolean }) {
   return (
     <div className={styles.answer} data-testid={`answer-${step}`}>
       <p className={styles.answerHead}>
-        <Tag size="sm" type={stateTag(answer.answer)}>{stateLabel(answer.answer)}</Tag>
+        {showTag && <Tag size="sm" type={stateTag(answer.answer)}>{stateLabel(answer.answer)}</Tag>}
         <span className={styles.by}>{answer.by?.name ?? 'Someone'} · {momentText(answer.at)}</span>
       </p>
       {answer.rationale && <p className={styles.rationale}>{answer.rationale}</p>}
@@ -82,7 +83,7 @@ function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemo
           subtitle={reviewersHref ? 'Nobody is set up to answer this step. An owner can add a reviewer.' : 'Nobody is set up to answer this step. Ask a workspace owner to add a reviewer.'}
         />
       )}
-      {step.answer && <AnswerBlock answer={step.answer} step={step.step} />}
+      {step.answer && <AnswerBlock answer={step.answer} step={step.step} showTag={reopened} />}
       {reopened && <p className={styles.reopened}>The brief changed after this answer was given. {step.canAnswer ? 'Please confirm it, or answer again.' : 'The reviewer is asked to confirm it.'}</p>}
       {step.links.length > 0 && (
         <ul className={styles.links} aria-label={`Links for ${step.label}`}>
@@ -99,7 +100,7 @@ function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemo
           <Button kind="ghost" size="sm" aria-expanded={showEarlier} onClick={() => setShowEarlier(!showEarlier)}>
             {showEarlier ? 'Hide earlier answers' : `Earlier answers (${step.earlier.length})`}
           </Button>
-          {showEarlier && step.earlier.map((a) => <AnswerBlock key={a.id} answer={a} step={step.step} />)}
+          {showEarlier && step.earlier.map((a) => <AnswerBlock key={a.id} answer={a} step={step.step} showTag />)}
         </div>
       )}
       {step.canAnswer && mode === 'idle' && (
@@ -179,37 +180,38 @@ function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () =
     { key: 'missing', label: 'Approver missing', n: s.counts.missing },
   ]
   const external = launch.you.kind === 'external'
+  // The colour says at a glance how it stands: green once it is a go, coral while something holds it back or it is a no-go, cream when the brief has
+  // reopened answers, and neutral otherwise.
+  const tone = s.state === 'no_go' || s.blocking.length > 0 ? 'coral' : s.state === 'go' || s.state === 'go_with_conditions' ? 'mint' : s.state === 'reopened' ? 'cream' : 'soft'
   return (
     <div className={styles.summary} data-testid="launch-summary">
-      <p className={styles.eyebrow}>Where it stands</p>
-      <p className={styles.stateLine}>
-        <Tag size="md" type={stateTag(s.state)} data-testid="launch-state">{stateLabel(s.state)}</Tag>
-      </p>
-      {!external && (
-        <>
+      <div className={styles.standing} data-tone={tone}>
+        <p className={styles.eyebrow}>Where it stands</p>
+        <p className={styles.big} data-testid="launch-state">{stateLabel(s.state)}</p>
+        {!external && (
           <ul className={styles.counts} aria-label="Steps by state">
             {rows.filter((r) => r.n > 0).map((r) => (
               <li key={r.key} data-state={r.key}><strong>{r.n}</strong> {r.label.toLowerCase()}</li>
             ))}
           </ul>
-          {s.blocking.length > 0 && (
-            <div data-testid="launch-blocking">
-              <p className={styles.eyebrow}>Holding it back</p>
-              <ul className={styles.plain}>
-                {s.blocking.map((b) => <li key={b.step}>{b.label}: {stateLabel(b.state).toLowerCase()}</li>)}
-              </ul>
-            </div>
-          )}
-          {s.waitingOn.length > 0 && (
-            <div data-testid="launch-waiting">
-              <p className={styles.eyebrow}>Waiting on</p>
-              <ul className={styles.plain}>
-                {s.waitingOn.map((w) => <li key={w.step}>{w.label}</li>)}
-              </ul>
-            </div>
-          )}
-        </>
-      )}
+        )}
+        {!external && s.blocking.length > 0 && (
+          <div className={styles.group} data-testid="launch-blocking">
+            <p className={styles.eyebrow}>Holding it back</p>
+            <ul className={styles.plain}>
+              {s.blocking.map((b) => <li key={b.step}>{b.label}: {stateLabel(b.state).toLowerCase()}</li>)}
+            </ul>
+          </div>
+        )}
+        {!external && s.waitingOn.length > 0 && (
+          <div className={styles.group} data-testid="launch-waiting">
+            <p className={styles.eyebrow}>Waiting on</p>
+            <ul className={styles.plain}>
+              {s.waitingOn.map((w) => <li key={w.step}>{w.label}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
       <dl className={styles.facts}>
         <div><dt>Target date</dt><dd>{dayText(launch.targetDate) ?? 'Not set'}</dd></div>
         <div><dt>Brief last changed</dt><dd>{momentText(launch.briefAt)}</dd></div>

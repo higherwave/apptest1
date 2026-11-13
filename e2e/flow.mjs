@@ -888,7 +888,7 @@ try {
   await page.type('#why-legal', 'The consent wording is missing.')
   await tid('save-answer-legal')
   await page.waitForFunction(() => document.querySelector('[data-testid="section-legal"]')?.dataset.state === 'changes_needed', { timeout: 8000 })
-  ok('the answer shows its reason, who gave it, and holds the launch back in the summary', await page.evaluate(() => { const a = document.querySelector('[data-testid="answer-legal"]').innerText; return /Changes needed/.test(a) && /consent wording/.test(a) && /David/.test(a) && /Legal: changes needed/i.test(document.querySelector('[data-testid="launch-blocking"]').innerText) }))
+  ok('the answer shows its reason, who gave it, and holds the launch back in the summary', await page.evaluate(() => { const a = document.querySelector('[data-testid="answer-legal"]').innerText; return /Changes needed/.test(document.querySelector('[data-testid="state-legal"]').innerText) && !/Changes needed/.test(a) && /consent wording/.test(a) && /David/.test(a) && /Legal: changes needed/i.test(document.querySelector('[data-testid="launch-blocking"]').innerText) }))
   await tid('answer-button-legal')
   await page.evaluate(() => document.querySelector('label[for="answer-legal-ready"]').click())
   ok('a plain ready needs no reason', await page.evaluate(() => document.querySelector('[data-testid="save-answer-legal"]').disabled === false))
