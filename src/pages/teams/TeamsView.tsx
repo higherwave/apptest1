@@ -36,6 +36,10 @@ export type TeamsViewProps = {
   /** The steps of a launch and which of them this team does not use (Admin, Members, Reviewers shows who covers them). */
   launchSteps?: { steps: { key: string; label: string; optional: boolean }[]; off: string[] }
   onLaunchStep: (step: string, used: boolean) => void
+  /** The channel box (a name, no #) and saving it; empty clears the team's channel. */
+  slackDraft: string
+  onSlackDraft: (v: string) => void
+  onSaveSlack: () => void
   onSelect: (id: string) => void
   onNewName: (v: string) => void
   onCreate: () => void
@@ -102,6 +106,19 @@ export function TeamsView(p: TeamsViewProps) {
                   Rename
                 </Button>
                 {team.isDefault ? <Tag size="sm" type="gray">Default team</Tag> : <Button kind="danger--ghost" size="md" onClick={p.onAskDelete}>Delete team</Button>}
+              </div>
+
+              <div data-testid="team-slack">
+                <h2 className={styles.heading}>Slack channel for launches</h2>
+                <p className={styles.note}>
+                  Each launch of this team gets one thread here, with a reply when answers are asked for, a step is answered, the final decision is made or the brief reopens an answer. Leave it empty to post nothing. Invite the Signal Flow app to a private channel first.
+                </p>
+                <div className={styles.nameRow}>
+                  <TextInput id="team-slack" labelText="Channel name" placeholder="launches" value={p.slackDraft} maxLength={80} onChange={(e) => p.onSlackDraft(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && p.slackDraft.trim() !== (team.slackChannel ?? '') && !p.busy && p.onSaveSlack()} />
+                  <Button kind="secondary" size="md" disabled={p.slackDraft.trim().replace(/^#/, '') === (team.slackChannel ?? '') || p.busy} onClick={p.onSaveSlack} data-testid="save-slack">
+                    Save channel
+                  </Button>
+                </div>
               </div>
 
               {p.launchSteps && (

@@ -10,6 +10,8 @@ import { addLink, answerStep, BadAnswer, BadLink, createLaunch, getLaunch, getPr
 import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, ReviewerNotFound, reviewerOverview, setTeamSteps } from './reviewers.js'
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
+import { startThread } from './launch-slack.js'
+import { cleanChannel, makeSlack, type SlackClient } from './slack.js'
 import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
 import { timingSafeEqual } from 'node:crypto'
 import {
@@ -17,7 +19,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, teamSlackSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -45,10 +47,10 @@ import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
 import { editableTeamIds, enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
-import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
+import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, setTeamSlackChannel, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -57,6 +59,7 @@ export function createApp(options: AppOptions = {}) {
   const auth = options.auth ?? (authConfigured(env) ? makeBetterAuth(env, getPool) : undefined)
   const ai = makeAi(env, options.provider)
   const mailer = options.mailer ?? getMailer(env)
+  const slack = options.slack ?? makeSlack(env)
   // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
   const jiraSettings = jiraConfig(env)
   const jira = jiraSettings ? makeJira(jiraSettings, options.jiraFetch) : null
@@ -285,6 +288,8 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       return launchErrors(err)
     }
+    // The launch's thread opens in its team's Slack channel, if the team has one. A failed post never fails the launch.
+    await startThread({ db: getDb(), env, slack }, c.get('ctx').workspaceId, made).catch((err) => console.error('launch slack failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, made), 201)
   })
@@ -307,16 +312,25 @@ export function createApp(options: AppOptions = {}) {
       return launchErrors(err)
     }
     // A change to the brief notes reopens answers: the reviewers are asked to confirm now, not at the next hourly sweep.
-    if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
+    if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
+  })
+  // Opens the launch's Slack thread (for a launch made before its team had a channel, or after a failed post). The result says why, if it could not.
+  app.post('/launches/:id/slack', withContext, async (c) => {
+    const id = launchId(c)
+    const launch = await oneLaunch(c, id)
+    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can open its Slack thread.')
+    const result = await startThread({ db: getDb(), env, slack }, c.get('ctx').workspaceId, id)
+    c.header('Cache-Control', 'no-store')
+    return c.json(result)
   })
   // The launch owner asks the reviewers of the steps still waiting (or reopened). Asking again for the same brief sends nothing more.
   app.post('/launches/:id/request', withContext, async (c) => {
     const id = launchId(c)
     const launch = await oneLaunch(c, id)
     if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can ask for answers.')
-    const result = await requestAnswers({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, id)
+    const result = await requestAnswers({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id)
     c.header('Cache-Control', 'no-store')
     return c.json(result)
   })
@@ -330,7 +344,7 @@ export function createApp(options: AppOptions = {}) {
       return launchErrors(err)
     }
     // The owner is told (the whole launch, for the final decision). A failed email never fails the answer.
-    await noticeAnswered({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, id, step, c.get('ctx').userId).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
+    await noticeAnswered({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id, step, c.get('ctx').userId).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
   })
@@ -407,6 +421,21 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'no-store')
     return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId))
+  })
+
+  app.put('/teams/:id/slack-channel', withContext, async (c) => {
+    requireLeader(c, 'a team’s Slack channel')
+    const id = teamId(c)
+    const input = parseBody(teamSlackSchema, await readJson(c))
+    const channel = input.channel === null || input.channel.trim() === '' ? null : cleanChannel(input.channel)
+    if (input.channel !== null && input.channel.trim() !== '' && !channel) throw new ApiError(422, 'invalid', 'A Slack channel name is lower case letters, numbers, hyphens and underscores, such as launches.')
+    try {
+      await setTeamSlackChannel(getDb(), c.get('ctx'), id, channel)
+    } catch (err) {
+      return teamErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json({ data: await listTeams(getDb(), c.get('ctx').workspaceId) })
   })
 
   app.get('/teams', withContext, async (c) => {
@@ -1463,7 +1492,7 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     const digest = await runDigest({ db: getDb(), env, mailer })
     // The same hourly run also sends the launch messages that are due: reopened answers, requests that have waited, a step nobody covers.
-    const launches = await sweepLaunches({ db: getDb(), env, mailer })
+    const launches = await sweepLaunches({ db: getDb(), env, mailer, slack })
     return c.json({ ...digest, launches })
   })
 

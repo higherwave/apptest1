@@ -126,6 +126,8 @@ export const answerLaunchStep = (id: string, step: string, body: LaunchAnswerInp
 export const addLaunchLink = (id: string, step: string, body: { title?: string; url: string }) => request<LaunchDetail>(`/launches/${id}/steps/${step}/links`, { method: 'POST', body })
 export type LaunchRequestResult = components['schemas']['LaunchRequestResult']
 export const requestLaunchAnswers = (id: string) => request<LaunchRequestResult>(`/launches/${id}/request`, { method: 'POST' })
+export type LaunchSlackResult = components['schemas']['LaunchSlackResult']
+export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })
 export const removeLaunchLink = (id: string, linkId: string) => request<LaunchDetail>(`/launches/${id}/links/${linkId}`, { method: 'DELETE' })
 
 // Launch reviewers: standing assignments, the coverage grid, and which steps each team uses.
@@ -142,6 +144,7 @@ export const setTeamLaunchSteps = (id: string, used: Record<string, boolean>) =>
 export type Team = components['schemas']['Team']
 export const listTeams = () => request<components['schemas']['TeamList']>('/teams')
 export const createTeam = (name: string) => request<Team>('/teams', { method: 'POST', body: { name } })
+export const setTeamSlackChannel = (id: string, channel: string | null) => request<{ data: Team[] }>(`/teams/${id}/slack-channel`, { method: 'PUT', body: { channel } })
 export const renameTeam = (id: string, name: string) => request<Team>(`/teams/${id}`, { method: 'PATCH', body: { name } })
 export const deleteTeam = (id: string) => request<null>(`/teams/${id}`, { method: 'DELETE' })
 export const setTeamMember = (id: string, memberId: string, role: MemberRole) => request<Team>(`/teams/${id}/members/${memberId}`, { method: 'PUT', body: { role } })

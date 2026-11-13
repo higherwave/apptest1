@@ -1,4 +1,4 @@
-// Messages about a launch, by email (Slack comes later). A reviewer asked to approve must be told, so these are not switched off by the daily reminder's
+// Messages about a launch, by email, and the same events as replies in the launch's Slack thread (server/launch-slack.ts). A reviewer asked to approve must be told, so these are not switched off by the daily reminder's
 // preference; they are limited only by the temporary recipient limit (REMINDERS_ONLY_FOR) and by placeholder addresses, and a message held back is kept
 // (status 'held') and goes out if it is asked for again once the limit is lifted. Every message links to the launch in Signal Flow, which always shows
 // what is current: a request that has since been answered opens on who answered it.
@@ -14,8 +14,11 @@ import type { Db, Env } from './db.js'
 import { allLaunchIds, launchForSystem, type LaunchDetail, type LaunchStep, type Person } from './launches.js'
 import type { Mailer } from './mailer.js'
 import { remindersOnlyFor } from './notifications.js'
+import { reply, slackLines } from './launch-slack.js'
+import type { SlackClient } from './slack.js'
 
-export type Deps = { db: Db; env: Env; mailer: Mailer; now?: Date }
+export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date }
+const slackOf = (d: Deps) => ({ db: d.db, env: d.env, slack: d.slack })
 type Launch = LaunchDetail & { createdBy: Person | null; workspaceId: string }
 export type Outcome = 'sent' | 'held' | 'failed' | 'duplicate'
 
@@ -114,6 +117,8 @@ export async function requestAnswers(deps: Deps, workspaceId: string, launchId: 
     else if (outcome === 'held') result.held.push(entry)
     else if (outcome === 'sent') result.asked.push(entry)
   }
+  const told = [...result.asked, ...result.held]
+  if (told.length) await reply(slackOf(deps), workspaceId, launchId, 'requested', `requested:${launch.briefAt}:${told.flatMap((t) => t.steps).sort().join('+')}`, slackLines.requested(told))
   return result
 }
 
@@ -123,6 +128,10 @@ export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: 
   const answered = launch?.steps.find((s) => s.step === step)
   if (!launch || !answered?.answer) return
   const answer = answered.answer
+  await reply(
+    slackOf(deps), workspaceId, launchId, step === 'final_decision' ? 'decided' : 'answered', `answered:${answer.id}`,
+    step === 'final_decision' ? slackLines.decided(answer.answer, answer.by?.name ?? 'someone', answer.rationale) : slackLines.answered(answered.label, answer.answer, answer.by?.name ?? 'someone', answer.rationale),
+  )
   if (step === 'final_decision') {
     const people = new Map<string, Person>()
     for (const s of launch.steps.filter((x) => x.used && x.step !== 'final_decision')) for (const p of s.reviewers.primary) people.set(p.userId, p)
@@ -194,6 +203,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
   }
   for (const s of launch.steps.filter((x) => x.used)) {
     if (s.state === 'reopened') {
+      await reply(slackOf(deps), workspaceId, launchId, 'reopened', `reopened:${s.step}:${launch.briefAt}`, slackLines.reopened(s.label))
       for (const p of s.reviewers.primary) {
         tally(result, await deliver(deps, launch, {
           to: p,

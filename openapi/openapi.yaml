@@ -461,6 +461,23 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/slack:
+    post:
+      operationId: startLaunchSlackThread
+      summary: >
+        Editors of the project's team open the launch's thread in its team's Slack channel (once; a launch already in Slack returns `already`). The
+        result says why nothing was posted: `off` (no Slack token), `no_channel` (the team has none), or `failed` with what Slack said.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: What happened.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchSlackResult' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /launches/{id}/request:
     post:
       operationId: requestLaunchAnswers
@@ -621,6 +638,30 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /teams/{id}/slack-channel:
+    put:
+      operationId: setTeamSlackChannel
+      summary: >
+        Owners only. Sets the Slack channel this team's launches are announced in (a name, with or without "#"; null or empty for none). 422 `invalid`
+        for a name Slack would not accept. Returns the teams as they are now.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamSlackRequest' }
+      responses:
+        '200':
+          description: The teams.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TeamList' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /teams/{id}/members/{memberId}:
     put:
       operationId: setTeamMember
@@ -4093,10 +4134,11 @@ components:
           items: { $ref: '#/components/schemas/Team' }
     Team:
       type: object
-      required: [id, name, isDefault, members, projects]
+      required: [id, name, isDefault, slackChannel, members, projects]
       properties:
         id: { type: string }
         name: { type: string }
+        slackChannel: { type: [string, 'null'], description: 'The Slack channel (no #) this team’s launches are announced in; null for none.' }
         isDefault: { type: boolean, description: The team new people and new projects land in when no other is named. It cannot be deleted. }
         members:
           type: array
@@ -4116,6 +4158,18 @@ components:
             properties:
               id: { type: string }
               name: { type: string }
+    TeamSlackRequest:
+      type: object
+      required: [channel]
+      properties:
+        channel: { type: [string, 'null'], description: 'A channel name such as launches (a leading # is dropped); null or empty clears it.' }
+    LaunchSlackResult:
+      type: object
+      required: [state, url, problem]
+      properties:
+        state: { type: string, enum: [started, already, off, no_channel, failed] }
+        url: { type: [string, 'null'], description: The thread's link in Slack. }
+        problem: { type: [string, 'null'] }
     TeamNameRequest:
       type: object
       required: [name]
@@ -4223,7 +4277,7 @@ components:
         canAnswer: { type: boolean, description: 'True only for this step''s reviewer.' }
     LaunchDetail:
       type: object
-      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, steps, summary, brief]
+      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, slack, steps, summary, brief]
       properties:
         id: { type: string }
         projectId: { type: string }
@@ -4241,6 +4295,14 @@ components:
             kind: { type: string, enum: [team, leader, reviewer, external, visitor] }
             canSetUp: { type: boolean }
             steps: { type: array, items: { type: string }, description: 'The steps this person answers.' }
+        slack:
+          type: object
+          description: The team's Slack channel and the launch's thread in it. Empty for an external reviewer.
+          required: [channel, started, threadUrl]
+          properties:
+            channel: { type: [string, 'null'] }
+            started: { type: boolean }
+            threadUrl: { type: [string, 'null'] }
         steps: { type: array, items: { $ref: '#/components/schemas/LaunchStep' } }
         summary:
           type: object

@@ -882,6 +882,14 @@ try {
   await page.goto(`${BASE}/launches/${launchId}?step=legal`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="focus-banner"]', { timeout: 8000 })
   ok('a link from an email opens the launch at that step, says what is true of it now, and marks the step', await page.evaluate(() => /Your answer is wanted on Legal/.test(document.querySelector('[data-testid="focus-banner"]').innerText) && document.querySelector('[data-testid="section-legal"]').dataset.focus === 'true'))
+  // Slack: a team's channel is set (owners), and the launch offers to open its thread; Slack is not connected here, so it says why instead of posting.
+  const teamOfLaunch = (await (await fetch(`${API}/api/v1/launches/${launchId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).teamId
+  const channelSet = await fetch(`${API}/api/v1/teams/${teamOfLaunch}/slack-channel`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ channel: '#Anchor-CX-Launches' }) })
+  ok('an owner sets the team’s Slack channel (cleaned to a plain name)', channelSet.status === 200 && (await channelSet.json()).data.find((t) => t.id === teamOfLaunch).slackChannel === 'anchor-cx-launches')
+  await page.reload({ waitUntil: 'networkidle0' })
+  await tid('start-slack')
+  await page.waitForSelector('[data-testid="slack-problem"]', { timeout: 8000 })
+  ok('with Slack not connected, opening the thread says why and nothing is claimed', await page.evaluate(() => /not connected/i.test(document.querySelector('[data-testid="slack-problem"]').innerText) && /anchor-cx-launches/.test(document.querySelector('[data-testid="launch-slack"]').innerText)))
   await tid('answer-button-legal')
   await page.evaluate(() => document.querySelector('label[for="answer-legal-changes_needed"]').click())
   ok('an answer that is not a plain ready needs a reason before it can be saved', await page.evaluate(() => document.querySelector('[data-testid="save-answer-legal"]').disabled === true))

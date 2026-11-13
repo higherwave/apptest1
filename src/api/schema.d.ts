@@ -351,6 +351,23 @@ export interface paths {
         patch: operations["setUpLaunch"];
         trace?: never;
     };
+    "/launches/{id}/slack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Editors of the project's team open the launch's thread in its team's Slack channel (once; a launch already in Slack returns `already`). The result says why nothing was posted: `off` (no Slack token), `no_channel` (the team has none), or `failed` with what Slack said. */
+        post: operations["startLaunchSlackThread"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/launches/{id}/request": {
         parameters: {
             query?: never;
@@ -464,6 +481,23 @@ export interface paths {
         get?: never;
         /** Owners only. Says which optional steps this team's launches use (`used` maps a step to true or false). A step the team uses but nobody covers shows as a gap, not as hidden. The final decision always applies and cannot be set (422 `bad_step`). */
         put: operations["setTeamLaunchSteps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{id}/slack-channel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners only. Sets the Slack channel this team's launches are announced in (a name, with or without "#"; null or empty for none). 422 `invalid` for a name Slack would not accept. Returns the teams as they are now. */
+        put: operations["setTeamSlackChannel"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3222,6 +3256,8 @@ export interface components {
         Team: {
             id: string;
             name: string;
+            /** @description The Slack channel (no #) this team’s launches are announced in; null for none. */
+            slackChannel: string | null;
             /** @description The team new people and new projects land in when no other is named. It cannot be deleted. */
             isDefault: boolean;
             members: {
@@ -3236,6 +3272,17 @@ export interface components {
                 id: string;
                 name: string;
             }[];
+        };
+        TeamSlackRequest: {
+            /** @description A channel name such as launches (a leading # is dropped); null or empty clears it. */
+            channel: string | null;
+        };
+        LaunchSlackResult: {
+            /** @enum {string} */
+            state: "started" | "already" | "off" | "no_channel" | "failed";
+            /** @description The thread's link in Slack. */
+            url: string | null;
+            problem: string | null;
         };
         TeamNameRequest: {
             /** @description 1 to 60 characters. */
@@ -3361,6 +3408,12 @@ export interface components {
                 canSetUp: boolean;
                 /** @description The steps this person answers. */
                 steps: string[];
+            };
+            /** @description The team's Slack channel and the launch's thread in it. Empty for an external reviewer. */
+            slack: {
+                channel: string | null;
+                started: boolean;
+                threadUrl: string | null;
             };
             steps: components["schemas"]["LaunchStep"][];
             summary: {
@@ -4228,6 +4281,31 @@ export interface operations {
             422: components["responses"]["Error"];
         };
     };
+    startLaunchSlackThread: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What happened. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchSlackResult"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     requestLaunchAnswers: {
         parameters: {
             query?: never;
@@ -4448,6 +4526,37 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    setTeamSlackChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamSlackRequest"];
+            };
+        };
+        responses: {
+            /** @description The teams. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamList"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     setTeamMember: {

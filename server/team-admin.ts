@@ -5,7 +5,7 @@ import type { Role } from './teams.js'
 
 export type TeamMember = { memberId: string; email: string; displayName: string; role: Role }
 export type TeamProject = { id: string; name: string }
-export type Team = { id: string; name: string; isDefault: boolean; members: TeamMember[]; projects: TeamProject[] }
+export type Team = { id: string; name: string; isDefault: boolean; slackChannel: string | null; members: TeamMember[]; projects: TeamProject[] }
 
 export class TeamNotFound extends Error {}
 export class TeamNameTaken extends Error {}
@@ -21,7 +21,7 @@ const audit = (tx: Queryable, ctx: RequestContext, entity: 'core.teams' | 'core.
 
 /** Every team of the workspace with its people and its research projects, the default team first. */
 export async function listTeams(db: Queryable, workspaceId: string): Promise<Team[]> {
-  const teams = (await db.query(`select id, name, is_default from core.teams where workspace_id = $1 order by is_default desc, lower(name)`, [workspaceId])).rows
+  const teams = (await db.query(`select id, name, is_default, slack_channel from core.teams where workspace_id = $1 order by is_default desc, lower(name)`, [workspaceId])).rows
   const members = (
     await db.query(
       `select tm.team_id, m.id as member_id, u.email, u.display_name, tm.role
@@ -38,6 +38,7 @@ export async function listTeams(db: Queryable, workspaceId: string): Promise<Tea
     id: t.id,
     name: t.name,
     isDefault: t.is_default,
+    slackChannel: t.slack_channel,
     members: members.filter((m) => m.team_id === t.id).map((m) => ({ memberId: m.member_id, email: m.email, displayName: m.display_name, role: m.role as Role })),
     projects: projects.filter((p) => p.team_id === t.id).map((p) => ({ id: p.id, name: p.name })),
   }))
@@ -58,6 +59,17 @@ export async function createTeam(db: Db, ctx: RequestContext, name: string): Pro
     const id = (await tx.query(`insert into core.teams (workspace_id, name, created_by, updated_by) values ($1, $2, $3, $3) returning id`, [ctx.workspaceId, name, ctx.userId])).rows[0].id as string
     await audit(tx, ctx, 'core.teams', id, 'created', null, { name })
     return id
+  })
+}
+
+/** The channel a team's launches are announced in (a name without "#", already cleaned), or null for none. */
+export async function setTeamSlackChannel(db: Db, ctx: RequestContext, id: string, channel: string | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    const before = (await tx.query(`select slack_channel from core.teams where workspace_id = $1 and id = $2 for update`, [ctx.workspaceId, id])).rows[0]
+    if (!before) throw new TeamNotFound()
+    if ((before.slack_channel ?? null) === channel) return
+    await tx.query(`update core.teams set slack_channel = $2 where id = $1`, [id, channel])
+    await audit(tx, ctx, 'core.teams', id, 'slack_channel', { slackChannel: before.slack_channel ?? null }, { slackChannel: channel })
   })
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { friendlyMessage, type Member, type MemberRole } from '../../api/client'
-import { useMe, useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useReviewers, useSetTeamLaunchSteps, useSetTeamMember, useTeams } from '../../api/hooks'
+import { useMe, useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useReviewers, useSetTeamLaunchSteps, useSetTeamMember, useSetTeamSlackChannel, useTeams } from '../../api/hooks'
 import { TeamsView } from './TeamsView'
 
 // Container: the teams, which one is open, and the leader-only changes.
@@ -16,6 +16,8 @@ export function TeamsPage() {
   const move = useMoveProject()
   const reviewers = useReviewers()
   const setSteps = useSetTeamLaunchSteps()
+  const setSlack = useSetTeamSlackChannel()
+  const [slackEdit, setSlackEdit] = useState<{ id: string; value: string } | null>(null)
   const [pickedId, setPickedId] = useState<string | undefined>()
   const [newName, setNewName] = useState('')
   const [draft, setDraft] = useState<{ id: string; name: string } | null>(null)
@@ -27,9 +29,11 @@ export function TeamsPage() {
   const selected = list.find((t) => t.id === pickedId) ?? list[0]
   // The name box follows the open team until the person types in it.
   const nameDraft = draft && draft.id === selected?.id ? draft.name : (selected?.name ?? '')
-  const failure = [create, rename, del, setMember, removeMember, move, setSteps].find((m) => m.isError)?.error
+  const failure = [create, rename, del, setMember, removeMember, move, setSteps, setSlack].find((m) => m.isError)?.error
   const state = teams.isPending || members.isPending ? 'loading' : teams.isError || members.isError ? 'error' : 'ready'
-  const busy = [create, rename, del, setMember, removeMember, move, setSteps].some((m) => m.isPending)
+  const busy = [create, rename, del, setMember, removeMember, move, setSteps, setSlack].some((m) => m.isPending)
+  // The channel box follows the open team until the person types in it.
+  const slackDraft = slackEdit && slackEdit.id === selected?.id ? slackEdit.value : (selected?.slackChannel ?? '')
   const stepsOf = reviewers.data?.teams.find((t) => t.id === selected?.id)
   const launchSteps = reviewers.data && stepsOf ? { steps: reviewers.data.steps, off: stepsOf.stepsOff } : undefined
 
@@ -48,6 +52,9 @@ export function TeamsPage() {
       busy={busy}
       confirmDelete={confirmDelete}
       launchSteps={launchSteps}
+      slackDraft={slackDraft}
+      onSlackDraft={(value) => selected && setSlackEdit({ id: selected.id, value })}
+      onSaveSlack={() => selected && setSlack.mutate({ id: selected.id, channel: slackDraft.trim() || null }, { onSuccess: () => setSlackEdit(null) })}
       onLaunchStep={(step, used) => selected && setSteps.mutate({ id: selected.id, used: { [step]: used } })}
       onSelect={(id) => {
         setPickedId(id)

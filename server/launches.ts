@@ -52,6 +52,8 @@ export type LaunchDetail = {
   /** When the brief last changed: the requirements were published, or the notes were edited. */
   briefAt: string
   you: { kind: ViewerKind; canSetUp: boolean; steps: string[] }
+  /** The team's Slack channel, and the launch's thread in it once it has one. Nothing for an external reviewer. */
+  slack: { channel: string | null; started: boolean; threadUrl: string | null }
   steps: LaunchStep[]
   summary: {
     /** preparing, or the final decision's answer, or reopened. */
@@ -64,9 +66,10 @@ export type LaunchDetail = {
 }
 export type LaunchListItem = { id: string; projectId: string; projectName: string; teamName: string | null; name: string; targetDate: string | null; state: string; yourSteps: string[]; waitingOnYou: string[] }
 
-type Row = { id: string; project_id: string; name: string; target_date: string | null; brief_notes: string; notes_updated_at: string; project_name: string; team_id: string | null; team_name: string | null }
+type Row = { id: string; project_id: string; name: string; target_date: string | null; brief_notes: string; notes_updated_at: string; project_name: string; team_id: string | null; team_name: string | null; slack_channel: string | null; slack_thread_ts: string | null; slack_permalink: string | null }
 const LAUNCH_SQL = `
-  select l.id, l.project_id, l.name, to_char(l.target_date, 'YYYY-MM-DD') as target_date, l.brief_notes, l.notes_updated_at, p.name as project_name, p.team_id, t.name as team_name
+  select l.id, l.project_id, l.name, to_char(l.target_date, 'YYYY-MM-DD') as target_date, l.brief_notes, l.notes_updated_at, p.name as project_name, p.team_id, t.name as team_name,
+    t.slack_channel, l.slack_thread_ts, l.slack_permalink
   from delivery.launches l join core.projects p on p.id = l.project_id left join core.teams t on t.id = p.team_id`
 
 const audit = (tx: Queryable, ctx: RequestContext, entity: 'delivery.launches' | 'delivery.launch_answers' | 'delivery.launch_links', id: string, verb: string, before: unknown, after: unknown) =>
@@ -192,7 +195,9 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
   }
   return {
     id: row.id, projectId: row.project_id, projectName: row.project_name, teamId: row.team_id, teamName: row.team_name, name: row.name, targetDate: row.target_date,
-    briefNotes: row.brief_notes, briefAt: brief.at, you: viewer, steps, summary: external ? { ...summary, counts: { ready: 0, conditions: 0, changes: 0, notApplicable: 0, waiting: 0, missing: 0, reopened: 0 }, blocking: [], waitingOn: [] } : summary,
+    briefNotes: row.brief_notes, briefAt: brief.at, you: viewer,
+    slack: external ? { channel: null, started: false, threadUrl: null } : { channel: row.slack_channel, started: !!row.slack_thread_ts, threadUrl: row.slack_permalink },
+    steps, summary: external ? { ...summary, counts: { ready: 0, conditions: 0, changes: 0, notApplicable: 0, waiting: 0, missing: 0, reopened: 0 }, blocking: [], waitingOn: [] } : summary,
     brief: { published, requirements, problem, users, goals },
   }
 }

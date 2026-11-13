@@ -162,6 +162,7 @@ export const addReviewerSchema = z.object({
 })
 // Which optional steps a team's launches use; the final decision always applies.
 export const teamStepsSchema = z.object({ used: z.partialRecord(z.enum(['product_leadership', 'sales', 'legal', 'documentation', 'marketing']), z.boolean()) })
+export const teamSlackSchema = z.object({ channel: z.string().max(80).nullable() })
 export const teamNameSchema = z.object({ name: z.string().trim().min(1, 'Enter a team name.').max(60) })
 
 // A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.

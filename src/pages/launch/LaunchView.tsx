@@ -1,7 +1,7 @@
 import { Close } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useState } from 'react'
-import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchStep } from '../../api/client'
+import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
 import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { dayText, KIND_LABEL, momentText, reviewersLine, stateLabel, stateTag } from './launchText'
@@ -19,6 +19,8 @@ export type LaunchViewProps = {
   onSetUp: (body: { name: string; targetDate: string | null; briefNotes: string }) => Promise<boolean>
   /** Asks, by email, the reviewers of the steps still waiting. Resolves with who was asked, or null if it failed. */
   onRequest: () => Promise<LaunchRequestResult | null>
+  /** Opens the launch's thread in its team's Slack channel. Resolves with what happened, or null if the call failed. */
+  onSlack: () => Promise<LaunchSlackResult | null>
   /** The step an email link pointed at (?step=): scrolled to, with what is true of it now. */
   focusStep?: string | null
   /** The address of Admin, Members, Reviewers, for an owner who finds a step with no reviewer. */
@@ -168,7 +170,7 @@ function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemo
   )
 }
 
-function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () => void; onAsk: () => void }) {
+function Summary({ launch, busy, onEdit, onAsk, onSlack }: { launch: LaunchDetail; busy: boolean; onEdit: () => void; onAsk: () => void; onSlack: () => void }) {
   const s = launch.summary
   const rows: { key: string; label: string; n: number }[] = [
     { key: 'ready', label: 'Ready', n: s.counts.ready },
@@ -216,6 +218,22 @@ function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () =
         <div><dt>Target date</dt><dd>{dayText(launch.targetDate) ?? 'Not set'}</dd></div>
         <div><dt>Brief last changed</dt><dd>{momentText(launch.briefAt)}</dd></div>
         <div><dt>Project</dt><dd>{launch.projectName}{launch.teamName ? ` · ${launch.teamName}` : ''}</dd></div>
+        {launch.slack.channel && (
+          <div data-testid="launch-slack">
+            <dt>Slack</dt>
+            <dd>
+              {launch.slack.threadUrl ? (
+                <a href={launch.slack.threadUrl} target="_blank" rel="noreferrer">Open the thread in #{launch.slack.channel}</a>
+              ) : launch.slack.started ? (
+                <>The thread is in #{launch.slack.channel}</>
+              ) : launch.you.canSetUp ? (
+                <Button kind="tertiary" size="sm" disabled={busy} onClick={onSlack} data-testid="start-slack">Open a thread in #{launch.slack.channel}</Button>
+              ) : (
+                <>No thread yet in #{launch.slack.channel}</>
+              )}
+            </dd>
+          </div>
+        )}
       </dl>
       <p className={styles.small}>{KIND_LABEL[launch.you.kind]}{launch.you.steps.length ? `: ${launch.you.steps.map((k) => launch.steps.find((x) => x.step === k)?.label ?? k).join(', ')}` : ''}</p>
       {launch.you.canSetUp && (
@@ -287,6 +305,7 @@ export function LaunchView(p: LaunchViewProps) {
   const [notes, setNotes] = useState('')
   const [asking, setAsking] = useState(false)
   const [asked, setAsked] = useState<LaunchRequestResult | null>(null)
+  const [slackProblem, setSlackProblem] = useState<string | null>(null)
   const dateOk = date.trim() === '' || DAY.test(date.trim())
   // An email link opens at one step: bring it into view once the launch is there.
   useEffect(() => {
@@ -321,6 +340,7 @@ export function LaunchView(p: LaunchViewProps) {
         <>
           <h2 className={styles.launchName} data-testid="launch-name">{launch.name}</h2>
           {focus && <InlineNotification kind="info" lowContrast hideCloseButton title="From your email" subtitle={focus} data-testid="focus-banner" />}
+          {slackProblem && <InlineNotification kind="warning" lowContrast title="The Slack thread was not opened" subtitle={slackProblem} onCloseButtonClick={() => setSlackProblem(null)} data-testid="slack-problem" />}
           {asked && (
             <InlineNotification
               kind="success"
@@ -349,7 +369,7 @@ export function LaunchView(p: LaunchViewProps) {
                   <Tab data-testid="tab-brief">Brief</Tab>
                 </TabList>
                 <TabPanels>
-                  <TabPanel className={styles.tabPanel}><Summary launch={launch} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} /></TabPanel>
+                  <TabPanel className={styles.tabPanel}><Summary launch={launch} busy={p.busy} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} onSlack={async () => { setSlackProblem(null); const r = await p.onSlack(); if (r && r.state !== 'started' && r.state !== 'already') setSlackProblem(r.problem ?? 'Slack could not be reached.') }} /></TabPanel>
                   <TabPanel className={styles.tabPanel}><Brief launch={launch} /></TabPanel>
                 </TabPanels>
               </Tabs>
