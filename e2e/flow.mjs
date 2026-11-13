@@ -76,7 +76,7 @@ try {
   ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Projects'))
   const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description', '#p-name-0', '#p-phone-0'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), template: document.body.innerText.includes('Starting template'), what: /what are we testing/i.test(document.body.innerText), item: !!document.querySelector('#item-0-description') }))
   ok('one page holds the name, a project description, methods and participants, and no What are we testing? section', plan.fields.every(Boolean) && plan.methods && !plan.template && !plan.what && !plan.item, JSON.stringify(plan))
-  ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 9 }))
+  ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 8 }))
   ok('while a project is being set up the step to work on is marked current and the rest are locked', await page.evaluate(() => { const st = Object.fromEntries([...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => [a.dataset.label, a.dataset.state])); return st['Test Plan'] === 'current' && Object.entries(st).filter(([k]) => k !== 'Test Plan').every(([, v]) => v === 'locked') }))
   await clickText('Save test plan')
   await waitText('Enter a project name.')
@@ -146,7 +146,7 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-nav] a[aria-disabled="true"]'), { timeout: 8000 }) // the server's answer about which steps are open
   const navState = await page.evaluate(() => Object.fromEntries([...document.querySelectorAll('[data-nav] a')].filter((a) => a.getAttribute('href')?.startsWith('/projects/')).map((a) => [a.dataset.label, { disabled: a.getAttribute('aria-disabled') === 'true', hint: a.getAttribute('title') }])))
   ok('Discovery steps are open and Analysis, Strategy and Delivery steps are locked with a hint',
-    !navState['Test Plan'].disabled && !navState['Participants'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Storyboard', 'Priorities', 'Requirements', 'Stories', 'Measure'].every((k) => navState[k].disabled && navState[k].hint),
+    !navState['Test Plan'].disabled && !navState['Participants'].disabled && !navState['Transcripts'].disabled && ['Themes', 'Storyboard', 'Priorities', 'Requirements', 'Stories'].every((k) => navState[k].disabled && navState[k].hint) ,
     JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
   await page.waitForSelector('#project-name')
   ok('the plan loads the project’s data', await page.evaluate(() => document.querySelector('#project-name').value === 'New patient intake (draft)' && !document.querySelector('#p-name-0')))
@@ -286,7 +286,7 @@ try {
   ok('the chosen areas are saved with the questions', await page.evaluate(() => ['task-0-area', 'task-1-area', 'task-3-area'].every((id) => document.querySelector('#' + id).value === 'Scheduling') && document.querySelector('#task-2-area').value === ''))
   await page.goto(`${BASE}/settings/categories`, { waitUntil: 'networkidle0' })
   ok('Admin is the page title, with a row of sections below it (Experience Categories first, AI usage and costs for an owner)', await page.evaluate(() => document.querySelector('h1')?.innerText === 'Admin' && [...document.querySelectorAll('nav[aria-label="Admin sections"] [data-label]')].map((b) => b.dataset.label).join('|').startsWith('Experience Categories|Notifications|AI usage and costs|System usage')))
-  ok('Admin is a top-level tab, open on this page, with a row of sections below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Admin sections"] [data-label="Experience Categories"]'); return nav.join('|') === 'Platform Insights|Projects|Admin|Prototype gallery (opens in a new tab)|Decision Guides (opens in a new tab)' && cur === 'Admin' && row?.dataset.current === 'true' }))
+  ok('Admin is a top-level tab, open on this page, with a row of sections below the title', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Admin sections"] [data-label="Experience Categories"]'); return nav.join('|') === 'Platform Insights|Projects|Measure|Admin|Prototype gallery (opens in a new tab)|Decision Guides (opens in a new tab)' && cur === 'Admin' && row?.dataset.current === 'true' }))
   await page.goto(`${BASE}/settings/notifications`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="reminder-card"]', { timeout: 8000 })
   await page.waitForFunction(() => (document.querySelector('#reminder-zone')?.value || '').length > 0, { timeout: 8000 })
@@ -366,15 +366,15 @@ try {
   ok('Themes, Storyboard, Priorities and Requirements are now open; Stories is still locked',
     !(await navLocked('Themes')) && !(await navLocked('Storyboard')) && !(await navLocked('Priorities')) && !(await navLocked('Requirements')) && (await navLocked('Stories')))
   // The steps are a horizontal strip: every group in one line when wide, one group at a time when narrow.
-  ok('wide: one strip shows every group and all ten steps', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return ['Discovery', 'Analysis', 'Strategy', 'Delivery'].every((g) => n.innerText.includes(g.toUpperCase()) || n.innerText.includes(g)) && n.querySelectorAll('a').length === 10 }))
+  ok('wide: one strip shows every group and all nine steps', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return ['Discovery', 'Analysis', 'Strategy', 'Delivery'].every((g) => n.innerText.includes(g.toUpperCase()) || n.innerText.includes(g)) && n.querySelectorAll('a').length === 9 }))
   await page.setViewport({ width: 800, height: 900 })
   await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length < 10, { timeout: 5000 })
   ok('narrow: group buttons, and only the open step’s group is listed', await page.evaluate(() => { const n = document.querySelector('nav[aria-label="Project steps"]'); return n.querySelectorAll('button[aria-pressed]').length === 4 && n.querySelectorAll('a').length >= 1 && n.querySelectorAll('a').length < 10 }))
   await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] button')].find((b) => b.innerText.trim() === 'Delivery').click())
-  await page.waitForFunction(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label).join() === 'Stories,Measure', { timeout: 5000 })
+  await page.waitForFunction(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label).join() === 'Stories', { timeout: 5000 })
   ok('narrow: picking a group lists that group’s steps', true)
   await page.setViewport({ width: 1400, height: 900 })
-  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length === 10, { timeout: 5000 })
+  await page.waitForFunction(() => document.querySelectorAll('nav[aria-label="Project steps"] a').length === 9, { timeout: 5000 })
   const apiProjects = async () => (await (await fetch(`${API}/api/v1/projects`)).json()).data
   const mine = async () => (await apiProjects()).find((p) => p.id === projectId)
   ok('the project is Analyzed with 3 sessions and 9 themes', await mine().then((p) => p.status === 'analyzed' && p.sessions === 3 && p.themes === 9))
@@ -698,6 +698,13 @@ try {
   ok('an open question says it needs a decision and has no Create button', await page.evaluate(() => { const s = document.querySelector('[data-testid="story-actions"]'); return /decision to make, not a ticket/i.test(s.innerText) && !s.querySelector('[data-testid="create-ticket"]') }))
   await page.evaluate((k) => { const el = document.querySelector(`[data-testid="story-${k}"]`); el.scrollIntoView({ block: 'center' }); el.click() }, firstReq)
   await page.waitForFunction((k) => document.querySelector('[data-testid="story-detail"] p')?.innerText.startsWith(k), { timeout: 8000 }, firstReq)
+  // A story still to prepare has a link to its measure; Measure opens at that requirement, and Back returns to the story.
+  await page.click('[data-testid="open-measure"]')
+  await page.waitForFunction(() => location.pathname === '/measure' && /[?&]project=/.test(location.search) && /[?&]open=R\d+/.test(location.search), { timeout: 8000 })
+  await page.waitForSelector('[data-testid^="measure-R"]', { timeout: 8000 })
+  ok('a story’s Measure link opens Measure at that requirement, narrowed to its project', await page.evaluate(() => { const open = new URLSearchParams(location.search).get('open'); return document.querySelector(`[data-testid="measure-${open}"]`)?.dataset.selected === 'true' }))
+  await page.goBack({ waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="create-ticket"]', { timeout: 8000 })
   await page.click('[data-testid="create-ticket"]')
   await page.waitForSelector('.cds--modal.is-visible #ticket-summary', { timeout: 5000 })
   await new Promise((r) => setTimeout(r, 400))
@@ -852,9 +859,12 @@ try {
 
   // Measure: how each requirement will be known to have worked, then check-ins over time.
   const measureApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  ok('the Measure step is unlocked once the requirements are published', !(await navLocked('Measure')))
-  await navTo('Measure')
+  ok('Measure is an area of its own beside Platform Insights, Projects and Admin, and no longer a step of the project', await page.evaluate(() => { const top = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); const rail = [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label); const order = ['Platform Insights', 'Projects', 'Measure']; return order.every((l, i) => top.indexOf(l) === i) && !rail.includes('Measure') }))
+  await page.goto(`${BASE}/measure?project=${projectId}`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="measure-"]', { timeout: 8000 })
+  ok('the top menu marks Measure as the open area', await page.evaluate(() => document.querySelector('[data-nav] a[data-label="Measure"]')?.getAttribute('aria-current') === 'page' && document.querySelector('[data-nav] a[data-label="Projects"]')?.getAttribute('aria-current') !== 'page'))
+  ok('Measure across projects includes this project’s requirements, each naming its project and team', await (async () => { const all = await (await fetch(`${API}/api/v1/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json(); return all.projects.some((p) => p.id === projectId) && all.items.some((i) => i.projectId === projectId && i.key === 'R1' && i.projectName && i.teamName) })())
+  ok('an old project Measure address lands on Measure narrowed to that project', await (async () => { const at = page.url(); await page.goto(`${BASE}/projects/${projectId}/measure`, { waitUntil: 'networkidle0' }); await page.waitForSelector('[data-testid^="measure-"]'); return at.includes(`/measure?project=${projectId}`) && page.url().includes(`/measure?project=${projectId}`) && !page.url().includes('/projects/') })())
   const cards = () => page.evaluate(() => [...document.querySelectorAll('[data-testid]')].filter((e) => /^measure-R\d+$/.test(e.dataset.testid)).map((e) => ({ key: e.dataset.testid.replace('measure-', ''), result: e.dataset.result, selected: e.dataset.selected, collapsed: e.dataset.collapsed })))
   ok('Measure lists one card per requirement, all "Not measured yet", the first chosen, with a count of each result', await (async () => { const c = await cards(); const sum = await page.evaluate(() => document.querySelector('section[aria-label="Results so far"]').innerText); return c.length === preview.requirements && c.every((x) => x.result === 'none') && c[0].selected === 'true' && c.slice(1).every((x) => x.selected === 'false') && /Not measured yet/.test(sum) })())
   ok('Measure has the same count cards as Platform Themes, with All measurements first and chosen', await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="Results so far"] button')]; return b.length === 5 && b[0].innerText.includes('All measurements') && b[0].getAttribute('aria-pressed') === 'true' && getComputedStyle(b[1]).borderRadius === getComputedStyle(b[0]).borderRadius }))
@@ -933,8 +943,8 @@ try {
   await page.waitForFunction(() => location.pathname.endsWith('/themes'), { timeout: 8000 })
   await page.goBack({ waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-status]')
-  ok('the Measurements count links to Measure', (await stat('Measurements')).endsWith('/measure'))
-  await page.waitForFunction(() => location.pathname.endsWith('/measure'), { timeout: 8000 })
+  ok('the Measurements count links to Measure, narrowed to that project', /\/measure\?project=[0-9a-f-]{36}$/.test(await stat('Measurements')))
+  await page.waitForFunction(() => location.pathname === '/measure' && location.search.startsWith('?project='), { timeout: 8000 })
   await page.goBack({ waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-status]')
   // The whole chip is the link: clicking its label (not just the number) goes to that step, not to the card's own page.
@@ -957,7 +967,7 @@ try {
   await page.waitForSelector('[role="table"][aria-label="Projects"]')
   ok('the choice is remembered', true)
   await page.evaluate(() => [...document.querySelectorAll('[role="table"] [role="row"]')].find((r) => r.innerText.startsWith('Intake v2')).querySelector('a[aria-label$="Measurements of Intake v2"], a[aria-label*="Measurements"]').click())
-  await page.waitForFunction(() => location.pathname.endsWith('/measure'), { timeout: 8000 })
+  await page.waitForFunction(() => location.pathname === '/measure' && location.search.startsWith('?project='), { timeout: 8000 })
   ok('a count in the list opens that step too', true)
   await page.goBack({ waitUntil: 'networkidle0' })
   await page.evaluate(() => [...document.querySelectorAll('[aria-label="Show projects as"] button')].find((b) => b.innerText.trim() === 'Cards').click())
@@ -1065,7 +1075,7 @@ try {
   ok('a theme in a persona opens that theme', true)
   // Group by Experience category: None is the default; grouping makes a section for each area, the themes with none last, and the choice is in the address.
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
-  ok('the menu is a dark bar down the left with Platform Insights, Projects, Admin, the Prototype gallery and the Decision Guides', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const b = r.getBoundingClientRect(); const bg = getComputedStyle(r).backgroundColor.match(/\d+/g).map(Number); return b.left === 0 && b.height >= innerHeight - 2 && b.width < 300 && bg.slice(0, 3).every((v) => v < 90) && [...r.querySelectorAll('a')].map((a) => a.dataset.label).join('|') === 'Platform Insights|Projects|Admin|Prototype gallery|Decision Guides' }))
+  ok('the menu is a dark bar down the left with Platform Insights, Projects, Measure, Admin, the Prototype gallery and the Decision Guides', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const b = r.getBoundingClientRect(); const bg = getComputedStyle(r).backgroundColor.match(/\d+/g).map(Number); return b.left === 0 && b.height >= innerHeight - 2 && b.width < 300 && bg.slice(0, 3).every((v) => v < 90) && [...r.querySelectorAll('a')].map((a) => a.dataset.label).join('|') === 'Platform Insights|Projects|Measure|Admin|Prototype gallery|Decision Guides' }))
   ok('the Decision Guides link sits under the Prototype gallery, opens in another tab, safely, and shares its dividing line', await page.evaluate(() => { const r = document.querySelector('aside[aria-label="Main menu"]'); const g = r.querySelector('a[data-label="Prototype gallery"]'); const d = r.querySelector('a[data-label="Decision Guides"]'); return !!d && d.target === '_blank' && /noopener/.test(d.rel) && d.href === 'https://www.thehigherwave.com/prototypes/productivity/decision-guides/index.html' && d.getBoundingClientRect().top >= g.getBoundingClientRect().bottom - 1 && getComputedStyle(d).borderTopWidth === '0px' && getComputedStyle(g).borderTopWidth !== '0px' }))
   ok('the Prototype gallery opens in another tab, safely', await page.evaluate(() => { const a = document.querySelector('aside[aria-label="Main menu"] a[data-label="Prototype gallery"]'); return a.target === '_blank' && /noopener/.test(a.rel) && /^https:\/\/thehigherwave\.com\/?$/.test(a.href) }))
   ok('the table has a Source column, and Participants is a narrow column with a small bar', await page.evaluate(() => { const heads = [...document.querySelectorAll('section[aria-labelledby="themes-heading"] > div[aria-hidden] > *')].map((e) => e.innerText.trim().toLowerCase()); const row = document.querySelector('[data-testid^="platform-theme-"]'); const cells = [...row.querySelector('[class*="columns"]').children]; const part = cells[cells.length - 1].getBoundingClientRect().width; const src = cells[heads.indexOf('source')]; return heads.join() === 'themes,type,source,status,trend,participants' && part < 180 && /^(Customers|Team|Customers \+ Team)$/.test(src.innerText.trim()) && !!cells[cells.length - 1].querySelector('[role="progressbar"], [class*="progress"]') }))

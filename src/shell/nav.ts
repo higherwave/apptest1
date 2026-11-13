@@ -1,4 +1,4 @@
-// The ten project steps in order, grouped as in the prototype's side menu.
+// The nine project steps in order, grouped as in the prototype's side menu. (Measure is a place of its own, across projects.)
 export const STEP_GROUPS = ['Discovery', 'Analysis', 'Strategy', 'Delivery'] as const
 export type StepGroup = (typeof STEP_GROUPS)[number]
 
@@ -12,7 +12,6 @@ export const STEPS: { key: string; label: string; group: StepGroup }[] = [
   { key: 'requirements', label: 'Requirements', group: 'Strategy' },
   { key: 'design', label: 'Design', group: 'Strategy' },
   { key: 'stories', label: 'Stories', group: 'Delivery' },
-  { key: 'measure', label: 'Measure', group: 'Delivery' },
 ]
 
 export const INSIGHT_SECTIONS = [
@@ -50,7 +49,6 @@ export const STEP_NOTES: Record<string, string> = {
   requirements: 'AI-assisted docs',
   design: 'Designs by Requirement',
   stories: 'Jira-ready tickets',
-  measure: 'Measure success',
 }
 
 export type StepState = 'done' | 'current' | 'ready' | 'locked'

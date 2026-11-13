@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -293,12 +293,13 @@ export const useCaptureDesign = (projectId: string) => {
 }
 
 // The Measure table of a project. A save returns the row as it is now; the cached table takes it and counts the results again.
-export const useMeasure = (projectId: string | undefined) => useQuery({ queryKey: ['measure', projectId], queryFn: () => getMeasure(projectId!), enabled: !!projectId })
-export const useSaveMeasure = (projectId: string) => {
+// Measure is a place of its own: the requirements of every project the person can see. Saving one row refreshes the list.
+export const useMeasureAcross = () => useQuery({ queryKey: ['measure'], queryFn: getMeasureAcross, retry: false })
+export const useSaveMeasure = () => {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (v: { storyId: string; version: number; body: MeasureRequest }) => saveMeasureItem(v.storyId, v.version, v.body),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['measure', projectId] }),
+    onSuccess: () => Promise.all(['measure', 'projects'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
   })
 }
 

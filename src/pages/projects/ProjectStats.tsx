@@ -13,7 +13,8 @@ export const STAT_STEPS = [
 // Where a draft left off: with transcripts added the next thing is to analyze them; before that, the plan.
 export const resumeStep = (project: Project): ProjectStep => (project.sessions > 0 ? 'transcripts' : 'plan')
 
-export const stepHref = (project: Project, step: ProjectStep) => `/projects/${project.id}/${step}`
+// Measurements live on Measure, which is across projects, narrowed here to this one.
+export const stepHref = (project: Project, step: ProjectStep) => (step === 'measure' ? `/measure?project=${project.id}` : `/projects/${project.id}/${step}`)
 
 // A real link (it can be opened in a new tab); an ordinary click goes through the router instead of reloading.
 export function goTo(onGo: (step: ProjectStep) => void, step: ProjectStep) {

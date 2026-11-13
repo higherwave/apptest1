@@ -51,6 +51,8 @@ export type StoriesViewProps = {
   onGoRequirements: () => void;
   /** Opens the Design step with this requirement's row open. */
   onViewDesign: (story: BoardStory) => void;
+  /** Opens Measure at this requirement: how it will be known to have worked. */
+  onViewMeasure: (story: BoardStory) => void;
 };
 
 const byKey = (a: BoardStory, b: BoardStory) =>
@@ -258,6 +260,7 @@ function Selected({
   linkTo,
   onCreate,
   onViewDesign,
+  onViewMeasure,
 }: SelectedProps) {
   const [modal, setModal] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -291,6 +294,11 @@ function Selected({
           {!question && (
             <Button kind="ghost" size="sm" onClick={() => onViewDesign(story)}>
               Design →
+            </Button>
+          )}
+          {!question && (
+            <Button kind="ghost" size="sm" data-testid="open-measure" onClick={() => onViewMeasure(story)}>
+              Measure →
             </Button>
           )}
         </div>

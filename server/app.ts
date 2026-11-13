@@ -33,7 +33,7 @@ import { getPlatformJourney, getWorkflowJourney } from './journey.js'
 import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, sampleMissing, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowMissing } from './workflows.js'
 import { getUsage } from './usage.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
-import { MeasureConflict, getMeasure, getMeasureItem, saveMeasureItem } from './measure.js'
+import { MeasureConflict, getMeasure, getMeasureAcross, getMeasureItem, saveMeasureItem } from './measure.js'
 import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
@@ -42,7 +42,7 @@ import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spendByTeam, spentT
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
-import { enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
+import { editableTeamIds, enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
 import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
@@ -994,7 +994,17 @@ export function createApp(options: AppOptions = {}) {
     return new Response(new Uint8Array(img.data), { headers: { 'content-type': img.type, 'cache-control': 'private, max-age=86400', 'x-content-type-options': 'nosniff' } })
   })
 
-  // The Measure step -----------------------------------------------------------------------------------------
+  // Measure -----------------------------------------------------------------------------------------------------
+
+  // Measure is a place of its own: every requirement of every project the caller can see (the same team rules as Platform Insights), which the
+  // screen narrows by project, team and result.
+  app.get('/measure', withReadContext, async (c) => {
+    const ctx = c.get('ctx')
+    const body = await getMeasureAcross(getDb(), ctx.workspaceId, visibleTeamIds(ctx), ctx.anonymous ? [] : editableTeamIds(ctx))
+    cacheHeaders(c)
+    c.header('Vary', 'Authorization')
+    return c.json(body)
+  })
 
   app.get('/projects/:id/measure', withReadContext, async (c) => {
     const id = projectId(c)

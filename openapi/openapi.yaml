@@ -1332,11 +1332,26 @@ paths:
             image/png: { schema: { type: string, format: binary } }
             image/webp: { schema: { type: string, format: binary } }
         '404': { $ref: '#/components/responses/Error' }
+  /measure:
+    get:
+      operationId: getMeasureAcross
+      summary: >
+        Measure, across projects: one row per requirement of the latest published requirements document of every project the caller can see (the
+        same team rules as Platform Insights: workspace owners and the read-only demo viewer see every team, everyone else their teams'), with how
+        we will know it worked, the latest reading and its status. Each row names its project and team and says whether the caller may change it
+        (`canEdit`, true only in teams they edit in). The screen narrows by project, team and result. Open to read as the viewer.
+      responses:
+        '200':
+          description: The projects with a published document, and their measures.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/MeasureAcross' }
+        '401': { $ref: '#/components/responses/Error' }
   /projects/{id}/measure:
     get:
       operationId: getMeasure
       summary: >
-        The Measure step: one row per requirement of the project's published document, with how we will know it worked (metric, source,
+        One project's measures (the same rows as in /measure, for one project): one row per requirement of the project's published document, with how we will know it worked (metric, source,
         baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document
         is published.
       parameters:
@@ -2092,7 +2107,7 @@ components:
       properties:
         tabs:
           type: object
-          required: [plan, participants, transcripts, themes, storyboard, prio, requirements, design, stories, measure]
+          required: [plan, participants, transcripts, themes, storyboard, prio, requirements, design, stories]
           properties:
             plan: { $ref: '#/components/schemas/StageTab' }
             participants: { $ref: '#/components/schemas/StageTab' }
@@ -2103,7 +2118,6 @@ components:
             requirements: { $ref: '#/components/schemas/StageTab' }
             design: { $ref: '#/components/schemas/StageTab' }
             stories: { $ref: '#/components/schemas/StageTab' }
-            measure: { $ref: '#/components/schemas/StageTab' }
     StageTab:
       type: object
       required: [enabled, hint]
@@ -3307,6 +3321,33 @@ components:
           enum: [worked, needs_attention, too_early, null]
           description: The newest check-in's verdict, null before the first one.
         version: { type: integer, description: '0 when nothing has been saved for this requirement yet.' }
+    MeasureAcrossItem:
+      allOf:
+        - $ref: '#/components/schemas/MeasureItem'
+        - type: object
+          required: [projectId, projectName, teamId, teamName, canEdit]
+          properties:
+            projectId: { type: string }
+            projectName: { type: string }
+            teamId: { type: [string, 'null'] }
+            teamName: { type: [string, 'null'] }
+            canEdit: { type: boolean, description: 'True when the caller edits in this project''s team; the row is read-only for them otherwise.' }
+    MeasureAcross:
+      type: object
+      required: [projects, items]
+      properties:
+        projects:
+          type: array
+          items:
+            type: object
+            required: [id, name, teamId, teamName, canEdit]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              teamId: { type: [string, 'null'] }
+              teamName: { type: [string, 'null'] }
+              canEdit: { type: boolean }
+        items: { type: array, items: { $ref: '#/components/schemas/MeasureAcrossItem' } }
     Measure:
       type: object
       required: [specId, specName, projectId, summary, items]

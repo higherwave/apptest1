@@ -17,6 +17,7 @@ import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { PlatformJourneyPage } from './pages/insights/PlatformJourneyPage'
 import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
+import { MeasureOfProject } from './pages/measure/MeasureOfProject'
 import { StoriesPage } from './pages/stories/StoriesPage'
 import { Placeholder } from './pages/Placeholder'
 import { ProjectsPage } from './pages/projects/ProjectsPage'
@@ -65,7 +66,8 @@ export function App() {
         <Route path="requirements/:specId" element={<WriterPage />} />
         <Route path="projects/:projectId/design" element={<DesignPage />} />
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />
-        <Route path="projects/:projectId/measure" element={<MeasurePage />} />
+        <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
+        <Route path="measure" element={<MeasurePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<Navigate to="/settings/members" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />

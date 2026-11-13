@@ -1,5 +1,6 @@
-// The Measure step: for each requirement on the board, how we will know it worked and what the check-ins since have shown. The newest
-// check-in's verdict is the requirement's result; the project's result is the count of each.
+// Measure: for each requirement on a project's published board, how we will know it worked and what the check-ins since have shown. The newest
+// check-in's verdict is the requirement's result; the project's result is the count of each. Measure is a place of its own, across every project the
+// caller can see (getMeasureAcross), and can be narrowed to one project; the rows are still written one requirement at a time.
 import { compatFields } from '../shared/measure.mjs'
 import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
@@ -54,7 +55,7 @@ export class MeasureConflict extends Error {
 const keyNumber = (key: string) => Number(key.replace(/\D/g, '')) || 0
 
 const ITEM_SQL = `
-  select s.id as story_id, s.key, s.title, s.priority, s.summary, s.why_it_matters,
+  select s.id as story_id, s.spec_id, s.key, s.title, s.priority, s.summary, s.why_it_matters,
          m.metric, m.source, m.baseline, m.target, m.metric_kind, m.detail, m.comparison, m.value_a, m.value_b, m.unit, m.trend,
          coalesce(m.checkins, '[]'::jsonb) as checkins, coalesce(m.version, 0) as version
   from delivery.stories s
@@ -87,6 +88,50 @@ export async function getMeasure(db: Queryable, workspaceId: string, projectId: 
     summary: { total: items.length, worked: count('worked'), needsAttention: count('needs_attention'), tooEarly: count('too_early'), notMeasured: items.filter((i) => !i.result).length },
     items,
   }
+}
+
+export type MeasureAcrossItem = MeasureItem & { projectId: string; projectName: string; teamId: string | null; teamName: string | null; canEdit: boolean }
+export type MeasureAcross = {
+  /** Every project with a published requirements document that the caller can see, by name. */
+  projects: { id: string; name: string; teamId: string | null; teamName: string | null; canEdit: boolean }[]
+  items: MeasureAcrossItem[]
+}
+
+/**
+ * The measures of every visible project's latest published requirements document, by project name and then requirement. `visible` is the caller's
+ * team ids (null: every team); `editable` the teams they may write in, so a screen can show which rows are read-only for them.
+ */
+export async function getMeasureAcross(db: Queryable, workspaceId: string, visible: string[] | null, editable: string[]): Promise<MeasureAcross> {
+  const params: unknown[] = [workspaceId]
+  let scope = ''
+  if (visible) {
+    params.push(visible)
+    scope = ` and p.team_id = any($2::uuid[])`
+  }
+  const specs = (
+    await db.query(
+      `select distinct on (sp.project_id) sp.id as spec_id, sp.project_id, p.name as project_name, p.team_id, t.name as team_name
+         from delivery.specs sp
+         join core.projects p on p.id = sp.project_id
+         left join core.teams t on t.id = p.team_id
+        where sp.workspace_id = $1 and sp.status = 'published' and p.kind = 'research'${scope}
+        order by sp.project_id, sp.published_at desc`,
+      params,
+    )
+  ).rows
+  const projects = specs
+    .map((s) => ({ id: s.project_id as string, name: s.project_name as string, teamId: (s.team_id ?? null) as string | null, teamName: (s.team_name ?? null) as string | null, canEdit: !!s.team_id && editable.includes(s.team_id) }))
+    .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+  if (!specs.length) return { projects, items: [] }
+  const rows = (await db.query(`${ITEM_SQL} where s.spec_id = any($1::uuid[]) and s.kind = 'requirement'`, [specs.map((s) => s.spec_id)])).rows
+  const byProject = new Map(specs.map((s) => [s.spec_id as string, projects.find((p) => p.id === s.project_id)!]))
+  const items: MeasureAcrossItem[] = rows.map((r) => {
+    const p = byProject.get(r.spec_id)!
+    return { ...toItem(r), projectId: p.id, projectName: p.name, teamId: p.teamId, teamName: p.teamName, canEdit: p.canEdit }
+  })
+  const order = new Map(projects.map((p, i) => [p.id, i]))
+  items.sort((a, b) => order.get(a.projectId)! - order.get(b.projectId)! || keyNumber(a.key) - keyNumber(b.key))
+  return { projects, items }
 }
 
 export async function getMeasureItem(db: Queryable, workspaceId: string, storyId: string): Promise<MeasureItem | undefined> {

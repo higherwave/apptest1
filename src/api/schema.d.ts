@@ -987,6 +987,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/measure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Measure, across projects: one row per requirement of the latest published requirements document of every project the caller can see (the same team rules as Platform Insights: workspace owners and the read-only demo viewer see every team, everyone else their teams'), with how we will know it worked, the latest reading and its status. Each row names its project and team and says whether the caller may change it (`canEdit`, true only in teams they edit in). The screen narrows by project, team and result. Open to read as the viewer. */
+        get: operations["getMeasureAcross"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects/{id}/measure": {
         parameters: {
             query?: never;
@@ -994,7 +1011,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The Measure step: one row per requirement of the project's published document, with how we will know it worked (metric, source, baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document is published. */
+        /** One project's measures (the same rows as in /measure, for one project): one row per requirement of the project's published document, with how we will know it worked (metric, source, baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document is published. */
         get: operations["getMeasure"];
         put?: never;
         post?: never;
@@ -1572,7 +1589,6 @@ export interface components {
                 requirements: components["schemas"]["StageTab"];
                 design: components["schemas"]["StageTab"];
                 stories: components["schemas"]["StageTab"];
-                measure: components["schemas"]["StageTab"];
             };
         };
         StageTab: {
@@ -2592,6 +2608,24 @@ export interface components {
             result: "worked" | "needs_attention" | "too_early" | null;
             /** @description 0 when nothing has been saved for this requirement yet. */
             version: number;
+        };
+        MeasureAcrossItem: components["schemas"]["MeasureItem"] & {
+            projectId: string;
+            projectName: string;
+            teamId: string | null;
+            teamName: string | null;
+            /** @description True when the caller edits in this project's team; the row is read-only for them otherwise. */
+            canEdit: boolean;
+        };
+        MeasureAcross: {
+            projects: {
+                id: string;
+                name: string;
+                teamId: string | null;
+                teamName: string | null;
+                canEdit: boolean;
+            }[];
+            items: components["schemas"]["MeasureAcrossItem"][];
         };
         Measure: {
             specId: string;
@@ -5158,6 +5192,27 @@ export interface operations {
                 };
             };
             404: components["responses"]["Error"];
+        };
+    };
+    getMeasureAcross: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The projects with a published document, and their measures. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MeasureAcross"];
+                };
+            };
+            401: components["responses"]["Error"];
         };
     };
     getMeasure: {

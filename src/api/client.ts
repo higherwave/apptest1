@@ -59,9 +59,12 @@ export const designImageUrl = (storyId: string, version: number) => `/api/v1/sto
 
 export type Measure = components['schemas']['Measure']
 export type MeasureItem = components['schemas']['MeasureItem']
+export type MeasureAcross = components['schemas']['MeasureAcross']
+export type MeasureAcrossItem = components['schemas']['MeasureAcrossItem']
 export type MeasureRequest = components['schemas']['MeasureRequest']
 export type Checkin = components['schemas']['Checkin']
 export const getMeasure = (projectId: string) => request<Measure>(`/projects/${projectId}/measure`)
+export const getMeasureAcross = () => request<MeasureAcross>('/measure')
 // The row's version is 0 when nothing has been saved for the requirement yet.
 export const saveMeasureItem = (storyId: string, version: number, body: MeasureRequest) => request<MeasureItem>(`/stories/${storyId}/measure`, { method: 'PUT', body, version })
 
