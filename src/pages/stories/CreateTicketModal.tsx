@@ -23,7 +23,8 @@ function Form({ story, link, open, pending, errorText, jira, onClose, onCreate }
   const people = live ? [UNASSIGNED, ...jira.assignees] : SIM_ASSIGNEES.map((name) => ({ id: '', name }))
   const wantedPriority = priorityLabel(story.priority)
   const [project, setProject] = useState(SIM_PROJECTS[0])
-  const [issueType, setIssueType] = useState(types[0])
+  // Story first, whatever order Jira lists its types in (Epic and Task stay in the list).
+  const [issueType, setIssueType] = useState(types.includes('Story') ? 'Story' : types[0])
   const [summary, setSummary] = useState(story.title)
   const [description, setDescription] = useState(() => ticketBody(story, link))
   const [priority, setPriority] = useState(priorities.includes(wantedPriority) ? wantedPriority : priorities[Math.floor(priorities.length / 2)])
