@@ -10,8 +10,20 @@ import { listProjects, type ProjectSummary } from './projects.js'
 export const DIGEST = 'digest.incomplete_work'
 /** The reminder goes out from this hour, in the recipient's own time zone. */
 export const SEND_HOUR = 6
-/** A scheduled run can arrive late (GitHub's scheduler often does), so a reminder still goes out up to this many hours after 6am. The dedupe key keeps it to one a day. */
-export const CATCH_UP_HOURS = 3
+/** GitHub's scheduler runs the hourly job only every few hours (gaps of up to 9 have been seen), so a reminder goes out on any run from 6am until 6pm where the person is. The dedupe key keeps it to one a day. */
+export const CATCH_UP_HOURS = 12
+/** The reminder that the restriction is still on goes out on the first run of each month, in its first days, so a missed day does not skip the month. */
+export const NOTICE_DAYS = 3
+export const RESTRICTION_NOTICE = 'notice.reminders_restricted'
+
+/**
+ * REMINDERS_ONLY_FOR (email addresses, comma separated) limits reminders to those people, and to the projects each of them created or last
+ * edited. Unset: every editor is reminded about every project of the teams they edit. Null here means unrestricted.
+ */
+export function remindersOnlyFor(env: Env): Set<string> | null {
+  const list = (env.REMINDERS_ONLY_FOR ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean)
+  return list.length ? new Set(list) : null
+}
 /** After this many reminders in a row that say the same thing about a project, it stops mentioning that project. */
 export const MAX_REPEATS = 3
 
@@ -120,6 +132,15 @@ export function composeDigest(opts: { name: string; items: DigestItem[]; base: s
 
 // The run ---------------------------------------------------------------------------------------------------
 
+export function composeRestrictionNotice(opts: { name: string; base: string }) {
+  const first = opts.name.split(' ')[0] || 'there'
+  const subject = 'Signal Flow: reminders are still limited to your account'
+  const how = 'To open them to every editor, remove REMINDERS_ONLY_FOR in Vercel (Settings, Environment Variables) and redeploy.'
+  const text = [`Hi ${first},`, '', 'Monthly reminder: Signal Flow reminders are limited to you, and to projects you created or last edited (the REMINDERS_ONLY_FOR setting).', '', how].join('\n')
+  const html = [`<p>Hi ${esc(first)},</p>`, '<p>Monthly reminder: Signal Flow reminders are limited to you, and to projects you created or last edited (the <code>REMINDERS_ONLY_FOR</code> setting).</p>', `<p>${esc(how)}</p>`].join('\n')
+  return { subject, text, html }
+}
+
 export type DigestResult = {
   sent: number
   failed: number
@@ -140,6 +161,7 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
   const { db, env, mailer } = deps
   const now = deps.now ?? new Date()
   const result: DigestResult = { sent: 0, failed: 0, nothingToSay: 0, alreadySent: 0 }
+  const restrictedTo = remindersOnlyFor(env)
   const base = (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/$/, '')
   const people = (
     await db.query(
@@ -154,6 +176,12 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
 
   const itemsByWorkspace = new Map<string, DigestItem[]>()
   for (const who of people) {
+    // Limited to named people: anyone else is left alone, and a forced run for them says there is nothing to send.
+    if (restrictedTo && !restrictedTo.has(who.email.toLowerCase())) {
+      result.nothingToSay++
+      if (only) result.outcome = 'nothing_left'
+      continue
+    }
     let localDate = ''
     if (!only) {
       // Due only from the send hour (with a short catch-up) where they are, they have switched nothing off, and the address can be real.
@@ -161,11 +189,38 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
       const local = localParts(now, who.time_zone)
       if (!local || local.hour < SEND_HOUR || local.hour >= SEND_HOUR + CATCH_UP_HOURS) continue
       localDate = local.date
+      // While reminders are limited, say so once a month so it is not forgotten.
+      if (restrictedTo && Number(local.date.slice(8)) <= NOTICE_DAYS) {
+        const claimed = (
+          await db.query(
+            `insert into core.notifications (workspace_id, recipient_id, kind, dedupe_key, payload) values ($1, $2, $3, $4, '{}')
+             on conflict (recipient_id, dedupe_key) do update set status = 'pending', error = null where core.notifications.status = 'failed'
+             returning id`,
+            [who.workspace_id, who.user_id, RESTRICTION_NOTICE, `restricted:${local.date.slice(0, 7)}`],
+          )
+        ).rows[0]
+        if (claimed) {
+          try {
+            if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
+            await mailer.send({ to: who.email, ...composeRestrictionNotice({ name: who.display_name, base }) })
+            await db.query(`update core.notifications set status = 'sent', sent_at = now() where id = $1`, [claimed.id])
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err)
+            console.error('restriction notice failed', err instanceof Error ? err.name : 'error', message)
+            await db.query(`update core.notifications set status = 'failed', error = $2 where id = $1`, [claimed.id, message.slice(0, 500)])
+          }
+        }
+      }
     }
     if (!itemsByWorkspace.has(who.workspace_id)) itemsByWorkspace.set(who.workspace_id, await openItems(db, who.workspace_id))
     // Only projects of teams they edit: a project of another team is not theirs to be reminded about.
     const editing = new Set((await db.query(`select team_id from core.team_memberships where user_id = $1 and workspace_id = $2 and role in ('owner', 'editor')`, [who.user_id, who.workspace_id])).rows.map((r) => r.team_id as string))
     let items = itemsByWorkspace.get(who.workspace_id)!.filter((i) => i.teamId !== null && editing.has(i.teamId))
+    if (restrictedTo) {
+      // Only what this person created or last edited.
+      const mine = new Set((await db.query(`select id from core.projects where workspace_id = $1 and (created_by = $2 or updated_by = $2)`, [who.workspace_id, who.user_id])).rows.map((r) => r.id as string))
+      items = items.filter((i) => mine.has(i.projectId))
+    }
     const states = new Map<string, { fingerprint: string; sent_count: number }>()
     if (!only) {
       for (const r of (await db.query(`select project_id, fingerprint, sent_count from core.reminder_state where user_id = $1`, [who.user_id])).rows) states.set(r.project_id as string, { fingerprint: r.fingerprint as string, sent_count: r.sent_count as number })

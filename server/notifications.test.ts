@@ -45,7 +45,7 @@ test('the reminder goes to the editor at 6am their time, once, with a link to th
   const { db, mailer } = await setup()
   const deps = { db, env: ENV, mailer }
   assert.equal((await runDigest({ ...deps, now: new Date(Date.UTC(2026, 10, 10, 10, 30)) })).sent, 0, 'not 6am yet there (5:30)')
-  assert.equal((await runDigest({ ...deps, now: new Date(Date.UTC(2026, 10, 10, 14, 0)) })).sent, 0, 'too late to be a morning reminder (9:00)')
+  assert.equal((await runDigest({ ...deps, now: new Date(Date.UTC(2026, 10, 10, 23, 0)) })).sent, 0, 'too late in the day (18:00)')
   const r = await runDigest({ ...deps, now: DAY(0) })
   assert.equal(r.sent, 1)
   assert.equal(mailer.sent.length, 1)
@@ -61,6 +61,43 @@ test('a late scheduled run still sends that morning, and only once', async () =>
   const late = new Date(Date.UTC(2026, 10, 10, 13, 20)) // 8:20 in New York
   assert.equal((await runDigest({ db, env: ENV, mailer, now: late })).sent, 1)
   assert.equal((await runDigest({ db, env: ENV, mailer, now: DAY(0) })).alreadySent, 1)
+})
+
+test('a run any time from 6am to 6pm where they are sends the day’s reminder, once', async () => {
+  const { db, mailer } = await setup()
+  const afternoon = new Date(Date.UTC(2026, 10, 10, 20, 46)) // 15:46 in New York: the kind of late run GitHub makes
+  assert.equal((await runDigest({ db, env: ENV, mailer, now: afternoon })).sent, 1)
+  assert.equal((await runDigest({ db, env: ENV, mailer, now: DAY(0) })).alreadySent, 1)
+})
+
+test('limited to named people: only they are reminded, only about projects they created or last edited, and a monthly note says it is still on', async () => {
+  const { db, david, mailer } = await setup()
+  const env = { ...ENV, REMINDERS_ONLY_FOR: ' David@Acme-Research.com ' }
+  // Someone else who edits: not named, so never reminded (even when asked for directly).
+  const other = (await db.query(`select id, email from core.users where email = 'alex@demo.signalflow.example'`)).rows[0]
+  await db.query(`update core.users set email = 'alex@acme-research.com', time_zone = 'America/New_York' where id = $1`, [other.id])
+  // Projects: David created some; the rest were made by others, and none of his.
+  await db.query(`update core.projects set created_by = $1, updated_by = $1 where name in ('Clinic booking, usability round 1')`, [other.id])
+  await db.query(`update core.projects set created_by = $1, updated_by = $1 where name <> 'Clinic booking, usability round 1'`, [david])
+  const first = await runDigest({ db, env, mailer, now: DAY(0) })
+  const toDavid = mailer.sent.filter((m) => m.to === 'david@acme-research.com')
+  assert.equal(mailer.sent.some((m) => m.to === 'alex@acme-research.com'), false, 'the other editor gets nothing')
+  assert.equal(first.sent, 1)
+  assert.ok(toDavid.some((m) => /^Signal Flow: \d+ projects? (is|are) waiting/.test(m.subject)))
+  assert.ok(!toDavid.some((m) => m.text.includes('Clinic booking, usability round 1')), 'a project someone else made and edited is left out')
+  assert.equal(toDavid.filter((m) => /still limited/.test(m.subject)).length, 0, 'the 10th is not the start of the month')
+  // The first days of a month: the note, once.
+  const mailer2 = recordingMailer()
+  const d2 = new Date(Date.UTC(2026, 11, 2, 11, 0))
+  await runDigest({ db, env, mailer: mailer2, now: d2 })
+  await runDigest({ db, env, mailer: mailer2, now: new Date(Date.UTC(2026, 11, 2, 12, 0)) })
+  assert.equal(mailer2.sent.filter((m) => /still limited/.test(m.subject)).length, 1, 'once a month')
+  assert.match(mailer2.sent.find((m) => /still limited/.test(m.subject))!.text, /REMINDERS_ONLY_FOR/)
+  // Unrestricted again: everyone who edits is reminded about their teams' projects.
+  const mailer3 = recordingMailer()
+  await runDigest({ db, env: ENV, mailer: mailer3, now: new Date(Date.UTC(2026, 11, 3, 11, 0)) })
+  assert.ok(mailer3.sent.some((m) => m.to === 'alex@acme-research.com'))
+  assert.equal(mailer3.sent.filter((m) => /still limited/.test(m.subject)).length, 0)
 })
 
 test('people without a time zone, or who switched it off, are left alone', async () => {
