@@ -85,7 +85,7 @@ $chrome-top: 6.75rem;
 .railInner {
   display: flex;
   flex-direction: column;
-  gap: var(--at-space-lg);
+  gap: var(--at-space-xl); // a little air between the groups of steps
   box-sizing: border-box;
   padding: var(--at-space-md) var(--at-space-xs);
   position: sticky;
