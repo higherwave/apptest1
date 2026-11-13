@@ -5,18 +5,20 @@ import type { RequestContext } from './context.js'
 import { ApiError } from './errors.js'
 
 export type Role = 'owner' | 'editor' | 'viewer'
-export type Member = { id: string; email: string; displayName: string; role: Role; status: 'active' | 'invited'; avatarUrl: string | null }
+export type Member = { id: string; email: string; displayName: string; role: Role; status: 'active' | 'invited'; avatarUrl: string | null; external: boolean }
 
 export class MemberNotFound extends Error {}
 export class AlreadyMember extends Error {}
 export class LastOwner extends Error {}
+/** An external member can only be a viewer, and cannot cover every team as a reviewer. */
+export class ExternalNeedsViewer extends Error {}
 
 const MEMBER_SELECT = `
-  select m.id, u.email, u.display_name, m.role, u.avatar_url, (u.auth_subject is not null) as active
+  select m.id, u.email, u.display_name, m.role, u.avatar_url, (u.auth_subject is not null) as active, m.is_external
   from core.memberships m join core.users u on u.id = m.user_id`
 
 const toMember = (r: Record<string, any>): Member => ({
-  id: r.id, email: r.email, displayName: r.display_name, role: r.role, status: r.active ? 'active' : 'invited', avatarUrl: r.avatar_url ?? null,
+  id: r.id, email: r.email, displayName: r.display_name, role: r.role, status: r.active ? 'active' : 'invited', avatarUrl: r.avatar_url ?? null, external: !!r.is_external,
 })
 
 export async function listMembers(db: Queryable, workspaceId: string): Promise<Member[]> {
@@ -40,8 +42,9 @@ const audit = (tx: Queryable, ctx: RequestContext, verb: string, id: string, bef
     ctx.workspaceId, ctx.userId, id, verb, before === null ? null : JSON.stringify(before), after === null ? null : JSON.stringify(after),
   ])
 
-export async function inviteMember(db: Db, ctx: RequestContext, input: { email: string; role: Role }): Promise<Member> {
+export async function inviteMember(db: Db, ctx: RequestContext, input: { email: string; role: Role; external?: boolean }): Promise<Member> {
   const email = input.email.trim().toLowerCase()
+  if (input.external && input.role !== 'viewer') throw new ExternalNeedsViewer()
   return db.transaction(async (tx) => {
     const found = await tx.query(`select id from core.users where lower(email) = $1`, [email])
     let userId: string = found.rows[0]?.id
@@ -52,10 +55,10 @@ export async function inviteMember(db: Db, ctx: RequestContext, input: { email: 
     const dup = await tx.query(`select id from core.memberships where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, userId])
     if (dup.rows[0]) throw new AlreadyMember()
     const made = await tx.query(
-      `insert into core.memberships (workspace_id, user_id, role, created_by, updated_by) values ($1, $2, $3, $4, $4) returning id`,
-      [ctx.workspaceId, userId, input.role, ctx.userId],
+      `insert into core.memberships (workspace_id, user_id, role, is_external, created_by, updated_by) values ($1, $2, $3, $5, $4, $4) returning id`,
+      [ctx.workspaceId, userId, input.role, ctx.userId, !!input.external],
     )
-    await audit(tx, ctx, 'invited', made.rows[0].id, null, { email, role: input.role })
+    await audit(tx, ctx, 'invited', made.rows[0].id, null, { email, role: input.role, ...(input.external ? { external: true } : {}) })
     return (await getMember(tx, ctx.workspaceId, made.rows[0].id))!
   })
 }
@@ -65,8 +68,27 @@ export async function changeRole(db: Db, ctx: RequestContext, id: string, role: 
     const before = await getMember(tx, ctx.workspaceId, id)
     if (!before) throw new MemberNotFound()
     if (before.role === 'owner' && role !== 'owner' && (await ownerCount(tx, ctx.workspaceId)) <= 1) throw new LastOwner()
+    if (before.external && role !== 'viewer') throw new ExternalNeedsViewer()
     await tx.query(`update core.memberships set role = $3, updated_by = $4 where workspace_id = $1 and id = $2`, [ctx.workspaceId, id, role, ctx.userId])
     await audit(tx, ctx, 'role changed', id, { email: before.email, role: before.role }, { email: before.email, role })
+    return (await getMember(tx, ctx.workspaceId, id))!
+  })
+}
+
+/** Marks a member external, or not. An external member is a viewer, and holds no all-teams reviewer assignment. */
+export async function setExternal(db: Db, ctx: RequestContext, id: string, external: boolean): Promise<Member> {
+  return db.transaction(async (tx) => {
+    const before = await getMember(tx, ctx.workspaceId, id)
+    if (!before) throw new MemberNotFound()
+    if (external && before.role !== 'viewer') throw new ExternalNeedsViewer()
+    if (before.external === external) return before
+    await tx.query(`update core.memberships set is_external = $3, updated_by = $4 where workspace_id = $1 and id = $2`, [ctx.workspaceId, id, external, ctx.userId])
+    if (external) {
+      // An external member can cover only named teams: any all-teams assignment ends.
+      const user = (await tx.query(`select user_id from core.memberships where id = $1`, [id])).rows[0]
+      if (user) await tx.query(`delete from core.reviewer_assignments where workspace_id = $1 and user_id = $2 and team_id is null`, [ctx.workspaceId, user.user_id])
+    }
+    await audit(tx, ctx, external ? 'marked external' : 'marked internal', id, { email: before.email, external: before.external }, { email: before.email, external })
     return (await getMember(tx, ctx.workspaceId, id))!
   })
 }
@@ -80,6 +102,8 @@ export async function removeMember(db: Db, ctx: RequestContext, id: string): Pro
     await tx.query(`delete from core.memberships where workspace_id = $1 and id = $2`, [ctx.workspaceId, id])
     // Out of the workspace means out of every team.
     if (user) await tx.query(`delete from core.team_memberships where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, user.id])
+    // And out of every reviewer assignment: launches then show the step as "approver missing".
+    if (user) await tx.query(`delete from core.reviewer_assignments where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, user.id])
     // Their open sessions end now, not when the cookie expires.
     if (user?.auth_subject) await tx.query(`delete from public.auth_session where user_id = $1`, [user.auth_subject])
     await audit(tx, ctx, 'removed', id, { email: before.email, role: before.role }, null)

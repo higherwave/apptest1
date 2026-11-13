@@ -23,6 +23,8 @@ export type RequestContext = {
   workspaceName: string
   /** How this request was let in: a signed-in session, the access token, open editing, or the read-only demo viewer. */
   via: 'session' | 'token' | 'open' | 'anonymous'
+  /** An external member (outside counsel, a partner): refused everywhere except the few places made for them (see inTeams in app.ts). */
+  external: boolean
 }
 
 declare module 'hono' {
@@ -32,7 +34,7 @@ declare module 'hono' {
 }
 
 const IDENTITY_SQL = `
-  select u.id as user_id, u.email, u.display_name, u.avatar_url, w.id as workspace_id, w.name as workspace_name, m.role
+  select u.id as user_id, u.email, u.display_name, u.avatar_url, w.id as workspace_id, w.name as workspace_name, m.role, m.is_external as external
   from core.workspaces w
   join core.memberships m on m.workspace_id = w.id
   join core.users u on u.id = m.user_id
@@ -62,7 +64,7 @@ const ANY_MEMBER_SQL = `
 export type Access = 'strict' | 'read'
 
 const MEMBER_SQL = `
-  select u.id as user_id, u.email, u.display_name, u.avatar_url, u.auth_subject, w.id as workspace_id, w.name as workspace_name, m.role
+  select u.id as user_id, u.email, u.display_name, u.avatar_url, u.auth_subject, w.id as workspace_id, w.name as workspace_name, m.role, m.is_external as external
   from core.workspaces w
   join core.memberships m on m.workspace_id = w.id
   join core.users u on u.id = m.user_id
@@ -98,7 +100,7 @@ async function memberFor(db: Db, slug: string, who: AuthUser, policy: SsoPolicy)
   // With team groups on, the groups decide the person's place in every team but the default one.
   if (policy.teamGroupPrefix) teams = await syncTeamsFromGroups(db, row.workspace_id, row.user_id, policy.teamGroupPrefix, who.groups ?? [], teams)
   return {
-    anonymous: false, via: 'session', userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName, avatarUrl, workspaceName: row.workspace_name,
+    anonymous: false, via: 'session', external: !!row.external, userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName, avatarUrl, workspaceName: row.workspace_name,
   }
 }
 
@@ -152,7 +154,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     const key = `${slug}|${email}`
     const hit = cache.get(key)
     if (hit && Date.now() - hit.at < 60_000) {
-      c.set('ctx', { ...hit.value, anonymous, via, role: anonymous ? 'viewer' : hit.value.role, teams: anonymous ? {} : hit.value.teams })
+      c.set('ctx', { ...hit.value, anonymous, via, role: anonymous ? 'viewer' : hit.value.role, teams: anonymous ? {} : hit.value.teams, external: anonymous ? false : hit.value.external })
       return next()
     }
     const { rows } = await deps.getDb().query(IDENTITY_SQL, [slug, email])
@@ -168,10 +170,10 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     if (!row) throw new ApiError(503, 'workspace_not_found', `Workspace "${slug}" or user "${email}" not found. Create the workspace with: node db/init-workspace.mjs (or load the demo with the seed).`)
     const teams = await loadTeamRoles(deps.getDb(), row.workspace_id, row.user_id)
     const value: RequestContext = {
-      anonymous: false, via, userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,
+      anonymous: false, via, external: !!row.external, userId: row.user_id, workspaceId: row.workspace_id, role: effectiveRole(row.role, teams), teams, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name,
     }
     cache.set(key, { at: Date.now(), value })
-    c.set('ctx', { ...value, anonymous, via, role: anonymous ? 'viewer' : value.role, teams: anonymous ? {} : value.teams })
+    c.set('ctx', { ...value, anonymous, via, role: anonymous ? 'viewer' : value.role, teams: anonymous ? {} : value.teams, external: anonymous ? false : value.external })
     return next()
   }
 }

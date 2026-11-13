@@ -127,9 +127,25 @@ export const checklistSchema = z.object({
 export const inviteMemberSchema = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   role: z.enum(['owner', 'editor', 'viewer']),
+  /** From outside the company (outside counsel, a partner): a viewer whose access is limited to the launches they are asked to review. */
+  external: z.boolean().optional(),
 })
 export const notificationPrefsSchema = z.object({ digestEnabled: z.boolean().optional(), timeZone: z.string().min(1).max(64).optional() })
-export const changeRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
+export const teamMemberRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
+export const changeRoleSchema = z
+  .object({ role: z.enum(['owner', 'editor', 'viewer']).optional(), external: z.boolean().optional() })
+  .refine((v) => v.role !== undefined || v.external !== undefined, 'Choose a role or whether the member is external.')
+
+// Launch reviewers (Admin, Members, Reviewers): a person, the steps they approve, the teams they cover (all, or named), primary or alternate.
+const LAUNCH_STEP_KEYS = ['product_leadership', 'sales', 'legal', 'documentation', 'marketing', 'final_decision'] as const
+export const addReviewerSchema = z.object({
+  memberId: z.uuid(),
+  steps: z.array(z.enum(LAUNCH_STEP_KEYS)).min(1, 'Choose at least one step.').max(6),
+  teams: z.union([z.literal('all'), z.array(z.uuid()).min(1, 'Choose at least one team.').max(200)]),
+  role: z.enum(['primary', 'alternate']),
+})
+// Which optional steps a team's launches use; the final decision always applies.
+export const teamStepsSchema = z.object({ used: z.partialRecord(z.enum(['product_leadership', 'sales', 'legal', 'documentation', 'marketing']), z.boolean()) })
 export const teamNameSchema = z.object({ name: z.string().trim().min(1, 'Enter a team name.').max(60) })
 
 // A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.

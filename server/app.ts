@@ -4,7 +4,8 @@ import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
 import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
 import { signInOptions, ssoPolicy } from './sso.js'
-import { AlreadyMember, changeRole, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember } from './members.js'
+import { AlreadyMember, changeRole, ExternalNeedsViewer, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, setExternal } from './members.js'
+import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, ReviewerNotFound, reviewerOverview, setTeamSteps } from './reviewers.js'
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
 import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
@@ -14,7 +15,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -71,8 +72,14 @@ export function createApp(options: AppOptions = {}) {
 
   // The request's identity, then the team check: a route that names a project (or a theme, document, story or step of one) is refused as
   // not found when the project is another team's, and refused as forbidden for a write when the caller may only read in that team.
+  const EXTERNAL_MAY_CALL = /^\/me$/
   const inTeams = (identity: MiddlewareHandler): MiddlewareHandler => async (c, next) => {
     await identity(c, async () => {})
+    // An external member (outside counsel, a partner) may use only what is made for them. Today that is their own details; the launch
+    // screens they are asked to review are added with the Launch page.
+    if (c.get('ctx').external && !EXTERNAL_MAY_CALL.test(c.req.path.replace(/^\/api\/v1/, ''))) {
+      throw new ApiError(403, 'external_member', 'Your access is limited to the launches you are asked to review.')
+    }
     await enforceProjectScope(getDb(), c.get('ctx'), c.req.method, c.req.path.replace(/^\/api\/v1/, ''))
     await next()
   }
@@ -129,7 +136,7 @@ export function createApp(options: AppOptions = {}) {
     const teams = teamIds.length ? (await getDb().query(`select id, name from core.teams where workspace_id = $1 and id = any($2::uuid[]) order by lower(name)`, [ctx.workspaceId, teamIds])).rows.map((t) => ({ id: t.id as string, name: t.name as string, role: ctx.teams[t.id as string] })) : []
     c.header('Cache-Control', 'private, no-store')
     return c.json({
-      userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, avatarUrl: ctx.avatarUrl, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via,
+      userId: ctx.userId, email: ctx.email, displayName: ctx.displayName, avatarUrl: ctx.avatarUrl, workspaceId: ctx.workspaceId, workspaceName: ctx.workspaceName, role: ctx.role, via: ctx.via, external: ctx.external,
       signInAvailable: !!auth,
       rolesManagedBySso: ssoPolicy(env).managedByGroups,
       teamsManagedBySso: !!ssoPolicy(env).teamGroupPrefix,
@@ -162,6 +169,7 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof MemberNotFound) throw new ApiError(404, 'not_found', 'No such member.')
     if (err instanceof AlreadyMember) throw new ApiError(409, 'already_member', 'That person is already a member.')
     if (err instanceof LastOwner) throw new ApiError(409, 'last_owner', 'A workspace needs at least one owner.')
+    if (err instanceof ExternalNeedsViewer) throw new ApiError(409, 'external_needs_viewer', 'An external member is a viewer. Change the role to viewer first.')
     throw err
   }
 
@@ -189,7 +197,10 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(changeRoleSchema, await readJson(c))
     try {
       c.header('Cache-Control', 'no-store')
-      return c.json(await changeRole(getDb(), c.get('ctx'), id, input.role))
+      let member
+      if (input.role !== undefined) member = await changeRole(getDb(), c.get('ctx'), id, input.role)
+      if (input.external !== undefined) member = await setExternal(getDb(), c.get('ctx'), id, input.external)
+      return c.json(member!)
     } catch (err) {
       return memberErrors(err)
     }
@@ -230,6 +241,57 @@ export function createApp(options: AppOptions = {}) {
     if (!team) throw new ApiError(404, 'not_found', 'No such team.')
     return team
   }
+
+  // Launch reviewers: standing assignments, and which steps each team uses. Owners only.
+  const reviewerErrors = (err: unknown): never => {
+    if (err instanceof MemberNotFound) throw new ApiError(404, 'not_found', 'No such member.')
+    if (err instanceof TeamNotFound) throw new ApiError(404, 'not_found', 'No such team.')
+    if (err instanceof ReviewerNotFound) throw new ApiError(404, 'not_found', 'No such assignment.')
+    if (err instanceof BadStep) throw new ApiError(422, 'bad_step', 'That step cannot be set that way.')
+    if (err instanceof ExternalAllTeams) throw new ApiError(422, 'external_all_teams', 'An external member can cover named teams only, not all teams.', 'teams')
+    if (err instanceof PrimaryTaken) throw new ApiError(409, 'primary_taken', `${err.who} is already the primary for that step and team. Make one of them an alternate, or remove one first.`)
+    throw err
+  }
+  app.get('/reviewers', withContext, async (c) => {
+    requireLeader(c, 'launch reviewers')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId))
+  })
+  app.post('/reviewers', withContext, async (c) => {
+    requireLeader(c, 'launch reviewers')
+    const input = parseBody(addReviewerSchema, await readJson(c))
+    try {
+      await addReviewer(getDb(), c.get('ctx'), input)
+    } catch (err) {
+      return reviewerErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId), 201)
+  })
+  app.delete('/reviewers/:id', withContext, async (c) => {
+    requireLeader(c, 'launch reviewers')
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such assignment.')
+    try {
+      await removeReviewer(getDb(), c.get('ctx'), id)
+    } catch (err) {
+      return reviewerErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId))
+  })
+  app.put('/teams/:id/launch-steps', withContext, async (c) => {
+    requireLeader(c, 'launch steps')
+    const id = teamId(c)
+    const input = parseBody(teamStepsSchema, await readJson(c))
+    try {
+      await setTeamSteps(getDb(), c.get('ctx'), id, input.used)
+    } catch (err) {
+      return reviewerErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId))
+  })
 
   app.get('/teams', withContext, async (c) => {
     requireLeader(c)
@@ -287,7 +349,7 @@ export function createApp(options: AppOptions = {}) {
     await requireTeamMembersEditable(id)
     const member = c.req.param('memberId') ?? ''
     if (!UUID.test(member)) throw new ApiError(404, 'not_found', 'No such member.')
-    const input = parseBody(changeRoleSchema, await readJson(c))
+    const input = parseBody(teamMemberRoleSchema, await readJson(c))
     try {
       await setTeamMember(getDb(), c.get('ctx'), id, member, input.role)
     } catch (err) {

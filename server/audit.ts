@@ -6,6 +6,7 @@ import type { Queryable } from './db.js'
 export const AUDIT_GROUPS = {
   members: ['core.memberships'],
   teams: ['core.teams', 'core.team_memberships'],
+  reviewers: ['core.reviewer_assignments', 'core.team_launch_steps'],
   categories: ['insights.feature_areas'],
   projects: ['core.projects'],
   workflows: ['insights.workflows'],

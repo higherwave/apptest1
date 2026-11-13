@@ -262,14 +262,16 @@ paths:
   /members/{id}:
     patch:
       operationId: changeMemberRole
-      summary: Owners only. Changes a member's role. 409 `last_owner` if it would leave the workspace with no owner.
+      summary: >
+        Owners only. Changes a member's role and/or marks them external or not. 409 `last_owner` if it would leave the workspace with no owner; 409
+        `external_needs_viewer` for an external member who is not a viewer. Marking someone external ends any all-teams reviewer assignment they hold.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/ChangeRoleRequest' }
+            schema: { $ref: '#/components/schemas/ChangeMemberRequest' }
       responses:
         '200':
           description: Updated.
@@ -365,6 +367,82 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /reviewers:
+    get:
+      operationId: getReviewers
+      summary: >
+        Owners only. The launch reviewers (standing assignments: a person, a step, all teams or one team, primary or alternate) and, for each team, a
+        coverage cell per step: `covered` (at least one primary), `gap` (a step the team uses with no primary; an alternate alone is still a gap) or
+        `not_used` (the team turned the step off). A step with no reviewer is always shown as a gap, never hidden.
+      responses:
+        '200':
+          description: The reviewers and the coverage grid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewerOverview' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: addReviewer
+      summary: >
+        Owners only. Sets a member up for one or more steps, for all teams or for named teams, as primary or alternate. A step and scope the person
+        already has is updated to the new role. 409 `primary_taken` if another person is already the primary for a step and team (or all teams);
+        422 `external_all_teams` for an external member and all teams; 404 for an unknown member or team.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddReviewerRequest' }
+      responses:
+        '201':
+          description: The reviewers and coverage as they are now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewerOverview' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /reviewers/{id}:
+    delete:
+      operationId: removeReviewer
+      summary: Owners only. Ends one standing assignment. Launches then show the step as approver missing if nobody else covers it.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The reviewers and coverage as they are now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewerOverview' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /teams/{id}/launch-steps:
+    put:
+      operationId: setTeamLaunchSteps
+      summary: >
+        Owners only. Says which optional steps this team's launches use (`used` maps a step to true or false). A step the team uses but nobody covers
+        shows as a gap, not as hidden. The final decision always applies and cannot be set (422 `bad_step`).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/TeamLaunchStepsRequest' }
+      responses:
+        '200':
+          description: The reviewers and coverage as they are now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewerOverview' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /teams/{id}/members/{memberId}:
     put:
       operationId: setTeamMember
@@ -670,7 +748,7 @@ paths:
         Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories,
         projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
       parameters:
-        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, categories, projects, workflows, jira] } }
+        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, categories, projects, workflows, jira] } }
         - { name: teamId, in: query, required: false, schema: { type: string }, description: 'Only changes about this team: its people, its projects and the team itself.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
         - { name: cursor, in: query, required: false, schema: { type: string } }
@@ -3386,7 +3464,7 @@ components:
         mailConfigured: { type: boolean, description: 'False when this deployment has no email sender set up.' }
     Me:
       type: object
-      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, signInAvailable, rolesManagedBySso, teamsManagedBySso, teams]
+      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, external, signInAvailable, rolesManagedBySso, teamsManagedBySso, teams]
       properties:
         userId: { type: string }
         email: { type: string }
@@ -3396,6 +3474,7 @@ components:
         workspaceName: { type: string }
         role: { type: string, enum: [owner, editor, viewer] }
         via: { type: string, enum: [session, token, open, anonymous], description: 'How this request was let in.' }
+        external: { type: boolean, description: 'True for an external member (outside counsel, a partner): refused everywhere except their own details and the launches they are asked to review (403 `external_member`).' }
         signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
         rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
         teamsManagedBySso: { type: boolean, description: 'True when SSO_TEAM_GROUP_PREFIX is set: people''s places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`.' }
@@ -3534,7 +3613,7 @@ components:
               label: { type: string, description: 'Completes "Continue with ...".' }
     Member:
       type: object
-      required: [id, email, displayName, role, status, avatarUrl]
+      required: [id, email, displayName, role, status, avatarUrl, external]
       properties:
         id: { type: string, description: 'The membership id.' }
         email: { type: string }
@@ -3542,6 +3621,7 @@ components:
         role: { type: string, enum: [owner, editor, viewer] }
         status: { type: string, enum: [active, invited], description: 'Invited until their first sign-in.' }
         avatarUrl: { type: string, nullable: true }
+        external: { type: boolean, description: 'From outside the company. An external member is a viewer with limited access.' }
     Ticket:
       type: object
       required: [id, storyId, storyKey, jiraKey, project, issueType, summary, description, priority, assignee, labels, points, simulated, jiraUrl, createdBy, createdAt]
@@ -3748,7 +3828,7 @@ components:
           properties:
             id: { type: string }
             name: { type: string }
-        group: { type: string, enum: [members, teams, categories, projects, workflows, jira] }
+        group: { type: string, enum: [members, teams, reviewers, categories, projects, workflows, jira] }
         entity: { type: string, description: 'What changed, for example insights.feature_areas.' }
         entityId: { type: [string, 'null'] }
         verb: { type: string, description: 'For example created, edited, merged, retired.' }
@@ -3775,6 +3855,7 @@ components:
       properties:
         email: { type: string }
         role: { type: string, enum: [owner, editor, viewer] }
+        external: { type: boolean, description: 'Invite from outside the company. Needs role viewer (409 `external_needs_viewer` otherwise).' }
     TeamList:
       type: object
       required: [data]
@@ -3812,11 +3893,85 @@ components:
       required: [name]
       properties:
         name: { type: string, description: 1 to 60 characters. }
+    AddReviewerRequest:
+      type: object
+      required: [memberId, steps, teams, role]
+      properties:
+        memberId: { type: string, description: 'The membership id from the Members list.' }
+        steps: { type: array, items: { type: string, enum: [product_leadership, sales, legal, documentation, marketing, final_decision] } }
+        teams: { description: 'The string "all" (every team, including teams made later), or a list of team ids.', oneOf: [{ type: string, enum: [all] }, { type: array, items: { type: string } }] }
+        role: { type: string, enum: [primary, alternate] }
+    TeamLaunchStepsRequest:
+      type: object
+      required: [used]
+      properties:
+        used:
+          type: object
+          description: Optional steps only (not final_decision).
+          additionalProperties: { type: boolean }
+    ReviewerPerson:
+      type: object
+      required: [userId, name, email]
+      properties:
+        userId: { type: string }
+        name: { type: string }
+        email: { type: string }
+    ReviewerAssignment:
+      type: object
+      required: [id, userId, email, displayName, external, step, teamId, teamName, role]
+      properties:
+        id: { type: string }
+        userId: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+        external: { type: boolean }
+        step: { type: string, enum: [product_leadership, sales, legal, documentation, marketing, final_decision] }
+        teamId: { type: [string, 'null'], description: 'Null means all teams.' }
+        teamName: { type: [string, 'null'] }
+        role: { type: string, enum: [primary, alternate] }
+    CoverageCell:
+      type: object
+      required: [step, state, scope, primary, alternate]
+      properties:
+        step: { type: string }
+        state: { type: string, enum: [covered, gap, not_used] }
+        scope: { type: [string, 'null'], enum: [team, all, null], description: 'Which assignments decide: the team''s own, or the all-teams ones; null when nobody is assigned.' }
+        primary: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' } }
+        alternate: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' } }
+    ReviewerTeam:
+      type: object
+      required: [id, name, isDefault, stepsOff, steps]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        isDefault: { type: boolean }
+        stepsOff: { type: array, items: { type: string }, description: 'The optional steps this team does not use.' }
+        steps: { type: array, items: { $ref: '#/components/schemas/CoverageCell' } }
+    ReviewerOverview:
+      type: object
+      required: [steps, assignments, teams]
+      properties:
+        steps:
+          type: array
+          items:
+            type: object
+            required: [key, label, optional]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              optional: { type: boolean, description: 'False for the final decision, which every team uses.' }
+        assignments: { type: array, items: { $ref: '#/components/schemas/ReviewerAssignment' } }
+        teams: { type: array, items: { $ref: '#/components/schemas/ReviewerTeam' } }
     ChangeRoleRequest:
       type: object
       required: [role]
       properties:
         role: { type: string, enum: [owner, editor, viewer] }
+    ChangeMemberRequest:
+      type: object
+      properties:
+        role: { type: string, enum: [owner, editor, viewer] }
+        external: { type: boolean }
     Error:
       type: object
       required: [error]

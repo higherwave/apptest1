@@ -258,7 +258,7 @@ export interface paths {
         delete: operations["removeMember"];
         options?: never;
         head?: never;
-        /** Owners only. Changes a member's role. 409 `last_owner` if it would leave the workspace with no owner. */
+        /** Owners only. Changes a member's role and/or marks them external or not. 409 `last_owner` if it would leave the workspace with no owner; 409 `external_needs_viewer` for an external member who is not a viewer. Marking someone external ends any all-teams reviewer assignment they hold. */
         patch: operations["changeMemberRole"];
         trace?: never;
     };
@@ -296,6 +296,58 @@ export interface paths {
         head?: never;
         /** Owners only. Renames a team. 409 `team_name_taken`. */
         patch: operations["renameTeam"];
+        trace?: never;
+    };
+    "/reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only. The launch reviewers (standing assignments: a person, a step, all teams or one team, primary or alternate) and, for each team, a coverage cell per step: `covered` (at least one primary), `gap` (a step the team uses with no primary; an alternate alone is still a gap) or `not_used` (the team turned the step off). A step with no reviewer is always shown as a gap, never hidden. */
+        get: operations["getReviewers"];
+        put?: never;
+        /** Owners only. Sets a member up for one or more steps, for all teams or for named teams, as primary or alternate. A step and scope the person already has is updated to the new role. 409 `primary_taken` if another person is already the primary for a step and team (or all teams); 422 `external_all_teams` for an external member and all teams; 404 for an unknown member or team. */
+        post: operations["addReviewer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviewers/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Owners only. Ends one standing assignment. Launches then show the step as approver missing if nobody else covers it. */
+        delete: operations["removeReviewer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/teams/{id}/launch-steps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners only. Says which optional steps this team's launches use (`used` maps a step to true or false). A step the team uses but nobody covers shows as a gap, not as hidden. The final decision always applies and cannot be set (422 `bad_step`). */
+        put: operations["setTeamLaunchSteps"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/teams/{id}/members/{memberId}": {
@@ -2702,6 +2754,8 @@ export interface components {
              * @enum {string}
              */
             via: "session" | "token" | "open" | "anonymous";
+            /** @description True for an external member (outside counsel, a partner): refused everywhere except their own details and the launches they are asked to review (403 `external_member`). */
+            external: boolean;
             /** @description True when sign-in (Google or the company single sign-on) is configured on this deployment. */
             signInAvailable: boolean;
             /** @description True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`. */
@@ -2813,6 +2867,8 @@ export interface components {
              */
             status: "active" | "invited";
             avatarUrl: string | null;
+            /** @description From outside the company. An external member is a viewer with limited access. */
+            external: boolean;
         };
         Ticket: {
             id: string;
@@ -2979,7 +3035,7 @@ export interface components {
                 name: string;
             } | null;
             /** @enum {string} */
-            group: "members" | "teams" | "categories" | "projects" | "workflows" | "jira";
+            group: "members" | "teams" | "reviewers" | "categories" | "projects" | "workflows" | "jira";
             /** @description What changed, for example insights.feature_areas. */
             entity: string;
             entityId: string | null;
@@ -3001,6 +3057,8 @@ export interface components {
             email: string;
             /** @enum {string} */
             role: "owner" | "editor" | "viewer";
+            /** @description Invite from outside the company. Needs role viewer (409 `external_needs_viewer` otherwise). */
+            external?: boolean;
         };
         TeamList: {
             data: components["schemas"]["Team"][];
@@ -3027,9 +3085,78 @@ export interface components {
             /** @description 1 to 60 characters. */
             name: string;
         };
+        AddReviewerRequest: {
+            /** @description The membership id from the Members list. */
+            memberId: string;
+            steps: ("product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision")[];
+            /** @description The string "all" (every team, including teams made later), or a list of team ids. */
+            teams: "all" | string[];
+            /** @enum {string} */
+            role: "primary" | "alternate";
+        };
+        TeamLaunchStepsRequest: {
+            /** @description Optional steps only (not final_decision). */
+            used: {
+                [key: string]: boolean;
+            };
+        };
+        ReviewerPerson: {
+            userId: string;
+            name: string;
+            email: string;
+        };
+        ReviewerAssignment: {
+            id: string;
+            userId: string;
+            email: string;
+            displayName: string;
+            external: boolean;
+            /** @enum {string} */
+            step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
+            /** @description Null means all teams. */
+            teamId: string | null;
+            teamName: string | null;
+            /** @enum {string} */
+            role: "primary" | "alternate";
+        };
+        CoverageCell: {
+            step: string;
+            /** @enum {string} */
+            state: "covered" | "gap" | "not_used";
+            /**
+             * @description Which assignments decide: the team's own, or the all-teams ones; null when nobody is assigned.
+             * @enum {string|null}
+             */
+            scope: "team" | "all" | null;
+            primary: components["schemas"]["ReviewerPerson"][];
+            alternate: components["schemas"]["ReviewerPerson"][];
+        };
+        ReviewerTeam: {
+            id: string;
+            name: string;
+            isDefault: boolean;
+            /** @description The optional steps this team does not use. */
+            stepsOff: string[];
+            steps: components["schemas"]["CoverageCell"][];
+        };
+        ReviewerOverview: {
+            steps: {
+                key: string;
+                label: string;
+                /** @description False for the final decision, which every team uses. */
+                optional: boolean;
+            }[];
+            assignments: components["schemas"]["ReviewerAssignment"][];
+            teams: components["schemas"]["ReviewerTeam"][];
+        };
         ChangeRoleRequest: {
             /** @enum {string} */
             role: "owner" | "editor" | "viewer";
+        };
+        ChangeMemberRequest: {
+            /** @enum {string} */
+            role?: "owner" | "editor" | "viewer";
+            external?: boolean;
         };
         Error: {
             error: {
@@ -3523,7 +3650,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ChangeRoleRequest"];
+                "application/json": components["schemas"]["ChangeMemberRequest"];
             };
         };
         responses: {
@@ -3651,6 +3778,113 @@ export interface operations {
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reviewers and the coverage grid. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOverview"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    addReviewer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddReviewerRequest"];
+            };
+        };
+        responses: {
+            /** @description The reviewers and coverage as they are now. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOverview"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    removeReviewer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The reviewers and coverage as they are now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOverview"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    setTeamLaunchSteps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamLaunchStepsRequest"];
+            };
+        };
+        responses: {
+            /** @description The reviewers and coverage as they are now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOverview"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     setTeamMember: {
@@ -4114,7 +4348,7 @@ export interface operations {
     listAudit: {
         parameters: {
             query?: {
-                group?: "members" | "teams" | "categories" | "projects" | "workflows" | "jira";
+                group?: "members" | "teams" | "reviewers" | "categories" | "projects" | "workflows" | "jira";
                 /** @description Only changes about this team: its people, its projects and the team itself. */
                 teamId?: string;
                 limit?: number;
