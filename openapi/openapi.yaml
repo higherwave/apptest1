@@ -367,6 +367,166 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /projects/{id}/launch:
+    get:
+      operationId: getProjectLaunch
+      summary: >
+        The project's launch for someone who can see the project (a team member, a leader, or the read-only demo viewer): the launch, or null with
+        whether they may start one (`canCreate`) and, if not, why. A reviewer assigned from outside the team uses /launches/{id} instead.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The launch, or its absence.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectLaunch' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: createLaunch
+      summary: >
+        Starts the project's launch (one per project). Editors of the project's team only (403 otherwise). 409 `no_themes` until the project has themes;
+        409 `launch_exists` if it already has one.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateLaunchRequest' }
+      responses:
+        '201':
+          description: The launch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /launches:
+    get:
+      operationId: listLaunches
+      summary: >
+        The launches the caller may see, each with their own part in it: the steps they answer (`yourSteps`) and those waiting on them. A team member
+        sees their teams' launches; a reviewer also sees launches of teams they are not in where they are assigned a step; an external member sees only
+        those. Leaders and the read-only demo viewer see every launch.
+      responses:
+        '200':
+          description: The launches.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchList' }
+        '401': { $ref: '#/components/responses/Error' }
+  /launches/{id}:
+    get:
+      operationId: getLaunch
+      summary: >
+        One launch, shaped for who is asking: a team member, leader or reviewer sees every section the team uses; an external reviewer only their own
+        sections and the owner's brief notes. 404 for a launch that is not theirs. Each step carries its reviewers, current answer (with whether it is
+        reopened by a change to the brief), earlier answers and links; `canAnswer` is true only for that step's reviewer.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The launch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    patch:
+      operationId: setUpLaunch
+      summary: >
+        The launch's name, target date and brief notes. Editors of the project's team only. Changing the brief notes changes the brief: answers given
+        on the earlier brief show as reopened, and stay on record.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/SetUpLaunchRequest' }
+      responses:
+        '200':
+          description: The launch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/steps/{step}:
+    put:
+      operationId: answerLaunchStep
+      summary: >
+        A step's reviewer (primary or alternate, from Admin, Members, Reviewers) gives their answer: ready, ready with conditions, changes needed or not
+        applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is
+        added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for
+        anyone else (naming who can), 409 `step_not_used` for a step the team turned off.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: step, in: path, required: true, schema: { type: string, enum: [product_leadership, sales, legal, documentation, marketing, final_decision] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LaunchAnswerRequest' }
+      responses:
+        '200':
+          description: The launch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/steps/{step}/links:
+    post:
+      operationId: addLaunchLink
+      summary: A step's reviewer adds a link to the evidence for their step (a document, a ticket). Only http and https links (422).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: step, in: path, required: true, schema: { type: string, enum: [product_leadership, sales, legal, documentation, marketing, final_decision] } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LaunchLinkRequest' }
+      responses:
+        '201':
+          description: The launch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/links/{linkId}:
+    delete:
+      operationId: removeLaunchLink
+      summary: The step's reviewer removes a link they added or that is on their step.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: linkId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The launch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /reviewers:
     get:
       operationId: getReviewers
@@ -748,7 +908,7 @@ paths:
         Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories,
         projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
       parameters:
-        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, categories, projects, workflows, jira] } }
+        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira] } }
         - { name: teamId, in: query, required: false, schema: { type: string }, description: 'Only changes about this team: its people, its projects and the team itself.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
         - { name: cursor, in: query, required: false, schema: { type: string } }
@@ -2107,7 +2267,7 @@ components:
       properties:
         tabs:
           type: object
-          required: [plan, participants, transcripts, themes, storyboard, prio, requirements, design, stories]
+          required: [plan, participants, transcripts, themes, storyboard, prio, requirements, design, stories, launch]
           properties:
             plan: { $ref: '#/components/schemas/StageTab' }
             participants: { $ref: '#/components/schemas/StageTab' }
@@ -2118,6 +2278,7 @@ components:
             requirements: { $ref: '#/components/schemas/StageTab' }
             design: { $ref: '#/components/schemas/StageTab' }
             stories: { $ref: '#/components/schemas/StageTab' }
+            launch: { $ref: '#/components/schemas/StageTab' }
     StageTab:
       type: object
       required: [enabled, hint]
@@ -3869,7 +4030,7 @@ components:
           properties:
             id: { type: string }
             name: { type: string }
-        group: { type: string, enum: [members, teams, reviewers, categories, projects, workflows, jira] }
+        group: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira] }
         entity: { type: string, description: 'What changed, for example insights.feature_areas.' }
         entityId: { type: [string, 'null'] }
         verb: { type: string, description: 'For example created, edited, merged, retired.' }
@@ -3950,6 +4111,149 @@ components:
           type: object
           description: Optional steps only (not final_decision).
           additionalProperties: { type: boolean }
+    CreateLaunchRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120, description: 'Defaults to the project''s name.' }
+        targetDate: { type: [string, 'null'], description: 'A day, like 2026-12-01.' }
+        briefNotes: { type: string, maxLength: 8000 }
+    SetUpLaunchRequest:
+      type: object
+      properties:
+        name: { type: string, maxLength: 120 }
+        targetDate: { type: [string, 'null'] }
+        briefNotes: { type: string, maxLength: 8000, description: 'What reviewers should know. Changing it changes the brief.' }
+    LaunchAnswerRequest:
+      type: object
+      required: [answer]
+      properties:
+        answer: { type: string, enum: [ready, ready_with_conditions, changes_needed, not_applicable, go, go_with_conditions, no_go] }
+        rationale: { type: string, maxLength: 4000, description: 'Needed for every answer but a plain ready or go.' }
+    LaunchLinkRequest:
+      type: object
+      required: [url]
+      properties:
+        title: { type: string, maxLength: 120 }
+        url: { type: string, maxLength: 2000 }
+    LaunchOpenItem:
+      type: object
+      required: [step, label, state, rationale]
+      properties:
+        step: { type: string }
+        label: { type: string }
+        state: { type: string }
+        rationale: { type: [string, 'null'] }
+    LaunchAnswer:
+      type: object
+      required: [id, answer, rationale, by, at, reopened, openItems]
+      properties:
+        id: { type: string }
+        answer: { type: string, enum: [ready, ready_with_conditions, changes_needed, not_applicable, go, go_with_conditions, no_go] }
+        rationale: { type: string }
+        by: { type: [object, 'null'], required: [id, name], properties: { id: { type: string }, name: { type: string } } }
+        at: { type: string, format: date-time }
+        reopened: { type: boolean, description: 'True when the brief changed after this answer was given: the reviewer is asked again.' }
+        openItems: { type: [array, 'null'], items: { $ref: '#/components/schemas/LaunchOpenItem' }, description: 'On a final decision: the steps that were not ready when it was made.' }
+    LaunchLink:
+      type: object
+      required: [id, title, url, addedBy, addedAt]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        url: { type: string }
+        addedBy: { type: [string, 'null'] }
+        addedAt: { type: string, format: date-time }
+    LaunchStep:
+      type: object
+      required: [step, label, used, state, reviewers, answer, earlier, links, canAnswer]
+      properties:
+        step: { type: string, enum: [product_leadership, sales, legal, documentation, marketing, final_decision] }
+        label: { type: string }
+        used: { type: boolean, description: 'False when the team turned the step off.' }
+        state: { type: string, description: 'waiting, missing (used, no primary reviewer: never hidden), not_used, reopened, or the current answer.' }
+        reviewers:
+          type: object
+          required: [primary, alternate]
+          properties:
+            primary: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' } }
+            alternate: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' } }
+        answer: { oneOf: [{ $ref: '#/components/schemas/LaunchAnswer' }, { type: 'null' }] }
+        earlier: { type: array, items: { $ref: '#/components/schemas/LaunchAnswer' } }
+        links: { type: array, items: { $ref: '#/components/schemas/LaunchLink' } }
+        canAnswer: { type: boolean, description: 'True only for this step''s reviewer.' }
+    LaunchDetail:
+      type: object
+      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, steps, summary, brief]
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        teamId: { type: [string, 'null'] }
+        teamName: { type: [string, 'null'] }
+        name: { type: string }
+        targetDate: { type: [string, 'null'] }
+        briefNotes: { type: string }
+        briefAt: { type: string, format: date-time, description: 'When the brief last changed: the requirements were published, or the notes edited.' }
+        you:
+          type: object
+          required: [kind, canSetUp, steps]
+          properties:
+            kind: { type: string, enum: [team, leader, reviewer, external, visitor] }
+            canSetUp: { type: boolean }
+            steps: { type: array, items: { type: string }, description: 'The steps this person answers.' }
+        steps: { type: array, items: { $ref: '#/components/schemas/LaunchStep' } }
+        summary:
+          type: object
+          required: [state, counts, blocking, waitingOn]
+          properties:
+            state: { type: string, description: 'preparing, reopened, or the final decision (go, go_with_conditions, no_go).' }
+            counts:
+              type: object
+              required: [ready, conditions, changes, notApplicable, waiting, missing, reopened]
+              properties:
+                ready: { type: integer }
+                conditions: { type: integer }
+                changes: { type: integer }
+                notApplicable: { type: integer }
+                waiting: { type: integer }
+                missing: { type: integer }
+                reopened: { type: integer }
+            blocking: { type: array, items: { type: object, required: [step, label, state], properties: { step: { type: string }, label: { type: string }, state: { type: string } } } }
+            waitingOn: { type: array, items: { type: object, required: [step, label], properties: { step: { type: string }, label: { type: string } } } }
+        brief:
+          type: object
+          required: [published, requirements, problem, users, goals]
+          properties:
+            published: { type: boolean }
+            requirements: { type: array, items: { type: object, required: [key, title, priority], properties: { key: { type: string }, title: { type: string }, priority: { type: string } } } }
+            problem: { type: [string, 'null'] }
+            users: { type: [string, 'null'] }
+            goals: { type: [array, 'null'], items: { type: string } }
+    ProjectLaunch:
+      type: object
+      required: [launch, canCreate, whyNot]
+      properties:
+        launch: { oneOf: [{ $ref: '#/components/schemas/LaunchDetail' }, { type: 'null' }] }
+        canCreate: { type: boolean }
+        whyNot: { type: [string, 'null'] }
+    LaunchListItem:
+      type: object
+      required: [id, projectId, projectName, teamName, name, targetDate, state, yourSteps, waitingOnYou]
+      properties:
+        id: { type: string }
+        projectId: { type: string }
+        projectName: { type: string }
+        teamName: { type: [string, 'null'] }
+        name: { type: string }
+        targetDate: { type: [string, 'null'] }
+        state: { type: string }
+        yourSteps: { type: array, items: { type: string } }
+        waitingOnYou: { type: array, items: { type: string } }
+    LaunchList:
+      type: object
+      required: [data]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/LaunchListItem' } }
     ReviewerPerson:
       type: object
       required: [userId, name, email]

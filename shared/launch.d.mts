@@ -9,3 +9,11 @@ export function reviewersFor(assignments: Assignment[], teamId: string, step: st
 export function stepUsed(off: string[], step: string): boolean
 export type CoverageState = 'covered' | 'gap' | 'not_used'
 export function coverageState(assignments: Assignment[], off: string[], teamId: string, step: string): { state: CoverageState; scope: 'team' | 'all' | null; primary: string[]; alternate: string[] }
+
+export const STEP_ANSWERS: { key: string; label: string; good: boolean }[]
+export const FINAL_ANSWERS: { key: string; label: string; good: boolean }[]
+export function answersFor(step: string): { key: string; label: string; good: boolean }[]
+export function isAnswerFor(step: string, answer: string): boolean
+export function answerLabel(answer: string): string
+export function rationaleRequired(answer: string): boolean
+export function stepState(input: { used: boolean; hasPrimary: boolean; answer: string | null; reopened: boolean }): string

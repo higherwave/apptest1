@@ -5,6 +5,7 @@ import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
 import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
 import { signInOptions, ssoPolicy } from './sso.js'
 import { AlreadyMember, changeRole, ExternalNeedsViewer, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, setExternal } from './members.js'
+import { addLink, answerStep, BadAnswer, BadLink, createLaunch, getLaunch, getProjectLaunch, LaunchExists, LaunchNotFound, LinkNotFound, listLaunches, NeedsRationale, NoThemes, NotTheReviewer, removeLink, setUpLaunch, StepNotUsed } from './launches.js'
 import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, ReviewerNotFound, reviewerOverview, setTeamSteps } from './reviewers.js'
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
@@ -15,7 +16,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -72,11 +73,11 @@ export function createApp(options: AppOptions = {}) {
 
   // The request's identity, then the team check: a route that names a project (or a theme, document, story or step of one) is refused as
   // not found when the project is another team's, and refused as forbidden for a write when the caller may only read in that team.
-  const EXTERNAL_MAY_CALL = /^\/me$/
+  const EXTERNAL_MAY_CALL = /^\/(me|launches(\/.*)?)$/
   const inTeams = (identity: MiddlewareHandler): MiddlewareHandler => async (c, next) => {
     await identity(c, async () => {})
-    // An external member (outside counsel, a partner) may use only what is made for them. Today that is their own details; the launch
-    // screens they are asked to review are added with the Launch page.
+    // An external member (outside counsel, a partner) may use only what is made for them: their own details and the launches they are asked to review
+    // (which answer 404 for any launch that is not theirs).
     if (c.get('ctx').external && !EXTERNAL_MAY_CALL.test(c.req.path.replace(/^\/api\/v1/, ''))) {
       throw new ApiError(403, 'external_member', 'Your access is limited to the launches you are asked to review.')
     }
@@ -241,6 +242,106 @@ export function createApp(options: AppOptions = {}) {
     if (!team) throw new ApiError(404, 'not_found', 'No such team.')
     return team
   }
+
+  // Launch --------------------------------------------------------------------------------------------------------
+  // One launch per project. A team member reaches it through /projects/{id}/launch (the project's team check applies); a reviewer assigned from
+  // outside the team, and an external reviewer, reach it through /launches/{id}, where access is decided by who they are to that launch (launches.ts).
+  const launchErrors = (err: unknown): never => {
+    if (err instanceof LaunchNotFound || err instanceof LinkNotFound) throw new ApiError(404, 'not_found', 'No such launch.')
+    if (err instanceof NoThemes) throw new ApiError(409, 'no_themes', 'A launch can start once the project has themes.')
+    if (err instanceof LaunchExists) throw new ApiError(409, 'launch_exists', 'This project already has a launch.')
+    if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : 'Nobody is set up to answer this step yet. An owner can add a reviewer under Admin, Members, Reviewers.')
+    if (err instanceof StepNotUsed) throw new ApiError(409, 'step_not_used', 'This team’s launches do not use that step.')
+    if (err instanceof BadAnswer) throw new ApiError(422, 'validation_failed', 'That is not an answer for this step.', 'answer')
+    if (err instanceof NeedsRationale) throw new ApiError(422, 'validation_failed', 'Say why: this answer needs a reason.', 'rationale')
+    if (err instanceof BadLink) throw new ApiError(422, 'validation_failed', 'Enter a link that starts with http:// or https://.', 'url')
+    throw err
+  }
+  const launchId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such launch.')
+    return id
+  }
+  const oneLaunch = async (c: Context, id: string) => {
+    const launch = await getLaunch(getDb(), c.get('ctx'), id)
+    if (!launch) throw new ApiError(404, 'not_found', 'No such launch.')
+    return launch
+  }
+
+  app.get('/projects/:id/launch', withReadContext, async (c) => {
+    const id = projectId(c)
+    const ctx = c.get('ctx')
+    if (!(await getProjectDetail(getDb(), ctx.workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await getProjectLaunch(getDb(), ctx, id))
+  })
+  app.post('/projects/:id/launch', withContext, async (c) => {
+    const id = projectId(c)
+    const input = parseBody(createLaunchSchema, await readJson(c))
+    let made: string
+    try {
+      made = await createLaunch(getDb(), c.get('ctx'), id, input)
+    } catch (err) {
+      return launchErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, made), 201)
+  })
+  app.get('/launches', withReadContext, async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ data: await listLaunches(getDb(), c.get('ctx')) })
+  })
+  app.get('/launches/:id', withReadContext, async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await oneLaunch(c, launchId(c)))
+  })
+  app.patch('/launches/:id', withContext, async (c) => {
+    const id = launchId(c)
+    const launch = await oneLaunch(c, id)
+    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can change the launch’s details.')
+    const input = parseBody(setUpLaunchSchema, await readJson(c))
+    try {
+      await setUpLaunch(getDb(), c.get('ctx'), id, input)
+    } catch (err) {
+      return launchErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, id))
+  })
+  app.put('/launches/:id/steps/:step', withContext, async (c) => {
+    const id = launchId(c)
+    const input = parseBody(launchAnswerSchema, await readJson(c))
+    try {
+      await answerStep(getDb(), c.get('ctx'), id, c.req.param('step') ?? '', input)
+    } catch (err) {
+      return launchErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, id))
+  })
+  app.post('/launches/:id/steps/:step/links', withContext, async (c) => {
+    const id = launchId(c)
+    const input = parseBody(launchLinkSchema, await readJson(c))
+    try {
+      await addLink(getDb(), c.get('ctx'), id, c.req.param('step') ?? '', input)
+    } catch (err) {
+      return launchErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, id), 201)
+  })
+  app.delete('/launches/:id/links/:linkId', withContext, async (c) => {
+    const id = launchId(c)
+    const link = c.req.param('linkId') ?? ''
+    if (!UUID.test(link)) throw new ApiError(404, 'not_found', 'No such link.')
+    try {
+      await removeLink(getDb(), c.get('ctx'), id, link)
+    } catch (err) {
+      return launchErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, id))
+  })
 
   // Launch reviewers: standing assignments, and which steps each team uses. Owners only.
   const reviewerErrors = (err: unknown): never => {

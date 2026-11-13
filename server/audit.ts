@@ -7,6 +7,7 @@ export const AUDIT_GROUPS = {
   members: ['core.memberships'],
   teams: ['core.teams', 'core.team_memberships'],
   reviewers: ['core.reviewer_assignments', 'core.team_launch_steps'],
+  launches: ['delivery.launches', 'delivery.launch_answers', 'delivery.launch_links'],
   categories: ['insights.feature_areas'],
   projects: ['core.projects'],
   workflows: ['insights.workflows'],

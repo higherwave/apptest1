@@ -298,6 +298,110 @@ export interface paths {
         patch: operations["renameTeam"];
         trace?: never;
     };
+    "/projects/{id}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The project's launch for someone who can see the project (a team member, a leader, or the read-only demo viewer): the launch, or null with whether they may start one (`canCreate`) and, if not, why. A reviewer assigned from outside the team uses /launches/{id} instead. */
+        get: operations["getProjectLaunch"];
+        put?: never;
+        /** Starts the project's launch (one per project). Editors of the project's team only (403 otherwise). 409 `no_themes` until the project has themes; 409 `launch_exists` if it already has one. */
+        post: operations["createLaunch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The launches the caller may see, each with their own part in it: the steps they answer (`yourSteps`) and those waiting on them. A team member sees their teams' launches; a reviewer also sees launches of teams they are not in where they are assigned a step; an external member sees only those. Leaders and the read-only demo viewer see every launch. */
+        get: operations["listLaunches"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One launch, shaped for who is asking: a team member, leader or reviewer sees every section the team uses; an external reviewer only their own sections and the owner's brief notes. 404 for a launch that is not theirs. Each step carries its reviewers, current answer (with whether it is reopened by a change to the brief), earlier answers and links; `canAnswer` is true only for that step's reviewer. */
+        get: operations["getLaunch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** The launch's name, target date and brief notes. Editors of the project's team only. Changing the brief notes changes the brief: answers given on the earlier brief show as reopened, and stay on record. */
+        patch: operations["setUpLaunch"];
+        trace?: never;
+    };
+    "/launches/{id}/steps/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** A step's reviewer (primary or alternate, from Admin, Members, Reviewers) gives their answer: ready, ready with conditions, changes needed or not applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for anyone else (naming who can), 409 `step_not_used` for a step the team turned off. */
+        put: operations["answerLaunchStep"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}/steps/{step}/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A step's reviewer adds a link to the evidence for their step (a document, a ticket). Only http and https links (422). */
+        post: operations["addLaunchLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}/links/{linkId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** The step's reviewer removes a link they added or that is on their step. */
+        delete: operations["removeLaunchLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/reviewers": {
         parameters: {
             query?: never;
@@ -1589,6 +1693,7 @@ export interface components {
                 requirements: components["schemas"]["StageTab"];
                 design: components["schemas"]["StageTab"];
                 stories: components["schemas"]["StageTab"];
+                launch: components["schemas"]["StageTab"];
             };
         };
         StageTab: {
@@ -3069,7 +3174,7 @@ export interface components {
                 name: string;
             } | null;
             /** @enum {string} */
-            group: "members" | "teams" | "reviewers" | "categories" | "projects" | "workflows" | "jira";
+            group: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira";
             /** @description What changed, for example insights.feature_areas. */
             entity: string;
             entityId: string | null;
@@ -3133,6 +3238,152 @@ export interface components {
             used: {
                 [key: string]: boolean;
             };
+        };
+        CreateLaunchRequest: {
+            /** @description Defaults to the project's name. */
+            name?: string;
+            /** @description A day, like 2026-12-01. */
+            targetDate?: string | null;
+            briefNotes?: string;
+        };
+        SetUpLaunchRequest: {
+            name?: string;
+            targetDate?: string | null;
+            /** @description What reviewers should know. Changing it changes the brief. */
+            briefNotes?: string;
+        };
+        LaunchAnswerRequest: {
+            /** @enum {string} */
+            answer: "ready" | "ready_with_conditions" | "changes_needed" | "not_applicable" | "go" | "go_with_conditions" | "no_go";
+            /** @description Needed for every answer but a plain ready or go. */
+            rationale?: string;
+        };
+        LaunchLinkRequest: {
+            title?: string;
+            url: string;
+        };
+        LaunchOpenItem: {
+            step: string;
+            label: string;
+            state: string;
+            rationale: string | null;
+        };
+        LaunchAnswer: {
+            id: string;
+            /** @enum {string} */
+            answer: "ready" | "ready_with_conditions" | "changes_needed" | "not_applicable" | "go" | "go_with_conditions" | "no_go";
+            rationale: string;
+            by: {
+                id: string;
+                name: string;
+            } | null;
+            /** Format: date-time */
+            at: string;
+            /** @description True when the brief changed after this answer was given: the reviewer is asked again. */
+            reopened: boolean;
+            /** @description On a final decision: the steps that were not ready when it was made. */
+            openItems: components["schemas"]["LaunchOpenItem"][] | null;
+        };
+        LaunchLink: {
+            id: string;
+            title: string;
+            url: string;
+            addedBy: string | null;
+            /** Format: date-time */
+            addedAt: string;
+        };
+        LaunchStep: {
+            /** @enum {string} */
+            step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
+            label: string;
+            /** @description False when the team turned the step off. */
+            used: boolean;
+            /** @description waiting, missing (used, no primary reviewer: never hidden), not_used, reopened, or the current answer. */
+            state: string;
+            reviewers: {
+                primary: components["schemas"]["ReviewerPerson"][];
+                alternate: components["schemas"]["ReviewerPerson"][];
+            };
+            answer: components["schemas"]["LaunchAnswer"] | null;
+            earlier: components["schemas"]["LaunchAnswer"][];
+            links: components["schemas"]["LaunchLink"][];
+            /** @description True only for this step's reviewer. */
+            canAnswer: boolean;
+        };
+        LaunchDetail: {
+            id: string;
+            projectId: string;
+            projectName: string;
+            teamId: string | null;
+            teamName: string | null;
+            name: string;
+            targetDate: string | null;
+            briefNotes: string;
+            /**
+             * Format: date-time
+             * @description When the brief last changed: the requirements were published, or the notes edited.
+             */
+            briefAt: string;
+            you: {
+                /** @enum {string} */
+                kind: "team" | "leader" | "reviewer" | "external" | "visitor";
+                canSetUp: boolean;
+                /** @description The steps this person answers. */
+                steps: string[];
+            };
+            steps: components["schemas"]["LaunchStep"][];
+            summary: {
+                /** @description preparing, reopened, or the final decision (go, go_with_conditions, no_go). */
+                state: string;
+                counts: {
+                    ready: number;
+                    conditions: number;
+                    changes: number;
+                    notApplicable: number;
+                    waiting: number;
+                    missing: number;
+                    reopened: number;
+                };
+                blocking: {
+                    step: string;
+                    label: string;
+                    state: string;
+                }[];
+                waitingOn: {
+                    step: string;
+                    label: string;
+                }[];
+            };
+            brief: {
+                published: boolean;
+                requirements: {
+                    key: string;
+                    title: string;
+                    priority: string;
+                }[];
+                problem: string | null;
+                users: string | null;
+                goals: string[] | null;
+            };
+        };
+        ProjectLaunch: {
+            launch: components["schemas"]["LaunchDetail"] | null;
+            canCreate: boolean;
+            whyNot: string | null;
+        };
+        LaunchListItem: {
+            id: string;
+            projectId: string;
+            projectName: string;
+            teamName: string | null;
+            name: string;
+            targetDate: string | null;
+            state: string;
+            yourSteps: string[];
+            waitingOnYou: string[];
+        };
+        LaunchList: {
+            data: components["schemas"]["LaunchListItem"][];
         };
         ReviewerPerson: {
             userId: string;
@@ -3814,6 +4065,228 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    getProjectLaunch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The launch, or its absence. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectLaunch"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    createLaunch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLaunchRequest"];
+            };
+        };
+        responses: {
+            /** @description The launch. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listLaunches: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The launches. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchList"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    getLaunch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The launch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    setUpLaunch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetUpLaunchRequest"];
+            };
+        };
+        responses: {
+            /** @description The launch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    answerLaunchStep: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchAnswerRequest"];
+            };
+        };
+        responses: {
+            /** @description The launch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    addLaunchLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description The launch. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    removeLaunchLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                linkId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The launch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     getReviewers: {
         parameters: {
             query?: never;
@@ -4382,7 +4855,7 @@ export interface operations {
     listAudit: {
         parameters: {
             query?: {
-                group?: "members" | "teams" | "reviewers" | "categories" | "projects" | "workflows" | "jira";
+                group?: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira";
                 /** @description Only changes about this team: its people, its projects and the team itself. */
                 teamId?: string;
                 limit?: number;

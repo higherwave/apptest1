@@ -136,6 +136,22 @@ export const changeRoleSchema = z
   .object({ role: z.enum(['owner', 'editor', 'viewer']).optional(), external: z.boolean().optional() })
   .refine((v) => v.role !== undefined || v.external !== undefined, 'Choose a role or whether the member is external.')
 
+// A launch (one per project): its setup, a reviewer's answer to a step, and a link to evidence.
+const LAUNCH_ANSWERS = ['ready', 'ready_with_conditions', 'changes_needed', 'not_applicable', 'go', 'go_with_conditions', 'no_go'] as const
+const isoDay = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-12-01.').refine((v) => !Number.isNaN(Date.parse(`${v}T00:00:00Z`)), 'That is not a date.')
+export const createLaunchSchema = z.object({
+  name: z.string().trim().max(120).optional(),
+  targetDate: isoDay.nullish().transform((v) => v ?? null),
+  briefNotes: z.string().max(8000).optional(),
+})
+export const setUpLaunchSchema = z.object({
+  name: z.string().trim().min(1, 'A launch needs a name.').max(120).optional(),
+  targetDate: isoDay.nullable().optional(),
+  briefNotes: z.string().max(8000).optional(),
+})
+export const launchAnswerSchema = z.object({ answer: z.enum(LAUNCH_ANSWERS), rationale: z.string().trim().max(4000).default('') })
+export const launchLinkSchema = z.object({ title: z.string().trim().max(120).optional(), url: z.string().trim().min(1, 'Enter a link.').max(2000) })
+
 // Launch reviewers (Admin, Members, Reviewers): a person, the steps they approve, the teams they cover (all, or named), primary or alternate.
 const LAUNCH_STEP_KEYS = ['product_leadership', 'sales', 'legal', 'documentation', 'marketing', 'final_decision'] as const
 export const addReviewerSchema = z.object({

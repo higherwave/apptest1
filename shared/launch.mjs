@@ -48,3 +48,34 @@ export function coverageState(assignments, off, teamId, step) {
   const who = reviewersFor(assignments, teamId, step)
   return { state: who.primary.length ? 'covered' : 'gap', ...who }
 }
+
+// Answers --------------------------------------------------------------------------------------------------------------------------------------
+
+/** What a step's reviewer can answer, and what the final decision can be. `good` means it does not hold the launch back. */
+export const STEP_ANSWERS = [
+  { key: 'ready', label: 'Ready', good: true },
+  { key: 'ready_with_conditions', label: 'Ready with conditions', good: true },
+  { key: 'changes_needed', label: 'Changes needed', good: false },
+  { key: 'not_applicable', label: 'Not applicable', good: true },
+]
+export const FINAL_ANSWERS = [
+  { key: 'go', label: 'Go', good: true },
+  { key: 'go_with_conditions', label: 'Go with conditions', good: true },
+  { key: 'no_go', label: 'No-go', good: false },
+]
+export const answersFor = (step) => (step === 'final_decision' ? FINAL_ANSWERS : STEP_ANSWERS)
+export const isAnswerFor = (step, answer) => answersFor(step).some((a) => a.key === answer)
+export const answerLabel = (answer) => [...STEP_ANSWERS, ...FINAL_ANSWERS].find((a) => a.key === answer)?.label ?? answer
+/** A plain "ready" or "go" needs no explanation; every other answer says why. */
+export const rationaleRequired = (answer) => answer !== 'ready' && answer !== 'go'
+
+/**
+ * The state of one step of a launch, for the summary. `answer` is the current (latest) answer or null; `reopened` says the brief changed since it was
+ * given. A step the team does not use is 'not_used'; one it uses that has no primary reviewer is 'missing' (an answer already given still shows).
+ */
+export function stepState({ used, hasPrimary, answer, reopened }) {
+  if (!used) return 'not_used'
+  if (answer && reopened) return 'reopened'
+  if (answer) return answer
+  return hasPrimary ? 'waiting' : 'missing'
+}
