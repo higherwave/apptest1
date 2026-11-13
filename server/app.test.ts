@@ -2378,7 +2378,7 @@ test('Jira hand-off (simulated): editors make one ticket per requirement, the ke
   assert.equal((await send(alex, 'POST', `/stories/${r1.id}/tickets`, form({ project: 'nonsense' }))).status, 422, 'the project must be a code and a name')
   assert.equal((await send(alex, 'POST', `/stories/${r1.id}/tickets`, form({ summary: '  ' }))).status, 422, 'a summary is required')
   const first = await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')
-  assert.deepEqual([first.jiraKey, first.storyKey, first.simulated, first.createdBy.name], ['PLAT-215', 'R1', true, 'Alex Rivera'])
+  assert.deepEqual([first.jiraKey, first.storyKey, first.simulated, first.jiraUrl, first.createdBy.name], ['PLAT-215', 'R1', true, null, 'Alex Rivera'])
   const again = await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')
   assert.equal(again.error.code, 'already_sent', 'a story is sent once')
   const r2 = await story('R2')
@@ -2391,6 +2391,54 @@ test('Jira hand-off (simulated): editors make one ticket per requirement, the ke
   const list = await expectSpec(await sam.request(`/api/v1/projects/${p1}/tickets`, { headers: { authorization: 'Bearer s3cret' } }), '/projects/{id}/tickets')
   assert.deepEqual(list.data.map((t: any) => t.jiraKey), ['CSX-215', 'PLAT-216', 'PLAT-215'], 'newest first, readable by a viewer')
   assert.equal(list.data[2].description, 'As a patient, I want ...', 'what was sent is kept')
+})
+
+test('Jira hand-off (connected): the issue is made in Jira, its key and link are kept, the dialog options come from Jira, and Jira’s refusal is passed on', async () => {
+  const { pg, db: d, p1, story } = await boardFixture()
+  const calls: { url: string; method: string; body: any }[] = []
+  let refuse = false
+  let n = 0
+  const standIn = async (url: string, init: RequestInit = {}) => {
+    const body = init.body ? JSON.parse(String(init.body)) : null
+    calls.push({ url, method: init.method ?? 'GET', body })
+    assert.match(String((init.headers as Record<string, string>).authorization), /^Basic /)
+    const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json' } })
+    if (url.endsWith('/project/KAN')) return reply({ key: 'KAN', name: 'Customer Lifecycle Management', issueTypes: [{ name: 'Story' }, { name: 'Task' }, { name: 'Subtask', subtask: true }] })
+    if (url.endsWith('/priority')) return reply([{ name: 'High' }, { name: 'Medium' }, { name: 'Low' }])
+    if (url.includes('/user/assignable/search')) return reply([{ accountId: 'abc123', displayName: 'David', accountType: 'atlassian', active: true }, { accountId: 'bot', displayName: 'App bot', accountType: 'app' }])
+    if (url.endsWith('/issue') && init.method === 'POST') return refuse ? reply({ errorMessages: [], errors: { priority: 'Priority is invalid.' } }, 400) : reply({ id: String(10000 + ++n), key: `KAN-${n}` }, 201)
+    return reply({}, 404)
+  }
+  const env = { ...TOKEN, DEV_USER_EMAIL: 'alex@demo.signalflow.example', JIRA_BASE_URL: 'https://example.atlassian.net/', JIRA_EMAIL: 'me@example.com', JIRA_API_TOKEN: 'tok', JIRA_PROJECT_KEY: 'kan' }
+  const alex = createApp({ env, getDb: () => d, jiraFetch: standIn })
+  const sam = createApp({ env: { ...env, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => d, jiraFetch: standIn })
+  const send = (who: ReturnType<typeof createApp>, method: string, path: string, body?: unknown) => who.request(`/api/v1${path}`, { method, headers: auth, body: body === undefined ? undefined : JSON.stringify(body) })
+  assert.equal((await send(sam, 'GET', '/integrations/jira')).status, 403, 'a viewer is not offered Jira’s people')
+  const st = await expectSpec(await send(alex, 'GET', '/integrations/jira'), '/integrations/jira')
+  assert.deepEqual([st.connected, st.siteUrl, st.projectKey, st.projectName, st.issueTypes, st.priorities, st.assignees], [true, 'https://example.atlassian.net', 'KAN', 'Customer Lifecycle Management', ['Story', 'Task'], ['High', 'Medium', 'Low'], [{ id: 'abc123', name: 'David' }]])
+  const form = (over: Record<string, unknown> = {}) => ({ issueType: 'Story', summary: 'Show availability', description: 'As a patient, I want ...\n\nAcceptance criteria\n• one\n• two\n\nSource: https://example.com/s', priority: 'High', assignee: 'David', assigneeId: 'abc123', labels: 'scheduling, fees', ...over })
+  const r1 = await story('R1')
+  refuse = true
+  const bad = await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')
+  assert.deepEqual([bad.error.code, /Priority is invalid/.test(bad.error.message)], ['jira_rejected', true], 'Jira’s reason reaches the person')
+  assert.equal((await pg.query<any>(`select count(*)::int n from delivery.story_tickets`)).rows[0].n, 0, 'nothing is recorded when Jira refused')
+  refuse = false
+  const made = await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')
+  assert.deepEqual([made.jiraKey, made.jiraUrl, made.simulated, made.project, made.assignee], ['KAN-1', 'https://example.atlassian.net/browse/KAN-1', false, 'KAN · Customer Lifecycle Management', 'David'])
+  const sent = calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue')).pop()!.body.fields
+  assert.deepEqual([sent.project, sent.issuetype, sent.priority, sent.assignee, sent.labels], [{ key: 'KAN' }, { name: 'Story' }, { name: 'High' }, { accountId: 'abc123' }, ['scheduling', 'fees']])
+  assert.equal(sent.description.type, 'doc')
+  assert.deepEqual(sent.description.content.map((b: any) => b.type), ['paragraph', 'paragraph', 'bulletList', 'paragraph'], 'paragraphs and a bullet list')
+  assert.equal(sent.description.content[3].content[1].marks[0].attrs.href, 'https://example.com/s', 'a link stays a link')
+  assert.equal((await expectSpec(await send(alex, 'POST', `/stories/${r1.id}/tickets`, form()), '/stories/{id}/tickets', 'post')).error.code, 'already_sent')
+  assert.equal(calls.filter((c) => c.method === 'POST' && c.url.endsWith('/issue')).length, 2, 'a story that was already sent is not sent to Jira again')
+  const list = await expectSpec(await alex.request(`/api/v1/projects/${p1}/tickets`, { headers: auth }), '/projects/{id}/tickets')
+  assert.deepEqual([list.data[0].jiraKey, list.data[0].jiraUrl], ['KAN-1', 'https://example.atlassian.net/browse/KAN-1'])
+  const log = (await pg.query<any>(`select after from core.audit_log where entity = 'delivery.story_tickets' order by created_at desc limit 1`)).rows[0].after
+  assert.deepEqual([log.jiraKey, log.simulated, log.jiraUrl], ['KAN-1', false, 'https://example.atlassian.net/browse/KAN-1'])
+  // Without the settings nothing is offered and the hand-off stays simulated.
+  const plain = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'alex@demo.signalflow.example' }, getDb: () => d })
+  assert.deepEqual(await (await send(plain, 'GET', '/integrations/jira')).json(), { connected: false, siteUrl: null, projectKey: null, projectName: null, issueTypes: [], priorities: [], assignees: [], problem: null })
 })
 
 test('Update board never removes a story that was sent to Jira: it is kept and noted, and its ticket stays', async () => {

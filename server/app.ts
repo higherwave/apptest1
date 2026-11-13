@@ -18,7 +18,8 @@ import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTas
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
-import { AlreadySent, createTicket, listTickets, NoStory, NotTicketable } from './tickets.js'
+import { AlreadySent, createTicket, listTickets, NoStory, NotTicketable, RecordFailed } from './tickets.js'
+import { jiraConfig, makeJira, NOT_CONNECTED, type JiraFetch } from './jira.js'
 import {
   approveStep, draftWaitingStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
@@ -44,7 +45,7 @@ import { enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
 import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -53,6 +54,9 @@ export function createApp(options: AppOptions = {}) {
   const auth = options.auth ?? (authConfigured(env) ? makeBetterAuth(env, getPool) : undefined)
   const ai = makeAi(env, options.provider)
   const mailer = options.mailer ?? getMailer(env)
+  // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
+  const jiraSettings = jiraConfig(env)
+  const jira = jiraSettings ? makeJira(jiraSettings, options.jiraFetch) : null
   // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
   const capture = options.capture === null ? undefined : options.capture ?? makeCapture(env)
   const captureOn = () => !!capture && env.DESIGN_CAPTURE !== 'false'
@@ -1166,18 +1170,26 @@ export function createApp(options: AppOptions = {}) {
   app.patch('/stories/:id', withContext, (c) => storyAction(c, patchStorySchema, (id, v, input) => patchStory(getDb(), c.get('ctx'), id, v, input)))
   app.put('/stories/:id/checklist', withContext, (c) => storyAction(c, checklistSchema, (id, v, input) => saveChecklist(getDb(), c.get('ctx'), id, v, input.items)))
 
-  // Makes the simulated Jira ticket for one requirement. Once: a story that has a ticket cannot be sent again.
+  // What the Create ticket dialog offers: the connected Jira project's issue types, priorities and people (nothing to offer while it is simulated).
+  app.get('/integrations/jira', withContext, async (c) => {
+    requireEditor(c)
+    c.header('Cache-Control', 'no-store')
+    return c.json(jira ? await jira.status() : NOT_CONNECTED)
+  })
+
+  // Makes the Jira ticket for one requirement (a real issue when Jira is connected, else simulated). Once: a story that has a ticket cannot be sent again.
   app.post('/stories/:id/tickets', withContext, async (c) => {
     requireEditor(c)
     const id = storyId(c)
     const input = parseBody(createTicketSchema, await readJson(c))
     c.header('Cache-Control', 'no-store')
     try {
-      return c.json(await createTicket(getDb(), c.get('ctx'), id, input), 201)
+      return c.json(await createTicket(getDb(), c.get('ctx'), id, input, jira), 201)
     } catch (err) {
       if (err instanceof NoStory) throw new ApiError(404, 'not_found', 'No such story.')
       if (err instanceof NotTicketable) throw new ApiError(422, 'not_a_requirement', 'An open question is a decision to make, not a ticket. Decide it first.')
       if (err instanceof AlreadySent) throw new ApiError(409, 'already_sent', `This story was already sent as ${err.jiraKey}.`)
+      if (err instanceof RecordFailed) throw new ApiError(502, 'ticket_not_recorded', err.message)
       throw err
     }
   })

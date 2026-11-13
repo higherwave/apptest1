@@ -13,6 +13,7 @@ import { useState } from "react";
 import type {
   BoardStory,
   CreateTicketInput,
+  JiraStatus,
   ProjectDetail,
   StoryDetail,
   Ticket,
@@ -35,7 +36,9 @@ export type StoriesViewProps = {
   creating: boolean;
   createError?: string;
   /** The ticket just made, to confirm it: the story has left Prepare for Jira, so this says where it went. */
-  justSent: { jiraKey: string; storyKey: string } | null;
+  justSent: { jiraKey: string; storyKey: string; url: string | null } | null;
+  /** The Jira connection, when there is one (the Create ticket dialog then offers Jira's own options). */
+  jira?: JiraStatus;
   /** A story key to mark in the Sent to Jira list (arriving from a link to a story that has been sent). */
   highlightKey: string | null;
   /** The address of a story in this tool, which goes into the ticket as its evidence link. */
@@ -136,7 +139,7 @@ export function StoriesView(props: StoriesViewProps) {
                         kind="success"
                         lowContrast
                         title={`${justSent.jiraKey} created`}
-                        subtitle={`${justSent.storyKey} is now in Sent to Jira.`}
+                        subtitle={justSent.url ? `${justSent.storyKey} is now in Jira and in Sent to Jira.` : `${justSent.storyKey} is now in Sent to Jira.`}
                         data-testid="ticket-confirmation"
                         onCloseButtonClick={props.onDismissSent}
                       />
@@ -147,6 +150,11 @@ export function StoriesView(props: StoriesViewProps) {
                       >
                         View in Sent to Jira
                       </Button>
+                      {justSent.url && (
+                        <Button kind="ghost" size="sm" href={justSent.url} target="_blank" rel="noreferrer" data-testid="open-in-jira">
+                          Open {justSent.jiraKey} in Jira
+                        </Button>
+                      )}
                     </div>
                   )}
                   {allSent && (
@@ -246,6 +254,7 @@ function Selected({
   canEdit,
   creating,
   createError,
+  jira,
   linkTo,
   onCreate,
   onViewDesign,
@@ -417,6 +426,7 @@ function Selected({
           open={modal}
           pending={creating}
           errorText={createError}
+          jira={jira}
           onClose={() => setModal(false)}
           onCreate={(input) =>
             void onCreate(story.id, input).then(
@@ -440,8 +450,9 @@ function SentList({
   return (
     <div className={styles.sent}>
       <p className={styles.muted}>
-        Stories sent to Jira from this tool. The Jira connection is simulated
-        for now: the keys are made here and nothing reached Jira.
+        Stories sent to Jira from this tool. A key that is a link is a real
+        issue in Jira; the others were made while the connection was simulated,
+        so nothing reached Jira.
       </p>
       {tickets.length === 0 ? (
         <p className={styles.emptyBox}>
@@ -480,14 +491,19 @@ function SentList({
                 data-highlight={t.storyKey === highlightKey}
               >
                 <div role="cell" className={styles.jiraKey}>
-                  {t.jiraKey}
+                  {t.jiraUrl ? (
+                    <a href={t.jiraUrl} target="_blank" rel="noreferrer" data-testid={`jira-link-${t.jiraKey}`}>
+                      {t.jiraKey}
+                    </a>
+                  ) : (
+                    t.jiraKey
+                  )}
                 </div>
                 <div role="cell">
                   <p className={styles.summary}>{t.summary}</p>
                   <p className={styles.meta}>
                     {t.issueType} · {t.project}
                     {t.labels ? ` · ${t.labels}` : ""}
-                    {t.points ? ` · ${t.points} pts` : ""}
                   </p>
                 </div>
                 <div role="cell">{t.storyKey}</div>

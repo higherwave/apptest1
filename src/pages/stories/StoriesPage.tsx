@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, type BoardStory, type CreateTicketInput } from '../../api/client'
-import { useBoard, useCreateTicket, useMe, useProject, useStory, useTickets } from '../../api/hooks'
+import { useBoard, useCreateTicket, useJiraStatus, useMe, useProject, useStory, useTickets } from '../../api/hooks'
 import { pickTab } from './jira'
 import { StoriesView } from './StoriesView'
 
@@ -16,10 +16,12 @@ export function StoriesPage() {
   const board = useBoard(projectId)
   const tickets = useTickets(projectId)
   const me = useMe()
+  const canEdit = me.data?.role === 'owner' || me.data?.role === 'editor'
+  const jira = useJiraStatus(canEdit)
   const create = useCreateTicket(projectId)
   const [pickedId, setPickedId] = useState<string | null>(null)
   const [createError, setCreateError] = useState<string | undefined>()
-  const [justSent, setJustSent] = useState<{ jiraKey: string; storyKey: string } | null>(null)
+  const [justSent, setJustSent] = useState<{ jiraKey: string; storyKey: string; url: string | null } | null>(null)
 
   const stories = board.data?.stories ?? []
   const made = tickets.data?.data ?? []
@@ -62,7 +64,8 @@ export function StoriesPage() {
       tab={tab}
       openId={openId}
       detail={openId ? detail.data : undefined}
-      canEdit={me.data?.role === 'owner' || me.data?.role === 'editor'}
+      canEdit={canEdit}
+      jira={jira.data}
       errorText={board.isError && !noBoard ? friendlyMessage(board.error) : tickets.isError ? friendlyMessage(tickets.error) : undefined}
       creating={create.isPending}
       createError={createError}
@@ -82,7 +85,7 @@ export function StoriesPage() {
         setCreateError(undefined)
         try {
           const ticket = await create.mutateAsync({ storyId, input })
-          setJustSent({ jiraKey: ticket.jiraKey, storyKey: ticket.storyKey })
+          setJustSent({ jiraKey: ticket.jiraKey, storyKey: ticket.storyKey, url: ticket.jiraUrl })
           return true
         } catch (err) {
           setCreateError(friendlyMessage(err))

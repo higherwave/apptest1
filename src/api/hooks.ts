@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getBoard, listTickets, createTicket, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasure, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -136,6 +136,8 @@ export const useSpec = (id: string | undefined) => useQuery({ queryKey: ['spec',
 // replaces the guess; if the API refuses, the board is read again.
 export const useBoard = (projectId: string | undefined) => useQuery({ queryKey: ['board', projectId], queryFn: () => getBoard(projectId!), enabled: !!projectId, retry: false })
 export const useTickets = (projectId: string | undefined) => useQuery({ queryKey: ['tickets', projectId], queryFn: () => listTickets(projectId!), enabled: !!projectId })
+// What the Create ticket dialog offers; only owners and editors may ask, and it is read from Jira at most every five minutes by the server.
+export const useJiraStatus = (enabled: boolean) => useQuery({ queryKey: ['jira-status'], queryFn: getJiraStatus, enabled, staleTime: 5 * 60_000, retry: false })
 export const useCreateTicket = (projectId: string) => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (v: { storyId: string; input: import('./client').CreateTicketInput }) => createTicket(v.storyId, v.input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['tickets', projectId] }) })

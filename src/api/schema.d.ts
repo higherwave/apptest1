@@ -1363,6 +1363,23 @@ export interface paths {
         patch: operations["updateStory"];
         trace?: never;
     };
+    "/integrations/jira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners and editors. What the Create ticket dialog offers: whether Jira is connected (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN and JIRA_PROJECT_KEY all set) and, if so, the project's name, issue types, priorities and the people a ticket can be assigned to, read from Jira and kept for five minutes. `problem` says why Jira could not be read. Not connected: `connected` is false and the lists are empty. */
+        get: operations["getJiraStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stories/{id}/tickets": {
         parameters: {
             query?: never;
@@ -1372,7 +1389,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Owners and editors. Makes the (simulated) Jira ticket for a requirement from what was chosen in the Create ticket dialog, and keeps it as the record. The key follows the project's own sequence (PLAT-215, PLAT-216 ...). 409 `already_sent` when the story already has one; 422 `not_a_requirement` for an open question. */
+        /** Owners and editors. Makes the Jira ticket for a requirement from what was chosen in the Create ticket dialog, and keeps it as the record. With Jira connected the issue is made in Jira (its key and link are kept, `simulated` is false); otherwise it is simulated and the key follows the project's own sequence (PLAT-215, PLAT-216 ...). 409 `already_sent` when the story already has one; 422 `not_a_requirement` for an open question; 502 when Jira refuses or cannot be reached (`jira_rejected`, `jira_refused`, `jira_unreachable`) or the issue was made but not recorded (`ticket_not_recorded`). */
         post: operations["createTicket"];
         delete?: never;
         options?: never;
@@ -2803,21 +2820,21 @@ export interface components {
             storyId: string | null;
             /** @description R1 */
             storyKey: string;
-            /** @description For example PLAT-215. */
+            /** @description For example KAN-12 from Jira, or PLAT-215 while simulated. */
             jiraKey: string;
             /** @description The Jira project, as "PLAT · Platform". */
             project: string;
-            /** @enum {string} */
-            issueType: "Story" | "Task" | "Epic";
+            issueType: string;
             summary: string;
             description: string;
-            /** @enum {string} */
-            priority: "High" | "Medium" | "Low";
+            priority: string;
             assignee: string;
             labels: string;
             points: string | null;
-            /** @description True while the Jira connection is simulated: the key was made here, not by Jira. */
+            /** @description True when the key was made here, not by Jira (no Jira connection). */
             simulated: boolean;
+            /** @description The address of the issue in Jira; null for a simulated ticket. */
+            jiraUrl: string | null;
             createdBy: {
                 id: string;
                 name: string;
@@ -2829,17 +2846,32 @@ export interface components {
             data: components["schemas"]["Ticket"][];
         };
         CreateTicketRequest: {
-            /** @description Code and name, for example "PLAT · Platform". */
-            project: string;
-            /** @enum {string} */
-            issueType: "Story" | "Task" | "Epic";
+            /** @description Simulation only: code and name, for example "PLAT · Platform". A connected Jira uses its one project. */
+            project?: string;
+            /** @description An issue type of the Jira project (Story, Task ...). */
+            issueType: string;
             summary: string;
             description?: string;
-            /** @enum {string} */
-            priority: "High" | "Medium" | "Low";
+            priority: string;
             assignee?: string;
+            /** @description The Jira account to assign to; null leaves it unassigned. */
+            assigneeId?: string | null;
             labels?: string;
             points?: string | null;
+        };
+        JiraStatus: {
+            connected: boolean;
+            siteUrl: string | null;
+            projectKey: string | null;
+            projectName: string | null;
+            issueTypes: string[];
+            priorities: string[];
+            assignees: {
+                id: string;
+                name: string;
+            }[];
+            /** @description Why Jira could not be read, when it could not. */
+            problem: string | null;
         };
         WorkflowBackstage: {
             id: string;
@@ -5653,6 +5685,28 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    getJiraStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JiraStatus"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     createTicket: {
         parameters: {
             query?: never;
@@ -5683,6 +5737,7 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            502: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

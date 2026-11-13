@@ -199,6 +199,8 @@ export const getBoard = (projectId: string) => request<Board>(`/projects/${proje
 export type Ticket = components['schemas']['Ticket']
 export type CreateTicketInput = components['schemas']['CreateTicketRequest']
 export const listTickets = (projectId: string) => request<components['schemas']['TicketList']>(`/projects/${projectId}/tickets`)
+export type JiraStatus = components['schemas']['JiraStatus']
+export const getJiraStatus = () => request<JiraStatus>('/integrations/jira')
 export const createTicket = (storyId: string, input: CreateTicketInput) => request<Ticket>(`/stories/${storyId}/tickets`, { method: 'POST', body: input })
 export const getStory = (id: string) => request<StoryDetail>(`/stories/${id}`)
 export const moveStory = (id: string, version: number, status: StoryStatus, beforeId: string | null) =>

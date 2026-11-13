@@ -146,7 +146,7 @@ test('new projects go to a team the person edits', async () => {
 // to be listed below as not about a single project, with the reason.
 const NOT_ONE_PROJECT: Record<string, string> = {
   '/health': 'no data', '/health/db': 'no data', '/health/capture': 'no data', '/ai/status': 'workspace-wide', '/me': 'the caller', '/sign-in-options': 'no data',
-  '/members': 'workspace administration', '/members/{id}': 'workspace administration', '/usage': 'workspace administration', '/audit': 'workspace administration',
+  '/integrations/jira': 'the connected Jira project’s options, editors only', '/members': 'workspace administration', '/members/{id}': 'workspace administration', '/usage': 'workspace administration', '/audit': 'workspace administration',
   '/notifications/preferences': 'the caller', '/notifications/digest/test': 'the caller', '/notifications/unsubscribe': 'the caller', '/cron/digest': 'the scheduler',
   '/teams': 'team administration, owners only', '/teams/{id}': 'team administration, owners only', '/teams/{id}/members/{memberId}': 'team administration, owners only', '/teams/{id}/projects/{projectId}': 'team administration, owners only',
   '/templates': 'workspace-wide', '/projects': 'a list, scoped by the team filter (checked above)', '/specs': 'a list, scoped by the team filter (checked above)', '/specs/standalone': 'creates a project in a team the caller edits',

@@ -1788,13 +1788,30 @@ paths:
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /integrations/jira:
+    get:
+      operationId: getJiraStatus
+      summary: >
+        Owners and editors. What the Create ticket dialog offers: whether Jira is connected (JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN and
+        JIRA_PROJECT_KEY all set) and, if so, the project's name, issue types, priorities and the people a ticket can be assigned to, read from
+        Jira and kept for five minutes. `problem` says why Jira could not be read. Not connected: `connected` is false and the lists are empty.
+      responses:
+        '200':
+          description: The connection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/JiraStatus' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
   /stories/{id}/tickets:
     post:
       operationId: createTicket
       summary: >
-        Owners and editors. Makes the (simulated) Jira ticket for a requirement from what was chosen in the Create ticket dialog, and
-        keeps it as the record. The key follows the project's own sequence (PLAT-215, PLAT-216 ...). 409 `already_sent` when the story
-        already has one; 422 `not_a_requirement` for an open question.
+        Owners and editors. Makes the Jira ticket for a requirement from what was chosen in the Create ticket dialog, and keeps it as the
+        record. With Jira connected the issue is made in Jira (its key and link are kept, `simulated` is false); otherwise it is simulated and
+        the key follows the project's own sequence (PLAT-215, PLAT-216 ...). 409 `already_sent` when the story already has one; 422
+        `not_a_requirement` for an open question; 502 when Jira refuses or cannot be reached (`jira_rejected`, `jira_refused`,
+        `jira_unreachable`) or the issue was made but not recorded (`ticket_not_recorded`).
       parameters:
         - { $ref: '#/components/parameters/Id' }
       requestBody:
@@ -1814,6 +1831,7 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /stories/{id}/move:
     post:
@@ -3526,21 +3544,22 @@ components:
         avatarUrl: { type: string, nullable: true }
     Ticket:
       type: object
-      required: [id, storyId, storyKey, jiraKey, project, issueType, summary, description, priority, assignee, labels, points, simulated, createdBy, createdAt]
+      required: [id, storyId, storyKey, jiraKey, project, issueType, summary, description, priority, assignee, labels, points, simulated, jiraUrl, createdBy, createdAt]
       properties:
         id: { type: string }
         storyId: { type: [string, 'null'], description: The story it was made from; null if a later board update removed that story. }
         storyKey: { type: string, description: R1, R2 ... as it was when sent. }
-        jiraKey: { type: string, description: 'For example PLAT-215.' }
+        jiraKey: { type: string, description: 'For example KAN-12 from Jira, or PLAT-215 while simulated.' }
         project: { type: string, description: 'The Jira project, as "PLAT · Platform".' }
-        issueType: { type: string, enum: [Story, Task, Epic] }
+        issueType: { type: string }
         summary: { type: string }
         description: { type: string }
-        priority: { type: string, enum: [High, Medium, Low] }
+        priority: { type: string }
         assignee: { type: string }
         labels: { type: string }
         points: { type: [string, 'null'] }
-        simulated: { type: boolean, description: 'True while the Jira connection is simulated: the key was made here, not by Jira.' }
+        simulated: { type: boolean, description: 'True when the key was made here, not by Jira (no Jira connection).' }
+        jiraUrl: { type: [string, 'null'], description: 'The address of the issue in Jira; null for a simulated ticket.' }
         createdBy:
           type: [object, 'null']
           required: [id, name]
@@ -3557,16 +3576,36 @@ components:
           items: { $ref: '#/components/schemas/Ticket' }
     CreateTicketRequest:
       type: object
-      required: [project, issueType, summary, priority]
+      required: [issueType, summary, priority]
       properties:
-        project: { type: string, description: 'Code and name, for example "PLAT · Platform".' }
-        issueType: { type: string, enum: [Story, Task, Epic] }
+        project: { type: string, description: 'Simulation only: code and name, for example "PLAT · Platform". A connected Jira uses its one project.' }
+        issueType: { type: string, description: 'An issue type of the Jira project (Story, Task ...).' }
         summary: { type: string, maxLength: 255 }
         description: { type: string, maxLength: 20000 }
-        priority: { type: string, enum: [High, Medium, Low] }
+        priority: { type: string, maxLength: 40 }
         assignee: { type: string, maxLength: 80 }
+        assigneeId: { type: [string, 'null'], maxLength: 80, description: 'The Jira account to assign to; null leaves it unassigned.' }
         labels: { type: string, maxLength: 200 }
         points: { type: [string, 'null'], maxLength: 6 }
+    JiraStatus:
+      type: object
+      required: [connected, siteUrl, projectKey, projectName, issueTypes, priorities, assignees, problem]
+      properties:
+        connected: { type: boolean }
+        siteUrl: { type: [string, 'null'] }
+        projectKey: { type: [string, 'null'] }
+        projectName: { type: [string, 'null'] }
+        issueTypes: { type: array, items: { type: string } }
+        priorities: { type: array, items: { type: string } }
+        assignees:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string }
+              name: { type: string }
+        problem: { type: [string, 'null'], description: 'Why Jira could not be read, when it could not.' }
     WorkflowBackstage:
       type: object
       required: [id, kind, name, owner]

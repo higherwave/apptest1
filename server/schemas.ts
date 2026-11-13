@@ -204,14 +204,16 @@ export const mapStageSchema = z.object({ position: z.number().int().min(0).max(5
 
 // A simulated Jira ticket made from a requirement. Everything is what a person chose in the Create ticket dialog.
 export const createTicketSchema = z.object({
-  project: text(80).regex(/^[A-Z][A-Z0-9]{1,9} · .{1,60}$/, 'Choose a project.'),
-  issueType: z.enum(['Story', 'Task', 'Epic']),
+  // Only the simulation uses `project` (a connected Jira has the one project from its settings).
+  project: text(80).regex(/^[A-Z][A-Z0-9]{1,9} · .{1,60}$/, 'Choose a project.').optional(),
+  issueType: text(60).min(1),
   summary: text(255).min(1, 'A summary is required.'),
   description: text(20000).default(''),
-  priority: z.enum(['High', 'Medium', 'Low']),
+  priority: text(40).min(1),
   assignee: text(80).min(1).default('Unassigned'),
+  assigneeId: optionalText(80),
   labels: text(200).default(''),
-  points: optionalText(6),
+  points: optionalText(6), // no longer sent by the dialog; kept so an older client still works
 })
 
 export const designSchema = z.object({
