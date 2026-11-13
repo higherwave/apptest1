@@ -65,3 +65,8 @@ by **"support tickets asking why a score changed"**, source **Support tickets**,
 - All names, companies and numbers are invented. The email addresses use `.example` domains and the phone numbers use the reserved 555-01xx range.
 - The files use the three formats the Transcripts page reads: Zoom `.vtt`, Teams `.vtt` and Meet `.txt`. Studies mix them on purpose.
 - Platform Insights rolls themes up across projects by matching them to *platform themes*. The ones in the demo workspace are about clinic booking, so Anchor CX themes will not roll up across the three studies until Anchor CX platform themes are added to the demo data. That is app work and is not done yet.
+
+## The launch
+
+Study 1 ("Health score trust") also has a launch in progress (`LAUNCH` in `data.mjs`): product leadership ready with conditions, legal ready, documentation asking for changes (the help article misses the 90-day window), marketing and sales still waiting, and the final decision not made. Each answer is given by that step's primary reviewer when the workspace has one; a step with no reviewer stays unanswered and shows "Approver missing". A workspace with no reviewers at all gets a few set up (owner, an editor and one more person) so the demo reads; a workspace that already has reviewers is never changed.
+

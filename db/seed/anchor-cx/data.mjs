@@ -224,3 +224,27 @@ export const STORIES = [
     why: 'Raised by CS operations and executives in all three studies, and nobody has written a requirement for it yet.',
     next: 'Decide after the portfolio reporting concept test, and agree who owns the board export.', criteria: [] },
 ];
+
+// The launch of study 1, "Health score trust": some steps answered, one asking for changes, two still waiting, so the page shows the whole range.
+// An answer is given by that step's primary reviewer when the workspace has one; a step with no reviewer is left unanswered and shows "Approver missing".
+export const LAUNCH = {
+  name: 'Health score explanations: general availability',
+  targetDate: '2027-01-28',
+  notes:
+    'General availability of the health score explanation: why a score changed, in plain words, for every account.\n\n' +
+    'Customers asked why a score changed about 48 times a month; the explanation view answers it in two clicks (requirement R1). The weekly digest is still a beta and is not part of this launch.\n\n' +
+    'What reviewers should know: the score uses a 90-day window, and the first version explains the three biggest movers only.',
+  answers: [
+    {
+      step: 'product_leadership', answer: 'ready_with_conditions', daysAgo: 6,
+      rationale: 'Ship once every contributing factor is explained in plain words. The trust interviews were clear that a number with no reason loses confidence.',
+      links: [{ title: 'Health score trust: themes and quotes', url: 'https://example.com/anchor-cx/research/health-score-trust' }],
+    },
+    { step: 'legal', answer: 'ready', daysAgo: 4, rationale: '', links: [{ title: 'Reviewed wording on how account data is used', url: 'https://example.com/anchor-cx/legal/health-score-data-use' }] },
+    {
+      step: 'documentation', answer: 'changes_needed', daysAgo: 2,
+      rationale: 'The help article does not mention the 90-day window the score uses. Customer success will be asked about it on day one.',
+      links: [{ title: 'Draft help article: how the health score is explained', url: 'https://example.com/anchor-cx/docs/health-score-explained' }],
+    },
+  ],
+};

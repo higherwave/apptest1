@@ -123,6 +123,23 @@ test('study 1 is published with its board, designs and measured results, and sho
   assert.ok(briefs.some((c: any) => c.projectName === 'Health score trust'), 'a project with something that worked and nothing needing attention is a case study')
 })
 
+test('study 1 has a launch in progress: answers with reasons and links, one asking for changes, two waiting, and a reviewer for each step', async () => {
+  const { app, get } = await fixture()
+  const project = (await get('/projects')).data.find((x: any) => x.name === 'Health score trust')
+  const found = await get(`/projects/${project.id}/launch`)
+  assert.equal(found.launch.name, 'Health score explanations: general availability')
+  const launch = await get(`/launches/${found.launch.id}`)
+  const state = (step: string) => launch.steps.find((s: any) => s.step === step).state
+  assert.deepEqual(['product_leadership', 'legal', 'documentation', 'marketing', 'sales', 'final_decision'].map(state), ['ready_with_conditions', 'ready', 'changes_needed', 'waiting', 'waiting', 'waiting'])
+  assert.equal(launch.summary.state, 'preparing')
+  assert.deepEqual(launch.summary.blocking.map((b: any) => b.step), ['documentation'])
+  assert.match(launch.steps.find((s: any) => s.step === 'documentation').answer.rationale, /90-day window/)
+  assert.equal(launch.steps.find((s: any) => s.step === 'legal').links.length, 1)
+  assert.equal(launch.steps.every((s: any) => s.answer === null || s.answer.reopened === false), true, 'the answers were given on the brief as it is now')
+  assert.ok(launch.brief.requirements.length >= 5, 'the brief lists what is being built')
+  void app
+})
+
 test('the matcher knows the Anchor CX platform themes, and none of them match the original demo’s themes', async () => {
   const titles = Object.values(DATA.THEMES).map((t: any) => t.title)
   for (const t of titles) assert.ok(Array.isArray(PLATFORM_KEYWORDS[t]) && PLATFORM_KEYWORDS[t].length >= 1, `keywords for ${t}`)

@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 import { parseTranscript, scoreTheme } from '../../../shared/providers.mjs';
 import { compatFields } from '../../../shared/measure.mjs';
+import { reviewersFor } from '../../../shared/launch.mjs';
 import * as D from './data.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -206,6 +207,40 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
     await insert(db, 'delivery.success_measures', measureRows);
   }
 
+  // Study 1's launch: answered by the reviewers the workspace already has (their own setup is never touched); a workspace with none gets a few, so the demo reads ---
+  {
+    const { P } = built.a1;
+    const SPEC = aid('spec:a1');
+    const LAUNCH = aid('launch:a1');
+    const L = D.LAUNCH;
+    await insert(db, 'delivery.launches', [{ id: LAUNCH, workspace_id: WS, project_id: P, name: L.name, target_date: L.targetDate, brief_notes: L.notes, created_by: USER, updated_by: USER }]);
+    const team = (await q('select team_id from core.projects where id = $1', [P])).rows[0].team_id;
+    let assigns = (await q('select user_id, step, team_id, role from core.reviewer_assignments where workspace_id = $1', [WS])).rows;
+    if (assigns.length === 0) {
+      const people = (await q(`select m.user_id, m.role from core.memberships m where m.workspace_id = $1 order by m.created_at`, [WS])).rows;
+      const owner = people.find((p) => p.role === 'owner')?.user_id ?? USER;
+      const editor = people.find((p) => p.role === 'editor')?.user_id ?? owner;
+      const other = people.find((p) => p.role !== 'owner' && p.user_id !== editor)?.user_id ?? editor;
+      const demo = [[owner, 'product_leadership'], [owner, 'final_decision'], [editor, 'legal'], [editor, 'sales'], [editor, 'marketing'], [other, 'documentation']];
+      await insert(db, 'core.reviewer_assignments', demo.map(([user_id, step]) => ({ workspace_id: WS, user_id, step, team_id: null, role: 'primary', created_by: USER })));
+      assigns = (await q('select user_id, step, team_id, role from core.reviewer_assignments where workspace_id = $1', [WS])).rows;
+    }
+    const cover = assigns.map((r) => ({ userId: r.user_id, step: r.step, teamId: r.team_id, role: r.role }));
+    // The brief the answers are given on: the published document and the launch's notes, as the server reads them.
+    const spec = (await q('select id, published_at from delivery.specs where id = $1', [SPEC])).rows[0];
+    const notes = (await q('select notes_updated_at from delivery.launches where id = $1', [LAUNCH])).rows[0];
+    const briefKey = `${spec.id}|${spec.published_at ? new Date(spec.published_at).toISOString() : ''}|${new Date(notes.notes_updated_at).toISOString()}`;
+    const answerRows = [], linkRows = [];
+    for (const a of L.answers) {
+      const who = reviewersFor(cover, team, a.step).primary[0];
+      if (!who) continue; // nobody is set up for this step: it shows as "Approver missing"
+      answerRows.push({ id: aid('launch-answer:' + a.step), launch_id: LAUNCH, step: a.step, answer: a.answer, rationale: a.rationale, brief_key: briefKey, answered_by: who, answered_at: new Date(Date.now() - a.daysAgo * 86400000) });
+      for (const [i, l] of a.links.entries()) linkRows.push({ id: aid(`launch-link:${a.step}:${i}`), launch_id: LAUNCH, step: a.step, title: l.title, url: l.url, added_by: who });
+    }
+    await insert(db, 'delivery.launch_answers', answerRows);
+    await insert(db, 'delivery.launch_links', linkRows);
+  }
+
   // Platform Insights: the same seven problems, rolled up across the three studies --------------
   {
     const offset = Number((await q('select coalesce(max(position) + 1, 0)::int n from insights.platform_themes where workspace_id = $1', [WS])).rows[0].n);
@@ -232,6 +267,7 @@ export async function summarize(db) {
     transcripts: await count('select count(*)::int n from research.transcripts where project_id = any($1::uuid[])', [ids]),
     themes: await count('select count(*)::int n from research.themes where project_id = any($1::uuid[])', [ids]),
     stories: await count('select count(*)::int n from delivery.stories st join delivery.specs sp on sp.id = st.spec_id where sp.project_id = any($1::uuid[])', [ids]),
+    launches: await count('select count(*)::int n from delivery.launches where project_id = any($1::uuid[])', [ids]),
     measures: await count('select count(*)::int n from delivery.success_measures m join delivery.stories st on st.id = m.story_id join delivery.specs sp on sp.id = st.spec_id where sp.project_id = any($1::uuid[])', [ids]),
     platformThemes: await count('select count(*)::int n from insights.platform_themes where id = any($1::uuid[])', [PLATFORM_IDS]),
     recommendations: await count('select count(*)::int n from insights.recommendations where id = any($1::uuid[])', [REC_IDS]),
