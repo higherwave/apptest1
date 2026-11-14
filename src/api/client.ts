@@ -128,6 +128,12 @@ export type LaunchRequestResult = components['schemas']['LaunchRequestResult']
 export const requestLaunchAnswers = (id: string) => request<LaunchRequestResult>(`/launches/${id}/request`, { method: 'POST' })
 export type LaunchSlackResult = components['schemas']['LaunchSlackResult']
 export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })
+export type LaunchDigest = components['schemas']['LaunchDigest']
+export type LaunchDigestShared = components['schemas']['LaunchDigestShared']
+export const addLaunchFollowers = (id: string, userIds: string[]) => request<LaunchDetail>(`/launches/${id}/followers`, { method: 'POST', body: { userIds } })
+export const removeLaunchFollower = (id: string, userId: string) => request<LaunchDetail>(`/launches/${id}/followers/${userId}`, { method: 'DELETE' })
+export const previewLaunchDigest = (id: string) => request<LaunchDigest>(`/launches/${id}/digest`)
+export const shareLaunchDigest = (id: string, via: { email: boolean; slack: boolean }) => request<LaunchDigestShared>(`/launches/${id}/digest`, { method: 'POST', body: via })
 export const removeLaunchLink = (id: string, linkId: string) => request<LaunchDetail>(`/launches/${id}/links/${linkId}`, { method: 'DELETE' })
 
 // Launch reviewers: standing assignments, the coverage grid, and which steps each team uses.

@@ -351,6 +351,58 @@ export interface paths {
         patch: operations["setUpLaunch"];
         trace?: never;
     };
+    "/launches/{id}/followers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Editors of the project's team add people to follow the launch from the research stage (internal members only; 422 for an external member or a stranger). Followers get the early digest and brief, never access to the research. Ones already following are left. Returns the launch. */
+        post: operations["addLaunchFollowers"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}/followers/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Editors of the project's team stop someone following the launch. Returns the launch. */
+        delete: operations["removeLaunchFollower"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}/digest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Editors of the project's team preview the early digest as the project's data stands now: the themes that matter most (where people struggled first), a quote or two as said and never tied to a person, and the plain-language brief when requirements are published, ending with "Does everyone understand? Any concerns?". Built from a template, not rewritten by a model. */
+        get: operations["previewLaunchDigest"];
+        put?: never;
+        /** Shares the digest as it stands now: by email to every follower (once each), and/or as a reply in the launch's Slack thread. 422 when neither is chosen. The record keeps the text that was sent. Emails the temporary recipient limit excludes are returned as `held`. */
+        post: operations["shareLaunchDigest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/launches/{id}/slack": {
         parameters: {
             query?: never;
@@ -3273,6 +3325,41 @@ export interface components {
                 name: string;
             }[];
         };
+        LaunchPerson: {
+            userId: string;
+            name: string;
+        };
+        AddFollowersRequest: {
+            userIds: string[];
+        };
+        ShareDigestRequest: {
+            /** @description Email it to every follower. */
+            email: boolean;
+            /** @description Post it as a reply in the launch's Slack thread. */
+            slack: boolean;
+        };
+        LaunchDigest: {
+            subject: string;
+            /** @description The digest as plain text */
+            text: string;
+            /** @description Themes the research found. */
+            themeCount: number;
+            /** @description Themes the digest shows. */
+            shown: number;
+            /** @description Whether the requirements are published */
+            hasBrief: boolean;
+        };
+        LaunchDigestShared: {
+            shareId: string;
+            /** @description Followers it was emailed to (0 when email was not chosen). */
+            followers: number;
+            emailed: number;
+            /** @description Kept back by the temporary recipient limit or a placeholder address. */
+            held: number;
+            failed: number;
+            /** @enum {string} */
+            slack: "posted" | "not_posted" | "off" | "skipped";
+        };
         TeamSlackRequest: {
             /** @description A channel name such as launches (a leading # is dropped); null or empty clears it. */
             channel: string | null;
@@ -3414,6 +3501,18 @@ export interface components {
                 channel: string | null;
                 started: boolean;
                 threadUrl: string | null;
+            };
+            /** @description Who follows the launch from the research stage, who could, and the last digest shared with them. Empty for an external reviewer; `candidates` only for editors. */
+            follow: {
+                followers: components["schemas"]["LaunchPerson"][];
+                candidates: components["schemas"]["LaunchPerson"][];
+                lastShared: null | {
+                    /** Format: date-time */
+                    at: string;
+                    by: string | null;
+                    emailed: number;
+                    inSlack: boolean;
+                };
             };
             steps: components["schemas"]["LaunchStep"][];
             summary: {
@@ -4272,6 +4371,119 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    addLaunchFollowers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddFollowersRequest"];
+            };
+        };
+        responses: {
+            /** @description The launch with its followers. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    removeLaunchFollower: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The launch with its followers. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    previewLaunchDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The digest. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDigest"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    shareLaunchDigest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ShareDigestRequest"];
+            };
+        };
+        responses: {
+            /** @description How it went out. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchDigestShared"];
                 };
             };
             400: components["responses"]["Error"];

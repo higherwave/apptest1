@@ -53,6 +53,7 @@ Launch (release readiness) is built in slices; the plan is the "Launch: build pl
 - Who may see or change a launch is `viewerOf` in `server/launches.ts`, not the team check: `/launches/{id}` routes are in `NOT_ONE_PROJECT` for that reason and answer 404 to anyone it does not cover. `EXTERNAL_MAY_CALL` allows `/me` and `/launches...` only.
 - Every launch email goes through `deliver` in `server/launch-notices.ts`, the one place the temporary recipient limit and the placeholder-address rule are applied (a message they exclude is stored as `held`, never dropped). A new launch message is a new `kind` and dedupe key there, never a direct `mailer.send`. A failed send must not fail the action that caused it.
 - Slack posts go through `reply`/`startThread` in `server/launch-slack.ts` (one thread per launch, each event once by dedupe key). A failed post must not fail the action behind it; user text goes through `slackText`; nothing is read back from Slack and approval authority never comes from it. `REMINDERS_ONLY_FOR` does not limit channel posts.
+- A follower sees the digest and brief only, never the research: the digest names no participant and goes through `buildDigest` in `server/launch-digest.ts`; only internal members can follow, and a digest email carries no launch link (a follower cannot open it). Share emails go through `deliver` like every launch email.
 - Do not start a `data-testid` with `story-` for anything but a story card: the project tour points at `[data-testid^="story-"]`.
 
 ## Database

@@ -1,10 +1,11 @@
 import { Close } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useState } from 'react'
-import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
+import type { LaunchAnswer, LaunchDetail, LaunchDigest, LaunchDigestShared, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
 import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { dayText, KIND_LABEL, momentText, reviewersLine, stateLabel, stateTag } from './launchText'
+import { FollowPanel } from './FollowPanel'
 import styles from './LaunchView.module.scss'
 
 export type LaunchViewProps = {
@@ -21,6 +22,11 @@ export type LaunchViewProps = {
   onRequest: () => Promise<LaunchRequestResult | null>
   /** Opens the launch's thread in its team's Slack channel. Resolves with what happened, or null if the call failed. */
   onSlack: () => Promise<LaunchSlackResult | null>
+  /** Following: add people, remove one, preview the early digest and share it. */
+  onFollowAdd: (userIds: string[]) => Promise<boolean>
+  onFollowRemove: (userId: string) => void
+  onPreviewDigest: () => Promise<LaunchDigest | null>
+  onShareDigest: (via: { email: boolean; slack: boolean }) => Promise<LaunchDigestShared | null>
   /** The step an email link pointed at (?step=): scrolled to, with what is true of it now. */
   focusStep?: string | null
   /** The address of Admin, Members, Reviewers, for an owner who finds a step with no reviewer. */
@@ -367,10 +373,12 @@ export function LaunchView(p: LaunchViewProps) {
                 <TabList aria-label="Launch panel">
                   <Tab data-testid="tab-summary">Summary</Tab>
                   <Tab data-testid="tab-brief">Brief</Tab>
+                  {launch.you.kind !== 'external' && <Tab data-testid="tab-follow">Follow</Tab>}
                 </TabList>
                 <TabPanels>
                   <TabPanel className={styles.tabPanel}><Summary launch={launch} busy={p.busy} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} onSlack={async () => { setSlackProblem(null); const r = await p.onSlack(); if (r && r.state !== 'started' && r.state !== 'already') setSlackProblem(r.problem ?? 'Slack could not be reached.') }} /></TabPanel>
                   <TabPanel className={styles.tabPanel}><Brief launch={launch} /></TabPanel>
+                  {launch.you.kind !== 'external' && <TabPanel className={styles.tabPanel}><FollowPanel launch={launch} busy={p.busy} onAdd={p.onFollowAdd} onRemove={p.onFollowRemove} onPreview={p.onPreviewDigest} onShare={p.onShareDigest} /></TabPanel>}
                 </TabPanels>
               </Tabs>
             </aside>

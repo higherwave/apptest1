@@ -19,7 +19,7 @@ import type { SlackClient } from './slack.js'
 
 export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date }
 const slackOf = (d: Deps) => ({ db: d.db, env: d.env, slack: d.slack })
-type Launch = LaunchDetail & { createdBy: Person | null; workspaceId: string }
+export type Launch = LaunchDetail & { createdBy: Person | null; workspaceId: string }
 export type Outcome = 'sent' | 'held' | 'failed' | 'duplicate'
 
 export const ESCALATE_ALTERNATE_DAYS = 3
@@ -38,7 +38,7 @@ function compose(o: { name: string; subject: string; lines: string[]; link: stri
 }
 
 /** Sends one message to one person, once. Held (kept, not sent) when the recipient limit excludes them or the address is a placeholder. */
-async function deliver(
+export async function deliver(
   deps: Deps,
   launch: Launch,
   n: { to: Person; kind: string; key: string; payload: Record<string, unknown>; build: (link: string, allReviews: string) => { subject: string; text: string; html: string } },

@@ -239,6 +239,9 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
     }
     await insert(db, 'delivery.launch_answers', answerRows);
     await insert(db, 'delivery.launch_links', linkRows);
+    // The functions that will have to answer later follow from the research stage: the reviewers of sales, legal, documentation and marketing.
+    const following = [...new Set(cover.filter((c) => ['sales', 'legal', 'documentation', 'marketing'].includes(c.step)).map((c) => c.userId))];
+    await insert(db, 'delivery.launch_followers', following.map((user_id) => ({ launch_id: LAUNCH, user_id, added_by: USER })));
   }
 
   // Platform Insights: the same seven problems, rolled up across the three studies --------------

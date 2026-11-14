@@ -39,6 +39,29 @@ export type LaunchStep = {
   links: LaunchLink[]
   canAnswer: boolean
 }
+export type Follower = { userId: string; name: string }
+
+export async function followersOf(db: Queryable, launchId: string): Promise<Follower[]> {
+  return (await db.query(`select u.id, u.display_name from delivery.launch_followers f join core.users u on u.id = f.user_id where f.launch_id = $1 order by lower(u.display_name)`, [launchId])).rows.map((r) => ({ userId: r.id as string, name: r.display_name as string }))
+}
+
+/** Internal members who could follow and are not yet following: an external member is never offered, because the digest carries quotes. */
+export async function candidatesFor(db: Queryable, workspaceId: string, launchId: string): Promise<Follower[]> {
+  return (
+    await db.query(
+      `select u.id, u.display_name from core.memberships m join core.users u on u.id = m.user_id
+        where m.workspace_id = $1 and not m.is_external and u.id not in (select user_id from delivery.launch_followers where launch_id = $2)
+        order by lower(u.display_name)`,
+      [workspaceId, launchId],
+    )
+  ).rows.map((r) => ({ userId: r.id as string, name: r.display_name as string }))
+}
+
+export async function lastShared(db: Queryable, launchId: string): Promise<{ at: string; by: string | null; emailed: number; inSlack: boolean } | null> {
+  const r = (await db.query(`select d.shared_at, d.emailed, d.in_slack, u.display_name from delivery.launch_digests d left join core.users u on u.id = d.shared_by where d.launch_id = $1 order by d.shared_at desc limit 1`, [launchId])).rows[0]
+  return r ? { at: new Date(r.shared_at).toISOString(), by: r.display_name ?? null, emailed: r.emailed, inSlack: r.in_slack } : null
+}
+
 export type ViewerKind = 'team' | 'leader' | 'reviewer' | 'external' | 'visitor'
 export type LaunchDetail = {
   id: string
@@ -54,6 +77,8 @@ export type LaunchDetail = {
   you: { kind: ViewerKind; canSetUp: boolean; steps: string[] }
   /** The team's Slack channel, and the launch's thread in it once it has one. Nothing for an external reviewer. */
   slack: { channel: string | null; started: boolean; threadUrl: string | null }
+  /** Who follows the launch, who could, and the last digest shared with them. Nothing for an external reviewer. */
+  follow: { followers: Follower[]; candidates: Follower[]; lastShared: { at: string; by: string | null; emailed: number; inSlack: boolean } | null }
   steps: LaunchStep[]
   summary: {
     /** preparing, or the final decision's answer, or reopened. */
@@ -197,6 +222,7 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
     id: row.id, projectId: row.project_id, projectName: row.project_name, teamId: row.team_id, teamName: row.team_name, name: row.name, targetDate: row.target_date,
     briefNotes: row.brief_notes, briefAt: brief.at, you: viewer,
     slack: external ? { channel: null, started: false, threadUrl: null } : { channel: row.slack_channel, started: !!row.slack_thread_ts, threadUrl: row.slack_permalink },
+    follow: external ? { followers: [], candidates: [], lastShared: null } : { followers: await followersOf(db, row.id), candidates: viewer.canSetUp ? await candidatesFor(db, ctx.workspaceId, row.id) : [], lastShared: await lastShared(db, row.id) },
     steps, summary: external ? { ...summary, counts: { ready: 0, conditions: 0, changes: 0, notApplicable: 0, waiting: 0, missing: 0, reopened: 0 }, blocking: [], waitingOn: [] } : summary,
     brief: { published, requirements, problem, users, goals },
   }

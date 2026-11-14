@@ -11,6 +11,7 @@ import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, R
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
 import { startThread } from './launch-slack.js'
+import { addFollowers, buildDigest, NotAFollowable, removeFollower, shareDigest } from './launch-digest.js'
 import { cleanChannel, makeSlack, type SlackClient } from './slack.js'
 import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
 import { timingSafeEqual } from 'node:crypto'
@@ -19,7 +20,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, teamSlackSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, addFollowersSchema, shareDigestSchema, teamSlackSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -252,6 +253,7 @@ export function createApp(options: AppOptions = {}) {
   // outside the team, and an external reviewer, reach it through /launches/{id}, where access is decided by who they are to that launch (launches.ts).
   const launchErrors = (err: unknown): never => {
     if (err instanceof LaunchNotFound || err instanceof LinkNotFound) throw new ApiError(404, 'not_found', 'No such launch.')
+    if (err instanceof NotAFollowable) throw new ApiError(422, 'validation_failed', 'Only internal members of the workspace can follow a launch.', 'userIds')
     if (err instanceof NoThemes) throw new ApiError(409, 'no_themes', 'A launch can start once the project has themes.')
     if (err instanceof LaunchExists) throw new ApiError(409, 'launch_exists', 'This project already has a launch.')
     if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : 'Nobody is set up to answer this step yet. An owner can add a reviewer under Admin, Members, Reviewers.')
@@ -315,6 +317,51 @@ export function createApp(options: AppOptions = {}) {
     if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
+  })
+  // Following (slice 6): the launch's editors say who follows it, preview the early digest and share it. Followers get the digest and brief only.
+  const editorOf = async (c: Context, id: string) => {
+    const launch = await oneLaunch(c, id)
+    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can manage who follows a launch.')
+    return launch
+  }
+  app.post('/launches/:id/followers', withContext, async (c) => {
+    const id = launchId(c)
+    await editorOf(c, id)
+    const input = parseBody(addFollowersSchema, await readJson(c))
+    try {
+      await addFollowers(getDb(), c.get('ctx'), id, input.userIds)
+    } catch (err) {
+      return launchErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, id), 201)
+  })
+  app.delete('/launches/:id/followers/:userId', withContext, async (c) => {
+    const id = launchId(c)
+    await editorOf(c, id)
+    const userId = c.req.param('userId') ?? ''
+    if (!UUID.test(userId)) throw new ApiError(404, 'not_found', 'No such follower.')
+    await removeFollower(getDb(), c.get('ctx'), id, userId)
+    c.header('Cache-Control', 'no-store')
+    return c.json(await oneLaunch(c, id))
+  })
+  app.get('/launches/:id/digest', withContext, async (c) => {
+    const id = launchId(c)
+    await editorOf(c, id)
+    const digest = await buildDigest(getDb(), c.get('ctx').workspaceId, id)
+    if (!digest) throw new ApiError(404, 'not_found', 'No such launch.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ subject: digest.subject, text: digest.text, themeCount: digest.themeCount, shown: digest.shown, hasBrief: digest.hasBrief })
+  })
+  app.post('/launches/:id/digest', withContext, async (c) => {
+    const id = launchId(c)
+    await editorOf(c, id)
+    const input = parseBody(shareDigestSchema, await readJson(c))
+    if (!input.email && !input.slack) throw new ApiError(422, 'validation_failed', 'Choose email, Slack or both.', 'email')
+    const result = await shareDigest({ db: getDb(), env, mailer, slack }, c.get('ctx'), id, input)
+    if (!result) throw new ApiError(404, 'not_found', 'No such launch.')
+    c.header('Cache-Control', 'no-store')
+    return c.json(result)
   })
   // Opens the launch's Slack thread (for a launch made before its team had a channel, or after a failed post). The result says why, if it could not.
   app.post('/launches/:id/slack', withContext, async (c) => {

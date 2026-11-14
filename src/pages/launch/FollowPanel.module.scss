@@ -1,0 +1,74 @@
+@use '../../tokens' as tokens;
+
+// The Follow tab of the launch's side panel: the same spacing, headings and type as the Summary and Measure panels.
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.eyebrow {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.note {
+  @include tokens.role('reading-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.people {
+  @include tokens.role('body-md');
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--at-body);
+}
+
+.person {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-sm);
+  padding-block: var(--at-space-xxs);
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+}
+
+.modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.preview {
+  @include tokens.role('reading-md');
+  margin: 0;
+  padding: var(--at-space-md);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+  color: var(--at-body);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}

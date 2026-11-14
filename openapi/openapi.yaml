@@ -461,6 +461,87 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/followers:
+    post:
+      operationId: addLaunchFollowers
+      summary: >
+        Editors of the project's team add people to follow the launch from the research stage (internal members only; 422 for an external member or a
+        stranger). Followers get the early digest and brief, never access to the research. Ones already following are left. Returns the launch.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AddFollowersRequest' }
+      responses:
+        '201':
+          description: The launch with its followers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/followers/{userId}:
+    delete:
+      operationId: removeLaunchFollower
+      summary: Editors of the project's team stop someone following the launch. Returns the launch.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: userId, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The launch with its followers.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /launches/{id}/digest:
+    get:
+      operationId: previewLaunchDigest
+      summary: >
+        Editors of the project's team preview the early digest as the project's data stands now: the themes that matter most (where people struggled first),
+        a quote or two as said and never tied to a person, and the plain-language brief when requirements are published, ending with "Does everyone
+        understand? Any concerns?". Built from a template, not rewritten by a model.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The digest.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDigest' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: shareLaunchDigest
+      summary: >
+        Shares the digest as it stands now: by email to every follower (once each), and/or as a reply in the launch's Slack thread. 422 when neither is
+        chosen. The record keeps the text that was sent. Emails the temporary recipient limit excludes are returned as `held`.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ShareDigestRequest' }
+      responses:
+        '200':
+          description: How it went out.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchDigestShared' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /launches/{id}/slack:
     post:
       operationId: startLaunchSlackThread
@@ -4158,6 +4239,42 @@ components:
             properties:
               id: { type: string }
               name: { type: string }
+    LaunchPerson:
+      type: object
+      required: [userId, name]
+      properties:
+        userId: { type: string }
+        name: { type: string }
+    AddFollowersRequest:
+      type: object
+      required: [userIds]
+      properties:
+        userIds: { type: array, items: { type: string }, minItems: 1, maxItems: 50 }
+    ShareDigestRequest:
+      type: object
+      required: [email, slack]
+      properties:
+        email: { type: boolean, description: Email it to every follower. }
+        slack: { type: boolean, description: Post it as a reply in the launch's Slack thread. }
+    LaunchDigest:
+      type: object
+      required: [subject, text, themeCount, shown, hasBrief]
+      properties:
+        subject: { type: string }
+        text: { type: string, description: The digest as plain text, as it would be sent. }
+        themeCount: { type: integer, description: Themes the research found. }
+        shown: { type: integer, description: Themes the digest shows. }
+        hasBrief: { type: boolean, description: Whether the requirements are published, so the brief is in it. }
+    LaunchDigestShared:
+      type: object
+      required: [shareId, followers, emailed, held, failed, slack]
+      properties:
+        shareId: { type: string }
+        followers: { type: integer, description: Followers it was emailed to (0 when email was not chosen). }
+        emailed: { type: integer }
+        held: { type: integer, description: Kept back by the temporary recipient limit or a placeholder address. }
+        failed: { type: integer }
+        slack: { type: string, enum: [posted, not_posted, off, skipped] }
     TeamSlackRequest:
       type: object
       required: [channel]
@@ -4277,7 +4394,7 @@ components:
         canAnswer: { type: boolean, description: 'True only for this step''s reviewer.' }
     LaunchDetail:
       type: object
-      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, slack, steps, summary, brief]
+      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, slack, follow, steps, summary, brief]
       properties:
         id: { type: string }
         projectId: { type: string }
@@ -4303,6 +4420,23 @@ components:
             channel: { type: [string, 'null'] }
             started: { type: boolean }
             threadUrl: { type: [string, 'null'] }
+        follow:
+          type: object
+          description: Who follows the launch from the research stage, who could, and the last digest shared with them. Empty for an external reviewer; `candidates` only for editors.
+          required: [followers, candidates, lastShared]
+          properties:
+            followers: { type: array, items: { $ref: '#/components/schemas/LaunchPerson' } }
+            candidates: { type: array, items: { $ref: '#/components/schemas/LaunchPerson' } }
+            lastShared:
+              oneOf:
+                - type: 'null'
+                - type: object
+                  required: [at, by, emailed, inSlack]
+                  properties:
+                    at: { type: string, format: date-time }
+                    by: { type: [string, 'null'] }
+                    emailed: { type: integer }
+                    inSlack: { type: boolean }
         steps: { type: array, items: { $ref: '#/components/schemas/LaunchStep' } }
         summary:
           type: object
