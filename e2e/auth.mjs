@@ -255,7 +255,7 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.includes('e2e.counsel@example.com')).click())
   ok('an external member cannot be set up for all teams', await page.evaluate(() => document.querySelector('#scope-all').disabled === true && /chosen teams only/.test(document.querySelector('[data-testid="add-reviewer"]').innerText)))
   // Removing the reviewer leaves the step a gap again.
-  await page.evaluate(() => document.querySelector('[data-testid^="reviewer-legal-alex@"] button').click())
+  await page.evaluate(() => [...document.querySelectorAll('[data-testid^="reviewer-legal-alex@"] button')].at(-1).click())
   await page.waitForFunction(() => document.querySelector('[data-testid="cell-General-legal"]')?.dataset.state === 'gap', { timeout: 8000 })
   ok('removing a reviewer makes the step a gap again', await page.evaluate(() => !document.querySelector('[data-testid^="reviewer-legal-alex@"]')))
   ok('reviewer changes are in the audit log under their own filter', await page.evaluate(async () => (await (await fetch('/api/v1/audit?group=reviewers')).json()).data.length >= 3))

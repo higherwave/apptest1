@@ -80,6 +80,8 @@ async function writeStoryboardAfter(db: Db, ai: Ai, ctx: Actor, projectId: strin
     await generateStoryboard(db, ai, { ...ctx, anonymous: false }, projectId)
   } catch (err) {
     console.error('storyboard was not written after the analysis', err instanceof Error ? `${err.constructor.name} ${err.message}` : err)
+    // Remember it, so the Storyboard step can say so and offer a retry instead of looking as if nothing had been tried.
+    await db.query(`update core.projects set storyboard_failed_at = now() where id = $1`, [projectId]).catch(() => undefined)
   }
 }
 

@@ -86,7 +86,34 @@
   background: var(--at-canvas);
 }
 
-.tabPanel { padding: var(--at-space-lg); }
+.tabPanel { padding: var(--at-space-lg) 0 0; }
+.panel { padding: var(--at-space-lg); }
+
+// The Product Brief tab: the brief at the left, a narrower Docs panel at the right.
+.briefLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--at-space-lg);
+  align-items: start;
+
+  @media (min-width: 64rem) { grid-template-columns: minmax(0, 1fr) minmax(18rem, 22rem); }
+}
+
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding-block-start: var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &[data-reached='false'] { opacity: 0.7; }
+}
+.stageHead { display: flex; align-items: center; justify-content: space-between; gap: var(--at-space-sm); }
+.stageTitle { @include tokens.role('title-md'); margin: 0; color: var(--at-ink); }
+
+.docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--at-space-md); }
+.doc { display: flex; flex-direction: column; gap: var(--at-space-xs); padding-block-end: var(--at-space-md); border-block-end: 1px solid var(--at-hairline); &:last-child { border-block-end: none; padding-block-end: 0; } &[data-available='false'] { opacity: 0.75; } }
+.docTitle { @include tokens.role('title-md'); margin: 0; color: var(--at-ink); }
 
 // One step: independent of the others.
 .section {
@@ -301,3 +328,14 @@
   flex-direction: column;
   gap: var(--at-space-md);
 }
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.docLinks { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--at-space-xs); }

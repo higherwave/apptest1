@@ -2,7 +2,7 @@
 // the final decision); each section is answered by that step's reviewer, with a rationale and links to the evidence. Everyone with access reads every
 // internal section; only a step's reviewer writes it. Answers are never overwritten: a new answer is a new row, and an answer given on an earlier
 // brief shows as reopened. Who covers a step comes from shared/launch.mjs (reviewersFor), set up under Admin, Members, Reviewers.
-import { isAnswerFor, isStep, LAUNCH_STEPS, rationaleRequired, reviewersFor, stepLabel, stepState, stepUsed, type Assignment } from '../shared/launch.mjs'
+import { activeFor, isAnswerFor, isStep, LAUNCH_STEPS, rationaleRequired, reviewersFor, stepLabel, stepState, stepUsed, type Assignment } from '../shared/launch.mjs'
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
 import { getProjectSummary } from './projects.js'
@@ -21,6 +21,8 @@ export class BadAnswer extends Error {}
 export class NeedsRationale extends Error {}
 export class BadLink extends Error {}
 export class LinkNotFound extends Error {}
+/** Approvals open once the requirements are published: before that a launch only orients people. */
+export class RequirementsNotPublished extends Error {}
 
 export type Person = { userId: string; name: string; email: string }
 export type OpenItem = { step: string; label: string; state: string; rationale: string | null }
@@ -32,36 +34,14 @@ export type LaunchStep = {
   used: boolean
   /** waiting, missing (a step the team uses with no primary reviewer), not_used, reopened, or the current answer. */
   state: string
-  reviewers: { primary: Person[]; alternate: Person[] }
+  /** `active` is who is asked now: the primaries, or the alternates while the primaries are away. */
+  reviewers: { primary: Person[]; alternate: Person[]; active: Person[] }
   answer: LaunchAnswer | null
   /** Earlier answers on this step, newest first (the record keeps them). */
   earlier: LaunchAnswer[]
   links: LaunchLink[]
   canAnswer: boolean
 }
-export type Follower = { userId: string; name: string }
-
-export async function followersOf(db: Queryable, launchId: string): Promise<Follower[]> {
-  return (await db.query(`select u.id, u.display_name from delivery.launch_followers f join core.users u on u.id = f.user_id where f.launch_id = $1 order by lower(u.display_name)`, [launchId])).rows.map((r) => ({ userId: r.id as string, name: r.display_name as string }))
-}
-
-/** Internal members who could follow and are not yet following: an external member is never offered, because the digest carries quotes. */
-export async function candidatesFor(db: Queryable, workspaceId: string, launchId: string): Promise<Follower[]> {
-  return (
-    await db.query(
-      `select u.id, u.display_name from core.memberships m join core.users u on u.id = m.user_id
-        where m.workspace_id = $1 and not m.is_external and u.id not in (select user_id from delivery.launch_followers where launch_id = $2)
-        order by lower(u.display_name)`,
-      [workspaceId, launchId],
-    )
-  ).rows.map((r) => ({ userId: r.id as string, name: r.display_name as string }))
-}
-
-export async function lastShared(db: Queryable, launchId: string): Promise<{ at: string; by: string | null; emailed: number; inSlack: boolean } | null> {
-  const r = (await db.query(`select d.shared_at, d.emailed, d.in_slack, u.display_name from delivery.launch_digests d left join core.users u on u.id = d.shared_by where d.launch_id = $1 order by d.shared_at desc limit 1`, [launchId])).rows[0]
-  return r ? { at: new Date(r.shared_at).toISOString(), by: r.display_name ?? null, emailed: r.emailed, inSlack: r.in_slack } : null
-}
-
 export type ViewerKind = 'team' | 'leader' | 'reviewer' | 'external' | 'visitor'
 export type LaunchDetail = {
   id: string
@@ -77,8 +57,13 @@ export type LaunchDetail = {
   you: { kind: ViewerKind; canSetUp: boolean; steps: string[] }
   /** The team's Slack channel, and the launch's thread in it once it has one. Nothing for an external reviewer. */
   slack: { channel: string | null; started: boolean; threadUrl: string | null }
-  /** Who follows the launch, who could, and the last digest shared with them. Nothing for an external reviewer. */
-  follow: { followers: Follower[]; candidates: Follower[]; lastShared: { at: string; by: string | null; emailed: number; inSlack: boolean } | null }
+  /**
+   * Where the release stands, for orientation: `storyboard` (themes and a few best guesses; no approvals yet), `requirements` (published; approvals can be asked
+   * for) or `approval` (answers have been asked for).
+   */
+  stage: 'storyboard' | 'requirements' | 'approval'
+  /** The documents a reviewer can open as PDFs: the storyboard (never for an external reviewer) and the published requirements. */
+  documents: { storyboard: boolean; requirements: boolean }
   steps: LaunchStep[]
   summary: {
     /** preparing, or the final decision's answer, or reopened. */
@@ -91,10 +76,10 @@ export type LaunchDetail = {
 }
 export type LaunchListItem = { id: string; projectId: string; projectName: string; teamName: string | null; name: string; targetDate: string | null; state: string; yourSteps: string[]; waitingOnYou: string[] }
 
-type Row = { id: string; project_id: string; name: string; target_date: string | null; brief_notes: string; notes_updated_at: string; project_name: string; team_id: string | null; team_name: string | null; slack_channel: string | null; slack_thread_ts: string | null; slack_permalink: string | null }
+type Row = { id: string; project_id: string; name: string; target_date: string | null; brief_notes: string; notes_updated_at: string; project_name: string; team_id: string | null; team_name: string | null; slack_channel: string | null; slack_thread_ts: string | null; slack_permalink: string | null; asked_at: string | null }
 const LAUNCH_SQL = `
   select l.id, l.project_id, l.name, to_char(l.target_date, 'YYYY-MM-DD') as target_date, l.brief_notes, l.notes_updated_at, p.name as project_name, p.team_id, t.name as team_name,
-    t.slack_channel, l.slack_thread_ts, l.slack_permalink
+    t.slack_channel, l.slack_thread_ts, l.slack_permalink, l.asked_at
   from delivery.launches l join core.projects p on p.id = l.project_id left join core.teams t on t.id = p.team_id`
 
 const audit = (tx: Queryable, ctx: RequestContext, entity: 'delivery.launches' | 'delivery.launch_answers' | 'delivery.launch_links', id: string, verb: string, before: unknown, after: unknown) =>
@@ -109,7 +94,8 @@ type Cover = { assignments: Assignment[]; people: Map<string, Person>; off: Map<
 async function loadCover(db: Queryable, workspaceId: string): Promise<Cover> {
   const rows = (
     await db.query(
-      `select ra.user_id, ra.step, ra.team_id, ra.role, u.display_name, u.email from core.reviewer_assignments ra join core.users u on u.id = ra.user_id where ra.workspace_id = $1`,
+      `select ra.user_id, ra.step, ra.team_id, ra.role, u.display_name, u.email, coalesce(m.reviewing_unavailable, false) as unavailable
+         from core.reviewer_assignments ra join core.users u on u.id = ra.user_id left join core.memberships m on m.user_id = ra.user_id and m.workspace_id = ra.workspace_id where ra.workspace_id = $1`,
       [workspaceId],
     )
   ).rows
@@ -118,7 +104,7 @@ async function loadCover(db: Queryable, workspaceId: string): Promise<Cover> {
     off.set(r.team_id, [...(off.get(r.team_id) ?? []), r.step])
   }
   return {
-    assignments: rows.map((r) => ({ userId: r.user_id, step: r.step, teamId: r.team_id ?? null, role: r.role })),
+    assignments: rows.map((r) => ({ userId: r.user_id, step: r.step, teamId: r.team_id ?? null, role: r.role, unavailable: !!r.unavailable })),
     people: new Map(rows.map((r) => [r.user_id as string, { userId: r.user_id as string, name: r.display_name as string, email: r.email as string }])),
     off,
   }
@@ -183,7 +169,7 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
       label: s.label,
       used,
       state: stepState({ used, hasPrimary: who.primary.length > 0, answer: current?.answer ?? null, reopened: !!current?.reopened }),
-      reviewers: { primary: who.primary.map(person), alternate: who.alternate.map(person) },
+      reviewers: { primary: who.primary.map(person), alternate: who.alternate.map(person), active: row.team_id ? activeFor(cover.assignments, row.team_id, s.key).map(person) : [] },
       answer: current,
       earlier: mine.slice(1, 6),
       links: linkRows.filter((l) => l.step === s.key).map((l) => ({ id: l.id, title: l.title, url: l.url, addedBy: l.display_name ?? null, addedAt: iso(l.added_at) })),
@@ -222,7 +208,8 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
     id: row.id, projectId: row.project_id, projectName: row.project_name, teamId: row.team_id, teamName: row.team_name, name: row.name, targetDate: row.target_date,
     briefNotes: row.brief_notes, briefAt: brief.at, you: viewer,
     slack: external ? { channel: null, started: false, threadUrl: null } : { channel: row.slack_channel, started: !!row.slack_thread_ts, threadUrl: row.slack_permalink },
-    follow: external ? { followers: [], candidates: [], lastShared: null } : { followers: await followersOf(db, row.id), candidates: viewer.canSetUp ? await candidatesFor(db, ctx.workspaceId, row.id) : [], lastShared: await lastShared(db, row.id) },
+    stage: !brief.specId ? 'storyboard' : row.asked_at ? 'approval' : 'requirements',
+    documents: { storyboard: !external && !!(await db.query(`select 1 from research.storyboards where project_id = $1`, [row.project_id])).rows[0], requirements: !!brief.specId },
     steps, summary: external ? { ...summary, counts: { ready: 0, conditions: 0, changes: 0, notApplicable: 0, waiting: 0, missing: 0, reopened: 0 }, blocking: [], waitingOn: [] } : summary,
     brief: { published, requirements, problem, users, goals },
   }
@@ -338,6 +325,7 @@ async function reviewerOrThrow(db: Queryable, ctx: RequestContext, launchId: str
   if (!viewer) throw new LaunchNotFound()
   const off = row.team_id ? (cover.off.get(row.team_id) ?? []) : []
   if (!stepUsed(off, step)) throw new StepNotUsed()
+  if (!(await currentBrief(db, row)).specId) throw new RequirementsNotPublished()
   if (!viewer.steps.includes(step)) {
     const who = row.team_id ? reviewersFor(cover.assignments, row.team_id, step) : { primary: [], alternate: [] }
     throw new NotTheReviewer([...who.primary, ...who.alternate].map((id) => cover.people.get(id)?.name ?? 'Someone'))

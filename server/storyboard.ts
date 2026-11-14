@@ -29,15 +29,19 @@ export type Storyboard = {
   draft: (Omit<StoryboardDraft, 'solutions'> & { solutions: StoryboardSolution[]; source: 'model' | 'template'; generatedAt: string }) | null
   /** Set on a generate that fell back to the plain draft because the month's budget or the account's credit was used up. */
   fallback?: Fallback
+  /** True when the storyboard failed to write itself after the latest analysis (cleared when one is written): the page offers a retry. */
+  autoFailed: boolean
 }
 
 export class NoStoryboardProject extends Error {}
 
-type Gathered = { facts: StoryboardFacts; input: StoryboardInput }
+type Gathered = { facts: StoryboardFacts; input: StoryboardInput; autoFailed: boolean }
 
 async function gather(db: Queryable, workspaceId: string, projectId: string): Promise<Gathered | undefined> {
-  const project = (await db.query(`select name from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, workspaceId])).rows[0]
+  let autoFailed = false
+  const project = (await db.query(`select name, storyboard_failed_at from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, workspaceId])).rows[0]
   if (!project) return undefined
+  autoFailed = !!project.storyboard_failed_at
   const sessions = (await db.query(`select count(*)::int as n from research.transcripts where project_id = $1`, [projectId])).rows[0].n as number
   const people = (await db.query(`select role, count(*)::int as n, min(session_date)::text as first, max(session_date)::text as last from research.participants where project_id = $1 group by role`, [projectId])).rows
   const participants = people.reduce((n, r) => n + (r.n as number), 0)
@@ -68,7 +72,7 @@ async function gather(db: Queryable, workspaceId: string, projectId: string): Pr
     tasks,
     themes: themes.map((t) => ({ id: t.id, title: t.title, category: t.category, participants: t.participantCount, totalParticipants: t.totalParticipants, description: t.description, opportunity: t.opportunity, quotes: (t.quotes ?? []).filter((q) => q.source === 'customer').map((q) => q.text) })),
   }
-  return { facts, input }
+  return { facts, input, autoFailed }
 }
 
 async function saved(db: Queryable, projectId: string, facts: StoryboardFacts): Promise<Storyboard['draft']> {
@@ -91,7 +95,7 @@ async function saved(db: Queryable, projectId: string, facts: StoryboardFacts): 
 export async function getStoryboard(db: Queryable, workspaceId: string, projectId: string): Promise<Storyboard | undefined> {
   const g = await gather(db, workspaceId, projectId)
   if (!g) return undefined
-  return { facts: g.facts, draft: await saved(db, projectId, g.facts) }
+  return { facts: g.facts, draft: await saved(db, projectId, g.facts), autoFailed: g.autoFailed }
 }
 
 export class NoThemesYet extends Error {}
@@ -115,6 +119,7 @@ export async function generateStoryboard(db: Db, ai: Ai, ctx: Pick<RequestContex
      on conflict (project_id) do update set draft = excluded.draft, prompt_version = excluded.prompt_version, source = excluded.source, generated_at = now(), generated_by = excluded.generated_by`,
     [projectId, ctx.workspaceId, JSON.stringify(value.draft), value.version, value.source, ctx.anonymous ? null : ctx.userId],
   )
-  return { facts: g.facts, draft: await saved(db, projectId, g.facts), ...(fallback ? { fallback } : {}) }
+  await db.query(`update core.projects set storyboard_failed_at = null where id = $1`, [projectId])
+  return { facts: g.facts, draft: await saved(db, projectId, g.facts), autoFailed: false, ...(fallback ? { fallback } : {}) }
 }
 

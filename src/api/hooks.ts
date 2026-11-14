@@ -2,9 +2,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, addLaunchFollowers, removeLaunchFollower, previewLaunchDigest, shareLaunchDigest, setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread,  setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
-  changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
+  changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setReviewerAway, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
@@ -110,17 +110,6 @@ export const useStartLaunchSlackThread = () => {
     onSuccess: () => Promise.all(['launch', 'launches', 'project-launch'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
   })
 }
-export const useAddLaunchFollowers = () => useLaunchMutation(({ id, userIds }: { id: string; userIds: string[] }) => addLaunchFollowers(id, userIds))
-export const useRemoveLaunchFollower = () => useLaunchMutation(({ id, userId }: { id: string; userId: string }) => removeLaunchFollower(id, userId))
-// The digest as it stands now (a preview, so never kept), and sharing it (the launch is refreshed so "last shared" shows).
-export const usePreviewLaunchDigest = () => useMutation({ mutationFn: (id: string) => previewLaunchDigest(id) })
-export const useShareLaunchDigest = () => {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: ({ id, via }: { id: string; via: { email: boolean; slack: boolean } }) => shareLaunchDigest(id, via),
-    onSuccess: () => Promise.all(['launch', 'launches', 'project-launch'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
-  })
-}
 // The caller's Slack connection (for the account panel), the one-time code to connect it, and undoing it.
 export const useMySlack = () => useQuery({ queryKey: ['my-slack'], queryFn: getMySlack, staleTime: 60_000 })
 export const useCreateSlackConnectCode = () => useMutation({ mutationFn: createSlackConnectCode })
@@ -138,6 +127,7 @@ function useReviewerMutation<T>(fn: (input: T) => Promise<unknown>) {
 }
 export const useAddReviewer = () => useReviewerMutation((input: Parameters<typeof addReviewer>[0]) => addReviewer(input))
 export const useRemoveReviewer = () => useReviewerMutation((id: string) => removeReviewer(id))
+export const useSetReviewerAway = () => useReviewerMutation(({ userId, unavailable }: { userId: string; unavailable: boolean }) => setReviewerAway(userId, unavailable))
 export const useSetTeamLaunchSteps = () => useReviewerMutation(({ id, used }: { id: string; used: Record<string, boolean> }) => setTeamLaunchSteps(id, used))
 
 export const useTeams = () => useQuery({ queryKey: ['teams'], queryFn: listTeams })

@@ -5,15 +5,14 @@ import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
 import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
 import { signInOptions, ssoPolicy } from './sso.js'
 import { AlreadyMember, changeRole, ExternalNeedsViewer, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, setExternal } from './members.js'
-import { noticeAnswered, requestAnswers, sweepLaunch, sweepLaunches } from './launch-notices.js'
-import { addLink, answerStep, BadAnswer, BadLink, createLaunch, getLaunch, getProjectLaunch, LaunchExists, LaunchNotFound, LinkNotFound, listLaunches, NeedsRationale, NoThemes, NotTheReviewer, removeLink, setUpLaunch, StepNotUsed } from './launches.js'
-import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, ReviewerNotFound, reviewerOverview, setTeamSteps } from './reviewers.js'
+import { noticeAnswered, requestAnswers, sweepLaunch, sweepLaunches, tellAlternatesCover } from './launch-notices.js'
+import { addLink, answerStep, BadAnswer, RequirementsNotPublished, BadLink, createLaunch, getLaunch, getProjectLaunch, LaunchExists, LaunchNotFound, LinkNotFound, listLaunches, NeedsRationale, NoThemes, NotTheReviewer, removeLink, setUpLaunch, StepNotUsed } from './launches.js'
+import { addReviewer, BadStep, NoAlternate, ExternalAllTeams, PrimaryTaken, removeReviewer, ReviewerNotFound, reviewerOverview, setReviewerUnavailable, setTeamSteps } from './reviewers.js'
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
 import { startThread } from './launch-slack.js'
 import { handleCommand, handleInteraction } from './slack-interact.js'
 import { createConnectCode, disconnectSlack, rememberRequest, slackStatus } from './slack-link.js'
-import { addFollowers, buildDigest, NotAFollowable, removeFollower, shareDigest } from './launch-digest.js'
 import { cleanChannel, makeSlack, verifySlackSignature, type SlackClient } from './slack.js'
 import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
 import { timingSafeEqual } from 'node:crypto'
@@ -22,7 +21,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, addFollowersSchema, shareDigestSchema, teamSlackSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, addReviewerSchema, teamStepsSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -45,6 +44,8 @@ import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from '
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { exportFileName, launchRecordHtml } from './launch-export.js'
+import { requirementsHtml, storyboardHtml } from './launch-documents.js'
+import { afterRequirements, afterStoryboard } from './launch-updates.js'
 import { makePdf, PdfError, type PdfService } from './pdf.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spendByTeam, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
@@ -258,7 +259,7 @@ export function createApp(options: AppOptions = {}) {
   // outside the team, and an external reviewer, reach it through /launches/{id}, where access is decided by who they are to that launch (launches.ts).
   const launchErrors = (err: unknown): never => {
     if (err instanceof LaunchNotFound || err instanceof LinkNotFound) throw new ApiError(404, 'not_found', 'No such launch.')
-    if (err instanceof NotAFollowable) throw new ApiError(422, 'validation_failed', 'Only internal members of the workspace can follow a launch.', 'userIds')
+    if (err instanceof RequirementsNotPublished) throw new ApiError(409, 'requirements_not_published', 'Approvals open once the requirements are published.')
     if (err instanceof NoThemes) throw new ApiError(409, 'no_themes', 'A launch can start once the project has themes.')
     if (err instanceof LaunchExists) throw new ApiError(409, 'launch_exists', 'This project already has a launch.')
     if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : 'Nobody is set up to answer this step yet. An owner can add a reviewer under Admin, Members, Reviewers.')
@@ -340,50 +341,34 @@ export function createApp(options: AppOptions = {}) {
     c.header('Content-Disposition', `attachment; filename="${exportFileName(launch, 'pdf')}"`)
     return c.body(new Uint8Array(file), 200, { 'Content-Type': 'application/pdf' })
   })
-  // Following (slice 6): the launch's editors say who follows it, preview the early digest and share it. Followers get the digest and brief only.
-  const editorOf = async (c: Context, id: string) => {
-    const launch = await oneLaunch(c, id)
-    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can manage who follows a launch.')
-    return launch
-  }
-  app.post('/launches/:id/followers', withContext, async (c) => {
-    const id = launchId(c)
-    await editorOf(c, id)
-    const input = parseBody(addFollowersSchema, await readJson(c))
+  // The documents a reviewer reads before being asked to approve, as PDFs that open in the browser: the storyboard (never for an external reviewer, because it
+  // carries customer quotes) and the published requirements. What the caller may see of the launch decides who may open them.
+  const sendPdf = async (c: Context, html: string, footer: string, name: string) => {
+    if (env.PDF_EXPORT === 'false') throw new ApiError(503, 'unavailable', 'PDF export is switched off on this deployment.')
+    let file: Buffer
     try {
-      await addFollowers(getDb(), c.get('ctx'), id, input.userIds)
+      file = await pdf(html, footer)
     } catch (err) {
-      return launchErrors(err)
+      if (err instanceof PdfError) throw new ApiError(502, 'pdf_failed', err.message)
+      throw err
     }
-    c.header('Cache-Control', 'no-store')
-    return c.json(await oneLaunch(c, id), 201)
-  })
-  app.delete('/launches/:id/followers/:userId', withContext, async (c) => {
-    const id = launchId(c)
-    await editorOf(c, id)
-    const userId = c.req.param('userId') ?? ''
-    if (!UUID.test(userId)) throw new ApiError(404, 'not_found', 'No such follower.')
-    await removeFollower(getDb(), c.get('ctx'), id, userId)
-    c.header('Cache-Control', 'no-store')
-    return c.json(await oneLaunch(c, id))
-  })
-  app.get('/launches/:id/digest', withContext, async (c) => {
-    const id = launchId(c)
-    await editorOf(c, id)
-    const digest = await buildDigest(getDb(), c.get('ctx').workspaceId, id)
-    if (!digest) throw new ApiError(404, 'not_found', 'No such launch.')
     c.header('Cache-Control', 'private, no-store')
-    return c.json({ subject: digest.subject, text: digest.text, themeCount: digest.themeCount, shown: digest.shown, hasBrief: digest.hasBrief })
+    c.header('Content-Disposition', `inline; filename="${name}"`)
+    return c.body(new Uint8Array(file), 200, { 'Content-Type': 'application/pdf' })
+  }
+  app.get('/launches/:id/storyboard.pdf', withReadContext, async (c) => {
+    const launch = await oneLaunch(c, launchId(c))
+    if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', 'The storyboard is not available to an external reviewer.')
+    const board = await getStoryboard(getDb(), c.get('ctx').workspaceId, launch.projectId)
+    if (!board?.draft) throw new ApiError(404, 'not_found', 'The storyboard has not been written yet.')
+    return sendPdf(c, storyboardHtml(board, launch.name), `${launch.name}: storyboard`, exportFileName(launch, 'pdf', 'storyboard'))
   })
-  app.post('/launches/:id/digest', withContext, async (c) => {
-    const id = launchId(c)
-    await editorOf(c, id)
-    const input = parseBody(shareDigestSchema, await readJson(c))
-    if (!input.email && !input.slack) throw new ApiError(422, 'validation_failed', 'Choose email, Slack or both.', 'email')
-    const result = await shareDigest({ db: getDb(), env, mailer, slack }, c.get('ctx'), id, input)
-    if (!result) throw new ApiError(404, 'not_found', 'No such launch.')
-    c.header('Cache-Control', 'no-store')
-    return c.json(result)
+  app.get('/launches/:id/requirements.pdf', withReadContext, async (c) => {
+    const launch = await oneLaunch(c, launchId(c))
+    const specRow = (await getDb().query(`select id from delivery.specs where project_id = $1 and status = 'published' order by published_at desc limit 1`, [launch.projectId])).rows[0]
+    const spec = specRow ? await getSpec(getDb(), c.get('ctx').workspaceId, specRow.id as string) : undefined
+    if (!spec) throw new ApiError(404, 'not_found', 'The requirements are not published yet.')
+    return sendPdf(c, requirementsHtml(spec, launch.name), `${launch.name}: requirements`, exportFileName(launch, 'pdf', 'requirements'))
   })
   // Opens the launch's Slack thread (for a launch made before its team had a channel, or after a failed post). The result says why, if it could not.
   app.post('/launches/:id/slack', withContext, async (c) => {
@@ -399,6 +384,7 @@ export function createApp(options: AppOptions = {}) {
     const id = launchId(c)
     const launch = await oneLaunch(c, id)
     if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can ask for answers.')
+    if (launch.stage === 'storyboard') throw new ApiError(409, 'requirements_not_published', 'Approvals open once the requirements are published.')
     const result = await requestAnswers({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id)
     c.header('Cache-Control', 'no-store')
     return c.json(result)
@@ -448,6 +434,7 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof ReviewerNotFound) throw new ApiError(404, 'not_found', 'No such assignment.')
     if (err instanceof BadStep) throw new ApiError(422, 'bad_step', 'That step cannot be set that way.')
     if (err instanceof ExternalAllTeams) throw new ApiError(422, 'external_all_teams', 'An external member can cover named teams only, not all teams.', 'teams')
+    if (err instanceof NoAlternate) throw new ApiError(409, 'no_alternate', 'Add an alternate for every step this person approves before marking them away.')
     if (err instanceof PrimaryTaken) throw new ApiError(409, 'primary_taken', `${err.who} is already the primary for that step and team. Make one of them an alternate, or remove one first.`)
     throw err
   }
@@ -466,6 +453,22 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'no-store')
     return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId), 201)
+  })
+  // A reviewer who is away: their alternates become the active reviewers (and get the messages) until it is switched off.
+  app.put('/reviewers/people/:userId', withContext, async (c) => {
+    requireLeader(c, 'launch reviewers')
+    const userId = c.req.param('userId') ?? ''
+    if (!UUID.test(userId)) throw new ApiError(404, 'not_found', 'No such person.')
+    const input = parseBody(reviewerAwaySchema, await readJson(c))
+    try {
+      const { away, covering } = await setReviewerUnavailable(getDb(), c.get('ctx'), userId, input.unavailable)
+      // The alternates who now cover are told; a failed email never undoes the change.
+      if (covering.length) await tellAlternatesCover({ db: getDb(), env, mailer }, c.get('ctx').workspaceId, { name: away }, covering)
+    } catch (err) {
+      return reviewerErrors(err)
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json(await reviewerOverview(getDb(), c.get('ctx').workspaceId))
   })
   app.delete('/reviewers/:id', withContext, async (c) => {
     requireLeader(c, 'launch reviewers')
@@ -755,6 +758,8 @@ export function createApp(options: AppOptions = {}) {
         // start, so the clear ones are folded together right after (each recorded, so it can be undone from the Platform Themes page).
         const matched = await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
         if (matched && 'created' in matched && matched.created) await autoMergeDuplicates(getDb(), ai, c.get('ctx')).catch(() => undefined)
+        // The storyboard was written after the analysis: start the launch (the first time) and tell the active reviewers, for awareness.
+        await afterStoryboard({ db: getDb(), env, mailer, slack }, c.get('ctx'), id)
         return result
       },
       'raw',
@@ -943,6 +948,8 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       return specError(err)
     }
+    // The reviewers are told the requirements are out (and the launch is started if it was not): a failure here never undoes the publish.
+    await afterRequirements({ db: getDb(), env, mailer, slack }, c.get('ctx'), result.projectId)
     c.header('Cache-Control', 'no-store')
     return c.json({ specId: id, ...result }, 201)
   })
@@ -1376,7 +1383,9 @@ export function createApp(options: AppOptions = {}) {
     requireEditor(c)
     c.header('Cache-Control', 'no-store')
     try {
-      return c.json(await generateStoryboard(getDb(), ai, c.get('ctx'), projectId(c)))
+      const board = await generateStoryboard(getDb(), ai, c.get('ctx'), projectId(c))
+      await afterStoryboard({ db: getDb(), env, mailer, slack }, c.get('ctx'), projectId(c))
+      return c.json(board)
     } catch (err) {
       if (err instanceof NoStoryboardProject) throw new ApiError(404, 'not_found', 'No such project.')
       if (err instanceof NoThemesYet) throw new ApiError(409, 'no_themes', 'This project has no themes yet. Add transcripts and run the analysis first.')

@@ -552,87 +552,43 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '502': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
-  /launches/{id}/followers:
-    post:
-      operationId: addLaunchFollowers
-      summary: >
-        Editors of the project's team add people to follow the launch from the research stage (internal members only; 422 for an external member or a
-        stranger). Followers get the early digest and brief, never access to the research. Ones already following are left. Returns the launch.
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/AddFollowersRequest' }
-      responses:
-        '201':
-          description: The launch with its followers.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LaunchDetail' }
-        '400': { $ref: '#/components/responses/Error' }
-        '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
-        '404': { $ref: '#/components/responses/Error' }
-        '422': { $ref: '#/components/responses/Error' }
-  /launches/{id}/followers/{userId}:
-    delete:
-      operationId: removeLaunchFollower
-      summary: Editors of the project's team stop someone following the launch. Returns the launch.
-      parameters:
-        - { name: id, in: path, required: true, schema: { type: string } }
-        - { name: userId, in: path, required: true, schema: { type: string } }
-      responses:
-        '200':
-          description: The launch with its followers.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LaunchDetail' }
-        '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
-        '404': { $ref: '#/components/responses/Error' }
-  /launches/{id}/digest:
+  /launches/{id}/storyboard.pdf:
     get:
-      operationId: previewLaunchDigest
+      operationId: exportLaunchStoryboardPdf
       summary: >
-        Editors of the project's team preview the early digest as the project's data stands now: the themes that matter most (where people struggled first),
-        a quote or two as said and never tied to a person, and the plain-language brief when requirements are published, ending with "Does everyone
-        understand? Any concerns?". Built from a template, not rewritten by a model.
+        The project's storyboard as a PDF that opens in the browser: the problem, what people said (customer quotes by role, never by name), the recommended
+        directions and their trade-offs. 403 for an external reviewer (the storyboard carries customer quotes); 404 until it is written.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
         '200':
-          description: The digest.
+          description: The PDF.
           content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LaunchDigest' }
+            application/pdf:
+              schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
-    post:
-      operationId: shareLaunchDigest
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /launches/{id}/requirements.pdf:
+    get:
+      operationId: exportLaunchRequirementsPdf
       summary: >
-        Shares the digest as it stands now: by email to every follower (once each), and/or as a reply in the launch's Slack thread. 422 when neither is
-        chosen. The record keeps the text that was sent. Emails the temporary recipient limit excludes are returned as `held`.
+        The published requirements as a PDF that opens in the browser (the brief and the document's sections). Available to anyone who can see the launch,
+        external reviewers included. 404 until published.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ShareDigestRequest' }
       responses:
         '200':
-          description: How it went out.
+          description: The PDF.
           content:
-            application/json:
-              schema: { $ref: '#/components/schemas/LaunchDigestShared' }
-        '400': { $ref: '#/components/responses/Error' }
+            application/pdf:
+              schema: { type: string, format: binary }
         '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
-        '422': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /launches/{id}/slack:
     post:
       operationId: startLaunchSlackThread
@@ -772,6 +728,31 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /reviewers/people/{userId}:
+    put:
+      operationId: setReviewerUnavailable
+      summary: >
+        Owners only. Marks a reviewer away (or back): while away, the alternates of their steps are the active reviewers and get the messages and answer cards,
+        and the person gets none. Applies to all of the person's assignments. Needs an alternate (not themselves away) for every step and team they are primary for,
+        otherwise 409 `no_alternate`. The alternates who now cover are emailed. Returns the reviewers and coverage as they are now.
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, required: [unavailable], properties: { unavailable: { type: boolean } } }
+      responses:
+        '200':
+          description: The reviewers and coverage as they are now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReviewerOverview' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
   /reviewers/{id}:
     delete:
       operationId: removeReviewer
@@ -3789,8 +3770,9 @@ components:
           items: { $ref: '#/components/schemas/Checkin' }
     Storyboard:
       type: object
-      required: [facts, draft]
+      required: [facts, draft, autoFailed]
       properties:
+        autoFailed: { type: boolean, description: 'True when the storyboard failed to write itself after the latest analysis (cleared when one is written): the page then offers a retry.' }
         facts:
           type: object
           required: [projectName, participants, sessions, roles, tasks, when, themes, themeCount]
@@ -4343,42 +4325,6 @@ components:
       properties:
         code: { type: string, description: 'Shown once, such as K7Q3-9XMP.' }
         expiresAt: { type: string, format: date-time }
-    LaunchPerson:
-      type: object
-      required: [userId, name]
-      properties:
-        userId: { type: string }
-        name: { type: string }
-    AddFollowersRequest:
-      type: object
-      required: [userIds]
-      properties:
-        userIds: { type: array, items: { type: string }, minItems: 1, maxItems: 50 }
-    ShareDigestRequest:
-      type: object
-      required: [email, slack]
-      properties:
-        email: { type: boolean, description: Email it to every follower. }
-        slack: { type: boolean, description: Post it as a reply in the launch's Slack thread. }
-    LaunchDigest:
-      type: object
-      required: [subject, text, themeCount, shown, hasBrief]
-      properties:
-        subject: { type: string }
-        text: { type: string, description: The digest as plain text, as it would be sent. }
-        themeCount: { type: integer, description: Themes the research found. }
-        shown: { type: integer, description: Themes the digest shows. }
-        hasBrief: { type: boolean, description: Whether the requirements are published, so the brief is in it. }
-    LaunchDigestShared:
-      type: object
-      required: [shareId, followers, emailed, held, failed, slack]
-      properties:
-        shareId: { type: string }
-        followers: { type: integer, description: Followers it was emailed to (0 when email was not chosen). }
-        emailed: { type: integer }
-        held: { type: integer, description: Kept back by the temporary recipient limit or a placeholder address. }
-        failed: { type: integer }
-        slack: { type: string, enum: [posted, not_posted, off, skipped] }
     TeamSlackRequest:
       type: object
       required: [channel]
@@ -4488,17 +4434,18 @@ components:
         state: { type: string, description: 'waiting, missing (used, no primary reviewer: never hidden), not_used, reopened, or the current answer.' }
         reviewers:
           type: object
-          required: [primary, alternate]
+          required: [primary, alternate, active]
           properties:
             primary: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' } }
             alternate: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' } }
+            active: { type: array, items: { $ref: '#/components/schemas/ReviewerPerson' }, description: 'Who is asked now: the primaries, or the alternates while the primaries are away.' }
         answer: { oneOf: [{ $ref: '#/components/schemas/LaunchAnswer' }, { type: 'null' }] }
         earlier: { type: array, items: { $ref: '#/components/schemas/LaunchAnswer' } }
         links: { type: array, items: { $ref: '#/components/schemas/LaunchLink' } }
         canAnswer: { type: boolean, description: 'True only for this step''s reviewer.' }
     LaunchDetail:
       type: object
-      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, slack, follow, steps, summary, brief]
+      required: [id, projectId, projectName, teamId, teamName, name, targetDate, briefNotes, briefAt, you, slack, stage, documents, steps, summary, brief]
       properties:
         id: { type: string }
         projectId: { type: string }
@@ -4516,6 +4463,13 @@ components:
             kind: { type: string, enum: [team, leader, reviewer, external, visitor] }
             canSetUp: { type: boolean }
             steps: { type: array, items: { type: string }, description: 'The steps this person answers.' }
+        stage: { type: string, enum: [storyboard, requirements, approval], description: 'Where the release stands: the storyboard (no approvals yet), the requirements are published (approvals can be asked for), or answers have been asked for.' }
+        documents:
+          type: object
+          required: [storyboard, requirements]
+          properties:
+            storyboard: { type: boolean, description: Whether the storyboard PDF exists (never for an external reviewer). }
+            requirements: { type: boolean, description: Whether the published requirements PDF exists. }
         slack:
           type: object
           description: The team's Slack channel and the launch's thread in it. Empty for an external reviewer.
@@ -4524,23 +4478,6 @@ components:
             channel: { type: [string, 'null'] }
             started: { type: boolean }
             threadUrl: { type: [string, 'null'] }
-        follow:
-          type: object
-          description: Who follows the launch from the research stage, who could, and the last digest shared with them. Empty for an external reviewer; `candidates` only for editors.
-          required: [followers, candidates, lastShared]
-          properties:
-            followers: { type: array, items: { $ref: '#/components/schemas/LaunchPerson' } }
-            candidates: { type: array, items: { $ref: '#/components/schemas/LaunchPerson' } }
-            lastShared:
-              oneOf:
-                - type: 'null'
-                - type: object
-                  required: [at, by, emailed, inSlack]
-                  properties:
-                    at: { type: string, format: date-time }
-                    by: { type: [string, 'null'] }
-                    emailed: { type: integer }
-                    inSlack: { type: boolean }
         steps: { type: array, items: { $ref: '#/components/schemas/LaunchStep' } }
         summary:
           type: object
@@ -4603,13 +4540,14 @@ components:
         email: { type: string }
     ReviewerAssignment:
       type: object
-      required: [id, userId, email, displayName, external, step, teamId, teamName, role]
+      required: [id, userId, email, displayName, external, unavailable, step, teamId, teamName, role]
       properties:
         id: { type: string }
         userId: { type: string }
         email: { type: string }
         displayName: { type: string }
         external: { type: boolean }
+        unavailable: { type: boolean, description: 'The person is marked away: their alternates are the active reviewers.' }
         step: { type: string, enum: [product_leadership, sales, legal, documentation, marketing, final_decision] }
         teamId: { type: [string, 'null'], description: 'Null means all teams.' }
         teamName: { type: [string, 'null'] }

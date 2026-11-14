@@ -1,11 +1,10 @@
 import { Close } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useState } from 'react'
-import type { LaunchAnswer, LaunchDetail, LaunchDigest, LaunchDigestShared, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
+import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
 import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { dayText, KIND_LABEL, momentText, reviewersLine, stateLabel, stateTag } from './launchText'
-import { FollowPanel } from './FollowPanel'
 import styles from './LaunchView.module.scss'
 
 export type LaunchViewProps = {
@@ -22,13 +21,10 @@ export type LaunchViewProps = {
   onRequest: () => Promise<LaunchRequestResult | null>
   /** Opens the launch's thread in its team's Slack channel. Resolves with what happened, or null if the call failed. */
   onSlack: () => Promise<LaunchSlackResult | null>
-  /** Following: add people, remove one, preview the early digest and share it. */
-  onFollowAdd: (userIds: string[]) => Promise<boolean>
-  onFollowRemove: (userId: string) => void
-  onPreviewDigest: () => Promise<LaunchDigest | null>
-  onShareDigest: (via: { email: boolean; slack: boolean }) => Promise<LaunchDigestShared | null>
   /** The step an email link pointed at (?step=): scrolled to, with what is true of it now. */
   focusStep?: string | null
+  /** Which tab to open on (?tab=brief, from a message about a document). */
+  tab?: string | null
   /** The address of Admin, Members, Reviewers, for an owner who finds a step with no reviewer. */
   reviewersHref?: string
 }
@@ -255,41 +251,95 @@ function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () =
   )
 }
 
+const STAGE_ORDER = ['storyboard', 'requirements', 'approval'] as const
+const STAGE_TITLE: Record<(typeof STAGE_ORDER)[number], string> = { storyboard: 'Storyboard', requirements: 'Requirements', approval: 'Ready for approval' }
+
+// One stage of the brief: done and filled in, the one the release is at, or not reached yet. The brief gains a section at each stage and never loses one.
+function BriefStage({ n, stage, now, children }: { n: number; stage: (typeof STAGE_ORDER)[number]; now: LaunchDetail['stage']; children: React.ReactNode }) {
+  const reached = STAGE_ORDER.indexOf(stage) <= STAGE_ORDER.indexOf(now)
+  return (
+    <section className={styles.stage} data-reached={reached} data-current={stage === now || undefined} data-testid={`brief-stage-${stage}`} aria-label={STAGE_TITLE[stage]}>
+      <header className={styles.stageHead}>
+        <h3 className={styles.stageTitle}>{n}. {STAGE_TITLE[stage]}</h3>
+        {stage === now ? <Tag size="sm" type="blue">Now</Tag> : !reached ? <Tag size="sm" type="gray">Not reached yet</Tag> : <Tag size="sm" type="green">Done</Tag>}
+      </header>
+      {reached ? children : null}
+    </section>
+  )
+}
+
 function Brief({ launch }: { launch: LaunchDetail }) {
   const b = launch.brief
   const external = launch.you.kind === 'external'
   return (
     <div className={styles.brief} data-testid="launch-brief">
       {launch.briefNotes ? (
-        <>
+        <div>
           <p className={styles.eyebrow}>{external ? 'What you need to know' : 'Notes for reviewers'}</p>
           <p className={styles.notes}>{launch.briefNotes}</p>
-        </>
+        </div>
       ) : (
         <p className={styles.small}>{external ? 'No notes have been added for you yet.' : 'No notes yet. The launch owner can add what reviewers should know.'}</p>
       )}
       {!external && (
-        <>
-          {!b.published && <p className={styles.small}>The requirements are not published yet. Once they are, what is being built appears here.</p>}
-          {b.problem && <><p className={styles.eyebrow}>The problem</p><p className={styles.notes}>{b.problem}</p></>}
-          {b.users && <><p className={styles.eyebrow}>Who it is for</p><p className={styles.notes}>{b.users}</p></>}
-          {b.goals && b.goals.length > 0 && (
-            <>
-              <p className={styles.eyebrow}>Goals</p>
-              <ul className={styles.plain}>{b.goals.map((g) => <li key={g}>{g}</li>)}</ul>
-            </>
-          )}
-          {b.requirements.length > 0 && (
-            <>
-              <p className={styles.eyebrow}>What is being built</p>
-              <ul className={styles.plain}>
-                {b.requirements.map((r) => <li key={r.key}><strong>{r.key}</strong> {r.title}</li>)}
-              </ul>
-            </>
-          )}
-        </>
+        <BriefStage n={1} stage="storyboard" now={launch.stage}>
+          <p className={styles.notes}>The research is summarised in a storyboard: the problem, what people said, and the directions recommended. Its solutions and trade-offs are best guesses for the team to react to. Open it from Docs.</p>
+        </BriefStage>
       )}
+      <BriefStage n={external ? 1 : 2} stage="requirements" now={launch.stage}>
+        {b.problem && <div><p className={styles.eyebrow}>The problem</p><p className={styles.notes}>{b.problem}</p></div>}
+        {b.users && <div><p className={styles.eyebrow}>Who it is for</p><p className={styles.notes}>{b.users}</p></div>}
+        {b.goals && b.goals.length > 0 && (
+          <div>
+            <p className={styles.eyebrow}>Goals</p>
+            <ul className={styles.plain}>{b.goals.map((g) => <li key={g}>{g}</li>)}</ul>
+          </div>
+        )}
+        {b.requirements.length > 0 && (
+          <div>
+            <p className={styles.eyebrow}>What is being built</p>
+            <ul className={styles.plain}>{b.requirements.map((r) => <li key={r.key}><strong>{r.key}</strong> {r.title}</li>)}</ul>
+          </div>
+        )}
+      </BriefStage>
+      <BriefStage n={external ? 2 : 3} stage="approval" now={launch.stage}>
+        <p className={styles.notes}>Answers have been asked for. Each reviewer gives a go signal on the Launch Summary tab. The brief at this stage is complete.</p>
+      </BriefStage>
     </div>
+  )
+}
+
+// The documents of a launch, each there once it exists. The storyboard carries customer quotes, so an external reviewer is never shown it.
+function Docs({ launch }: { launch: LaunchDetail }) {
+  const external = launch.you.kind === 'external'
+  const base = `/api/v1/launches/${launch.id}`
+  // Links reviewers added as evidence to their own steps, gathered here; they are added and removed on the step itself.
+  const fromReviewers = launch.steps.flatMap((st) => st.links.map((l) => ({ ...l, step: st.label })))
+  const rows: { key: string; label: string; note: string; href: string | null; wait: string }[] = [
+    ...(external ? [] : [{ key: 'storyboard', label: 'Storyboard', note: 'The research as a short deck', href: launch.documents.storyboard ? `${base}/storyboard.pdf` : null, wait: 'Available once the storyboard is written.' }]),
+    { key: 'requirements', label: 'Requirements', note: 'The published brief and sections', href: launch.documents.requirements ? `${base}/requirements.pdf` : null, wait: 'Available once the requirements are published.' },
+  ]
+  return (
+    <ul className={styles.docs} aria-label="Documents" data-testid="launch-docs">
+      {rows.map((r) => (
+        <li key={r.key} className={styles.doc} data-testid={`doc-${r.key}`} data-available={!!r.href}>
+          <p className={styles.docTitle}>{r.label}</p>
+          <p className={styles.small}>{r.href ? r.note : r.wait}</p>
+          {r.href && <a href={r.href} target="_blank" rel="noreferrer" data-testid={`open-doc-${r.key}`}>Open PDF<span className={styles.srOnly}> for {r.label} (opens in a new tab)</span></a>}
+        </li>
+      ))}
+      {fromReviewers.length > 0 && (
+        <li className={styles.doc} data-testid="doc-reviewers">
+          <p className={styles.docTitle}>From reviewers</p>
+          <p className={styles.small}>Links added to an approval step.</p>
+          <ul className={styles.docLinks}>
+            {fromReviewers.map((l) => (
+              <li key={l.id}><a href={l.url} target="_blank" rel="noreferrer">{l.title}</a> <span className={styles.small}>· {l.step}</span></li>
+            ))}
+          </ul>
+        </li>
+      )}
+    </ul>
   )
 }
 
@@ -370,30 +420,35 @@ export function LaunchView(p: LaunchViewProps) {
               data-testid="asked-result"
             />
           )}
-          <div className={styles.layout}>
-            <div className={styles.sections}>
-              {launch.steps.map((s) => (
-                <Section key={s.step} step={s} focus={s.step === p.focusStep} busy={p.busy} reviewersHref={p.reviewersHref} onAnswer={p.onAnswer} onAddLink={p.onAddLink} onRemoveLink={p.onRemoveLink} />
-              ))}
-            </div>
-            <div className={styles.rail}>
-            {launch.you.kind !== 'external' && <SlackCard launch={launch} busy={p.busy} onOpen={openSlack} />}
-            <aside className={styles.aside} aria-label="Summary and brief">
-              <Tabs>
-                <TabList aria-label="Launch panel">
-                  <Tab data-testid="tab-summary">Summary</Tab>
-                  <Tab data-testid="tab-brief">Brief</Tab>
-                  {launch.you.kind !== 'external' && <Tab data-testid="tab-follow">Follow</Tab>}
-                </TabList>
-                <TabPanels>
-                  <TabPanel className={styles.tabPanel}><Summary launch={launch} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} /></TabPanel>
-                  <TabPanel className={styles.tabPanel}><Brief launch={launch} /></TabPanel>
-                  {launch.you.kind !== 'external' && <TabPanel className={styles.tabPanel}><FollowPanel launch={launch} busy={p.busy} onAdd={p.onFollowAdd} onRemove={p.onFollowRemove} onPreview={p.onPreviewDigest} onShare={p.onShareDigest} /></TabPanel>}
-                </TabPanels>
-              </Tabs>
-            </aside>
-            </div>
-          </div>
+          <Tabs defaultSelectedIndex={p.tab === 'brief' ? 1 : 0}>
+            <TabList aria-label="Launch">
+              <Tab data-testid="tab-summary">Launch Summary</Tab>
+              <Tab data-testid="tab-brief">Product Brief</Tab>
+            </TabList>
+            <TabPanels>
+              <TabPanel className={styles.tabPanel}>
+                <div className={styles.layout}>
+                  <div className={styles.sections}>
+                    {launch.steps.map((s) => (
+                      <Section key={s.step} step={s} focus={s.step === p.focusStep} busy={p.busy} reviewersHref={p.reviewersHref} onAnswer={p.onAnswer} onAddLink={p.onAddLink} onRemoveLink={p.onRemoveLink} />
+                    ))}
+                  </div>
+                  <div className={styles.rail}>
+                    {launch.you.kind !== 'external' && <SlackCard launch={launch} busy={p.busy} onOpen={openSlack} />}
+                    <aside className={styles.aside} aria-label="Summary">
+                      <div className={styles.panel}><Summary launch={launch} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} /></div>
+                    </aside>
+                  </div>
+                </div>
+              </TabPanel>
+              <TabPanel className={styles.tabPanel}>
+                <div className={styles.briefLayout}>
+                  <section className={styles.aside} aria-label="Product brief"><div className={styles.panel}><Brief launch={launch} /></div></section>
+                  <aside className={styles.aside} aria-label="Docs"><div className={styles.panel}><p className={styles.eyebrow}>Docs</p><Docs launch={launch} /></div></aside>
+                </div>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
           <Modal
             open={asking}
             size="sm"

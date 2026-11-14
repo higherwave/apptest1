@@ -1,6 +1,6 @@
 import { Close } from '@carbon/icons-react'
-import { Button, Checkbox, Dropdown, InlineNotification, Loading, Modal, RadioButton, Tag } from '@carbon/react'
-import type { CoverageCell, Member, ReviewerOverview, ReviewerRole } from '../../api/client'
+import { Button, Checkbox, ContentSwitcher, Dropdown, InlineNotification, Loading, Modal, RadioButton, Switch, Tag } from '@carbon/react'
+import type { CoverageCell, Member, ReviewerOverview, ReviewerRole, ReviewerRow } from '../../api/client'
 import styles from './ReviewersView.module.scss'
 
 const ROLES: { key: ReviewerRole; label: string; help: string }[] = [
@@ -33,6 +33,26 @@ export type ReviewersViewProps = {
   onConfirmAll: () => void
   onCancelAll: () => void
   onRemove: (id: string) => void
+  /** The Away switch of a primary reviewer: turning it on asks first (the dialog names the alternates), turning it off acts at once. */
+  awayFor: { userId: string; name: string; alternates: string[] } | null
+  onAway: (userId: string, name: string, alternates: string[], on: boolean) => void
+  onConfirmAway: () => void
+  onCancelAway: () => void
+}
+
+/**
+ * The alternates who would cover a primary reviewer if they were away: for each step the person is primary for, an alternate of the same team (or of all
+ * teams) who is not away. Empty when any of their steps has none, which is when the Away switch is disabled (the server refuses it too).
+ */
+export function alternatesFor(all: ReviewerRow[], userId: string): string[] {
+  const mine = all.filter((a) => a.userId === userId && a.role === 'primary')
+  const names = new Set<string>()
+  for (const a of mine) {
+    const alts = all.filter((x) => x.role === 'alternate' && x.step === a.step && x.userId !== userId && !x.unavailable && (x.teamId === null || x.teamId === a.teamId))
+    if (alts.length === 0) return []
+    alts.forEach((x) => names.add(x.displayName))
+  }
+  return [...names]
 }
 
 const names = (people: { name: string }[]) => people.map((p) => p.name).join(', ')
@@ -106,7 +126,7 @@ export function ReviewersView(p: ReviewersViewProps) {
               <div className={styles.tableWrap}>
                 <div className={styles.list} role="table" aria-label="Reviewers">
                   <div className={styles.listRow} role="row">
-                    {['Step', 'Teams', 'Reviewer', 'Role'].map((h) => (
+                    {['Step', 'Teams', 'Reviewer', 'Role', 'Away (revert to alternate)'].map((h) => (
                       <div key={h} className={styles.head} role="columnheader">{h}</div>
                     ))}
                     <div className={styles.head} role="columnheader"><span className={styles.srOnly}>Remove</span></div>
@@ -120,6 +140,22 @@ export function ReviewersView(p: ReviewersViewProps) {
                         <p className={styles.email}>{a.email}</p>
                       </div>
                       <div role="cell">{roleOf(a.role).label}</div>
+                      <div role="cell" className={styles.away}>
+                        {a.role === 'primary' && (() => {
+                          const alts = alternatesFor(o.assignments, a.userId)
+                          const can = alts.length > 0 || a.unavailable
+                          const why = 'Set up an alternate for every step this person approves before marking them away.'
+                          return (
+                            <span title={can ? undefined : why} data-testid={`away-${a.step}-${a.email}-${a.teamName ?? 'all'}`}>
+                              <ContentSwitcher size="sm" selectedIndex={a.unavailable ? 1 : 0} onChange={(e) => { const on = e.name === 'away'; if (on !== a.unavailable) p.onAway(a.userId, a.displayName, alts, on) }}>
+                                <Switch name="here" text="Here" disabled={p.busy} />
+                                <Switch name="away" text="Away" disabled={!can || p.busy} />
+                              </ContentSwitcher>
+                              {!can && <span className={styles.awayWhy}>No alternate</span>}
+                            </span>
+                          )
+                        })()}
+                      </div>
                       <div role="cell" className={styles.remove}>
                         <Button kind="ghost" size="lg" hasIconOnly renderIcon={Close} iconDescription={`Remove ${a.email} from ${a.step} (${a.teamName ?? 'all teams'})`} tooltipPosition="left" disabled={p.busy} onClick={() => p.onRemove(a.id)} />
                       </div>
@@ -187,6 +223,20 @@ export function ReviewersView(p: ReviewersViewProps) {
         </>
       )}
 
+      <Modal
+        open={!!p.awayFor}
+        size="sm"
+        modalHeading="Mark as away?"
+        primaryButtonText={p.busy ? 'Saving…' : 'Mark as away'}
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={p.busy}
+        onRequestClose={p.onCancelAway}
+        onRequestSubmit={p.onConfirmAway}
+      >
+        <p className={styles.confirm} data-testid="away-dialog">
+          While {p.awayFor?.name} is away, {p.awayFor?.alternates.join(', ')} {p.awayFor && p.awayFor.alternates.length === 1 ? 'is' : 'are'} the reviewer{p.awayFor && p.awayFor.alternates.length === 1 ? '' : 's'} for their steps and will get the launch messages and answer requests. Each alternate is emailed now. Switch back to Here when they return.
+        </p>
+      </Modal>
       <Modal
         open={p.confirmAll}
         size="sm"

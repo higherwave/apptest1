@@ -1,6 +1,7 @@
 export type LaunchStepKey = 'product_leadership' | 'sales' | 'legal' | 'documentation' | 'marketing' | 'final_decision'
 export type ReviewerRole = 'primary' | 'alternate'
-export type Assignment = { userId: string; step: string; teamId: string | null; role: ReviewerRole }
+export type Assignment = { userId: string; step: string; teamId: string | null; role: ReviewerRole; /** The person is away: their alternates are active. */ unavailable?: boolean }
+export function activeFor(assignments: Assignment[], teamId: string | null, step: string): string[]
 export const LAUNCH_STEPS: { key: LaunchStepKey; label: string; optional: boolean }[]
 export function stepLabel(key: string): string
 export function isStep(key: string): key is LaunchStepKey

@@ -14,9 +14,10 @@ export class PrimaryTaken extends Error {
 }
 export class BadStep extends Error {}
 export class ReviewerNotFound extends Error {}
+export class NoAlternate extends Error {}
 
 export type Person = { userId: string; name: string; email: string }
-export type ReviewerRow = { id: string; userId: string; email: string; displayName: string; external: boolean; step: string; teamId: string | null; teamName: string | null; role: ReviewerRole }
+export type ReviewerRow = { id: string; userId: string; email: string; displayName: string; external: boolean; unavailable: boolean; step: string; teamId: string | null; teamName: string | null; role: ReviewerRole }
 export type CoverageCell = { step: string; state: CoverageState; scope: 'team' | 'all' | null; primary: Person[]; alternate: Person[] }
 export type ReviewerTeam = { id: string; name: string; isDefault: boolean; stepsOff: string[]; steps: CoverageCell[] }
 export type ReviewerOverview = { steps: { key: string; label: string; optional: boolean }[]; assignments: ReviewerRow[]; teams: ReviewerTeam[] }
@@ -30,7 +31,7 @@ const audit = (tx: Queryable, ctx: RequestContext, entity: 'core.reviewer_assign
 export async function reviewerOverview(db: Queryable, workspaceId: string): Promise<ReviewerOverview> {
   const rows = (
     await db.query(
-      `select ra.id, ra.user_id, u.email, u.display_name, coalesce(m.is_external, false) as external, ra.step, ra.team_id, t.name as team_name, ra.role
+      `select ra.id, ra.user_id, u.email, u.display_name, coalesce(m.is_external, false) as external, coalesce(m.reviewing_unavailable, false) as unavailable, ra.step, ra.team_id, t.name as team_name, ra.role
          from core.reviewer_assignments ra
          join core.users u on u.id = ra.user_id
          left join core.memberships m on m.user_id = ra.user_id and m.workspace_id = ra.workspace_id
@@ -41,12 +42,12 @@ export async function reviewerOverview(db: Queryable, workspaceId: string): Prom
     )
   ).rows
   const assignments: ReviewerRow[] = rows.map((r) => ({
-    id: r.id, userId: r.user_id, email: r.email, displayName: r.display_name, external: !!r.external, step: r.step, teamId: r.team_id ?? null, teamName: r.team_name ?? null, role: r.role,
+    id: r.id, userId: r.user_id, email: r.email, displayName: r.display_name, external: !!r.external, unavailable: !!r.unavailable, step: r.step, teamId: r.team_id ?? null, teamName: r.team_name ?? null, role: r.role,
   }))
   const teams = (await db.query(`select id, name, is_default from core.teams where workspace_id = $1 order by is_default desc, lower(name)`, [workspaceId])).rows
   const off = (await db.query(`select s.team_id, s.step from core.team_launch_steps s join core.teams t on t.id = s.team_id where t.workspace_id = $1 and not s.used`, [workspaceId])).rows
   const people = new Map<string, Person>(assignments.map((a) => [a.userId, { userId: a.userId, name: a.displayName, email: a.email }]))
-  const plain: Assignment[] = assignments.map((a) => ({ userId: a.userId, step: a.step, teamId: a.teamId, role: a.role }))
+  const plain: Assignment[] = assignments.map((a) => ({ userId: a.userId, step: a.step, teamId: a.teamId, role: a.role, unavailable: a.unavailable }))
   return {
     steps: LAUNCH_STEPS.map((s) => ({ key: s.key, label: s.label, optional: s.optional })),
     assignments,
@@ -155,5 +156,45 @@ export async function setTeamSteps(db: Db, ctx: RequestContext, teamId: string, 
     }
     const after = await offOf()
     if (JSON.stringify(before) !== JSON.stringify(after)) await audit(tx, ctx, 'core.team_launch_steps', teamId, 'launch steps changed', { team: team.name, notUsed: before }, { team: team.name, notUsed: after })
+  })
+}
+
+/** Marks a reviewer away (or back). While away the alternates of their steps are the active reviewers; the person gets none of the messages. */
+/**
+ * Marks a reviewer away (or back). Away needs an alternate for every step they are primary for: the alternate of the same team (or of all teams) who is
+ * not away themselves. Returns who now covers what, so they can be told; empty when nothing changed or the person is back.
+ */
+export async function setReviewerUnavailable(db: Db, ctx: RequestContext, userId: string, unavailable: boolean): Promise<{ away: string; covering: { person: Person; steps: string[] }[] }> {
+  return db.transaction(async (tx) => {
+    const m = (await tx.query(`select m.id, m.reviewing_unavailable, u.display_name from core.memberships m join core.users u on u.id = m.user_id where m.workspace_id = $1 and m.user_id = $2 for update`, [ctx.workspaceId, userId])).rows[0]
+    if (!m) throw new MemberNotFound()
+    if (!!m.reviewing_unavailable === unavailable) return { away: m.display_name as string, covering: [] }
+    const covering = new Map<string, { person: Person; steps: string[] }>() // keyed by the alternate's user id
+    type Row = { user_id: string; email: string; display_name: string }
+    if (unavailable) {
+      const mine = (await tx.query(`select step, team_id from core.reviewer_assignments where workspace_id = $1 and user_id = $2 and role = 'primary'`, [ctx.workspaceId, userId])).rows
+      if (mine.length === 0) throw new NoAlternate()
+      for (const a of mine) {
+        const alts = (
+          await tx.query(
+            `select ra.user_id, u.email, u.display_name from core.reviewer_assignments ra join core.users u on u.id = ra.user_id
+               left join core.memberships am on am.user_id = ra.user_id and am.workspace_id = ra.workspace_id
+              where ra.workspace_id = $1 and ra.role = 'alternate' and ra.step = $2 and ra.user_id <> $3 and not coalesce(am.reviewing_unavailable, false)
+                and (ra.team_id is null or ra.team_id is not distinct from $4)`,
+            [ctx.workspaceId, a.step, userId, a.team_id],
+          )
+        ).rows
+        if (alts.length === 0) throw new NoAlternate()
+        const label = LAUNCH_STEPS.find((x) => x.key === a.step)?.label ?? a.step
+        for (const alt of alts as Row[]) {
+          const entry = covering.get(alt.user_id) ?? { person: { userId: alt.user_id, name: alt.display_name, email: alt.email }, steps: [] }
+          if (!entry.steps.includes(label)) entry.steps.push(label)
+          covering.set(alt.user_id, entry)
+        }
+      }
+    }
+    await tx.query(`update core.memberships set reviewing_unavailable = $2, updated_by = $3 where id = $1`, [m.id, unavailable, ctx.userId])
+    await audit(tx, ctx, 'core.reviewer_assignments', null, unavailable ? 'marked unavailable' : 'marked available', { person: m.display_name, unavailable: !unavailable }, { person: m.display_name, unavailable })
+    return { away: m.display_name as string, covering: [...covering.values()] }
   })
 }

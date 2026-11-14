@@ -37,6 +37,52 @@ function compose(o: { name: string; subject: string; lines: string[]; link: stri
   return { subject: o.subject, text, html }
 }
 
+/** Why a message to this address is kept rather than sent (the temporary recipient limit, a placeholder address), or null when it may go. */
+function holdReason(env: Env, email: string): string | null {
+  const limited = remindersOnlyFor(env)
+  return limited && !limited.has(email.toLowerCase()) ? 'held by the recipient limit' : /\.(example|test|invalid)$/i.test(email) ? 'placeholder address' : null
+}
+
+/**
+ * A reviewer was marked away: each alternate who now covers their steps is told, once per change. There is no launch to link to, so the message links to
+ * the person's reviews. Same rules as every launch email (held, never dropped; a failure is logged and never fails the change).
+ */
+export async function tellAlternatesCover(deps: Deps, workspaceId: string, away: { name: string }, alternates: { person: Person; steps: string[] }[], at: Date = new Date()): Promise<Outcome[]> {
+  const out: Outcome[] = []
+  for (const alt of alternates) {
+    const key = `away:${alt.person.userId}:${at.toISOString()}`
+    const hold = holdReason(deps.env, alt.person.email)
+    try {
+      const claimed = (
+        await deps.db.query(
+          `insert into core.notifications (workspace_id, recipient_id, kind, dedupe_key, project_id, payload, status, error) values ($1, $2, 'launch.reviewer_away', $3, null, $4, $5, $6)
+           on conflict (recipient_id, dedupe_key) do nothing returning id`,
+          [workspaceId, alt.person.userId, key, JSON.stringify({ away: away.name, steps: alt.steps }), hold ? 'held' : 'pending', hold],
+        )
+      ).rows[0]
+      if (!claimed) { out.push('duplicate'); continue }
+      if (hold) { out.push('held'); continue }
+      const base = baseOf(deps.env)
+      if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
+      const m = compose({
+        name: alt.person.name,
+        subject: `Signal Flow: you are covering launch approvals for ${away.name}`,
+        lines: [`${away.name} is away, so you are now the reviewer for: ${alt.steps.join(', ')}.`, 'You will get the launch messages and answer requests for these steps until they are back.'],
+        link: `${base}/launches`,
+        linkText: 'Open your reviews',
+        allReviews: `${base}/launches`,
+      })
+      await deps.mailer.send({ to: alt.person.email, ...m })
+      await deps.db.query(`update core.notifications set status = 'sent', sent_at = now() where id = $1`, [claimed.id])
+      out.push('sent')
+    } catch (err) {
+      console.error('launch email failed', err instanceof Error ? err.name : 'error', err instanceof Error ? err.message : err)
+      out.push('failed')
+    }
+  }
+  return out
+}
+
 /** Sends one message to one person, once. Held (kept, not sent) when the recipient limit excludes them or the address is a placeholder. */
 export async function deliver(
   deps: Deps,
@@ -44,8 +90,7 @@ export async function deliver(
   n: { to: Person; kind: string; key: string; payload: Record<string, unknown>; build: (link: string, allReviews: string) => { subject: string; text: string; html: string } },
 ): Promise<Outcome> {
   const { db, env, mailer } = deps
-  const limited = remindersOnlyFor(env)
-  const hold = limited && !limited.has(n.to.email.toLowerCase()) ? 'held by the recipient limit' : /\.(example|test|invalid)$/i.test(n.to.email) ? 'placeholder address' : null
+  const hold = holdReason(env, n.to.email)
   const claimed = (
     await db.query(
       `insert into core.notifications (workspace_id, recipient_id, kind, dedupe_key, project_id, payload, status, error) values ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -88,8 +133,9 @@ export async function requestAnswers(deps: Deps, workspaceId: string, launchId: 
   const wanted = launch.steps.filter((s) => s.used && (s.state === 'waiting' || s.state === 'reopened'))
   const byPerson = new Map<string, { person: Person; steps: LaunchStep[] }>()
   for (const s of wanted) {
-    for (const p of s.reviewers.primary) byPerson.set(p.userId, { person: p, steps: [...(byPerson.get(p.userId)?.steps ?? []), s] })
+    for (const p of s.reviewers.active) byPerson.set(p.userId, { person: p, steps: [...(byPerson.get(p.userId)?.steps ?? []), s] })
   }
+  await deps.db.query(`update delivery.launches set asked_at = coalesce(asked_at, now()) where id = $1`, [launchId])
   const result: RequestResult = { asked: [], alreadyAsked: [], held: [], missing: launch.steps.filter((s) => s.used && s.state === 'missing').map((s) => ({ step: s.step, label: s.label })) }
   for (const { person, steps } of byPerson.values()) {
     const keys = steps.map((s) => s.step).sort()
@@ -120,7 +166,7 @@ export async function requestAnswers(deps: Deps, workspaceId: string, launchId: 
   const told = [...result.asked, ...result.held]
   if (told.length) await reply(slackOf(deps), workspaceId, launchId, 'requested', `requested:${launch.briefAt}:${told.flatMap((t) => t.steps).sort().join('+')}`, slackLines.requested(told))
   // The same ask, as a card with buttons in the Slack thread, for every step that is waiting and has someone to answer it (once per step and brief version).
-  await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, wanted.filter((s) => s.reviewers.primary.length > 0).map((s) => ({ step: s.step, label: s.label, waitingFor: s.reviewers.primary.map((p) => p.name) })))
+  await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, wanted.filter((s) => s.reviewers.active.length > 0).map((s) => ({ step: s.step, label: s.label, waitingFor: s.reviewers.active.map((p) => p.name) })))
   return result
 }
 
@@ -137,7 +183,7 @@ export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: 
   )
   if (step === 'final_decision') {
     const people = new Map<string, Person>()
-    for (const s of launch.steps.filter((x) => x.used && x.step !== 'final_decision')) for (const p of s.reviewers.primary) people.set(p.userId, p)
+    for (const s of launch.steps.filter((x) => x.used && x.step !== 'final_decision')) for (const p of s.reviewers.active) people.set(p.userId, p)
     if (launch.createdBy) people.set(launch.createdBy.userId, launch.createdBy)
     for (const p of people.values()) {
       if (p.userId === byUserId) continue
@@ -207,8 +253,8 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
   for (const s of launch.steps.filter((x) => x.used)) {
     if (s.state === 'reopened') {
       await reply(slackOf(deps), workspaceId, launchId, 'reopened', `reopened:${s.step}:${launch.briefAt}`, slackLines.reopened(s.label))
-      if (s.reviewers.primary.length) await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, [{ step: s.step, label: s.label, waitingFor: s.reviewers.primary.map((p) => p.name) }])
-      for (const p of s.reviewers.primary) {
+      if (s.reviewers.active.length) await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, [{ step: s.step, label: s.label, waitingFor: s.reviewers.active.map((p) => p.name) }])
+      for (const p of s.reviewers.active) {
         tally(result, await deliver(deps, launch, {
           to: p,
           kind: 'launch.reopened',

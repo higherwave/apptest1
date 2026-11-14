@@ -24,6 +24,22 @@ export const isOptionalStep = (key) => LAUNCH_STEPS.some((s) => s.key === key &&
  * Who covers a step for a team. `assignments` are { userId, step, teamId (null = all teams), role ('primary' | 'alternate') }.
  * Returns { scope: 'team' | 'all' | null, primary: [userId], alternate: [userId] }.
  */
+/**
+ * Who is active for a step right now, as user ids: the primaries who are available; if none is, the alternates who are; if nobody is, the primaries (someone
+ * is still asked). `unavailable` on an assignment says its person is away. This is who gets the messages and the answer cards.
+ */
+export function activeFor(assignments, teamId, step) {
+  const forStep = assignments.filter((a) => a.step === step)
+  const own = forStep.filter((a) => a.teamId === teamId)
+  const pool = own.length ? own : forStep.filter((a) => a.teamId == null)
+  const primaries = pool.filter((a) => a.role === 'primary')
+  const free = (list) => list.filter((a) => !a.unavailable).map((a) => a.userId)
+  const p = free(primaries)
+  if (p.length) return p
+  const alts = free(pool.filter((a) => a.role === 'alternate'))
+  return alts.length ? alts : primaries.map((a) => a.userId)
+}
+
 export function reviewersFor(assignments, teamId, step) {
   const forStep = assignments.filter((a) => a.step === step)
   const own = forStep.filter((a) => a.teamId === teamId)

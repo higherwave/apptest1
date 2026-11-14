@@ -128,12 +128,6 @@ export type LaunchRequestResult = components['schemas']['LaunchRequestResult']
 export const requestLaunchAnswers = (id: string) => request<LaunchRequestResult>(`/launches/${id}/request`, { method: 'POST' })
 export type LaunchSlackResult = components['schemas']['LaunchSlackResult']
 export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })
-export type LaunchDigest = components['schemas']['LaunchDigest']
-export type LaunchDigestShared = components['schemas']['LaunchDigestShared']
-export const addLaunchFollowers = (id: string, userIds: string[]) => request<LaunchDetail>(`/launches/${id}/followers`, { method: 'POST', body: { userIds } })
-export const removeLaunchFollower = (id: string, userId: string) => request<LaunchDetail>(`/launches/${id}/followers/${userId}`, { method: 'DELETE' })
-export const previewLaunchDigest = (id: string) => request<LaunchDigest>(`/launches/${id}/digest`)
-export const shareLaunchDigest = (id: string, via: { email: boolean; slack: boolean }) => request<LaunchDigestShared>(`/launches/${id}/digest`, { method: 'POST', body: via })
 export type SlackConnection = components['schemas']['SlackConnection']
 export type SlackConnectCode = components['schemas']['SlackConnectCode']
 export const getMySlack = () => request<SlackConnection>('/me/slack')
@@ -146,10 +140,12 @@ export type ReviewerOverview = components['schemas']['ReviewerOverview']
 export type ReviewerAssignment = components['schemas']['ReviewerAssignment']
 export type CoverageCell = components['schemas']['CoverageCell']
 export type ReviewerRole = ReviewerAssignment['role']
+export type ReviewerRow = ReviewerAssignment
 export type AddReviewerInput = components['schemas']['AddReviewerRequest']
 export const getReviewers = () => request<ReviewerOverview>('/reviewers')
 export const addReviewer = (input: components['schemas']['AddReviewerRequest']) => request<ReviewerOverview>('/reviewers', { method: 'POST', body: input })
 export const removeReviewer = (id: string) => request<ReviewerOverview>(`/reviewers/${id}`, { method: 'DELETE' })
+export const setReviewerAway = (userId: string, unavailable: boolean) => request<ReviewerOverview>(`/reviewers/people/${userId}`, { method: 'PUT', body: { unavailable } })
 export const setTeamLaunchSteps = (id: string, used: Record<string, boolean>) => request<ReviewerOverview>(`/teams/${id}/launch-steps`, { method: 'PUT', body: { used } })
 // Teams: leaders (workspace owners) manage them.
 export type Team = components['schemas']['Team']

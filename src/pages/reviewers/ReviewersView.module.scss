@@ -93,7 +93,7 @@
 
 .listRow {
   display: grid;
-  grid-template-columns: 9rem 8rem minmax(0, 2fr) 6rem 3rem;
+  grid-template-columns: 9rem 8rem minmax(0, 2fr) 6rem 11rem 3rem;
   gap: var(--at-space-sm);
   align-items: center;
   padding: var(--at-space-xs) var(--at-space-md);
@@ -173,3 +173,6 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.away { display: flex; flex-direction: column; gap: var(--at-space-xs); }
+.awayWhy { @include tokens.role('caption'); color: var(--at-muted); }

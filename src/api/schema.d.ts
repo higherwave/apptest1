@@ -437,52 +437,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/launches/{id}/followers": {
+    "/launches/{id}/storyboard.pdf": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** The project's storyboard as a PDF that opens in the browser: the problem, what people said (customer quotes by role, never by name), the recommended directions and their trade-offs. 403 for an external reviewer (the storyboard carries customer quotes); 404 until it is written. */
+        get: operations["exportLaunchStoryboardPdf"];
         put?: never;
-        /** Editors of the project's team add people to follow the launch from the research stage (internal members only; 422 for an external member or a stranger). Followers get the early digest and brief, never access to the research. Ones already following are left. Returns the launch. */
-        post: operations["addLaunchFollowers"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/launches/{id}/followers/{userId}": {
+    "/launches/{id}/requirements.pdf": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** The published requirements as a PDF that opens in the browser (the brief and the document's sections). Available to anyone who can see the launch, external reviewers included. 404 until published. */
+        get: operations["exportLaunchRequirementsPdf"];
         put?: never;
         post?: never;
-        /** Editors of the project's team stop someone following the launch. Returns the launch. */
-        delete: operations["removeLaunchFollower"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/launches/{id}/digest": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Editors of the project's team preview the early digest as the project's data stands now: the themes that matter most (where people struggled first), a quote or two as said and never tied to a person, and the plain-language brief when requirements are published, ending with "Does everyone understand? Any concerns?". Built from a template, not rewritten by a model. */
-        get: operations["previewLaunchDigest"];
-        put?: never;
-        /** Shares the digest as it stands now: by email to every follower (once each), and/or as a reply in the launch's Slack thread. 422 when neither is chosen. The record keeps the text that was sent. Emails the temporary recipient limit excludes are returned as `held`. */
-        post: operations["shareLaunchDigest"];
         delete?: never;
         options?: never;
         head?: never;
@@ -586,6 +568,23 @@ export interface paths {
         put?: never;
         /** Owners only. Sets a member up for one or more steps, for all teams or for named teams, as primary or alternate. A step and scope the person already has is updated to the new role. 409 `primary_taken` if another person is already the primary for a step and team (or all teams); 422 `external_all_teams` for an external member and all teams; 404 for an unknown member or team. */
         post: operations["addReviewer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reviewers/people/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Owners only. Marks a reviewer away (or back): while away, the alternates of their steps are the active reviewers and get the messages and answer cards, and the person gets none. Applies to all of the person's assignments. Needs an alternate (not themselves away) for every step and team they are primary for, otherwise 409 `no_alternate`. The alternates who now cover are emailed. Returns the reviewers and coverage as they are now. */
+        put: operations["setReviewerUnavailable"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2954,6 +2953,8 @@ export interface components {
             checkins: components["schemas"]["Checkin"][];
         };
         Storyboard: {
+            /** @description True when the storyboard failed to write itself after the latest analysis (cleared when one is written): the page then offers a retry. */
+            autoFailed: boolean;
             facts: {
                 projectName: string;
                 participants: number;
@@ -3423,41 +3424,6 @@ export interface components {
             /** Format: date-time */
             expiresAt: string;
         };
-        LaunchPerson: {
-            userId: string;
-            name: string;
-        };
-        AddFollowersRequest: {
-            userIds: string[];
-        };
-        ShareDigestRequest: {
-            /** @description Email it to every follower. */
-            email: boolean;
-            /** @description Post it as a reply in the launch's Slack thread. */
-            slack: boolean;
-        };
-        LaunchDigest: {
-            subject: string;
-            /** @description The digest as plain text */
-            text: string;
-            /** @description Themes the research found. */
-            themeCount: number;
-            /** @description Themes the digest shows. */
-            shown: number;
-            /** @description Whether the requirements are published */
-            hasBrief: boolean;
-        };
-        LaunchDigestShared: {
-            shareId: string;
-            /** @description Followers it was emailed to (0 when email was not chosen). */
-            followers: number;
-            emailed: number;
-            /** @description Kept back by the temporary recipient limit or a placeholder address. */
-            held: number;
-            failed: number;
-            /** @enum {string} */
-            slack: "posted" | "not_posted" | "off" | "skipped";
-        };
         TeamSlackRequest: {
             /** @description A channel name such as launches (a leading # is dropped); null or empty clears it. */
             channel: string | null;
@@ -3566,6 +3532,8 @@ export interface components {
             reviewers: {
                 primary: components["schemas"]["ReviewerPerson"][];
                 alternate: components["schemas"]["ReviewerPerson"][];
+                /** @description Who is asked now: the primaries, or the alternates while the primaries are away. */
+                active: components["schemas"]["ReviewerPerson"][];
             };
             answer: components["schemas"]["LaunchAnswer"] | null;
             earlier: components["schemas"]["LaunchAnswer"][];
@@ -3594,23 +3562,22 @@ export interface components {
                 /** @description The steps this person answers. */
                 steps: string[];
             };
+            /**
+             * @description Where the release stands: the storyboard (no approvals yet), the requirements are published (approvals can be asked for), or answers have been asked for.
+             * @enum {string}
+             */
+            stage: "storyboard" | "requirements" | "approval";
+            documents: {
+                /** @description Whether the storyboard PDF exists (never for an external reviewer). */
+                storyboard: boolean;
+                /** @description Whether the published requirements PDF exists. */
+                requirements: boolean;
+            };
             /** @description The team's Slack channel and the launch's thread in it. Empty for an external reviewer. */
             slack: {
                 channel: string | null;
                 started: boolean;
                 threadUrl: string | null;
-            };
-            /** @description Who follows the launch from the research stage, who could, and the last digest shared with them. Empty for an external reviewer; `candidates` only for editors. */
-            follow: {
-                followers: components["schemas"]["LaunchPerson"][];
-                candidates: components["schemas"]["LaunchPerson"][];
-                lastShared: null | {
-                    /** Format: date-time */
-                    at: string;
-                    by: string | null;
-                    emailed: number;
-                    inSlack: boolean;
-                };
             };
             steps: components["schemas"]["LaunchStep"][];
             summary: {
@@ -3677,6 +3644,8 @@ export interface components {
             email: string;
             displayName: string;
             external: boolean;
+            /** @description The person is marked away: their alternates are the active reviewers. */
+            unavailable: boolean;
             /** @enum {string} */
             step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
             /** @description Null means all teams. */
@@ -4625,64 +4594,7 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
-    addLaunchFollowers: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AddFollowersRequest"];
-            };
-        };
-        responses: {
-            /** @description The launch with its followers. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LaunchDetail"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-        };
-    };
-    removeLaunchFollower: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-                userId: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The launch with its followers. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["LaunchDetail"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-        };
-    };
-    previewLaunchDigest: {
+    exportLaunchStoryboardPdf: {
         parameters: {
             query?: never;
             header?: never;
@@ -4693,21 +4605,23 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The digest. */
+            /** @description The PDF. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LaunchDigest"];
+                    "application/pdf": string;
                 };
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
-    shareLaunchDigest: {
+    exportLaunchRequirementsPdf: {
         parameters: {
             query?: never;
             header?: never;
@@ -4716,26 +4630,21 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ShareDigestRequest"];
-            };
-        };
+        requestBody?: never;
         responses: {
-            /** @description How it went out. */
+            /** @description The PDF. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LaunchDigestShared"];
+                    "application/pdf": string;
                 };
             };
-            400: components["responses"]["Error"];
             401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            422: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     startLaunchSlackThread: {
@@ -4928,6 +4837,39 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    setReviewerUnavailable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    unavailable: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The reviewers and coverage as they are now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewerOverview"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     removeReviewer: {

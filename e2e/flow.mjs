@@ -860,10 +860,9 @@ try {
   // Launch: the go signals. Start it, set a reviewer up, answer, link, and a change to the brief reopens the answers.
   const tid = async (id) => { await page.waitForSelector(`[data-testid="${id}"]`, { visible: true, timeout: 8000 }); await page.click(`[data-testid="${id}"]`) }
   await navTo('Launch')
-  await page.waitForSelector('[data-testid="launch-start"]', { timeout: 8000 })
-  ok('Launch is the last step of the project menu and, with no launch yet, offers to start one', await page.evaluate(() => { const rail = [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label); return rail[rail.length - 1] === 'Launch' && /No launch yet/.test(document.querySelector('[data-testid="launch-start"]').innerText) }))
-  await tid('start-launch')
+  // The launch starts by itself when the storyboard is first written after the analysis, so there is nothing to start by hand.
   await page.waitForSelector('[data-testid="launch-name"]', { timeout: 8000 })
+  ok('Launch is the last step of the project menu, and the launch already exists because the storyboard was written', await page.evaluate(() => { const rail = [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label); return rail[rail.length - 1] === 'Launch' && !document.querySelector('[data-testid="launch-start"]') }))
   ok('starting it shows a section for each step, all visible; with no reviewers set up every step says "Approver missing", and nothing can be answered', await page.evaluate(() => { const secs = [...document.querySelectorAll('[data-testid^="section-"]')]; return secs.map((e) => e.dataset.testid.replace('section-', '')).join() === 'product_leadership,sales,legal,documentation,marketing,final_decision' && secs.every((e) => e.dataset.state === 'missing' && /Approver missing/.test(e.innerText)) && !document.querySelector('[data-testid^="answer-button-"]') && /Preparing/.test(document.querySelector('[data-testid="launch-state"]').innerText) }))
   const members0 = await (await fetch(`${API}/api/v1/members`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   const davidId = members0.data.find((m) => m.email.startsWith('david@')).id
@@ -895,19 +894,7 @@ try {
   const pdfBytes = Buffer.from(await pdfRes.arrayBuffer())
   ok('the launch record downloads as a real PDF', pdfRes.status === 200 && pdfBytes.subarray(0, 4).toString() === '%PDF' && pdfBytes.length > 5000 && /launch-record\.pdf/.test(pdfRes.headers.get('content-disposition') ?? ''))
   ok('the summary offers the PDF download', await page.evaluate(() => /export\.pdf$/.test(document.querySelector('[data-testid="download-pdf"]')?.getAttribute('href') ?? '')))
-  // Following: an editor adds followers and shares the early digest; here nothing is mailed (placeholder addresses) and Slack is not connected, and it says so.
-  const detail = await (await fetch(`${API}/api/v1/launches/${launchId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  if (detail.follow.followers.length === 0) await fetch(`${API}/api/v1/launches/${launchId}/followers`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ userIds: detail.follow.candidates.slice(0, 2).map((c) => c.userId) }) })
-  await page.reload({ waitUntil: 'networkidle0' })
-  await tid('tab-follow')
-  await page.waitForSelector('[data-testid="followers"]', { timeout: 8000 })
-  ok('the Follow tab lists who follows the launch', await page.evaluate(() => document.querySelectorAll('[data-testid="followers"] li').length >= 1))
-  await tid('preview-digest')
-  await page.waitForSelector('[data-testid="digest-preview"]', { timeout: 8000 })
-  ok('the digest preview shows what the research found, the brief and the prompt, with no participant named', await page.evaluate(() => { const t = document.querySelector('[data-testid="digest-preview"]').innerText; return /What the research found/.test(t) && /Does everyone understand\?/.test(t) && /\(one participant\)/.test(t) }))
-  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => /^Share$/.test(b.innerText.trim())).click())
-  await page.waitForSelector('[data-testid="digest-result"]', { timeout: 8000 })
-  ok('sharing says how it went: held for placeholder addresses, and Slack not connected', await page.evaluate(() => /Digest shared/.test(document.querySelector('[data-testid="digest-result"]').innerText) && /Slack is not connected/.test(document.querySelector('[data-testid="digest-result"]').innerText)))
+  ok('the launch has two tabs, Launch Summary and Product Brief, and no Follow tab', await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].map((x) => x.innerText.trim()); return t.join('|') === 'Launch Summary|Product Brief' && !document.querySelector('[data-testid="tab-follow"]') }))
   await page.evaluate(() => document.querySelector('[data-testid="tab-summary"]')?.click())
   await new Promise((r) => setTimeout(r, 300))
   await tid('answer-button-legal')
@@ -942,6 +929,13 @@ try {
   ok('changing the brief notes reopens the answers (and the final decision), without erasing them', await page.evaluate(() => { const legal = document.querySelector('[data-testid="section-legal"]').innerText; return /brief changed/i.test(legal) && /Ready/.test(legal) && document.querySelector('[data-testid="launch-state"]').innerText.trim() === 'Reopened' && document.querySelector('[data-testid="section-final_decision"]').dataset.state === 'reopened' }))
   await tid('tab-brief')
   ok('the Brief tab shows the notes for reviewers', await page.evaluate(() => /The consent flow changed on the 3rd\./.test(document.querySelector('[data-testid="launch-brief"]').innerText)))
+  const stageNow = (await (await fetch(`${API}/api/v1/launches/${launchId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json())
+  ok('the Product Brief builds up by stage and marks the one the release is at', await page.evaluate((now) => { const st = [...document.querySelectorAll('[data-testid^="brief-stage-"]')]; return st.length === 3 && st.filter((x) => x.dataset.current).length === 1 && document.querySelector(`[data-testid="brief-stage-${now}"]`).dataset.current === 'true' }, stageNow.stage))
+  ok('the Docs panel lists the storyboard and the requirements, each linking to its PDF only when it exists', await page.evaluate((d, stage, id) => { const has = (k) => !!document.querySelector(`[data-testid="open-doc-${k}"]`); const href = (k) => document.querySelector(`[data-testid="open-doc-${k}"]`)?.getAttribute('href'); return has('storyboard') === d.storyboard && has('requirements') === d.requirements && (!has('requirements') || href('requirements') === `/api/v1/launches/${id}/requirements.pdf`) && document.querySelectorAll('[data-testid="doc-storyboard"], [data-testid="doc-requirements"]').length === 2 && !document.querySelector('[data-testid="doc-launch"]') }, stageNow.documents, stageNow.stage, launchId))
+  ok('links reviewers added to their steps are gathered at the bottom of the Docs panel, naming the step', await page.evaluate(() => { const t = document.querySelector('[data-testid="doc-reviewers"]')?.innerText ?? ''; return /Approved consent copy/.test(t) && /Legal/.test(t) }))
+  await page.goto(`${BASE}/launches/${launchId}?tab=brief`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="launch-docs"]', { timeout: 8000 })
+  ok('a message link with ?tab=brief opens straight on the Product Brief tab', await page.evaluate(() => document.querySelector('[data-testid="tab-brief"]').getAttribute('aria-selected') === 'true'))
 
   // Measure: how each requirement will be known to have worked, then check-ins over time.
   const measureApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()

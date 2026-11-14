@@ -9,14 +9,14 @@ const STATE: Record<string, string> = {
   ready_with_conditions: 'Ready with conditions', changes_needed: 'Changes needed', not_applicable: 'Not applicable', go: 'Go', go_with_conditions: 'Go with conditions', no_go: 'No-go',
 }
 const stateLabel = (s: string) => STATE[s] ?? s
-const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-const day = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null)
-const moment = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) + ' UTC'
+export const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+export const day = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : null)
+export const moment = (iso: string) => new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: 'UTC' }) + ' UTC'
 // A link that does not start with http(s) is shown as text, never as a clickable address.
 const link = (url: string, title: string) => (/^https?:\/\//i.test(url) ? `<a href="${esc(url)}">${esc(title || url)}</a>` : esc(title || url))
 const tone = (s: string) => (['ready', 'go'].includes(s) ? 'good' : ['ready_with_conditions', 'go_with_conditions'].includes(s) ? 'cond' : ['changes_needed', 'no_go', 'missing'].includes(s) ? 'bad' : s === 'reopened' ? 'reopened' : 'plain')
 
-const STYLE = `
+export const STYLE = `
   @page { size: Letter; margin: 0.8in 0.8in 0.9in; }
   * { box-sizing: border-box; }
   body { font-family: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; color: #1f2933; font-size: 10.5pt; line-height: 1.45; margin: 0; }
@@ -93,5 +93,5 @@ export function launchRecordHtml(launch: LaunchDetail, at: Date = new Date()): s
 }
 
 /** A file name fit for a download: letters, digits and hyphens. */
-export const exportFileName = (launch: Pick<LaunchDetail, 'name'>, ext: string) =>
-  `${launch.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'launch'}-launch-record.${ext}`
+export const exportFileName = (launch: Pick<LaunchDetail, 'name'>, ext: string, what = 'launch-record') =>
+  `${launch.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'launch'}-${what}.${ext}`

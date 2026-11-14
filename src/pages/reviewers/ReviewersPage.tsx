@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { friendlyMessage, type AddReviewerInput, type Member, type ReviewerRole } from '../../api/client'
-import { useAddReviewer, useMembers, useRemoveReviewer, useReviewers } from '../../api/hooks'
+import { useAddReviewer, useMembers, useRemoveReviewer, useReviewers, useSetReviewerAway } from '../../api/hooks'
 import { ReviewersView } from './ReviewersView'
 
 // Container: the reviewers and coverage, the add form's state, and the owner-only changes.
@@ -9,6 +9,9 @@ export function ReviewersPage() {
   const members = useMembers()
   const add = useAddReviewer()
   const remove = useRemoveReviewer()
+  const away = useSetReviewerAway()
+  // The person whose Away switch is waiting for its confirmation.
+  const [awayFor, setAwayFor] = useState<{ userId: string; name: string; alternates: string[] } | null>(null)
   const [person, setPerson] = useState<Member | null>(null)
   const [steps, setSteps] = useState<string[]>([])
   const [scope, setScope] = useState<'all' | 'teams'>('teams')
@@ -17,7 +20,7 @@ export function ReviewersPage() {
   const [confirmAll, setConfirmAll] = useState(false)
   const [notice, setNotice] = useState<string | undefined>()
 
-  const failure = [add, remove].find((m) => m.isError)?.error
+  const failure = [add, remove, away].find((m) => m.isError)?.error
   const state = reviewers.isPending || members.isPending ? 'loading' : reviewers.isError || members.isError ? 'error' : 'ready'
   // An external member covers chosen teams only, so the all-teams choice falls back to chosen teams for them.
   const effectiveScope = person?.external ? 'teams' : scope
@@ -43,7 +46,11 @@ export function ReviewersPage() {
       scope={effectiveScope}
       teamIds={teamIds}
       role={role}
-      busy={add.isPending || remove.isPending}
+      busy={add.isPending || remove.isPending || away.isPending}
+      awayFor={awayFor}
+      onAway={(userId, name, alternates, on) => { setNotice(undefined); if (on) setAwayFor({ userId, name, alternates }); else away.mutate({ userId, unavailable: false }) }}
+      onConfirmAway={() => { if (awayFor) away.mutate({ userId: awayFor.userId, unavailable: true }, { onSettled: () => setAwayFor(null) }) }}
+      onCancelAway={() => setAwayFor(null)}
       confirmAll={confirmAll}
       onPerson={(m) => { setPerson(m); setNotice(undefined) }}
       onToggleStep={(key, on) => setSteps((cur) => (on ? [...new Set([...cur, key])] : cur.filter((k) => k !== key)))}
