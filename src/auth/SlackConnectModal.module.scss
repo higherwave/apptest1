@@ -1,0 +1,31 @@
+@use '../tokens' as tokens;
+
+.body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-md);
+}
+
+.text {
+  @include tokens.role('reading-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.small {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.code {
+  @include tokens.role('title-sm');
+  margin: 0;
+  padding: var(--at-space-md);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+  color: var(--at-ink);
+  overflow-wrap: anywhere;
+  user-select: all;
+}

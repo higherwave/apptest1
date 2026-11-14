@@ -55,6 +55,7 @@ Launch (release readiness) is built in slices; the plan is the "Launch: build pl
 - Slack posts go through `reply`/`startThread` in `server/launch-slack.ts` (one thread per launch, each event once by dedupe key). A failed post must not fail the action behind it; user text goes through `slackText`; nothing is read back from Slack and approval authority never comes from it. `REMINDERS_ONLY_FOR` does not limit channel posts.
 - A follower sees the digest and brief only, never the research: the digest names no participant and goes through `buildDigest` in `server/launch-digest.ts`; only internal members can follow, and a digest email carries no launch link (a follower cannot open it). Share emails go through `deliver` like every launch email.
 - A launch export (`server/launch-export.ts`) builds a self-contained, escaped page and never fetches anything; an external reviewer cannot export; `launchForSystem` leaves the brief out unless asked (`withBrief`), so a reader that needs the brief must ask.
+- Anything done from Slack runs the same function as the screen, as the member the Slack user is linked to (`contextForUser`): never re-implement a rule for Slack. A Slack request is acted on only after `verifySlackSignature` and `rememberRequest` (see `fromSlack` in `server/app.ts`); a Slack identity comes only from a one-time code, never from a name or email on the Slack account.
 - Do not start a `data-testid` with `story-` for anything but a story card: the project tour points at `[data-testid^="story-"]`.
 
 ## Database

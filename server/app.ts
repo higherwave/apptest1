@@ -11,8 +11,10 @@ import { addReviewer, BadStep, ExternalAllTeams, PrimaryTaken, removeReviewer, R
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
 import { startThread } from './launch-slack.js'
+import { handleCommand, handleInteraction } from './slack-interact.js'
+import { createConnectCode, disconnectSlack, rememberRequest, slackStatus } from './slack-link.js'
 import { addFollowers, buildDigest, NotAFollowable, removeFollower, shareDigest } from './launch-digest.js'
-import { cleanChannel, makeSlack, type SlackClient } from './slack.js'
+import { cleanChannel, makeSlack, verifySlackSignature, type SlackClient } from './slack.js'
 import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
 import { timingSafeEqual } from 'node:crypto'
 import {
@@ -81,7 +83,7 @@ export function createApp(options: AppOptions = {}) {
 
   // The request's identity, then the team check: a route that names a project (or a theme, document, story or step of one) is refused as
   // not found when the project is another team's, and refused as forbidden for a write when the caller may only read in that team.
-  const EXTERNAL_MAY_CALL = /^\/(me|launches(\/.*)?)$/
+  const EXTERNAL_MAY_CALL = /^\/(me(\/slack(\/code)?)?|launches(\/.*)?)$/
   const inTeams = (identity: MiddlewareHandler): MiddlewareHandler => async (c, next) => {
     await identity(c, async () => {})
     // An external member (outside counsel, a partner) may use only what is made for them: their own details and the launches they are asked to review
@@ -1547,6 +1549,54 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     c.header('Content-Type', 'text/html; charset=utf-8')
     return c.html(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Reminders</title><body style="font-family:system-ui,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem"><h1>${ok ? 'You are unsubscribed' : 'That link did not work'}</h1><p>${ok ? 'You will not get the daily reminder any more. You can turn it back on under Settings, Notifications.' : 'Open Settings, Notifications in the app to change your reminders.'}</p></body>`, ok ? 200 : 400)
+  })
+
+  // Connecting Slack: a member asks for a one-time code here and enters it in Slack as /signalflow connect <code>. That link is how a click in Slack is known to be them.
+  app.get('/me/slack', withContext, async (c) => {
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && slack.live })
+  })
+  app.post('/me/slack/code', withContext, async (c) => {
+    c.header('Cache-Control', 'no-store')
+    return c.json(await createConnectCode(getDb(), c.get('ctx').userId), 201)
+  })
+  app.delete('/me/slack', withContext, async (c) => {
+    await disconnectSlack(getDb(), c.get('ctx').userId)
+    c.header('Cache-Control', 'no-store')
+    return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && slack.live })
+  })
+
+  // What Slack sends when someone acts there (a click, a form, a message action, the /signalflow command). Slack signs each request: nothing is read or done
+  // until the signature checks out against SLACK_SIGNING_SECRET and the request is no older than five minutes, and a request seen before is not acted on again.
+  const fromSlack = async (c: Context): Promise<{ raw: string } | Response> => {
+    if (!env.SLACK_SIGNING_SECRET) throw new ApiError(503, 'slack_not_configured', 'SLACK_SIGNING_SECRET is not set.')
+    const raw = await c.req.text()
+    const signature = c.req.header('x-slack-signature')
+    const verdict = verifySlackSignature({ secret: env.SLACK_SIGNING_SECRET, timestamp: c.req.header('x-slack-request-timestamp'), signature, body: raw })
+    if (verdict !== 'ok') throw new ApiError(401, 'unauthorized', 'This request is not signed by Slack.')
+    if (!(await rememberRequest(getDb(), signature!))) {
+      // Slack itself retries a request it thinks was slow: acknowledge it quietly. Anything else is a replay.
+      if (c.req.header('x-slack-retry-num')) return c.body(null, 200)
+      throw new ApiError(401, 'unauthorized', 'This request was already handled.')
+    }
+    return { raw }
+  }
+  app.post('/slack/interactions', async (c) => {
+    const got = await fromSlack(c)
+    if (got instanceof Response) return got
+    let payload: Record<string, any>
+    try {
+      payload = JSON.parse(new URLSearchParams(got.raw).get('payload') ?? '')
+    } catch {
+      throw new ApiError(400, 'bad_request', 'Not a Slack interaction.')
+    }
+    const out = await handleInteraction({ db: getDb(), env, mailer, slack }, payload)
+    return out ? c.json(out) : c.body(null, 200)
+  })
+  app.post('/slack/commands', async (c) => {
+    const got = await fromSlack(c)
+    if (got instanceof Response) return got
+    return c.json(await handleCommand({ db: getDb(), env, mailer, slack }, new URLSearchParams(got.raw)))
   })
 
   // The hourly job (vercel.json "crons"). Vercel sends CRON_SECRET as a Bearer token. Without that variable the route is closed.

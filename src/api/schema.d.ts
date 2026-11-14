@@ -351,6 +351,75 @@ export interface paths {
         patch: operations["setUpLaunch"];
         trace?: never;
     };
+    "/me/slack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the caller's Slack account is connected (and whether Slack is set up on this deployment). */
+        get: operations["getMySlack"];
+        put?: never;
+        post?: never;
+        /** Unlinks the caller's Slack account; the answer buttons ask them to connect again. */
+        delete: operations["disconnectMySlack"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/slack/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** A one-time code (shown once, valid ten minutes) the caller enters in Slack as `/signalflow connect <code>`. That is the only way a Slack user becomes a member, so a name or email on a Slack account is never trusted. An earlier unused code stops working. */
+        post: operations["createSlackConnectCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/slack/interactions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Slack's interactivity address (buttons on an approval card, the answer and evidence forms, the "Add link as evidence" message action). No sign-in: the request must carry a valid Slack signature (`X-Slack-Signature`, `X-Slack-Request-Timestamp`, SLACK_SIGNING_SECRET) and be under five minutes old, or it is 401; the same request twice is 401 (a Slack retry is acknowledged quietly). 503 when no signing secret is set. What a click may do is exactly what the linked member may do in Signal Flow. */
+        post: operations["slackInteractions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/slack/commands": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** The `/signalflow` command (`connect <code>`, `disconnect`, or nothing for the connection's state). Signed by Slack like the interactivity address. The reply is private to the person who typed it. */
+        post: operations["slackCommands"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/launches/{id}/export.pdf": {
         parameters: {
             query?: never;
@@ -3342,6 +3411,18 @@ export interface components {
                 name: string;
             }[];
         };
+        SlackConnection: {
+            connected: boolean;
+            slackUserId: string | null;
+            /** @description Whether this deployment has Slack set up (a bot token and a signing secret). */
+            configured: boolean;
+        };
+        SlackConnectCode: {
+            /** @description Shown once, such as K7Q3-9XMP. */
+            code: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         LaunchPerson: {
             userId: string;
             name: string;
@@ -4395,6 +4476,126 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    getMySlack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlackConnection"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    disconnectMySlack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlackConnection"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    createSlackConnectCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The code. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlackConnectCode"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    slackInteractions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": {
+                    /** @description The interaction as JSON. */
+                    payload?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Empty to accept, or JSON (`response_action: errors`) to keep a form open. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    slackCommands: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-www-form-urlencoded": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description The reply. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        response_type: string;
+                        text: string;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     exportLaunchPdf: {

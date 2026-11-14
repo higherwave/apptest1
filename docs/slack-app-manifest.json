@@ -1,0 +1,37 @@
+{
+  "display_information": {
+    "name": "Signal Flow",
+    "description": "Launch readiness and approvals from Signal Flow"
+  },
+  "features": {
+    "bot_user": { "display_name": "Signal Flow", "always_online": false },
+    "slash_commands": [
+      {
+        "command": "/signalflow",
+        "url": "APP_URL/api/v1/slack/commands",
+        "description": "Connect your Slack account to Signal Flow",
+        "usage_hint": "connect <code>",
+        "should_escape": false
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Add link as evidence",
+        "type": "message",
+        "callback_id": "add_evidence",
+        "description": "Add this message's link to a step of the launch"
+      }
+    ]
+  },
+  "oauth_config": {
+    "scopes": {
+      "bot": ["chat:write", "chat:write.public", "channels:read", "users:read", "users:read.email", "commands"]
+    }
+  },
+  "settings": {
+    "interactivity": { "is_enabled": true, "request_url": "APP_URL/api/v1/slack/interactions" },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}

@@ -15,7 +15,7 @@ declare global {
 
 const headers = { authorization: 'Bearer s3cret', 'content-type': 'application/json' }
 
-type Posted = { channel: string; text: string; threadTs?: string; ts: string }
+type Posted = { channel: string; text: string; threadTs?: string; blocks?: unknown; ts: string }
 function recordingSlack(opts: { live?: boolean } = {}) {
   const posts: Posted[] = []
   const state = { failNext: 0, n: 0 }
@@ -25,15 +25,18 @@ function recordingSlack(opts: { live?: boolean } = {}) {
       if (name === 'missing-channel') throw new SlackError('channel_not_found')
       return `C_${name}`
     },
-    async post(channel, text, threadTs) {
+    async post(channel, text, threadTs, blocks) {
       if (state.failNext > 0) {
         state.failNext--
         throw new SlackError('ratelimited')
       }
       const ts = `1700000000.${String(++state.n).padStart(6, '0')}`
-      posts.push({ channel, text, threadTs, ts })
+      posts.push({ channel, text, threadTs, blocks, ts })
       return { channel, ts }
     },
+    async updateMessage() {},
+    async openView() {},
+    async respond() {},
     async permalink(channel, ts) {
       return `https://example-workspace.slack.test/archives/${channel}/p${ts.replace('.', '')}`
     },
@@ -109,16 +112,17 @@ test('a launch made after the team has a channel opens its thread at once; what 
   await call(alex, 'POST', `/launches/${launch.id}/request`)
   assert.match(posts[1].text, /Answers asked of/)
   assert.equal(posts[1].threadTs, root, 'a reply, in the launch’s thread')
+  const afterAsk = posts.length
   await call(alex, 'POST', `/launches/${launch.id}/request`)
-  assert.equal(posts.length, 2, 'asking again for the same brief posts nothing more')
+  assert.equal(posts.length, afterAsk, 'asking again for the same brief posts nothing more')
   await call(alex, 'PUT', `/launches/${launch.id}/steps/legal`, { answer: 'changes_needed', rationale: 'Fix the <!channel> consent & wording.' })
-  const answered = posts[2]
+  const answered = posts.find((p) => /\*Legal\*: changes needed/.test(p.text) && !p.blocks)!
   assert.equal(answered.threadTs, root)
   assert.match(answered.text, /\*Legal\*: changes needed, by Alex Rivera\./)
   assert.ok(answered.text.includes('Fix the &lt;!channel&gt; consent &amp; wording.'), 'a reason cannot mention anyone or add a link')
   assert.ok(!answered.text.includes('<!channel>'))
   await call(owner, 'PUT', `/launches/${launch.id}/steps/final_decision`, { answer: 'no_go', rationale: 'Not yet.' })
-  assert.match(posts.at(-1)!.text, /\*Final decision: no-go\*, recorded by David Garrett\./)
+  assert.ok(posts.some((p) => /\*Final decision: no-go\*, recorded by David Garrett\./.test(p.text)))
   // A change to the brief reopens the answers given (Legal and the final decision): one reply each, however many times the sweep runs.
   await call(alex, 'PATCH', `/launches/${launch.id}`, { briefNotes: 'The consent flow changed.' })
   const reopened = posts.filter((p) => /brief changed/.test(p.text))
@@ -176,9 +180,13 @@ test('the Slack client: finds a channel across pages, posts with the token, and 
   assert.deepEqual(await client.post('C2', 'hi', '9.9'), { channel: 'C2', ts: '1.2' })
   const post = calls.at(-1)!
   assert.equal((post.init?.headers as Record<string, string>).authorization, 'Bearer xoxb-test')
-  assert.deepEqual(JSON.parse(String(post.init?.body)), { channel: 'C2', text: 'hi', unfurl_links: 'false', unfurl_media: 'false', thread_ts: '9.9' })
+  assert.deepEqual(JSON.parse(String(post.init?.body)), { channel: 'C2', text: 'hi', unfurl_links: false, unfurl_media: false, thread_ts: '9.9' })
   await assert.rejects(() => client.post('nope', 'x'), (e: SlackError) => e.code === 'channel_not_found')
   await assert.rejects(() => client.channelId('absent'), (e: SlackError) => e.code === 'channel_not_found')
   assert.equal(await client.permalink('C2', '1.2'), 'https://x.slack.test/p')
   assert.equal(slackText('<a> & b'), '&lt;a&gt; &amp; b')
+  // A reply goes only to Slack's own address.
+  await assert.rejects(() => client.respond('https://evil.example.com/hook', { text: 'x' }), (e: SlackError) => e.code === 'bad_response_url')
+  await client.respond('https://hooks.slack.com/actions/T/1/x', { text: 'x' })
+  assert.equal(calls.at(-1)!.url, 'https://hooks.slack.com/actions/T/1/x')
 })

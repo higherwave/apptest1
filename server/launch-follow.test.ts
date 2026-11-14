@@ -31,6 +31,9 @@ async function fixture(extraEnv: Record<string, string> = {}) {
       posts.push({ text, threadTs })
       return { channel, ts: `1700000000.${String(++n).padStart(6, '0')}` }
     },
+    async updateMessage() {},
+    async openView() {},
+    async respond() {},
     async permalink() {
       return 'https://example-workspace.slack.test/archives/C/p1'
     },

@@ -461,6 +461,77 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /me/slack:
+    get:
+      operationId: getMySlack
+      summary: Whether the caller's Slack account is connected (and whether Slack is set up on this deployment).
+      responses:
+        '200':
+          description: The connection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlackConnection' }
+        '401': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: disconnectMySlack
+      summary: Unlinks the caller's Slack account; the answer buttons ask them to connect again.
+      responses:
+        '200':
+          description: The connection now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlackConnection' }
+        '401': { $ref: '#/components/responses/Error' }
+  /me/slack/code:
+    post:
+      operationId: createSlackConnectCode
+      summary: >
+        A one-time code (shown once, valid ten minutes) the caller enters in Slack as `/signalflow connect <code>`. That is the only way a Slack user becomes a
+        member, so a name or email on a Slack account is never trusted. An earlier unused code stops working.
+      responses:
+        '201':
+          description: The code.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SlackConnectCode' }
+        '401': { $ref: '#/components/responses/Error' }
+  /slack/interactions:
+    post:
+      operationId: slackInteractions
+      summary: >
+        Slack's interactivity address (buttons on an approval card, the answer and evidence forms, the "Add link as evidence" message action). No sign-in:
+        the request must carry a valid Slack signature (`X-Slack-Signature`, `X-Slack-Request-Timestamp`, SLACK_SIGNING_SECRET) and be under five minutes old,
+        or it is 401; the same request twice is 401 (a Slack retry is acknowledged quietly). 503 when no signing secret is set. What a click may do is exactly what
+        the linked member may do in Signal Flow.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object, properties: { payload: { type: string, description: The interaction as JSON. } } }
+      responses:
+        '200': { description: 'Empty to accept, or JSON (`response_action: errors`) to keep a form open.' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /slack/commands:
+    post:
+      operationId: slackCommands
+      summary: >
+        The `/signalflow` command (`connect <code>`, `disconnect`, or nothing for the connection's state). Signed by Slack like the interactivity address.
+        The reply is private to the person who typed it.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object }
+      responses:
+        '200':
+          description: The reply.
+          content:
+            application/json:
+              schema: { type: object, required: [response_type, text], properties: { response_type: { type: string }, text: { type: string } } }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /launches/{id}/export.pdf:
     get:
       operationId: exportLaunchPdf
@@ -4259,6 +4330,19 @@ components:
             properties:
               id: { type: string }
               name: { type: string }
+    SlackConnection:
+      type: object
+      required: [connected, slackUserId, configured]
+      properties:
+        connected: { type: boolean }
+        slackUserId: { type: [string, 'null'] }
+        configured: { type: boolean, description: Whether this deployment has Slack set up (a bot token and a signing secret). }
+    SlackConnectCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string, description: 'Shown once, such as K7Q3-9XMP.' }
+        expiresAt: { type: string, format: date-time }
     LaunchPerson:
       type: object
       required: [userId, name]

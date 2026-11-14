@@ -14,8 +14,8 @@ import type { Db, Env } from './db.js'
 import { allLaunchIds, launchForSystem, type LaunchDetail, type LaunchStep, type Person } from './launches.js'
 import type { Mailer } from './mailer.js'
 import { remindersOnlyFor } from './notifications.js'
-import { reply, slackLines } from './launch-slack.js'
-import type { SlackClient } from './slack.js'
+import { postApprovalCards, reply, settleCards, slackLines } from './launch-slack.js'
+import { slackText, type SlackClient } from './slack.js'
 
 export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date }
 const slackOf = (d: Deps) => ({ db: d.db, env: d.env, slack: d.slack })
@@ -119,6 +119,8 @@ export async function requestAnswers(deps: Deps, workspaceId: string, launchId: 
   }
   const told = [...result.asked, ...result.held]
   if (told.length) await reply(slackOf(deps), workspaceId, launchId, 'requested', `requested:${launch.briefAt}:${told.flatMap((t) => t.steps).sort().join('+')}`, slackLines.requested(told))
+  // The same ask, as a card with buttons in the Slack thread, for every step that is waiting and has someone to answer it (once per step and brief version).
+  await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, wanted.filter((s) => s.reviewers.primary.length > 0).map((s) => ({ step: s.step, label: s.label, waitingFor: s.reviewers.primary.map((p) => p.name) })))
   return result
 }
 
@@ -128,6 +130,7 @@ export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: 
   const answered = launch?.steps.find((s) => s.step === step)
   if (!launch || !answered?.answer) return
   const answer = answered.answer
+  await settleCards(slackOf(deps), launchId, step, `:white_check_mark: *${answered.label}*: ${answerLabel(answer.answer).toLowerCase()}, by ${slackText(answer.by?.name ?? 'someone')}.`)
   await reply(
     slackOf(deps), workspaceId, launchId, step === 'final_decision' ? 'decided' : 'answered', `answered:${answer.id}`,
     step === 'final_decision' ? slackLines.decided(answer.answer, answer.by?.name ?? 'someone', answer.rationale) : slackLines.answered(answered.label, answer.answer, answer.by?.name ?? 'someone', answer.rationale),
@@ -204,6 +207,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
   for (const s of launch.steps.filter((x) => x.used)) {
     if (s.state === 'reopened') {
       await reply(slackOf(deps), workspaceId, launchId, 'reopened', `reopened:${s.step}:${launch.briefAt}`, slackLines.reopened(s.label))
+      if (s.reviewers.primary.length) await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, [{ step: s.step, label: s.label, waitingFor: s.reviewers.primary.map((p) => p.name) }])
       for (const p of s.reviewers.primary) {
         tally(result, await deliver(deps, launch, {
           to: p,

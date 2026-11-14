@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  requestLaunchAnswers, startLaunchSlackThread, addLaunchFollowers, removeLaunchFollower, previewLaunchDigest, shareLaunchDigest, setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, addLaunchFollowers, removeLaunchFollower, previewLaunchDigest, shareLaunchDigest, setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -120,6 +120,13 @@ export const useShareLaunchDigest = () => {
     mutationFn: ({ id, via }: { id: string; via: { email: boolean; slack: boolean } }) => shareLaunchDigest(id, via),
     onSuccess: () => Promise.all(['launch', 'launches', 'project-launch'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
   })
+}
+// The caller's Slack connection (for the account panel), the one-time code to connect it, and undoing it.
+export const useMySlack = () => useQuery({ queryKey: ['my-slack'], queryFn: getMySlack, staleTime: 60_000 })
+export const useCreateSlackConnectCode = () => useMutation({ mutationFn: createSlackConnectCode })
+export const useDisconnectMySlack = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: disconnectMySlack, onSuccess: (data) => queryClient.setQueryData(['my-slack'], data) })
 }
 export const useRemoveLaunchLink = () => useLaunchMutation(({ id, linkId }: { id: string; linkId: string }) => removeLaunchLink(id, linkId))
 

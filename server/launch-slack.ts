@@ -6,7 +6,8 @@
 // channel post has no recipient, so use a channel only you are in while that limit is set.
 import { answerLabel } from '../shared/launch.mjs'
 import type { Db, Env, Queryable } from './db.js'
-import { slackProblem, slackText, SlackError, type SlackClient } from './slack.js'
+import { slackProblem, slackText, SlackError, type SlackBlocks, type SlackClient } from './slack.js'
+import { answersFor } from '../shared/launch.mjs'
 
 export type SlackDeps = { db: Db; env: Env; slack?: SlackClient }
 export type ThreadResult = { state: 'started' | 'already' | 'off' | 'no_channel' | 'failed'; url: string | null; problem: string | null }
@@ -77,7 +78,7 @@ export async function startThread(deps: SlackDeps, workspaceId: string, launchId
 }
 
 /** One reply in the launch's thread (the thread is opened first if it is not there yet). Never throws. */
-export async function reply(deps: SlackDeps, workspaceId: string, launchId: string, kind: string, key: string, text: string): Promise<boolean> {
+export async function reply(deps: SlackDeps, workspaceId: string, launchId: string, kind: string, key: string, text: string, blocks?: SlackBlocks): Promise<boolean> {
   const { db, slack } = deps
   try {
     if (!slack?.live) return false
@@ -91,7 +92,7 @@ export async function reply(deps: SlackDeps, workspaceId: string, launchId: stri
     const id = await claim(db, launchId, kind, key)
     if (!id) return false
     try {
-      const posted = await slack.post(t.channelId!, text, t.ts!)
+      const posted = await slack.post(t.channelId!, text, t.ts!, blocks)
       await db.query(`update delivery.launch_slack_posts set status = 'sent', ts = $2 where id = $1`, [id, posted.ts])
       return true
     } catch (err) {
@@ -112,4 +113,52 @@ export const slackLines = {
   answered: (step: string, answer: string, by: string, why: string) => `:white_check_mark: *${slackText(step)}*: ${slackText(answerLabel(answer).toLowerCase())}, by ${slackText(by)}.${reason(why)}`,
   decided: (answer: string, by: string, why: string) => `:rocket: *Final decision: ${slackText(answerLabel(answer).toLowerCase())}*, recorded by ${slackText(by)}.${reason(why)}`,
   reopened: (step: string) => `:arrows_counterclockwise: The brief changed after *${slackText(step)}* was answered. Its reviewer is asked to confirm it.`,
+}
+
+// ---- approval cards: a step's answer given from Slack ----
+
+export type CardStep = { step: string; label: string; waitingFor: string[] }
+
+/** The card for one step: who it waits for, and a button for each answer. The click carries the launch and step; who may answer is checked when it arrives. */
+export function cardBlocks(launchId: string, c: CardStep, text: string): SlackBlocks {
+  return [
+    { type: 'section', text: { type: 'mrkdwn', text } },
+    {
+      type: 'actions',
+      block_id: `card:${c.step}`,
+      elements: answersFor(c.step).map((a: { key: string; label: string; good: boolean }) => ({
+        type: 'button',
+        action_id: `answer:${a.key}`,
+        value: `${launchId}|${c.step}`,
+        text: { type: 'plain_text', text: a.label },
+        ...(a.key === 'changes_needed' || a.key === 'no_go' ? { style: 'danger' } : {}),
+      })),
+    },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: 'Only the step’s reviewer can answer. The answer is recorded in Signal Flow, with the version of the brief it was given on.' }] },
+  ]
+}
+
+/** Posts a card in the launch's thread for each step (once per step and brief version). */
+export async function postApprovalCards(deps: SlackDeps, workspaceId: string, launchId: string, briefAt: string, cards: CardStep[]): Promise<void> {
+  for (const c of cards) {
+    const text = `:hourglass_flowing_sand: *${slackText(c.label)}* is waiting${c.waitingFor.length ? ` for ${c.waitingFor.map(slackText).join(' or ')}` : ''}.`
+    await reply(deps, workspaceId, launchId, 'card', `card:${c.step}:${briefAt}`, text, cardBlocks(launchId, c, text))
+  }
+}
+
+/** Once a step is answered (in Signal Flow or in Slack), its cards stop offering buttons and say what was answered. Never throws. */
+export async function settleCards(deps: SlackDeps, launchId: string, step: string, text: string): Promise<void> {
+  try {
+    if (!deps.slack?.live) return
+    const rows = (
+      await deps.db.query(
+        `select p.ts, l.slack_channel_id from delivery.launch_slack_posts p join delivery.launches l on l.id = p.launch_id
+          where p.launch_id = $1 and p.kind = 'card' and p.dedupe_key like $2 and p.status = 'sent' and p.ts is not null and l.slack_channel_id is not null`,
+        [launchId, `card:${step}:%`],
+      )
+    ).rows
+    for (const r of rows) await deps.slack.updateMessage(r.slack_channel_id, r.ts, text, [{ type: 'section', text: { type: 'mrkdwn', text } }])
+  } catch (err) {
+    console.error('launch slack card update failed', failure(err))
+  }
 }

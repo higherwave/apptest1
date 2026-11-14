@@ -326,6 +326,9 @@ export async function setUpLaunch(db: Db, ctx: RequestContext, id: string, patch
   })
 }
 
+/** Throws unless the caller may answer this step (NotTheReviewer names who can); returns the launch row. Shared by the screens and Slack. */
+export const assertCanAnswer = (db: Queryable, ctx: RequestContext, launchId: string, step: string) => reviewerOrThrow(db, ctx, launchId, step)
+
 async function reviewerOrThrow(db: Queryable, ctx: RequestContext, launchId: string, step: string): Promise<{ row: Row; cover: Cover; viewer: Viewer }> {
   if (!isStep(step)) throw new BadAnswer()
   const row = (await db.query(`${LAUNCH_SQL} where l.id = $1 and l.workspace_id = $2`, [launchId, ctx.workspaceId])).rows[0] as Row | undefined

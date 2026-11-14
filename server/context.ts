@@ -61,6 +61,24 @@ const ANY_MEMBER_SQL = `
 //   5. Otherwise (before sign-in exists): with DEV_TOKEN set, 'read' routes answer GET and HEAD as the read-only demo
 //      viewer and 'strict' routes refuse; with it unset, production refuses everything and anywhere else is open as the
 //      demo owner.
+/**
+ * The context of a member acting without a session: from a Slack button, once their Slack user is linked to them. It is exactly what a signed-in request of
+ * theirs would carry (their role, their teams, whether they are external), so every rule in the API applies to them unchanged. Null for someone no longer a member.
+ */
+export async function contextForUser(db: Db, workspaceId: string, userId: string): Promise<RequestContext | null> {
+  const row = (
+    await db.query(
+      `select u.id as user_id, u.email, u.display_name, u.avatar_url, w.id as workspace_id, w.name as workspace_name, m.role, m.is_external as external
+         from core.memberships m join core.users u on u.id = m.user_id join core.workspaces w on w.id = m.workspace_id
+        where m.workspace_id = $1 and m.user_id = $2`,
+      [workspaceId, userId],
+    )
+  ).rows[0]
+  if (!row) return null
+  const teams = await loadTeamRoles(db, workspaceId, userId)
+  return { anonymous: false, via: 'session', external: !!row.external, userId, workspaceId, role: effectiveRole(row.role, teams), teams, email: row.email, displayName: row.display_name, avatarUrl: row.avatar_url ?? null, workspaceName: row.workspace_name }
+}
+
 export type Access = 'strict' | 'read'
 
 const MEMBER_SQL = `
