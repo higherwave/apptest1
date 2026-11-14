@@ -1,4 +1,4 @@
-import { Close, LogoSlack } from '@carbon/icons-react'
+import { Close } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useState } from 'react'
 import type { LaunchAnswer, LaunchDetail, LaunchDigest, LaunchDigestShared, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
@@ -182,7 +182,7 @@ function SlackCard({ launch, busy, onOpen }: { launch: LaunchDetail; busy: boole
   if (!channel) return null
   return (
     <div className={styles.slackCard} data-testid="launch-slack">
-      <LogoSlack size={32} className={styles.slackLogo} aria-hidden />
+      <img className={styles.slackLogo} src="/platforms/slack.svg" alt="" width={32} height={32} />
       {threadUrl ? (
         <a className={styles.slackLink} href={threadUrl} target="_blank" rel="noreferrer" data-testid="open-slack-thread">Open the Slack thread</a>
       ) : started ? (

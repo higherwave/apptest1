@@ -68,7 +68,7 @@
   background: var(--at-canvas);
 }
 
-.slackLogo { flex-shrink: 0; fill: var(--at-ink); }
+.slackLogo { flex-shrink: 0; display: block; }
 
 .slackLink {
   @include tokens.role('title-sm');
