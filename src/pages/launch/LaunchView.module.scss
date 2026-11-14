@@ -43,16 +43,47 @@
   @media (max-width: 63.99rem) { order: 2; }
 }
 
-.aside {
-  border: 1px solid var(--at-hairline);
-  border-radius: var(--at-radius-lg);
-  background: var(--at-canvas);
+// The right column: the Slack card, then the summary and brief panel under it.
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  min-width: 0;
 
   @media (min-width: 64rem) {
     position: sticky;
     inset-block-start: 7.5rem;
+    align-self: start;
   }
   @media (max-width: 63.99rem) { order: 1; }
+}
+
+.slackCard {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-md);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.slackLogo { flex-shrink: 0; fill: var(--at-ink); }
+
+.slackLink {
+  @include tokens.role('title-sm');
+  color: var(--at-ink);
+}
+
+.slackText {
+  @include tokens.role('body-md');
+  color: var(--at-body);
+}
+
+.aside {
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
 }
 
 .tabPanel { padding: var(--at-space-lg); }

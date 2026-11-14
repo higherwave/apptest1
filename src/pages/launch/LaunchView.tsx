@@ -1,4 +1,4 @@
-import { Close } from '@carbon/icons-react'
+import { Close, LogoSlack } from '@carbon/icons-react'
 import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useState } from 'react'
 import type { LaunchAnswer, LaunchDetail, LaunchDigest, LaunchDigestShared, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
@@ -176,7 +176,27 @@ function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemo
   )
 }
 
-function Summary({ launch, busy, onEdit, onAsk, onSlack }: { launch: LaunchDetail; busy: boolean; onEdit: () => void; onAsk: () => void; onSlack: () => void }) {
+// The launch's Slack thread, above the summary: the logo and one link, so the conversation is a click away. Before the thread exists, an editor can open it.
+function SlackCard({ launch, busy, onOpen }: { launch: LaunchDetail; busy: boolean; onOpen: () => void }) {
+  const { channel, threadUrl, started } = launch.slack
+  if (!channel) return null
+  return (
+    <div className={styles.slackCard} data-testid="launch-slack">
+      <LogoSlack size={32} className={styles.slackLogo} aria-hidden />
+      {threadUrl ? (
+        <a className={styles.slackLink} href={threadUrl} target="_blank" rel="noreferrer" data-testid="open-slack-thread">Open the Slack thread</a>
+      ) : started ? (
+        <span className={styles.slackText}>The thread is in #{channel}</span>
+      ) : launch.you.canSetUp ? (
+        <Button kind="tertiary" size="sm" disabled={busy} onClick={onOpen} data-testid="start-slack">Open a thread in #{channel}</Button>
+      ) : (
+        <span className={styles.slackText}>No thread yet in #{channel}</span>
+      )}
+    </div>
+  )
+}
+
+function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () => void; onAsk: () => void }) {
   const s = launch.summary
   const rows: { key: string; label: string; n: number }[] = [
     { key: 'ready', label: 'Ready', n: s.counts.ready },
@@ -224,22 +244,6 @@ function Summary({ launch, busy, onEdit, onAsk, onSlack }: { launch: LaunchDetai
         <div><dt>Target date</dt><dd>{dayText(launch.targetDate) ?? 'Not set'}</dd></div>
         <div><dt>Brief last changed</dt><dd>{momentText(launch.briefAt)}</dd></div>
         <div><dt>Project</dt><dd>{launch.projectName}{launch.teamName ? ` · ${launch.teamName}` : ''}</dd></div>
-        {launch.slack.channel && (
-          <div data-testid="launch-slack">
-            <dt>Slack</dt>
-            <dd>
-              {launch.slack.threadUrl ? (
-                <a href={launch.slack.threadUrl} target="_blank" rel="noreferrer">Open the thread in #{launch.slack.channel}</a>
-              ) : launch.slack.started ? (
-                <>The thread is in #{launch.slack.channel}</>
-              ) : launch.you.canSetUp ? (
-                <Button kind="tertiary" size="sm" disabled={busy} onClick={onSlack} data-testid="start-slack">Open a thread in #{launch.slack.channel}</Button>
-              ) : (
-                <>No thread yet in #{launch.slack.channel}</>
-              )}
-            </dd>
-          </div>
-        )}
       </dl>
       <p className={styles.small}>{KIND_LABEL[launch.you.kind]}{launch.you.steps.length ? `: ${launch.you.steps.map((k) => launch.steps.find((x) => x.step === k)?.label ?? k).join(', ')}` : ''}</p>
       {launch.you.canSetUp && (
@@ -329,6 +333,11 @@ export function LaunchView(p: LaunchViewProps) {
     return [...by.values()]
   })()
   const withoutReviewer = (launch?.steps ?? []).filter((st) => st.used && st.state === 'missing')
+  const openSlack = async () => {
+    setSlackProblem(null)
+    const r = await p.onSlack()
+    if (r && r.state !== 'started' && r.state !== 'already') setSlackProblem(r.problem ?? 'Slack could not be reached.')
+  }
   const openEdit = () => {
     if (!launch) return
     setName(launch.name)
@@ -368,6 +377,8 @@ export function LaunchView(p: LaunchViewProps) {
                 <Section key={s.step} step={s} focus={s.step === p.focusStep} busy={p.busy} reviewersHref={p.reviewersHref} onAnswer={p.onAnswer} onAddLink={p.onAddLink} onRemoveLink={p.onRemoveLink} />
               ))}
             </div>
+            <div className={styles.rail}>
+            {launch.you.kind !== 'external' && <SlackCard launch={launch} busy={p.busy} onOpen={openSlack} />}
             <aside className={styles.aside} aria-label="Summary and brief">
               <Tabs>
                 <TabList aria-label="Launch panel">
@@ -376,12 +387,13 @@ export function LaunchView(p: LaunchViewProps) {
                   {launch.you.kind !== 'external' && <Tab data-testid="tab-follow">Follow</Tab>}
                 </TabList>
                 <TabPanels>
-                  <TabPanel className={styles.tabPanel}><Summary launch={launch} busy={p.busy} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} onSlack={async () => { setSlackProblem(null); const r = await p.onSlack(); if (r && r.state !== 'started' && r.state !== 'already') setSlackProblem(r.problem ?? 'Slack could not be reached.') }} /></TabPanel>
+                  <TabPanel className={styles.tabPanel}><Summary launch={launch} onEdit={openEdit} onAsk={() => { setAsked(null); setAsking(true) }} /></TabPanel>
                   <TabPanel className={styles.tabPanel}><Brief launch={launch} /></TabPanel>
                   {launch.you.kind !== 'external' && <TabPanel className={styles.tabPanel}><FollowPanel launch={launch} busy={p.busy} onAdd={p.onFollowAdd} onRemove={p.onFollowRemove} onPreview={p.onPreviewDigest} onShare={p.onShareDigest} /></TabPanel>}
                 </TabPanels>
               </Tabs>
             </aside>
+            </div>
           </div>
           <Modal
             open={asking}
