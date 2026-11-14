@@ -158,6 +158,12 @@
   --at-rail-active: var(--at-body);
   --at-rail-text: #c9ccd2;
 
+  // A single on/off setting that takes effect at once (Carbon's Toggle): link-blue track with a white knob when on; an outlined track with a dark knob when off.
+  --at-toggle-on: var(--at-link);
+  --at-toggle-knob-on: var(--at-canvas);
+  --at-toggle-off-border: var(--at-border-strong);
+  --at-toggle-off-knob: var(--at-muted);
+
   // Board status accents. Fill = the column's card edge; strong = progress bar and selection ring.
   --at-status-todo: #d0d3d9;
   --at-status-todo-strong: #7d828c;
@@ -253,6 +259,36 @@
   padding: var(--at-space-xxs);
   background: var(--at-surface-soft);
   border-radius: var(--at-radius-md);
+}
+
+// Toggle. Carbon fills the off track grey and the on track green with a check; here off is an outlined track and on is the link blue, both with a round knob.
+// The track keeps its size: the border is part of it, and the knob sits one pixel inside.
+.cds--toggle__switch {
+  box-sizing: border-box;
+  border: 0.125rem solid var(--at-toggle-off-border);
+  background-color: transparent;
+
+  &::before {
+    background-color: var(--at-toggle-off-knob);
+    inset-block-start: 1px;
+    inset-inline-start: 1px;
+  }
+}
+
+.cds--toggle__switch--checked {
+  border-color: var(--at-toggle-on);
+  background-color: var(--at-toggle-on);
+
+  &::before { background-color: var(--at-toggle-knob-on); }
+}
+
+.cds--toggle__check { display: none; }
+
+.cds--toggle--disabled .cds--toggle__switch {
+  border-color: var(--at-hairline);
+  background-color: transparent;
+
+  &::before { background-color: var(--at-text-disabled); }
 }
 
 .cds--tabs .cds--tabs__nav-link {

@@ -175,4 +175,14 @@
 }
 
 .away { display: flex; flex-direction: column; gap: var(--at-space-xs); }
+.away :global(.cds--toggle__text),
+.away :global(.cds--toggle__label-text) {
+  // Spoken ("Away: <name>") but not drawn: the column heading says it.
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 .awayWhy { @include tokens.role('caption'); color: var(--at-muted); }

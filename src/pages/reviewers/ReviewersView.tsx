@@ -1,5 +1,5 @@
 import { Close } from '@carbon/icons-react'
-import { Button, Checkbox, ContentSwitcher, Dropdown, InlineNotification, Loading, Modal, RadioButton, Switch, Tag } from '@carbon/react'
+import { Button, Checkbox, Dropdown, InlineNotification, Loading, Modal, RadioButton, Tag, Toggle } from '@carbon/react'
 import type { CoverageCell, Member, ReviewerOverview, ReviewerRole, ReviewerRow } from '../../api/client'
 import styles from './ReviewersView.module.scss'
 
@@ -147,10 +147,16 @@ export function ReviewersView(p: ReviewersViewProps) {
                           const why = 'Set up an alternate for every step this person approves before marking them away.'
                           return (
                             <span title={can ? undefined : why} data-testid={`away-${a.step}-${a.email}-${a.teamName ?? 'all'}`}>
-                              <ContentSwitcher size="sm" selectedIndex={a.unavailable ? 1 : 0} onChange={(e) => { const on = e.name === 'away'; if (on !== a.unavailable) p.onAway(a.userId, a.displayName, alts, on) }}>
-                                <Switch name="here" text="Here" disabled={p.busy} />
-                                <Switch name="away" text="Away" disabled={!can || p.busy} />
-                              </ContentSwitcher>
+                              <Toggle
+                                id={`away-toggle-${a.id}`}
+                                labelText={`Away: ${a.displayName}`}
+                                hideLabel
+                                labelA=""
+                                labelB=""
+                                toggled={a.unavailable}
+                                disabled={(!can && !a.unavailable) || p.busy}
+                                onToggle={(on) => { if (on !== a.unavailable) p.onAway(a.userId, a.displayName, alts, on) }}
+                              />
                               {!can && <span className={styles.awayWhy}>No alternate</span>}
                             </span>
                           )

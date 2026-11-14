@@ -239,6 +239,7 @@ try {
   await page.evaluate(() => document.querySelector('[data-testid="add-reviewer-button"]').click())
   await page.waitForFunction(() => /is set up as primary/.test(document.body.innerText), { timeout: 8000 })
   ok('setting a reviewer up once covers that step for the chosen team; other teams stay gaps', await page.evaluate(() => { const c = (t, s) => document.querySelector(`[data-testid="cell-${t}-${s}"]`); return c('General', 'legal').dataset.state === 'covered' && /Alex/.test(c('General', 'legal').innerText) && c('Support', 'legal').dataset.state === 'gap' && !!document.querySelector('[data-testid="reviewer-list"] [data-testid^="reviewer-legal-alex@"]') }))
+  ok('a primary reviewer with no alternate has a disabled Away toggle that says why', await page.evaluate(() => { const row = document.querySelector('[data-testid^="reviewer-legal-alex@"]'); const t = row?.querySelector('button[role="switch"]'); const wrap = row?.querySelector('[data-testid^="away-"]'); return !!t && t.disabled === true && /alternate/i.test(wrap?.getAttribute('title') ?? '') && /No alternate/.test(row.innerText) }))
   // All teams asks first, and an external member cannot choose it.
   await page.click('#reviewer-person')
   await page.waitForSelector('[role=option]', { visible: true })
