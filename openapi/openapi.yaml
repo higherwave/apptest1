@@ -461,6 +461,26 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /launches/{id}/export.pdf:
+    get:
+      operationId: exportLaunchPdf
+      summary: >
+        The launch record as a PDF a stakeholder outside Signal Flow can read: where it stands, each step's answer with its reason, who gave it and when, the
+        links, and the brief with its requirements. A snapshot of what the caller may see (403 for an external reviewer; 503 when switched off; 502 `pdf_failed`
+        when the browser that draws it could not).
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The PDF, as an attachment.
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '502': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /launches/{id}/followers:
     post:
       operationId: addLaunchFollowers

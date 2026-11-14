@@ -246,12 +246,11 @@ function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () =
         <div><dt>Project</dt><dd>{launch.projectName}{launch.teamName ? ` · ${launch.teamName}` : ''}</dd></div>
       </dl>
       <p className={styles.small}>{KIND_LABEL[launch.you.kind]}{launch.you.steps.length ? `: ${launch.you.steps.map((k) => launch.steps.find((x) => x.step === k)?.label ?? k).join(', ')}` : ''}</p>
-      {launch.you.canSetUp && (
-        <div className={styles.actions}>
-          <Button kind="primary" size="sm" onClick={onAsk} data-testid="ask-answers">Ask for answers</Button>
-          <Button kind="tertiary" size="sm" onClick={onEdit} data-testid="edit-launch">Edit launch details</Button>
-        </div>
-      )}
+      <div className={styles.actions}>
+        {launch.you.canSetUp && <Button kind="primary" size="sm" onClick={onAsk} data-testid="ask-answers">Ask for answers</Button>}
+        {launch.you.canSetUp && <Button kind="tertiary" size="sm" onClick={onEdit} data-testid="edit-launch">Edit launch details</Button>}
+        {launch.you.kind !== 'external' && <Button kind="tertiary" size="sm" href={`/api/v1/launches/${launch.id}/export.pdf`} data-testid="download-pdf">Download PDF</Button>}
+      </div>
     </div>
   )
 }

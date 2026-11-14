@@ -36,7 +36,7 @@ const day = (d: string | null) => (d ? new Date(`${d}T00:00:00`).toLocaleDateStr
 
 /** The digest for a launch as the project's data stands now, or null when there is no launch. */
 export async function buildDigest(db: Queryable, workspaceId: string, launchId: string): Promise<Digest | null> {
-  const launch = await launchForSystem(db, workspaceId, launchId)
+  const launch = await launchForSystem(db, workspaceId, launchId, { withBrief: true })
   if (!launch) return null
   const all = await listThemes(db, launch.projectId, { quotes: true })
   const ranked = [...all].sort((a, b) => ORDER.indexOf(a.category) - ORDER.indexOf(b.category))

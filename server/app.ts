@@ -42,6 +42,8 @@ import { MeasureConflict, getMeasure, getMeasureAcross, getMeasureItem, saveMeas
 import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
+import { exportFileName, launchRecordHtml } from './launch-export.js'
+import { makePdf, PdfError, type PdfService } from './pdf.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spendByTeam, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
@@ -51,7 +53,7 @@ import { editableTeamIds, enforceProjectScope, newProjectTeam, visibleTeamIds } 
 import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, setTeamSlackChannel, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -61,6 +63,7 @@ export function createApp(options: AppOptions = {}) {
   const ai = makeAi(env, options.provider)
   const mailer = options.mailer ?? getMailer(env)
   const slack = options.slack ?? makeSlack(env)
+  const pdf = options.pdf ?? makePdf(env)
   // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
   const jiraSettings = jiraConfig(env)
   const jira = jiraSettings ? makeJira(jiraSettings, options.jiraFetch) : null
@@ -317,6 +320,23 @@ export function createApp(options: AppOptions = {}) {
     if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
+  })
+  // The launch record as a PDF a stakeholder outside Signal Flow can read: a snapshot of what the caller may see, never more (an external reviewer is refused).
+  app.get('/launches/:id/export.pdf', withReadContext, async (c) => {
+    const launch = await oneLaunch(c, launchId(c))
+    if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', 'An external reviewer cannot export the launch.')
+    if (env.PDF_EXPORT === 'false') throw new ApiError(503, 'unavailable', 'PDF export is switched off on this deployment.')
+    const at = new Date()
+    let file: Buffer
+    try {
+      file = await pdf(launchRecordHtml(launch, at), `${launch.name}: launch record`)
+    } catch (err) {
+      if (err instanceof PdfError) throw new ApiError(502, 'pdf_failed', err.message)
+      throw err
+    }
+    c.header('Cache-Control', 'private, no-store')
+    c.header('Content-Disposition', `attachment; filename="${exportFileName(launch, 'pdf')}"`)
+    return c.body(new Uint8Array(file), 200, { 'Content-Type': 'application/pdf' })
   })
   // Following (slice 6): the launch's editors say who follows it, preview the early digest and share it. Followers get the digest and brief only.
   const editorOf = async (c: Context, id: string) => {

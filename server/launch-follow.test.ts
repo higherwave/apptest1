@@ -88,8 +88,9 @@ test('the digest: where people struggled first, a quote as said and never tied t
   assert.match(d.text, /“[^”]+” \(one participant\)/, 'a quote as said, with no name')
   const names = (await pg.query<any>(`select name from research.participants`)).rows.map((r: any) => r.name as string).filter((n: string) => n.length > 3)
   for (const n of names) assert.ok(!d.text.includes(n), `${n} is not named`)
-  assert.equal(d.hasBrief, false)
-  assert.match(d.text, /requirements are not published yet/)
+  assert.equal(d.hasBrief, true, 'the demo project’s requirements are published')
+  assert.match(d.text, /The problem: /)
+  assert.match(d.text, /\d+ requirements are written\./)
 })
 
 test('sharing: email to every follower once, a reply in the Slack thread, a record of what was sent; neither chosen is refused; the recipient limit holds email back', async () => {

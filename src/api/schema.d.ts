@@ -351,6 +351,23 @@ export interface paths {
         patch: operations["setUpLaunch"];
         trace?: never;
     };
+    "/launches/{id}/export.pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The launch record as a PDF a stakeholder outside Signal Flow can read: where it stands, each step's answer with its reason, who gave it and when, the links, and the brief with its requirements. A snapshot of what the caller may see (403 for an external reviewer; 503 when switched off; 502 `pdf_failed` when the browser that draws it could not). */
+        get: operations["exportLaunchPdf"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/launches/{id}/followers": {
         parameters: {
             query?: never;
@@ -4378,6 +4395,33 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    exportLaunchPdf: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The PDF, as an attachment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            502: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     addLaunchFollowers: {

@@ -890,6 +890,11 @@ try {
   await tid('start-slack')
   await page.waitForSelector('[data-testid="slack-problem"]', { timeout: 8000 })
   ok('with Slack not connected, opening the thread says why and nothing is claimed', await page.evaluate(() => /not connected/i.test(document.querySelector('[data-testid="slack-problem"]').innerText) && /anchor-cx-launches/.test(document.querySelector('[data-testid="launch-slack"]').innerText)))
+  // The launch record as a PDF, drawn by the real browser: it is a PDF, it is more than a blank page, and it is named for the launch.
+  const pdfRes = await fetch(`${API}/api/v1/launches/${launchId}/export.pdf`, { headers: { authorization: `Bearer ${TOKEN}` } })
+  const pdfBytes = Buffer.from(await pdfRes.arrayBuffer())
+  ok('the launch record downloads as a real PDF', pdfRes.status === 200 && pdfBytes.subarray(0, 4).toString() === '%PDF' && pdfBytes.length > 5000 && /launch-record\.pdf/.test(pdfRes.headers.get('content-disposition') ?? ''))
+  ok('the summary offers the PDF download', await page.evaluate(() => /export\.pdf$/.test(document.querySelector('[data-testid="download-pdf"]')?.getAttribute('href') ?? '')))
   // Following: an editor adds followers and shares the early digest; here nothing is mailed (placeholder addresses) and Slack is not connected, and it says so.
   const detail = await (await fetch(`${API}/api/v1/launches/${launchId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   if (detail.follow.followers.length === 0) await fetch(`${API}/api/v1/launches/${launchId}/followers`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ userIds: detail.follow.candidates.slice(0, 2).map((c) => c.userId) }) })
