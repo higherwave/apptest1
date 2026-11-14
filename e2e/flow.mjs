@@ -875,7 +875,7 @@ try {
   await tid('ask-answers')
   await page.waitForSelector('[data-testid="ask-dialog"]', { timeout: 5000 })
   ok('Ask for answers lists who will be asked, one entry per person with their steps, and which steps have no reviewer', await page.evaluate(() => { const t = document.querySelector('[data-testid="ask-dialog"]').innerText; return /David/.test(t) && /Legal, Final decision/.test(t) && /No reviewer is set up for .*Sales/.test(t) }))
-  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Ask by email').click())
+  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Send request').click())
   await page.waitForSelector('[data-testid="asked-result"]', { timeout: 8000 })
   ok('asking says who was asked, or that nobody was emailed (the demo’s addresses are placeholders, which are never mailed)', await page.evaluate(() => { const t = document.querySelector('[data-testid="asked-result"]').innerText; return /Nobody was emailed|Asked 1 reviewer/.test(t) && /placeholder|David/.test(t) }))
   const launchId = (await (await fetch(`${API}/api/v1/projects/${projectId}/launch`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).launch.id

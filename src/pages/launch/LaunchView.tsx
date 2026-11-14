@@ -398,7 +398,7 @@ export function LaunchView(p: LaunchViewProps) {
             open={asking}
             size="sm"
             modalHeading="Ask for answers"
-            primaryButtonText={p.busy ? 'Asking…' : toAsk.length ? 'Ask by email' : 'Close'}
+            primaryButtonText={p.busy ? 'Asking…' : toAsk.length ? 'Send request' : 'Close'}
             secondaryButtonText="Cancel"
             primaryButtonDisabled={p.busy}
             onRequestClose={() => setAsking(false)}
@@ -414,6 +414,7 @@ export function LaunchView(p: LaunchViewProps) {
                 <>
                   <p className={styles.notes}>These reviewers get one email each, with a link to their step:</p>
                   <ul className={styles.plain}>{toAsk.map((a) => <li key={a.name}><strong>{a.name}</strong>: {a.steps.join(', ')}</li>)}</ul>
+                  {launch?.slack.channel && <p className={styles.notes}>A card with answer buttons for each waiting step is also posted in the launch’s Slack thread (#{launch.slack.channel}).</p>}
                 </>
               ) : (
                 <p className={styles.notes}>No step is waiting on a reviewer who can be asked.</p>
