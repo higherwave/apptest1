@@ -109,7 +109,7 @@ export async function reply(deps: SlackDeps, workspaceId: string, launchId: stri
 const reason = (why: string) => (why ? `\n> ${slackText(why).replace(/\n+/g, ' ')}` : '')
 
 export const slackLines = {
-  requested: (people: { name: string; steps: string[] }[]) => `:envelope: Answers asked of ${people.map((p) => `${slackText(p.name)} (${slackText(p.steps.join(', '))})`).join('; ')}. They were emailed a link.`,
+  requested: (people: { name: string; steps: string[] }[]) => `:envelope: Answers asked of ${people.map((p) => `${slackText(p.name)} (${slackText(p.steps.join(', '))})`).join('; ')}. Each step has a card below to answer here.`,
   answered: (step: string, answer: string, by: string, why: string) => `:white_check_mark: *${slackText(step)}*: ${slackText(answerLabel(answer).toLowerCase())}, by ${slackText(by)}.${reason(why)}`,
   decided: (answer: string, by: string, why: string) => `:rocket: *Final decision: ${slackText(answerLabel(answer).toLowerCase())}*, recorded by ${slackText(by)}.${reason(why)}`,
   reopened: (step: string) => `:arrows_counterclockwise: The brief changed after *${slackText(step)}* was answered. Its reviewer is asked to confirm it.`,
