@@ -258,7 +258,7 @@ export interface paths {
         delete: operations["removeMember"];
         options?: never;
         head?: never;
-        /** Owners only. Changes a member's role and/or marks them external or not. 409 `last_owner` if it would leave the workspace with no owner; 409 `external_needs_viewer` for an external member who is not a viewer. Marking someone external ends any all-teams reviewer assignment they hold. */
+        /** Owners only. Changes a member's role and/or marks them external or not. 409 `last_owner` if it would leave the workspace with no owner; 409 `external_needs_viewer` for an external member who is not a viewer. Marking someone external ends any all-teams approver assignment they hold. */
         patch: operations["changeMemberRole"];
         trace?: never;
     };
@@ -305,7 +305,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The project's launch for someone who can see the project (a team member, a leader, or the read-only demo viewer): the launch, or null with whether they may start one (`canCreate`) and, if not, why. A reviewer assigned from outside the team uses /launches/{id} instead. */
+        /** The project's launch for someone who can see the project (a team member, a leader, or the read-only demo viewer): the launch, or null with whether they may start one (`canCreate`) and, if not, why. A approver assigned from outside the team uses /launches/{id} instead. */
         get: operations["getProjectLaunch"];
         put?: never;
         /** Starts the project's launch (one per project). Editors of the project's team only (403 otherwise). 409 `no_themes` until the project has themes; 409 `launch_exists` if it already has one. */
@@ -323,7 +323,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The launches the caller may see, each with their own part in it: the steps they answer (`yourSteps`) and those waiting on them. A team member sees their teams' launches; a reviewer also sees launches of teams they are not in where they are assigned a step; an external member sees only those. Leaders and the read-only demo viewer see every launch. */
+        /** The launches the caller may see, each with their own part in it: the steps they answer (`yourSteps`) and those waiting on them. A team member sees their teams' launches; an approver also sees launches of teams they are not in where they are assigned a step; an external member sees only those. Leaders and the read-only demo viewer see every launch. */
         get: operations["listLaunches"];
         put?: never;
         post?: never;
@@ -340,7 +340,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** One launch, shaped for who is asking: a team member, leader or reviewer sees every section the team uses; an external reviewer only their own sections and the owner's brief notes. 404 for a launch that is not theirs. Each step carries its reviewers, current answer (with whether it is reopened by a change to the brief), earlier answers and links; `canAnswer` is true only for that step's reviewer. */
+        /** One launch, shaped for who is asking: a team member, leader or approver sees every section the team uses; an external approver only their own sections and the owner's brief notes. 404 for a launch that is not theirs. Each step carries its reviewers, current answer (with whether it is reopened by a change to the brief), earlier answers and links; `canAnswer` is true only for that step's approver. */
         get: operations["getLaunch"];
         put?: never;
         post?: never;
@@ -427,7 +427,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The launch record as a PDF a stakeholder outside Signal Flow can read: where it stands, each step's answer with its reason, who gave it and when, the links, and the brief with its requirements. A snapshot of what the caller may see (403 for an external reviewer; 503 when switched off; 502 `pdf_failed` when the browser that draws it could not). */
+        /** The launch record as a PDF a stakeholder outside Signal Flow can read: where it stands, each step's answer with its reason, who gave it and when, the links, and the brief with its requirements. A snapshot of what the caller may see (403 for an external approver; 503 when switched off; 502 `pdf_failed` when the browser that draws it could not). */
         get: operations["exportLaunchPdf"];
         put?: never;
         post?: never;
@@ -444,7 +444,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The project's storyboard as a PDF that opens in the browser: the problem, what people said (customer quotes by role, never by name), the recommended directions and their trade-offs. 403 for an external reviewer (the storyboard carries customer quotes); 404 until it is written. */
+        /** The project's storyboard as a PDF that opens in the browser: the problem, what people said (customer quotes by role, never by name), the recommended directions and their trade-offs. 403 for an external approver (the storyboard carries customer quotes); 404 until it is written. */
         get: operations["exportLaunchStoryboardPdf"];
         put?: never;
         post?: never;
@@ -461,7 +461,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** The published requirements as a PDF that opens in the browser (the brief and the document's sections). Available to anyone who can see the launch, external reviewers included. 404 until published. */
+        /** The published requirements as a PDF that opens in the browser (the brief and the document's sections). Available to anyone who can see the launch, external approvers included. 404 until published. */
         get: operations["exportLaunchRequirementsPdf"];
         put?: never;
         post?: never;
@@ -497,7 +497,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Editors of the project's team ask, by email, the primary reviewer of each step still waiting (or reopened) for their answer; one email per person lists their steps and links to the launch. Asking again for the same brief sends nothing more (`alreadyAsked`). Steps with no reviewer are returned as `missing`. A message kept back by the temporary recipient limit is returned as `held`. */
+        /** Editors of the project's team ask, by email, the primary approver of each step still waiting (or reopened) for their answer; one email per person lists their steps and links to the launch. Asking again for the same brief sends nothing more (`alreadyAsked`). Steps with no approver are returned as `missing`. A message kept back by the temporary recipient limit is returned as `held`. */
         post: operations["requestLaunchAnswers"];
         delete?: never;
         options?: never;
@@ -513,7 +513,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** A step's reviewer (primary or alternate, from Admin, Members, Reviewers) gives their answer: ready, ready with conditions, changes needed or not applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for anyone else (naming who can), 409 `step_not_used` for a step the team turned off. */
+        /** A step's approver (primary or alternate, from Admin, Approvals) gives their answer: ready, ready with conditions, changes needed or not applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for anyone else (naming who can), 409 `step_not_used` for a step the team turned off. */
         put: operations["answerLaunchStep"];
         post?: never;
         delete?: never;
@@ -531,7 +531,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** A step's reviewer adds a link to the evidence for their step (a document, a ticket). Only http and https links (422). */
+        /** A step's approver adds a link to the evidence for their step (a document, a ticket). Only http and https links (422). */
         post: operations["addLaunchLink"];
         delete?: never;
         options?: never;
@@ -549,41 +549,23 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** The step's reviewer removes a link they added or that is on their step. */
+        /** The step's approver removes a link they added or that is on their step. */
         delete: operations["removeLaunchLink"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/reviewers": {
+    "/approvals": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Owners only. The launch reviewers (standing assignments: a person, a step, all teams or one team, primary or alternate) and, for each team, a coverage cell per step: `covered` (at least one primary), `gap` (a step the team uses with no primary; an alternate alone is still a gap) or `not_used` (the team turned the step off). A step with no reviewer is always shown as a gap, never hidden. */
-        get: operations["getReviewers"];
+        /** Owners only. Who approves each step of a launch: the workspace's approver and backup, and for each team whether it uses those (`default`), has its own (`custom`) or does not use the step (`off`), with the result (`covered`, `gap` or `not_used`). `people` is everyone in the workspace, for the pickers. A step a team uses with nobody approving it is always a gap, never hidden. */
+        get: operations["getApprovals"];
         put?: never;
-        /** Owners only. Sets a member up for one or more steps, for all teams or for named teams, as primary or alternate. A step and scope the person already has is updated to the new role. 409 `primary_taken` if another person is already the primary for a step and team (or all teams); 422 `external_all_teams` for an external member and all teams; 404 for an unknown member or team. */
-        post: operations["addReviewer"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/reviewers/people/{userId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Owners only. Marks a reviewer away (or back): while away, the alternates of their steps are the active reviewers and get the messages and answer cards, and the person gets none. Applies to all of the person's assignments. Needs an alternate (not themselves away) for every step and team they are primary for, otherwise 409 `no_alternate`. The alternates who now cover are emailed. Returns the reviewers and coverage as they are now. */
-        put: operations["setReviewerUnavailable"];
         post?: never;
         delete?: never;
         options?: never;
@@ -591,7 +573,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/reviewers/{id}": {
+    "/approvals/steps/{step}": {
         parameters: {
             query?: never;
             header?: never;
@@ -599,16 +581,16 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /** Owners only. Saves one step as the panel shows it, all or nothing: the workspace's approver and backup, and for each team the workspace's, its own or not used (a team left out uses the workspace's). 422 `needs_approver` for a backup with no approver or a team's own setting with none, `same_person` when approver and backup are the same, `external_all_teams` for an external person as the workspace's approver or backup (they may approve for a team only), `bad_step` for an unknown step or the final decision set to not used; 404 for an unknown person or team. One audit entry. */
+        put: operations["saveApprovalStep"];
         post?: never;
-        /** Owners only. Ends one standing assignment. Launches then show the step as approver missing if nobody else covers it. */
-        delete: operations["removeReviewer"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/teams/{id}/launch-steps": {
+    "/approvals/people/{userId}": {
         parameters: {
             query?: never;
             header?: never;
@@ -616,8 +598,8 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** Owners only. Says which optional steps this team's launches use (`used` maps a step to true or false). A step the team uses but nobody covers shows as a gap, not as hidden. The final decision always applies and cannot be set (422 `bad_step`). */
-        put: operations["setTeamLaunchSteps"];
+        /** Owners only. Marks an approver away (or back): while away, the backups of their steps are the active approvers and get the messages and answer cards, and the person gets none. Applies to all of the person's steps. Needs a backup (not themselves away) in the same place for every step they approve, otherwise 409 `no_backup`. The backups who now cover are emailed. Returns the approvals grid as it is now. */
+        put: operations["setApproverAway"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3439,21 +3421,6 @@ export interface components {
             /** @description 1 to 60 characters. */
             name: string;
         };
-        AddReviewerRequest: {
-            /** @description The membership id from the Members list. */
-            memberId: string;
-            steps: ("product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision")[];
-            /** @description The string "all" (every team, including teams made later), or a list of team ids. */
-            teams: "all" | string[];
-            /** @enum {string} */
-            role: "primary" | "alternate";
-        };
-        TeamLaunchStepsRequest: {
-            /** @description Optional steps only (not final_decision). */
-            used: {
-                [key: string]: boolean;
-            };
-        };
         CreateLaunchRequest: {
             /** @description Defaults to the project's name. */
             name?: string;
@@ -3464,7 +3431,7 @@ export interface components {
         SetUpLaunchRequest: {
             name?: string;
             targetDate?: string | null;
-            /** @description What reviewers should know. Changing it changes the brief. */
+            /** @description What approvers should know. Changing it changes the brief. */
             briefNotes?: string;
         };
         LaunchAnswerRequest: {
@@ -3508,7 +3475,7 @@ export interface components {
             } | null;
             /** Format: date-time */
             at: string;
-            /** @description True when the brief changed after this answer was given: the reviewer is asked again. */
+            /** @description True when the brief changed after this answer was given: the approver is asked again. */
             reopened: boolean;
             /** @description On a final decision: the steps that were not ready when it was made. */
             openItems: components["schemas"]["LaunchOpenItem"][] | null;
@@ -3538,7 +3505,7 @@ export interface components {
             answer: components["schemas"]["LaunchAnswer"] | null;
             earlier: components["schemas"]["LaunchAnswer"][];
             links: components["schemas"]["LaunchLink"][];
-            /** @description True only for this step's reviewer. */
+            /** @description True only for this step's approver. */
             canAnswer: boolean;
         };
         LaunchDetail: {
@@ -3568,12 +3535,12 @@ export interface components {
              */
             stage: "storyboard" | "requirements" | "approval";
             documents: {
-                /** @description Whether the storyboard PDF exists (never for an external reviewer). */
+                /** @description Whether the storyboard PDF exists (never for an external approver). */
                 storyboard: boolean;
                 /** @description Whether the published requirements PDF exists. */
                 requirements: boolean;
             };
-            /** @description The team's Slack channel and the launch's thread in it. Empty for an external reviewer. */
+            /** @description The team's Slack channel and the launch's thread in it. Empty for an external approver. */
             slack: {
                 channel: string | null;
                 started: boolean;
@@ -3638,51 +3605,63 @@ export interface components {
             name: string;
             email: string;
         };
-        ReviewerAssignment: {
-            id: string;
+        ApprovalPerson: {
             userId: string;
+            name: string;
             email: string;
-            displayName: string;
+            /** @description An external person approves for a team only. Set when they are invited. */
             external: boolean;
-            /** @description The person is marked away: their alternates are the active reviewers. */
+            /** @description Away: their backups are the active approvers. */
             unavailable: boolean;
-            /** @enum {string} */
-            step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
-            /** @description Null means all teams. */
-            teamId: string | null;
-            teamName: string | null;
-            /** @enum {string} */
-            role: "primary" | "alternate";
         };
-        CoverageCell: {
-            step: string;
+        ApprovalTeamCell: {
+            teamId: string;
+            /**
+             * @description default uses the workspace's approver; custom has its own; off means the team does not use the step.
+             * @enum {string}
+             */
+            mode: "default" | "custom" | "off";
+            /** @description The team's own approver (custom only). */
+            approver: components["schemas"]["ApprovalPerson"] | null;
+            /** @description The team's own backup (custom only). */
+            backup: components["schemas"]["ApprovalPerson"] | null;
             /** @enum {string} */
             state: "covered" | "gap" | "not_used";
-            /**
-             * @description Which assignments decide: the team's own, or the all-teams ones; null when nobody is assigned.
-             * @enum {string|null}
-             */
-            scope: "team" | "all" | null;
-            primary: components["schemas"]["ReviewerPerson"][];
-            alternate: components["schemas"]["ReviewerPerson"][];
+            /** @description Who approves for this team. */
+            effective: components["schemas"]["ApprovalPerson"] | null;
         };
-        ReviewerTeam: {
-            id: string;
-            name: string;
-            isDefault: boolean;
-            /** @description The optional steps this team does not use. */
-            stepsOff: string[];
-            steps: components["schemas"]["CoverageCell"][];
+        ApprovalStep: {
+            key: string;
+            label: string;
+            /** @description False for the final decision, which every team uses. */
+            optional: boolean;
+            approver: components["schemas"]["ApprovalPerson"] | null;
+            backup: components["schemas"]["ApprovalPerson"] | null;
+            /** @description One per team, in the order of `teams`. */
+            teams: components["schemas"]["ApprovalTeamCell"][];
         };
-        ReviewerOverview: {
-            steps: {
-                key: string;
-                label: string;
-                /** @description False for the final decision, which every team uses. */
-                optional: boolean;
+        ApprovalsOverview: {
+            steps: components["schemas"]["ApprovalStep"][];
+            teams: {
+                id: string;
+                name: string;
+                isDefault: boolean;
             }[];
-            assignments: components["schemas"]["ReviewerAssignment"][];
-            teams: components["schemas"]["ReviewerTeam"][];
+            people: components["schemas"]["ApprovalPerson"][];
+            /** @description Cells of the grid where a team uses the step and nobody approves it. */
+            gaps: number;
+        };
+        ApprovalStepRequest: {
+            approver: string | null;
+            backup: string | null;
+            teams?: {
+                [key: string]: {
+                    /** @enum {string} */
+                    mode: "default" | "custom" | "off";
+                    approver?: string | null;
+                    backup?: string | null;
+                };
+            };
         };
         ChangeRoleRequest: {
             /** @enum {string} */
@@ -4787,7 +4766,7 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
-    getReviewers: {
+    getApprovals: {
         parameters: {
             query?: never;
             header?: never;
@@ -4796,50 +4775,51 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The reviewers and the coverage grid. */
+            /** @description The approvals grid. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewerOverview"];
+                    "application/json": components["schemas"]["ApprovalsOverview"];
                 };
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
         };
     };
-    addReviewer: {
+    saveApprovalStep: {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                step: "product_leadership" | "sales" | "legal" | "documentation" | "marketing" | "final_decision";
+            };
             cookie?: never;
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["AddReviewerRequest"];
+                "application/json": components["schemas"]["ApprovalStepRequest"];
             };
         };
         responses: {
-            /** @description The reviewers and coverage as they are now. */
-            201: {
+            /** @description The approvals grid as it is now. */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewerOverview"];
+                    "application/json": components["schemas"]["ApprovalsOverview"];
                 };
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
             422: components["responses"]["Error"];
         };
     };
-    setReviewerUnavailable: {
+    setApproverAway: {
         parameters: {
             query?: never;
             header?: never;
@@ -4856,13 +4836,13 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The reviewers and coverage as they are now. */
+            /** @description The approvals grid as it is now. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReviewerOverview"];
+                    "application/json": components["schemas"]["ApprovalsOverview"];
                 };
             };
             400: components["responses"]["Error"];
@@ -4870,61 +4850,6 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-        };
-    };
-    removeReviewer: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The reviewers and coverage as they are now. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewerOverview"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-        };
-    };
-    setTeamLaunchSteps: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["TeamLaunchStepsRequest"];
-            };
-        };
-        responses: {
-            /** @description The reviewers and coverage as they are now. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReviewerOverview"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
         };
     };
     setTeamSlackChannel: {

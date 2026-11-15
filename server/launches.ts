@@ -1,7 +1,7 @@
 // Launch: the go signals for a project's release. A launch has one section per step (product leadership, sales, legal, documentation, marketing, and
-// the final decision); each section is answered by that step's reviewer, with a rationale and links to the evidence. Everyone with access reads every
-// internal section; only a step's reviewer writes it. Answers are never overwritten: a new answer is a new row, and an answer given on an earlier
-// brief shows as reopened. Who covers a step comes from shared/launch.mjs (reviewersFor), set up under Admin, Members, Reviewers.
+// the final decision); each section is answered by that step's approver, with a rationale and links to the evidence. Everyone with access reads every
+// internal section; only a step's approver writes it. Answers are never overwritten: a new answer is a new row, and an answer given on an earlier
+// brief shows as reopened. Who covers a step comes from shared/launch.mjs (reviewersFor), set up under Admin, Approvals.
 import { activeFor, isAnswerFor, isStep, LAUNCH_STEPS, rationaleRequired, reviewersFor, stepLabel, stepState, stepUsed, type Assignment } from '../shared/launch.mjs'
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
@@ -32,9 +32,9 @@ export type LaunchStep = {
   step: string
   label: string
   used: boolean
-  /** waiting, missing (a step the team uses with no primary reviewer), not_used, reopened, or the current answer. */
+  /** waiting, missing (a step the team uses with no primary approver), not_used, reopened, or the current answer. */
   state: string
-  /** `active` is who is asked now: the primaries, or the alternates while the primaries are away. */
+  /** `active` is who is asked now: the primaries, or the backups while the primaries are away. */
   reviewers: { primary: Person[]; alternate: Person[]; active: Person[] }
   answer: LaunchAnswer | null
   /** Earlier answers on this step, newest first (the record keeps them). */
@@ -55,14 +55,14 @@ export type LaunchDetail = {
   /** When the brief last changed: the requirements were published, or the notes were edited. */
   briefAt: string
   you: { kind: ViewerKind; canSetUp: boolean; steps: string[] }
-  /** The team's Slack channel, and the launch's thread in it once it has one. Nothing for an external reviewer. */
+  /** The team's Slack channel, and the launch's thread in it once it has one. Nothing for an external approver. */
   slack: { channel: string | null; started: boolean; threadUrl: string | null }
   /**
    * Where the release stands, for orientation: `storyboard` (themes and a few best guesses; no approvals yet), `requirements` (published; approvals can be asked
    * for) or `approval` (answers have been asked for).
    */
   stage: 'storyboard' | 'requirements' | 'approval'
-  /** The documents a reviewer can open as PDFs: the storyboard (never for an external reviewer) and the published requirements. */
+  /** The documents an approver can open as PDFs: the storyboard (never for an external approver) and the published requirements. */
   documents: { storyboard: boolean; requirements: boolean }
   steps: LaunchStep[]
   summary: {
@@ -176,7 +176,7 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
       canAnswer: used && viewer.steps.includes(s.key),
     }
   })
-  // An external reviewer sees only their own sections; everyone else sees every step the team uses (and a step turned off, so it is explained).
+  // An external approver sees only their own sections; everyone else sees every step the team uses (and a step turned off, so it is explained).
   const steps = external ? all.filter((s) => viewer.steps.includes(s.step)) : all
   const counted = all.filter((s) => s.used && s.step !== 'final_decision')
   const n = (...states: string[]) => counted.filter((s) => states.includes(s.state)).length
@@ -216,7 +216,7 @@ async function build(db: Queryable, ctx: RequestContext, row: Row, cover: Cover,
 }
 
 /**
- * Every launch as the system sees it (all sections, all reviewers, nothing hidden), for messages that go out without a caller: who to ask, who answered,
+ * Every launch as the system sees it (all sections, all approvers, nothing hidden), for messages that go out without a caller: who to ask, who answered,
  * what is waiting. Never returned by a route.
  */
 export async function launchForSystem(db: Queryable, workspaceId: string, id: string, opts: { withBrief?: boolean } = {}): Promise<(LaunchDetail & { createdBy: Person | null }) | null> {
@@ -333,7 +333,7 @@ async function reviewerOrThrow(db: Queryable, ctx: RequestContext, launchId: str
   return { row, cover, viewer }
 }
 
-/** A step's reviewer gives their answer. It is added to the record; earlier answers stay. The final decision keeps the open items it went past. */
+/** A step's approver gives their answer. It is added to the record; earlier answers stay. The final decision keeps the open items it went past. */
 export async function answerStep(db: Db, ctx: RequestContext, launchId: string, step: string, input: { answer: string; rationale: string }): Promise<void> {
   const { row, cover, viewer } = await reviewerOrThrow(db, ctx, launchId, step)
   if (!isAnswerFor(step, input.answer)) throw new BadAnswer()

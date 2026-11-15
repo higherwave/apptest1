@@ -33,9 +33,6 @@ export type TeamsViewProps = {
   addRole: MemberRole
   busy: boolean
   confirmDelete: boolean
-  /** The steps of a launch and which of them this team does not use (Admin, Members, Reviewers shows who covers them). */
-  launchSteps?: { steps: { key: string; label: string; optional: boolean }[]; off: string[] }
-  onLaunchStep: (step: string, used: boolean) => void
   /** The channel box (a name, no #) and saving it; empty clears the team's channel. */
   slackDraft: string
   onSlackDraft: (v: string) => void
@@ -120,27 +117,6 @@ export function TeamsView(p: TeamsViewProps) {
                   </Button>
                 </div>
               </div>
-
-              {p.launchSteps && (
-                <div data-testid="launch-steps">
-                  <h2 className={styles.heading}>Launch steps</h2>
-                  <p className={styles.note}>
-                    The steps this team’s launches use. A step the team uses that nobody covers shows as “approver missing”, so turn a step off here only if the team never needs it. Who covers each step is set under Members, Reviewers.
-                  </p>
-                  <div className={styles.steps}>
-                    {p.launchSteps.steps.map((s) => (
-                      <Checkbox
-                        key={s.key}
-                        id={`launch-step-${s.key}`}
-                        labelText={s.optional ? s.label : `${s.label} (always used)`}
-                        checked={!s.optional || !p.launchSteps!.off.includes(s.key)}
-                        disabled={!s.optional || p.busy}
-                        onChange={(_, { checked }) => p.onLaunchStep(s.key, checked)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
 
               <div>
                 <h2 className={styles.heading}>People</h2>

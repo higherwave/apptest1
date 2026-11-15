@@ -5,7 +5,8 @@ import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
 import { TeamsPage } from './pages/teams/TeamsPage'
-import { MembersPage } from './pages/members/MembersPage'
+import { MembersEntry } from './pages/members/MembersPage'
+import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
 import { AppStatusPage } from './pages/settings/AppStatusPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
@@ -90,7 +91,8 @@ export function App() {
           <Route path="status" element={<AppStatusPage />} />
           <Route path="usage" element={<UsagePage />} />
           <Route path="teams" element={<TeamsPage />} />
-          <Route path="members" element={<MembersPage />} />
+          <Route path="members" element={<MembersEntry />} />
+          <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />

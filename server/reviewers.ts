@@ -1,5 +1,5 @@
-// Launch reviewers, set up once (Admin, Members, Reviewers): a person, a step, the teams they cover (all, or named), primary or alternate; and
-// which steps each team's launches use. Only owners change anything. The rules for who covers a step are in shared/launch.mjs.
+// Launch approvers, set up once per step (Admin, Approvals): the workspace's approver and backup, and for a team that needs someone else its own approver
+// (and backup), or the step not used. Only owners change anything. The rules for who covers a step are in shared/launch.mjs.
 import { coverageState, isOptionalStep, isStep, LAUNCH_STEPS, type Assignment, type CoverageState, type ReviewerRole } from '../shared/launch.mjs'
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
@@ -7,161 +7,161 @@ import { MemberNotFound } from './members.js'
 import { TeamNotFound } from './team-admin.js'
 
 export class ExternalAllTeams extends Error {}
-export class PrimaryTaken extends Error {
-  constructor(public who: string) {
-    super(`${who} is already the primary for that step.`)
-  }
-}
 export class BadStep extends Error {}
-export class ReviewerNotFound extends Error {}
 export class NoAlternate extends Error {}
+export class BackupNeedsApprover extends Error {}
+export class SamePerson extends Error {}
 
 export type Person = { userId: string; name: string; email: string }
-export type ReviewerRow = { id: string; userId: string; email: string; displayName: string; external: boolean; unavailable: boolean; step: string; teamId: string | null; teamName: string | null; role: ReviewerRole }
-export type CoverageCell = { step: string; state: CoverageState; scope: 'team' | 'all' | null; primary: Person[]; alternate: Person[] }
-export type ReviewerTeam = { id: string; name: string; isDefault: boolean; stepsOff: string[]; steps: CoverageCell[] }
-export type ReviewerOverview = { steps: { key: string; label: string; optional: boolean }[]; assignments: ReviewerRow[]; teams: ReviewerTeam[] }
 
 const audit = (tx: Queryable, ctx: RequestContext, entity: 'core.reviewer_assignments' | 'core.team_launch_steps', id: string | null, verb: string, before: unknown, after: unknown) =>
   tx.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, $3, $4, $5, $6, $7)`, [
     ctx.workspaceId, ctx.userId, entity, id, verb, before === null ? null : JSON.stringify(before), after === null ? null : JSON.stringify(after),
   ])
 
-/** Every standing assignment, and for each team a coverage cell per step: covered, gap (a step the team uses with no primary), or not used. */
-export async function reviewerOverview(db: Queryable, workspaceId: string): Promise<ReviewerOverview> {
-  const rows = (
+export type ApprovalPerson = Person & { external: boolean; unavailable: boolean }
+export type ApprovalTeamCell = {
+  teamId: string
+  /** `default` uses the workspace approver; `custom` has its own approver (and backup); `off` means the team does not use the step. */
+  mode: 'default' | 'custom' | 'off'
+  approver: ApprovalPerson | null
+  backup: ApprovalPerson | null
+  /** What the team ends up with: `covered` (someone approves), `gap` (a step it uses, with nobody), or `not_used`. */
+  state: CoverageState
+  /** Who approves for this team, whether by the workspace or by the team's own choice. */
+  effective: ApprovalPerson | null
+}
+export type ApprovalStep = { key: string; label: string; optional: boolean; approver: ApprovalPerson | null; backup: ApprovalPerson | null; teams: ApprovalTeamCell[] }
+export type ApprovalsOverview = {
+  steps: ApprovalStep[]
+  teams: { id: string; name: string; isDefault: boolean }[]
+  /** Everyone in the workspace, for the pickers. */
+  people: ApprovalPerson[]
+  /** The cells of the grid that are a gap: a team uses the step and nobody approves it. */
+  gaps: number
+}
+
+/** Who approves each step: the workspace's approver and backup, and for each team what it uses (the workspace's, its own, or not the step at all). */
+export async function approvalsOverview(db: Queryable, workspaceId: string): Promise<ApprovalsOverview> {
+  const rows = (await db.query(`select user_id, step, team_id, role from core.reviewer_assignments where workspace_id = $1 order by created_at, id`, [workspaceId])).rows
+  const peopleRows = (
     await db.query(
-      `select ra.id, ra.user_id, u.email, u.display_name, coalesce(m.is_external, false) as external, coalesce(m.reviewing_unavailable, false) as unavailable, ra.step, ra.team_id, t.name as team_name, ra.role
-         from core.reviewer_assignments ra
-         join core.users u on u.id = ra.user_id
-         left join core.memberships m on m.user_id = ra.user_id and m.workspace_id = ra.workspace_id
-         left join core.teams t on t.id = ra.team_id
-        where ra.workspace_id = $1
-        order by array_position($2::text[], ra.step), (ra.team_id is not null), lower(t.name), (ra.role = 'alternate'), lower(u.email)`,
-      [workspaceId, LAUNCH_STEPS.map((s) => s.key)],
+      `select u.id, u.email, u.display_name, coalesce(m.is_external, false) as external, coalesce(m.reviewing_unavailable, false) as unavailable
+         from core.memberships m join core.users u on u.id = m.user_id where m.workspace_id = $1 order by lower(u.display_name), lower(u.email)`,
+      [workspaceId],
     )
   ).rows
-  const assignments: ReviewerRow[] = rows.map((r) => ({
-    id: r.id, userId: r.user_id, email: r.email, displayName: r.display_name, external: !!r.external, unavailable: !!r.unavailable, step: r.step, teamId: r.team_id ?? null, teamName: r.team_name ?? null, role: r.role,
-  }))
+  const people: ApprovalPerson[] = peopleRows.map((r) => ({ userId: r.id, name: r.display_name, email: r.email, external: !!r.external, unavailable: !!r.unavailable }))
+  const byId = new Map(people.map((p) => [p.userId, p]))
   const teams = (await db.query(`select id, name, is_default from core.teams where workspace_id = $1 order by is_default desc, lower(name)`, [workspaceId])).rows
-  const off = (await db.query(`select s.team_id, s.step from core.team_launch_steps s join core.teams t on t.id = s.team_id where t.workspace_id = $1 and not s.used`, [workspaceId])).rows
-  const people = new Map<string, Person>(assignments.map((a) => [a.userId, { userId: a.userId, name: a.displayName, email: a.email }]))
-  const plain: Assignment[] = assignments.map((a) => ({ userId: a.userId, step: a.step, teamId: a.teamId, role: a.role, unavailable: a.unavailable }))
-  return {
-    steps: LAUNCH_STEPS.map((s) => ({ key: s.key, label: s.label, optional: s.optional })),
-    assignments,
+  const offRows = (await db.query(`select s.team_id, s.step from core.team_launch_steps s join core.teams t on t.id = s.team_id where t.workspace_id = $1 and not s.used`, [workspaceId])).rows
+  const plain: Assignment[] = rows.map((r) => ({ userId: r.user_id, step: r.step, teamId: r.team_id ?? null, role: r.role, unavailable: byId.get(r.user_id)?.unavailable ?? false }))
+  const pick = (step: string, teamId: string | null, role: ReviewerRole) => {
+    const r = rows.find((x) => x.step === step && (x.team_id ?? null) === teamId && x.role === role)
+    return r ? byId.get(r.user_id) ?? null : null
+  }
+  let gaps = 0
+  const steps: ApprovalStep[] = LAUNCH_STEPS.map((s) => ({
+    key: s.key,
+    label: s.label,
+    optional: s.optional,
+    approver: pick(s.key, null, 'primary'),
+    backup: pick(s.key, null, 'alternate'),
     teams: teams.map((t) => {
-      const stepsOff = off.filter((o) => o.team_id === t.id).map((o) => o.step as string)
+      const off = offRows.filter((o) => o.team_id === t.id).map((o) => o.step as string)
+      const c = coverageState(plain, off, t.id, s.key)
+      const custom = c.scope === 'team'
+      const mode = c.state === 'not_used' ? 'off' : custom ? 'custom' : 'default'
+      if (c.state === 'gap') gaps += 1
       return {
-        id: t.id,
-        name: t.name,
-        isDefault: t.is_default,
-        stepsOff,
-        steps: LAUNCH_STEPS.map((s) => {
-          const c = coverageState(plain, stepsOff, t.id, s.key)
-          return { step: s.key, state: c.state, scope: c.scope, primary: c.primary.map((id) => people.get(id)!), alternate: c.alternate.map((id) => people.get(id)!) }
-        }),
+        teamId: t.id,
+        mode,
+        approver: mode === 'custom' ? pick(s.key, t.id, 'primary') : null,
+        backup: mode === 'custom' ? pick(s.key, t.id, 'alternate') : null,
+        state: c.state,
+        effective: c.primary[0] ? byId.get(c.primary[0]) ?? null : null,
       }
     }),
+  }))
+  return { steps, teams: teams.map((t) => ({ id: t.id, name: t.name, isDefault: t.is_default })), people, gaps }
+}
+
+export type ApprovalStepInput = {
+  approver: string | null
+  backup: string | null
+  /** Each team: the workspace's approvers, its own, or the step not used. A team left out uses the workspace's. */
+  teams: Record<string, { mode: 'default' | 'custom' | 'off'; approver?: string | null; backup?: string | null }>
+}
+
+const summary = (o: ApprovalsOverview, step: string) => {
+  const s = o.steps.find((x) => x.key === step)!
+  const name = (p: ApprovalPerson | null) => p?.email ?? null
+  return {
+    approver: name(s.approver),
+    backup: name(s.backup),
+    teams: Object.fromEntries(s.teams.map((t) => [o.teams.find((x) => x.id === t.teamId)?.name ?? t.teamId, t.mode === 'off' ? 'not used' : t.mode === 'custom' ? { approver: name(t.approver), backup: name(t.backup) } : 'workspace'])),
   }
 }
 
 /**
- * Sets a person up for one or more steps, for all teams or for named teams. A step and scope the person already has is updated to the new role.
- * One primary per step and scope: a second one is refused with the name of the first.
+ * Saves one step as the Approvals panel shows it, all or nothing: the workspace approver and backup, and for each team the workspace's, its own or not
+ * used. A backup needs an approver and cannot be the same person. An external person can approve for a team only, never for the workspace. The final
+ * decision is always used. One audit entry says what changed.
  */
-export async function addReviewer(db: Db, ctx: RequestContext, input: { memberId: string; steps: string[]; teams: 'all' | string[]; role: ReviewerRole }): Promise<void> {
-  if (!input.steps.length || input.steps.some((s) => !isStep(s))) throw new BadStep()
+export async function saveApprovalStep(db: Db, ctx: RequestContext, step: string, input: ApprovalStepInput): Promise<void> {
+  if (!isStep(step)) throw new BadStep()
   await db.transaction(async (tx) => {
-    const member = (
-      await tx.query(
-        `select m.id, m.user_id, m.is_external, u.email, u.display_name from core.memberships m join core.users u on u.id = m.user_id where m.workspace_id = $1 and m.id = $2`,
-        [ctx.workspaceId, input.memberId],
-      )
-    ).rows[0]
-    if (!member) throw new MemberNotFound()
-    if (input.teams === 'all' && member.is_external) throw new ExternalAllTeams()
-    let scopes: { id: string | null; name: string }[] = [{ id: null, name: 'all teams' }]
-    if (input.teams !== 'all') {
-      if (!input.teams.length) throw new TeamNotFound()
-      const found = (await tx.query(`select id, name from core.teams where workspace_id = $1 and id = any($2::uuid[])`, [ctx.workspaceId, input.teams])).rows
-      if (found.length !== new Set(input.teams).size) throw new TeamNotFound()
-      scopes = found.map((t) => ({ id: t.id as string, name: t.name as string }))
+    const ids = new Set<string>()
+    const want = (id: string | null | undefined) => { if (id) ids.add(id) }
+    want(input.approver); want(input.backup)
+    for (const t of Object.values(input.teams)) { want(t.approver); want(t.backup) }
+    const known = new Map(
+      (await tx.query(`select m.user_id, m.is_external from core.memberships m where m.workspace_id = $1 and m.user_id = any($2::uuid[])`, [ctx.workspaceId, [...ids]])).rows.map((r) => [r.user_id as string, !!r.is_external]),
+    )
+    if ([...ids].some((id) => !known.has(id))) throw new MemberNotFound()
+    const teamIds = Object.keys(input.teams)
+    const found = (await tx.query(`select id from core.teams where workspace_id = $1 and id = any($2::uuid[])`, [ctx.workspaceId, teamIds])).rows
+    if (found.length !== teamIds.length) throw new TeamNotFound()
+
+    if (input.backup && !input.approver) throw new BackupNeedsApprover()
+    if (input.approver && input.approver === input.backup) throw new SamePerson()
+    if ((input.approver && known.get(input.approver)) || (input.backup && known.get(input.backup))) throw new ExternalAllTeams()
+    for (const t of Object.values(input.teams)) {
+      if (t.mode === 'off' && !isOptionalStep(step)) throw new BadStep()
+      if (t.mode !== 'custom') continue
+      if (!t.approver) throw new BackupNeedsApprover()
+      if (t.approver === t.backup) throw new SamePerson()
     }
-    for (const step of input.steps) {
-      for (const scope of scopes) {
-        const same = (
-          await tx.query(
-            `select id, user_id, role from core.reviewer_assignments where workspace_id = $1 and step = $2 and team_id is not distinct from $3::uuid`,
-            [ctx.workspaceId, step, scope.id],
-          )
-        ).rows
-        const mine = same.find((r) => r.user_id === member.user_id)
-        const otherPrimary = same.find((r) => r.role === 'primary' && r.user_id !== member.user_id)
-        if (input.role === 'primary' && otherPrimary) {
-          const who = (await tx.query(`select display_name from core.users where id = $1`, [otherPrimary.user_id])).rows[0]?.display_name ?? 'Someone else'
-          throw new PrimaryTaken(who)
-        }
-        const after = { email: member.email, step, teams: scope.name, role: input.role }
-        if (mine) {
-          if (mine.role !== input.role) {
-            await tx.query(`update core.reviewer_assignments set role = $2 where id = $1`, [mine.id, input.role])
-            await audit(tx, ctx, 'core.reviewer_assignments', mine.id, 'role changed', { ...after, role: mine.role }, after)
-          }
-        } else {
-          const made = (
-            await tx.query(
-              `insert into core.reviewer_assignments (workspace_id, user_id, step, team_id, role, created_by) values ($1, $2, $3, $4, $5, $6) returning id`,
-              [ctx.workspaceId, member.user_id, step, scope.id, input.role, ctx.userId],
-            )
-          ).rows[0]
-          await audit(tx, ctx, 'core.reviewer_assignments', made.id, 'added', null, after)
-        }
+
+    const before = summary(await approvalsOverview(tx, ctx.workspaceId), step)
+    await tx.query(`delete from core.reviewer_assignments where workspace_id = $1 and step = $2`, [ctx.workspaceId, step])
+    const add = async (userId: string | null | undefined, teamId: string | null, role: ReviewerRole) => {
+      if (!userId) return
+      await tx.query(`insert into core.reviewer_assignments (workspace_id, user_id, step, team_id, role, created_by) values ($1, $2, $3, $4, $5, $6)`, [ctx.workspaceId, userId, step, teamId, role, ctx.userId])
+    }
+    await add(input.approver, null, 'primary')
+    await add(input.backup, null, 'alternate')
+    for (const [teamId, t] of Object.entries(input.teams)) {
+      if (t.mode === 'custom') {
+        await add(t.approver, teamId, 'primary')
+        await add(t.backup, teamId, 'alternate')
       }
     }
-  })
-}
-
-export async function removeReviewer(db: Db, ctx: RequestContext, id: string): Promise<void> {
-  await db.transaction(async (tx) => {
-    const row = (
-      await tx.query(
-        `select ra.id, ra.step, ra.role, u.email, t.name as team_name
-           from core.reviewer_assignments ra join core.users u on u.id = ra.user_id left join core.teams t on t.id = ra.team_id
-          where ra.workspace_id = $1 and ra.id = $2`,
-        [ctx.workspaceId, id],
-      )
-    ).rows[0]
-    if (!row) throw new ReviewerNotFound()
-    await tx.query(`delete from core.reviewer_assignments where id = $1`, [id])
-    await audit(tx, ctx, 'core.reviewer_assignments', id, 'removed', { email: row.email, step: row.step, teams: row.team_name ?? 'all teams', role: row.role }, null)
-  })
-}
-
-/** Which optional steps a team's launches use. `used` maps a step to true or false; the final decision always applies and is refused here. */
-export async function setTeamSteps(db: Db, ctx: RequestContext, teamId: string, used: Record<string, boolean>): Promise<void> {
-  const keys = Object.keys(used)
-  if (keys.some((k) => !isOptionalStep(k))) throw new BadStep()
-  await db.transaction(async (tx) => {
-    const team = (await tx.query(`select id, name from core.teams where workspace_id = $1 and id = $2`, [ctx.workspaceId, teamId])).rows[0]
-    if (!team) throw new TeamNotFound()
-    const offOf = async () => (await tx.query(`select step from core.team_launch_steps where team_id = $1 and not used order by step`, [teamId])).rows.map((r) => r.step as string)
-    const before = await offOf()
-    for (const step of keys) {
-      await tx.query(
-        `insert into core.team_launch_steps (team_id, step, used) values ($1, $2, $3) on conflict (team_id, step) do update set used = excluded.used`,
-        [teamId, step, used[step]],
-      )
+    // Which teams use the step: the final decision is always used, so nothing is stored for it.
+    if (isOptionalStep(step)) {
+      const allTeams = (await tx.query(`select id from core.teams where workspace_id = $1`, [ctx.workspaceId])).rows.map((r) => r.id as string)
+      for (const teamId of allTeams) {
+        const used = input.teams[teamId]?.mode !== 'off'
+        await tx.query(`insert into core.team_launch_steps (team_id, step, used) values ($1, $2, $3) on conflict (team_id, step) do update set used = excluded.used`, [teamId, step, used])
+      }
     }
-    const after = await offOf()
-    if (JSON.stringify(before) !== JSON.stringify(after)) await audit(tx, ctx, 'core.team_launch_steps', teamId, 'launch steps changed', { team: team.name, notUsed: before }, { team: team.name, notUsed: after })
+    const after = summary(await approvalsOverview(tx, ctx.workspaceId), step)
+    if (JSON.stringify(before) !== JSON.stringify(after)) await audit(tx, ctx, 'core.reviewer_assignments', null, 'approvers changed', { step, ...before }, { step, ...after })
   })
 }
 
-/** Marks a reviewer away (or back). While away the alternates of their steps are the active reviewers; the person gets none of the messages. */
 /**
- * Marks a reviewer away (or back). Away needs an alternate for every step they are primary for: the alternate of the same team (or of all teams) who is
+ * Marks an approver away (or back). Away needs a backup for every step they are primary for: the backup of the same team (or of all teams) who is
  * not away themselves. Returns who now covers what, so they can be told; empty when nothing changed or the person is back.
  */
 export async function setReviewerUnavailable(db: Db, ctx: RequestContext, userId: string, unavailable: boolean): Promise<{ away: string; covering: { person: Person; steps: string[] }[] }> {
@@ -180,7 +180,7 @@ export async function setReviewerUnavailable(db: Db, ctx: RequestContext, userId
             `select ra.user_id, u.email, u.display_name from core.reviewer_assignments ra join core.users u on u.id = ra.user_id
                left join core.memberships am on am.user_id = ra.user_id and am.workspace_id = ra.workspace_id
               where ra.workspace_id = $1 and ra.role = 'alternate' and ra.step = $2 and ra.user_id <> $3 and not coalesce(am.reviewing_unavailable, false)
-                and (ra.team_id is null or ra.team_id is not distinct from $4)`,
+                and ra.team_id is not distinct from $4`,
             [ctx.workspaceId, a.step, userId, a.team_id],
           )
         ).rows

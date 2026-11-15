@@ -135,18 +135,15 @@ export const createSlackConnectCode = () => request<SlackConnectCode>('/me/slack
 export const disconnectMySlack = () => request<SlackConnection>('/me/slack', { method: 'DELETE' })
 export const removeLaunchLink = (id: string, linkId: string) => request<LaunchDetail>(`/launches/${id}/links/${linkId}`, { method: 'DELETE' })
 
-// Launch reviewers: standing assignments, the coverage grid, and which steps each team uses.
-export type ReviewerOverview = components['schemas']['ReviewerOverview']
-export type ReviewerAssignment = components['schemas']['ReviewerAssignment']
-export type CoverageCell = components['schemas']['CoverageCell']
-export type ReviewerRole = ReviewerAssignment['role']
-export type ReviewerRow = ReviewerAssignment
-export type AddReviewerInput = components['schemas']['AddReviewerRequest']
-export const getReviewers = () => request<ReviewerOverview>('/reviewers')
-export const addReviewer = (input: components['schemas']['AddReviewerRequest']) => request<ReviewerOverview>('/reviewers', { method: 'POST', body: input })
-export const removeReviewer = (id: string) => request<ReviewerOverview>(`/reviewers/${id}`, { method: 'DELETE' })
-export const setReviewerAway = (userId: string, unavailable: boolean) => request<ReviewerOverview>(`/reviewers/people/${userId}`, { method: 'PUT', body: { unavailable } })
-export const setTeamLaunchSteps = (id: string, used: Record<string, boolean>) => request<ReviewerOverview>(`/teams/${id}/launch-steps`, { method: 'PUT', body: { used } })
+// Launch approvers: who approves each step, for the workspace and per team, and the away switch.
+export type ApprovalsOverview = components['schemas']['ApprovalsOverview']
+export type ApprovalStep = components['schemas']['ApprovalStep']
+export type ApprovalPerson = components['schemas']['ApprovalPerson']
+export type ApprovalTeamCell = components['schemas']['ApprovalTeamCell']
+export type ApprovalStepInput = components['schemas']['ApprovalStepRequest']
+export const getApprovals = () => request<ApprovalsOverview>('/approvals')
+export const saveApprovalStep = (step: string, input: ApprovalStepInput) => request<ApprovalsOverview>(`/approvals/steps/${step}`, { method: 'PUT', body: input })
+export const setApproverAway = (userId: string, unavailable: boolean) => request<ApprovalsOverview>(`/approvals/people/${userId}`, { method: 'PUT', body: { unavailable } })
 // Teams: leaders (workspace owners) manage them.
 export type Team = components['schemas']['Team']
 export const listTeams = () => request<components['schemas']['TeamList']>('/teams')

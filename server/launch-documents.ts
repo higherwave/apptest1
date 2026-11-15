@@ -1,4 +1,4 @@
-// The two documents a reviewer reads before they are asked to approve, as pages that print: the storyboard (the research as a short deck: the problem, what people
+// The two documents an approver reads before they are asked to approve, as pages that print: the storyboard (the research as a short deck: the problem, what people
 // said, the recommended directions and their trade-offs) and the published requirements (the brief and the document's sections). Like the launch record
 // (launch-export.ts) each is complete in itself, with every piece of user text escaped, and says when it was made. Pure: no I/O.
 import { day, esc, moment, STYLE } from './launch-export.js'

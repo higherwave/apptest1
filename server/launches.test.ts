@@ -3,7 +3,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from './app.js'
-import { createDemoDatabase } from './test-utils.js'
+import { createDemoDatabase, setApprovers } from './test-utils.js'
 
 declare global {
   interface Response {
@@ -27,7 +27,7 @@ async function fixture() {
   const project = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
   const draft = ((await pg.query<any>(`select id from core.projects where name = 'New patient intake (draft)'`)).rows[0] as { id: string }).id
   const general = ((await pg.query<any>(`select id from core.teams where is_default`)).rows[0] as { id: string }).id
-  const reviewer = (who: string, steps: string[], teams: 'all' | string[] = 'all', role = 'primary') => call(owner, 'POST', '/reviewers', { memberId: member(who), steps, teams, role })
+  const reviewer = (who: string, steps: string[], teams: 'all' | string[] = 'all', role: 'primary' | 'alternate' = 'primary') => setApprovers((m, p, b) => call(owner, m, p, b), who, steps, role, teams)
   const state = (launch: any, step: string) => launch.steps.find((s: any) => s.step === step).state
   return { pg, db, as, call, owner, member, project, draft, general, reviewer, state }
 }
@@ -70,7 +70,7 @@ test('a step with no reviewer shows as missing, never hidden; a step the team tu
   assert.equal(state(launch, 'legal'), 'missing')
   assert.equal(launch.summary.counts.missing, 5, 'every step but the final decision, with nobody set up')
   await reviewer('alex', ['legal'])
-  await call(owner, 'PUT', `/teams/${general}/launch-steps`, { used: { sales: false } })
+  await call(owner, 'PUT', `/approvals/steps/sales`, { approver: null, backup: null, teams: { [general]: { mode: 'off' } } })
   const after = await (await call(alex, 'GET', `/launches/${launch.id}`)).json()
   assert.equal(state(after, 'legal'), 'waiting')
   assert.equal(state(after, 'sales'), 'not_used')
@@ -199,7 +199,7 @@ test('an external reviewer sees only their own steps and the brief notes, and th
   await call(alex, 'PUT', `/launches/${launch.id}/steps/legal`, { answer: 'ready' }) // refused: no reviewer yet
   const counsel = 'counsel@lawfirm.example'
   const made = await (await call(owner, 'POST', '/members', { email: counsel, role: 'viewer', external: true })).json()
-  assert.equal((await call(owner, 'POST', '/reviewers', { memberId: made.id, steps: ['legal'], teams: [general], role: 'primary' })).status, 201)
+  assert.equal((await setApprovers((m, p, b) => call(owner, m, p, b), counsel, ['legal'], 'primary', [general])).status, 200)
   await reviewer('alex', ['marketing'])
   const them = as(counsel)
   const mine = await (await call(them, 'GET', '/launches')).json()

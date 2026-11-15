@@ -4,7 +4,7 @@ import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread,  setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
-  changeMemberRole, setMemberExternal, getReviewers, addReviewer, removeReviewer, setReviewerAway, setTeamLaunchSteps, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
+  changeMemberRole, setMemberExternal, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
@@ -119,16 +119,14 @@ export const useDisconnectMySlack = () => {
 }
 export const useRemoveLaunchLink = () => useLaunchMutation(({ id, linkId }: { id: string; linkId: string }) => removeLaunchLink(id, linkId))
 
-// Launch reviewers (owners only): who approves which step, and the coverage grid; each change returns the new picture.
-export const useReviewers = (enabled = true) => useQuery({ queryKey: ['reviewers'], queryFn: getReviewers, enabled })
-function useReviewerMutation<T>(fn: (input: T) => Promise<unknown>) {
+// Launch approvers (owners only): who approves which step; each change returns the new grid.
+export const useApprovals = (enabled = true) => useQuery({ queryKey: ['approvals'], queryFn: getApprovals, enabled })
+function useApprovalMutation<T>(fn: (input: T) => Promise<unknown>) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all(['reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all(['approvals', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
 }
-export const useAddReviewer = () => useReviewerMutation((input: Parameters<typeof addReviewer>[0]) => addReviewer(input))
-export const useRemoveReviewer = () => useReviewerMutation((id: string) => removeReviewer(id))
-export const useSetReviewerAway = () => useReviewerMutation(({ userId, unavailable }: { userId: string; unavailable: boolean }) => setReviewerAway(userId, unavailable))
-export const useSetTeamLaunchSteps = () => useReviewerMutation(({ id, used }: { id: string; used: Record<string, boolean> }) => setTeamLaunchSteps(id, used))
+export const useSaveApprovalStep = () => useApprovalMutation(({ step, input }: { step: string; input: Parameters<typeof saveApprovalStep>[1] }) => saveApprovalStep(step, input))
+export const useSetApproverAway = () => useApprovalMutation(({ userId, unavailable }: { userId: string; unavailable: boolean }) => setApproverAway(userId, unavailable))
 
 export const useTeams = () => useQuery({ queryKey: ['teams'], queryFn: listTeams })
 function useTeamMutation<T>(fn: (input: T) => Promise<unknown>) {

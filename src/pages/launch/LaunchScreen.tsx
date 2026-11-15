@@ -5,7 +5,7 @@ import { useAddLaunchLink, useAnswerLaunchStep, useLaunch, useRemoveLaunchLink, 
 import { LaunchView } from './LaunchView'
 
 // Container: one launch, as the signed-in person may see it, and the changes they may make to it. Used for a project's Launch step and for a launch
-// opened by its address (a reviewer from another team, an external reviewer).
+// opened by its address (an approver from another team, an external approver).
 export function LaunchScreen({ launchId }: { launchId: string }) {
   const launch = useLaunch(launchId)
   const answer = useAnswerLaunchStep()

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { cleanChannel, makeSlack, SlackError, slackText, type SlackClient } from './slack.js'
-import { createDemoDatabase } from './test-utils.js'
+import { createDemoDatabase, setApprovers } from './test-utils.js'
 
 declare global {
   interface Response {
@@ -59,7 +59,7 @@ async function fixture(opts: { live?: boolean } = {}) {
   const members = (await (await call(owner, 'GET', '/members')).json()).data as { id: string; email: string }[]
   const member = (key: string) => members.find((m) => m.email.startsWith(`${key}@`))!.id
   const setChannel = (channel: string | null) => call(owner, 'PUT', `/teams/${teamId}/slack-channel`, { channel })
-  const reviewer = (who: string, steps: string[]) => call(owner, 'POST', '/reviewers', { memberId: member(who), steps, teams: 'all', role: 'primary' })
+  const reviewer = (who: string, steps: string[]) => setApprovers((m, p, b) => call(owner, m, p, b), who, steps)
   return { pg, call, owner, alex, project, teamId, setChannel, reviewer, ...rec }
 }
 

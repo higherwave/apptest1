@@ -46,7 +46,7 @@ they are not in; the read-only demo viewer sees everything. Rules live in `serve
 Launch (release readiness) is built in slices; the plan is the "Launch: build plan" doc. Rules so far:
 
 - A step with no reviewer is a **gap**, never hidden. "Not used" is a separate, explicit team setting (`core.team_launch_steps`). Never make a step disappear because nobody covers it.
-- Who covers a step comes from one function, `reviewersFor`/`coverageState` in `shared/launch.mjs`. Do not re-derive it in a screen or a query.
+- Who covers a step comes from one function, `reviewersFor`/`coverageState` in `shared/launch.mjs`. Do not re-derive it in a screen or a query. Screens and messages say approver and backup (never reviewer or alternate); only code names and URLs keep the old words.
 - Approval authority comes from assignment in Signal Flow (members and teams), never from Slack membership. Slack carries conversation; Signal Flow keeps decisions.
 - An external member (`is_external`) is a viewer, covers named teams only, and is refused in the API everywhere except the routes made for them (`EXTERNAL_MAY_CALL` in `server/app.ts`). Add a route to that list only when it is meant for them.
 - One launch per project. Launch answers are append-only; a brief change reopens them (the answer keeps the `brief_key` it was given on; never overwrite or delete an answer).

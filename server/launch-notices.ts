@@ -1,13 +1,13 @@
-// Messages about a launch, by email, and the same events as replies in the launch's Slack thread (server/launch-slack.ts). A reviewer asked to approve must be told, so these are not switched off by the daily reminder's
+// Messages about a launch, by email, and the same events as replies in the launch's Slack thread (server/launch-slack.ts). An approver asked to approve must be told, so these are not switched off by the daily reminder's
 // preference; they are limited only by the temporary recipient limit (REMINDERS_ONLY_FOR) and by placeholder addresses, and a message held back is kept
 // (status 'held') and goes out if it is asked for again once the limit is lifted. Every message links to the launch in Signal Flow, which always shows
 // what is current: a request that has since been answered opens on who answered it.
 //
-//   launch.requested        the launch owner asks the reviewers of the steps still waiting (or reopened) for their answers
+//   launch.requested        the launch owner asks the approvers of the steps still waiting (or reopened) for their answers
 //   launch.answered         a step was answered: the launch's owner hears it
-//   launch.decided          the final decision was made: the owner and every step's reviewer hear it
-//   launch.reopened         the brief changed after an answer: that step's reviewer is asked to confirm it
-//   launch.escalated        a request has waited: alternates are asked to cover after 3 days, the owner is told after 6 (or 3 when there is no alternate)
+//   launch.decided          the final decision was made: the owner and every step's approver hear it
+//   launch.reopened         the brief changed after an answer: that step's approver is asked to confirm it
+//   launch.escalated        a request has waited: backups are asked to cover after 3 days, the owner is told after 6 (or 3 when there is no backup)
 //   launch.approver_missing a launch that was asked for has a step nobody covers: the owner is told, once a week
 import { answerLabel } from '../shared/launch.mjs'
 import type { Db, Env } from './db.js'
@@ -30,10 +30,10 @@ const baseOf = (env: Env) => (env.APP_URL || env.BETTER_AUTH_URL || '').replace(
 const first = (name: string) => name.split(' ')[0] || 'there'
 const dayText = (day: string | null) => (day ? new Date(`${day}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null)
 
-/** The page every launch message has: a greeting, a few lines, one link to the launch, and where all of a person's reviews are. */
+/** The page every launch message has: a greeting, a few lines, one link to the launch, and where all of a person's approvals are. */
 function compose(o: { name: string; subject: string; lines: string[]; link: string; linkText: string; allReviews: string }) {
-  const text = [`Hi ${first(o.name)},`, '', ...o.lines, '', `${o.linkText}: ${o.link}`, '', `All your reviews: ${o.allReviews}`].join('\n')
-  const html = [`<p>Hi ${esc(first(o.name))},</p>`, ...o.lines.map((l) => `<p>${esc(l)}</p>`), `<p><a href="${esc(o.link)}">${esc(o.linkText)}</a></p>`, `<p><small><a href="${esc(o.allReviews)}">All your reviews</a></small></p>`].join('\n')
+  const text = [`Hi ${first(o.name)},`, '', ...o.lines, '', `${o.linkText}: ${o.link}`, '', `All your approvals: ${o.allReviews}`].join('\n')
+  const html = [`<p>Hi ${esc(first(o.name))},</p>`, ...o.lines.map((l) => `<p>${esc(l)}</p>`), `<p><a href="${esc(o.link)}">${esc(o.linkText)}</a></p>`, `<p><small><a href="${esc(o.allReviews)}">All your approvals</a></small></p>`].join('\n')
   return { subject: o.subject, text, html }
 }
 
@@ -44,8 +44,8 @@ function holdReason(env: Env, email: string): string | null {
 }
 
 /**
- * A reviewer was marked away: each alternate who now covers their steps is told, once per change. There is no launch to link to, so the message links to
- * the person's reviews. Same rules as every launch email (held, never dropped; a failure is logged and never fails the change).
+ * An approver was marked away: each backup who now covers their steps is told, once per change. There is no launch to link to, so the message links to
+ * the person's approvals. Same rules as every launch email (held, never dropped; a failure is logged and never fails the change).
  */
 export async function tellAlternatesCover(deps: Deps, workspaceId: string, away: { name: string }, alternates: { person: Person; steps: string[] }[], at: Date = new Date()): Promise<Outcome[]> {
   const out: Outcome[] = []
@@ -67,9 +67,9 @@ export async function tellAlternatesCover(deps: Deps, workspaceId: string, away:
       const m = compose({
         name: alt.person.name,
         subject: `Signal Flow: you are covering launch approvals for ${away.name}`,
-        lines: [`${away.name} is away, so you are now the reviewer for: ${alt.steps.join(', ')}.`, 'You will get the launch messages and answer requests for these steps until they are back.'],
+        lines: [`${away.name} is away, so you are now the approver for: ${alt.steps.join(', ')}.`, 'You will get the launch messages and answer requests for these steps until they are back.'],
         link: `${base}/launches`,
-        linkText: 'Open your reviews',
+        linkText: 'Open your approvals',
         allReviews: `${base}/launches`,
       })
       await deps.mailer.send({ to: alt.person.email, ...m })
@@ -126,7 +126,7 @@ const stepsText = (steps: { label: string }[]) => steps.map((s) => s.label).join
 
 export type RequestResult = { asked: { name: string; steps: string[] }[]; alreadyAsked: { name: string; steps: string[] }[]; held: { name: string; steps: string[] }[]; missing: { step: string; label: string }[] }
 
-/** The launch owner asks, for each reviewer, the steps still waiting (or reopened). Asking again for the same brief sends nothing more. */
+/** The launch owner asks, for each approver, the steps still waiting (or reopened). Asking again for the same brief sends nothing more. */
 export async function requestAnswers(deps: Deps, workspaceId: string, launchId: string): Promise<RequestResult | null> {
   const launch = await load(deps, workspaceId, launchId)
   if (!launch) return null
@@ -170,7 +170,7 @@ export async function requestAnswers(deps: Deps, workspaceId: string, launchId: 
   return result
 }
 
-/** After a step is answered: the launch's owner hears it; after the final decision, the owner and every step's reviewer hear the decision. */
+/** After a step is answered: the launch's owner hears it; after the final decision, the owner and every step's approver hear the decision. */
 export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: string, step: string, byUserId: string): Promise<void> {
   const launch = await load(deps, workspaceId, launchId)
   const answered = launch?.steps.find((s) => s.step === step)
@@ -276,7 +276,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
             key: `escalated-alt:${launch.id}:${s.step}:${launch.briefAt}`,
             payload: { step: s.step, briefAt: launch.briefAt },
             build: (link, allReviews) =>
-              compose({ name: p.name, subject: `Signal Flow: ${s.label} on ${launch.name} is waiting. Can you cover it?`, lines: [`${s.label} on ${launch.name} has been waiting for an answer for ${Math.floor(days)} days. You are the alternate: please answer it if the primary reviewer cannot.`], link, linkText: 'Open the launch', allReviews }),
+              compose({ name: p.name, subject: `Signal Flow: ${s.label} on ${launch.name} is waiting. Can you cover it?`, lines: [`${s.label} on ${launch.name} has been waiting for an answer for ${Math.floor(days)} days. You are the alternate: please answer it if the primary approver cannot.`], link, linkText: 'Open the launch', allReviews }),
           }))
         }
       }
@@ -300,7 +300,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
         key: `missing:${launch.id}:${s.step}:${isoWeek(now)}`,
         payload: { step: s.step },
         build: (link, allReviews) =>
-          compose({ name: to.name, subject: `Signal Flow: no reviewer for ${s.label} on ${launch.name}`, lines: [`${s.label} on ${launch.name} has no reviewer, so nobody can answer it. A workspace owner can add one under Admin, Members, Reviewers.`], link, linkText: 'Open the launch', allReviews }),
+          compose({ name: to.name, subject: `Signal Flow: no approver for ${s.label} on ${launch.name}`, lines: [`${s.label} on ${launch.name} has no approver, so nobody can answer it. A workspace owner can add one under Admin, Approvals.`], link, linkText: 'Open the launch', allReviews }),
       }))
     }
   }

@@ -4,7 +4,7 @@ import type { AuditEntry, AuditGroup } from '../../api/client'
 export const GROUP_LABEL: Record<AuditGroup, string> = {
   members: 'People and roles',
   teams: 'Teams',
-  reviewers: 'Launch reviewers',
+  reviewers: 'Launch approvers',
   launches: 'Launches',
   categories: 'Experience categories',
   projects: 'Projects',
@@ -16,7 +16,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.memberships': 'Member',
   'core.teams': 'Team',
   'core.team_memberships': 'Team member',
-  'core.reviewer_assignments': 'Launch reviewer',
+  'core.reviewer_assignments': 'Launch approver',
   'core.team_launch_steps': 'Launch steps',
   'delivery.launches': 'Launch',
   'delivery.launch_answers': 'Launch answer',

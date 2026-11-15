@@ -1,9 +1,14 @@
 import { useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { friendlyMessage, type Member, type MemberRole } from '../../api/client'
 import { useChangeMemberRole, useInviteMember, useMe, useMembers, useRemoveMember, useSetMemberExternal } from '../../api/hooks'
-import { ReviewersPage } from '../reviewers/ReviewersPage'
 import { MembersView } from './MembersView'
+
+// The old Approvers tab is now Approvals.
+export function MembersEntry() {
+  const [params] = useSearchParams()
+  return params.get('tab') === 'reviewers' ? <Navigate to="/settings/approvals" replace /> : <MembersPage />
+}
 
 // Container: the members, the invite form's state, and the owner-only changes.
 export function MembersPage() {
@@ -13,8 +18,6 @@ export function MembersPage() {
   const change = useChangeMemberRole()
   const remove = useRemoveMember()
   const setExternal = useSetMemberExternal()
-  const [params, setParams] = useSearchParams()
-  const tab = params.get('tab') === 'reviewers' ? 1 : 0
   const [external, setExternal2] = useState(false)
   const [removing, setRemoving] = useState<Member | null>(null)
   const [email, setEmail] = useState('')
@@ -36,9 +39,6 @@ export function MembersPage() {
       email={email}
       role={role}
       external={external}
-      tab={tab}
-      onTab={(next) => setParams(next === 1 ? { tab: 'reviewers' } : {}, { replace: true })}
-      reviewers={<ReviewersPage />}
       inviting={invite.isPending}
       removing={removing}
       removePending={remove.isPending}

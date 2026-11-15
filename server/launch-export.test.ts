@@ -6,7 +6,7 @@ import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { PdfError } from './pdf.js'
-import { createDemoDatabase } from './test-utils.js'
+import { createDemoDatabase, setApprovers } from './test-utils.js'
 
 declare global {
   interface Response {
@@ -32,7 +32,7 @@ async function fixture(opts: { failPdf?: boolean; env?: Record<string, string> }
   const project = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
   const launch = await (await call(alex, 'POST', `/projects/${project}/launch`, { name: 'Spring <b>release</b> & more', targetDate: '2026-12-01', briefNotes: 'Notes with <script>alert(1)</script>' })).json()
   const members = (await (await call(owner, 'GET', '/members')).json()).data as { id: string; email: string }[]
-  const reviewer = (who: string, steps: string[]) => call(owner, 'POST', '/reviewers', { memberId: members.find((m) => m.email.startsWith(`${who}@`))!.id, steps, teams: 'all', role: 'primary' })
+  const reviewer = (who: string, steps: string[]) => setApprovers((m, p, b) => call(owner, m, p, b), who, steps)
   return { pg, call, alex, owner, as, launch, made, reviewer, project }
 }
 

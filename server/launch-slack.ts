@@ -112,7 +112,7 @@ export const slackLines = {
   requested: (people: { name: string; steps: string[] }[]) => `:envelope: Answers asked of ${people.map((p) => `${slackText(p.name)} (${slackText(p.steps.join(', '))})`).join('; ')}. Each step has a card below to answer here.`,
   answered: (step: string, answer: string, by: string, why: string) => `:white_check_mark: *${slackText(step)}*: ${slackText(answerLabel(answer).toLowerCase())}, by ${slackText(by)}.${reason(why)}`,
   decided: (answer: string, by: string, why: string) => `:rocket: *Final decision: ${slackText(answerLabel(answer).toLowerCase())}*, recorded by ${slackText(by)}.${reason(why)}`,
-  reopened: (step: string) => `:arrows_counterclockwise: The brief changed after *${slackText(step)}* was answered. Its reviewer is asked to confirm it.`,
+  reopened: (step: string) => `:arrows_counterclockwise: The brief changed after *${slackText(step)}* was answered. Its approver is asked to confirm it.`,
 }
 
 // ---- approval cards: a step's answer given from Slack ----
@@ -134,7 +134,7 @@ export function cardBlocks(launchId: string, c: CardStep, text: string): SlackBl
         ...(a.key === 'changes_needed' || a.key === 'no_go' ? { style: 'danger' } : {}),
       })),
     },
-    { type: 'context', elements: [{ type: 'mrkdwn', text: 'Only the step’s reviewer can answer. The answer is recorded in Signal Flow, with the version of the brief it was given on.' }] },
+    { type: 'context', elements: [{ type: 'mrkdwn', text: 'Only the step’s approver can answer. The answer is recorded in Signal Flow, with the version of the brief it was given on.' }] },
   ]
 }
 

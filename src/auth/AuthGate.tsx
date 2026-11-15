@@ -92,7 +92,7 @@ function ExternalApp({ name }: { name: string }) {
           <Logo />
           <span>{brand.appName}</span>
         </p>
-        <span className={styles.externalName}>{name} · external reviewer</span>
+        <span className={styles.externalName}>{name} · external approver</span>
         <Button kind="ghost" size="sm" onClick={signOut}>
           Sign out
         </Button>

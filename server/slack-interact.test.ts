@@ -6,7 +6,7 @@ import { createHmac } from 'node:crypto'
 import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { recordingSlack } from './slack-recorder.js'
-import { createDemoDatabase } from './test-utils.js'
+import { createDemoDatabase, setApprovers } from './test-utils.js'
 
 declare global {
   interface Response {
@@ -34,7 +34,7 @@ async function fixture(extraEnv: Record<string, string> = {}) {
   const project = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
   const teamId = ((await pg.query<any>(`select team_id from core.projects where id = $1`, [project])).rows[0] as { team_id: string }).team_id
   const members = (await (await call(owner, 'GET', '/members')).json()).data as { id: string; email: string }[]
-  const reviewer = (who: string, steps: string[]) => call(owner, 'POST', '/reviewers', { memberId: members.find((m) => m.email.startsWith(`${who}@`))!.id, steps, teams: 'all', role: 'primary' })
+  const reviewer = (who: string, steps: string[]) => setApprovers((m, p, b) => call(owner, m, p, b), who, steps)
   await call(owner, 'PUT', `/teams/${teamId}/slack-channel`, { channel: 'anchor-cx-launches' })
   await reviewer('alex', ['legal'])
   await reviewer('sam', ['marketing'])
@@ -217,5 +217,5 @@ test('"Add link as evidence" on a message in the launch thread: the reviewer pic
   await f.pg.query(`delete from core.reviewer_assignments where user_id = (select id from core.users where email like 'david@%')`)
   await f.interact(action('U_DAVID'))
   assert.equal(f.rec.views.length, views)
-  assert.match(f.rec.responses.at(-1)!.body.text, /not a reviewer of any step/)
+  assert.match(f.rec.responses.at(-1)!.body.text, /not an approver of any step/)
 })

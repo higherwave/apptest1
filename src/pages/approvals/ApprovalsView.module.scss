@@ -1,0 +1,151 @@
+@use '../../tokens' as tokens;
+@use '../insights/body';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.title {
+  @include tokens.role('title-lg');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-ink);
+}
+
+.intro {
+  @include tokens.role('body-md');
+  max-inline-size: 42rem;
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.summary {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-success);
+
+  &[data-gaps]:not([data-gaps='0']) { color: var(--at-signature-coral); }
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+// The grid: steps down the side; the workspace approver, the Use backup switch and one column per team across. Grids with table roles, because the design
+// rules do not allow a raw table. Columns are flex bases so any number of teams lines up.
+.grid { min-inline-size: 48rem; }
+
+.row {
+  display: flex;
+  gap: var(--at-space-md);
+  align-items: flex-start;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child { border-block-start: none; }
+}
+
+.head1 {
+  @include tokens.role('eyebrow');
+  padding: var(--at-space-xs) 0;
+  color: var(--at-muted);
+}
+
+.stepCol { flex: 0 0 11rem; }
+.approverCol { flex: 0 0 13rem; }
+.backupCol { flex: 0 0 8rem; }
+.teamCol { flex: 1 1 9rem; min-inline-size: 0; }
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xxs);
+  padding-block: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.stepButton { @include tokens.role('label-md'); }
+.choose { color: var(--at-link); }
+
+.who {
+  @include tokens.role('body-md');
+  color: var(--at-ink);
+  overflow-wrap: anywhere;
+}
+
+.sub {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+  overflow-wrap: anywhere;
+}
+
+.default { @include tokens.role('body-md'); color: var(--at-text-tertiary); }
+.off { @include tokens.role('body-md'); color: var(--at-text-tertiary); font-style: italic; }
+.gap { @include tokens.role('label-md'); color: var(--at-signature-coral); }
+.tag { margin-inline-start: var(--at-space-xs); }
+
+.useBackup { display: flex; flex-direction: column; align-items: flex-start; gap: var(--at-space-xxs); }
+.useBackup :global(.cds--toggle__text),
+.useBackup :global(.cds--toggle__label-text) {
+  // Spoken ("Use backup while <name> is away") but not drawn: the column heading says it.
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.noBackup { @include tokens.role('meta'); color: var(--at-muted); }
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+// The step panel.
+.panelBody { display: flex; flex-direction: column; gap: var(--at-space-xl); }
+.panelSection { display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.panelHeading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
+.help {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+
+  &[data-kind='gap'] { color: var(--at-signature-coral); }
+}
+.teamBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding-block-start: var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+}
+.teamHead { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
+.teamName { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
+.teamPickers { display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.problem { @include tokens.role('body-md'); margin: 0; color: var(--at-signature-coral); }
+.panelActions {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--at-space-sm);
+  padding-block: var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+  background: var(--at-canvas);
+}

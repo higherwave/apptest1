@@ -864,16 +864,16 @@ try {
   await page.waitForSelector('[data-testid="launch-name"]', { timeout: 8000 })
   ok('Launch is the last step of the project menu, and the launch already exists because the storyboard was written', await page.evaluate(() => { const rail = [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.label); return rail[rail.length - 1] === 'Launch' && !document.querySelector('[data-testid="launch-start"]') }))
   ok('starting it shows a section for each step, all visible; with no reviewers set up every step says "Approver missing", and nothing can be answered', await page.evaluate(() => { const secs = [...document.querySelectorAll('[data-testid^="section-"]')]; return secs.map((e) => e.dataset.testid.replace('section-', '')).join() === 'product_leadership,sales,legal,documentation,marketing,final_decision' && secs.every((e) => e.dataset.state === 'missing' && /Approver missing/.test(e.innerText)) && !document.querySelector('[data-testid^="answer-button-"]') && /Preparing/.test(document.querySelector('[data-testid="launch-state"]').innerText) }))
-  const members0 = await (await fetch(`${API}/api/v1/members`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  const davidId = members0.data.find((m) => m.email.startsWith('david@')).id
-  await fetch(`${API}/api/v1/reviewers`, { method: 'POST', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ memberId: davidId, steps: ['legal', 'final_decision'], teams: 'all', role: 'primary' }) })
+  const approvals0 = await (await fetch(`${API}/api/v1/approvals`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
+  const davidUser = approvals0.people.find((m) => m.email.startsWith('david@')).userId
+  for (const step of ['legal', 'final_decision']) await fetch(`${API}/api/v1/approvals/steps/${step}`, { method: 'PUT', headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: JSON.stringify({ approver: davidUser, backup: null, teams: {} }) })
   await page.reload({ waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="answer-button-legal"]', { timeout: 8000 })
   ok('once a reviewer is set up, only that reviewer’s steps can be answered; the others stay visible but read-only', await page.evaluate(() => document.querySelector('[data-testid="section-legal"]').dataset.state === 'waiting' && !!document.querySelector('[data-testid="answer-button-final_decision"]') && !document.querySelector('[data-testid="answer-button-sales"]') && document.querySelector('[data-testid="section-sales"]').dataset.state === 'missing'))
   // Ask for answers: who would be emailed, and a link from an email that opens at the step.
   await tid('ask-answers')
   await page.waitForSelector('[data-testid="ask-dialog"]', { timeout: 5000 })
-  ok('Ask for answers lists who will be asked, one entry per person with their steps, and which steps have no reviewer', await page.evaluate(() => { const t = document.querySelector('[data-testid="ask-dialog"]').innerText; return /David/.test(t) && /Legal, Final decision/.test(t) && /No reviewer is set up for .*Sales/.test(t) }))
+  ok('Ask for answers lists who will be asked, one entry per person with their steps, and which steps have no approver', await page.evaluate(() => { const t = document.querySelector('[data-testid="ask-dialog"]').innerText; return /David/.test(t) && /Legal, Final decision/.test(t) && /No approver is set up for .*Sales/.test(t) }))
   await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Send request').click())
   await page.waitForSelector('[data-testid="asked-result"]', { timeout: 8000 })
   ok('asking says who was asked, or that nobody was emailed (the demo’s addresses are placeholders, which are never mailed)', await page.evaluate(() => { const t = document.querySelector('[data-testid="asked-result"]').innerText; return /Nobody was emailed|Asked 1 reviewer/.test(t) && /placeholder|David/.test(t) }))

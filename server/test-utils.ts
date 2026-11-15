@@ -49,3 +49,30 @@ export function fakeAuth(): AuthService {
     },
   }
 }
+
+type ApiCall = (method: string, path: string, body?: unknown) => Promise<Response> | Response
+
+/**
+ * Sets one person up as approver (`primary`) or backup (`alternate`) for some steps, for the workspace (`'all'`) or as a team's own, through the Approvals API.
+ * `who` is an email, or the part before the @. Keeps whatever else each step already has, and returns the response of the last save.
+ */
+export async function setApprovers(call: ApiCall, who: string, steps: string[], role: 'primary' | 'alternate' = 'primary', teams: 'all' | string[] = 'all'): Promise<Response> {
+  const overview = (await (await call('GET', '/approvals')).json()) as { steps: any[]; people: { userId: string; email: string }[] }
+  const person = overview.people.find((p) => p.email === who || p.email.startsWith(`${who}@`))
+  if (!person) throw new Error(`no such person: ${who}`)
+  let last!: Response
+  for (const key of steps) {
+    const fresh = (await (await call('GET', '/approvals')).json()) as { steps: any[] }
+    const s = fresh.steps.find((x) => x.key === key)
+    const body: any = {
+      approver: s?.approver?.userId ?? null,
+      backup: s?.backup?.userId ?? null,
+      teams: Object.fromEntries((s?.teams ?? []).map((t: any) => [t.teamId, { mode: t.mode, approver: t.approver?.userId ?? null, backup: t.backup?.userId ?? null }])),
+    }
+    const field = role === 'primary' ? 'approver' : 'backup'
+    if (teams === 'all') body[field] = person.userId
+    else for (const id of teams) body.teams[id] = { ...(body.teams[id] ?? {}), mode: 'custom', [field]: person.userId }
+    last = await call('PUT', `/approvals/steps/${key}`, body)
+  }
+  return last
+}

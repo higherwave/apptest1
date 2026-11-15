@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { coverageState, isOptionalStep, reviewersFor, stepUsed } from './launch.mjs'
+import { activeFor, coverageState, isOptionalStep, reviewersFor, stepUsed } from './launch.mjs'
 
 const A = (userId, step, teamId, role = 'primary') => ({ userId, step, teamId, role })
 
@@ -49,4 +49,16 @@ test('step state: not used, missing (never hidden), waiting, answered, and reope
   assert.equal(stepState({ used: true, hasPrimary: true, answer: 'ready', reopened: false }), 'ready')
   assert.equal(stepState({ used: true, hasPrimary: true, answer: 'ready', reopened: true }), 'reopened')
   assert.equal(stepState({ used: true, hasPrimary: false, answer: 'ready', reopened: false }), 'ready', 'an answer given before the reviewer left still stands')
+})
+
+test('a team’s own backup without its own approver does not count: the workspace’s approvers decide', () => {
+  const a = [
+    { userId: 'w', step: 'legal', teamId: null, role: 'primary' },
+    { userId: 'b', step: 'legal', teamId: 't1', role: 'alternate' },
+  ]
+  assert.deepEqual(reviewersFor(a, 't1', 'legal'), { scope: 'all', primary: ['w'], alternate: [] })
+  assert.deepEqual(activeFor(a, 't1', 'legal'), ['w'])
+  assert.equal(coverageState(a, [], 't1', 'legal').state, 'covered')
+  const own = [...a, { userId: 't', step: 'legal', teamId: 't1', role: 'primary' }]
+  assert.deepEqual(reviewersFor(own, 't1', 'legal'), { scope: 'team', primary: ['t'], alternate: ['b'] })
 })

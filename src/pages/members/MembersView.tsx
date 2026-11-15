@@ -1,5 +1,5 @@
 import { Close } from '@carbon/icons-react'
-import { Button, Checkbox, Dropdown, InlineNotification, Loading, Modal, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, Dropdown, InlineNotification, Loading, Modal, Tag, TextInput } from '@carbon/react'
 import type { ReactNode } from 'react'
 import type { Member, MemberRole } from '../../api/client'
 import { SettingsHeader } from '../settings/SettingsHeader'
@@ -32,11 +32,6 @@ export type MembersViewProps = {
   role: MemberRole
   /** The invite is for someone from outside the company: a viewer whose access is limited to the launches they review. */
   external: boolean
-  /** 0 People, 1 Reviewers. */
-  tab: number
-  onTab: (tab: number) => void
-  /** The Reviewers tab's content, shown when that tab is open. */
-  reviewers: ReactNode
   inviting: boolean
   removing: Member | null
   removePending: boolean
@@ -64,14 +59,6 @@ export function MembersView(p: MembersViewProps) {
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.notice && <InlineNotification kind="success" lowContrast hideCloseButton title="Invited" subtitle={p.notice} />}
 
-      <Tabs selectedIndex={p.tab} onChange={({ selectedIndex }) => p.onTab(selectedIndex)}>
-        <TabList aria-label="Members views">
-          <Tab data-testid="tab-people">People</Tab>
-          <Tab data-testid="tab-reviewers">Reviewers</Tab>
-        </TabList>
-        <TabPanels>
-          <TabPanel className={styles.tabPanel}>
-      {p.tab === 0 && (
       <div className={styles.peoplePanel}>
       {p.isOwner && (
         <section className={styles.invite} aria-label="Invite someone">
@@ -168,11 +155,6 @@ export function MembersView(p: MembersViewProps) {
       )}
 
       </div>
-      )}
-          </TabPanel>
-          <TabPanel className={styles.tabPanel}>{p.tab === 1 && p.reviewers}</TabPanel>
-        </TabPanels>
-      </Tabs>
 
       <Modal
         open={p.removing !== null}

@@ -152,16 +152,13 @@ export const setUpLaunchSchema = z.object({
 export const launchAnswerSchema = z.object({ answer: z.enum(LAUNCH_ANSWERS), rationale: z.string().trim().max(4000).default('') })
 export const launchLinkSchema = z.object({ title: z.string().trim().max(120).optional(), url: z.string().trim().min(1, 'Enter a link.').max(2000) })
 
-// Launch reviewers (Admin, Members, Reviewers): a person, the steps they approve, the teams they cover (all, or named), primary or alternate.
-const LAUNCH_STEP_KEYS = ['product_leadership', 'sales', 'legal', 'documentation', 'marketing', 'final_decision'] as const
-export const addReviewerSchema = z.object({
-  memberId: z.uuid(),
-  steps: z.array(z.enum(LAUNCH_STEP_KEYS)).min(1, 'Choose at least one step.').max(6),
-  teams: z.union([z.literal('all'), z.array(z.uuid()).min(1, 'Choose at least one team.').max(200)]),
-  role: z.enum(['primary', 'alternate']),
+// Launch approvers (Admin, Approvals): one step as the panel shows it. Approver and backup are people (user ids); each team uses the workspace's, its own, or not the step.
+const teamApprovalSchema = z.object({ mode: z.enum(['default', 'custom', 'off']), approver: z.uuid().nullable().optional(), backup: z.uuid().nullable().optional() })
+export const approvalStepSchema = z.object({
+  approver: z.uuid().nullable(),
+  backup: z.uuid().nullable(),
+  teams: z.record(z.uuid(), teamApprovalSchema).default({}),
 })
-// Which optional steps a team's launches use; the final decision always applies.
-export const teamStepsSchema = z.object({ used: z.partialRecord(z.enum(['product_leadership', 'sales', 'legal', 'documentation', 'marketing']), z.boolean()) })
 export const reviewerAwaySchema = z.object({ unavailable: z.boolean() })
 export const teamSlackSchema = z.object({ channel: z.string().max(80).nullable() })
 export const teamNameSchema = z.object({ name: z.string().trim().min(1, 'Enter a team name.').max(60) })

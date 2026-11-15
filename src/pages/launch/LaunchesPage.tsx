@@ -7,8 +7,8 @@ import { dayText, stateLabel, stateTag } from './launchText'
 import styles from './LaunchesPage.module.scss'
 import { STEP_LABELS } from './stepLabels'
 
-// The launches the signed-in person may see, with what is waiting on them. How a reviewer finds a launch of a team they are not in.
-export function LaunchesPage({ title = 'My reviews', description = 'The launches you can see, and where your answer is waiting.' }: { title?: string; description?: string }) {
+// The launches the signed-in person may see, with what is waiting on them. How an approver finds a launch of a team they are not in.
+export function LaunchesPage({ title = 'My approvals', description = 'The launches you can see, and where your answer is waiting.' }: { title?: string; description?: string }) {
   const navigate = useNavigate()
   const list = useLaunches()
   const items = list.data?.data ?? []

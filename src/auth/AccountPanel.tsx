@@ -36,7 +36,7 @@ export function AccountPanel({ name, email, role, avatarUrl }: Props) {
               setOpen(false)
               navigate('/launches')
             }}>
-            My reviews
+            My approvals
           </Button>
           {slack.data?.configured && (
             <Button kind="ghost" size="md" className={styles.link} renderIcon={LogoSlack} data-testid="connect-slack" onClick={() => {

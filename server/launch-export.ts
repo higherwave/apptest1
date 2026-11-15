@@ -46,7 +46,7 @@ export const STYLE = `
 
 function stepHtml(s: LaunchStep): string {
   const state = s.used ? s.state : 'not_used'
-  const reviewers = [...s.reviewers.primary].map((p) => p.name).join(', ')
+  const approvers = [...s.reviewers.primary].map((p) => p.name).join(', ')
   const a = s.answer
   const parts: string[] = [`<div class="head"><h3>${esc(s.label)}</h3><span class="tag ${tone(state)}">${esc(stateLabel(state))}</span></div>`]
   if (!s.used) parts.push('<p class="muted">This team’s launches do not use this step.</p>')
@@ -54,7 +54,7 @@ function stepHtml(s: LaunchStep): string {
     parts.push(`<p class="by">${esc(a.by?.name ?? 'Someone')} · ${esc(moment(a.at))}${a.reopened ? ' · the brief has changed since, so this needs confirming' : ''}</p>`)
     parts.push(a.rationale ? `<p class="why">${esc(a.rationale)}</p>` : '<p class="muted">No reason was needed.</p>')
     if (a.openItems?.length) parts.push(`<p class="small muted">Went past these open steps:</p><ul>${a.openItems.map((i) => `<li><strong>${esc(i.label)}</strong> (${esc(stateLabel(i.state).toLowerCase())})${i.rationale ? `: ${esc(i.rationale)}` : ''}</li>`).join('')}</ul>`)
-  } else parts.push(`<p class="muted">${s.state === 'missing' ? 'No reviewer is set up for this step.' : `Waiting for ${esc(reviewers || 'its reviewer')}.`}</p>`)
+  } else parts.push(`<p class="muted">${s.state === 'missing' ? 'No approver is set up for this step.' : `Waiting for ${esc(approvers || 'its approver')}.`}</p>`)
   if (s.links.length) parts.push(`<p class="small muted">Links</p><ul>${s.links.map((l) => `<li>${link(l.url, l.title)}</li>`).join('')}</ul>`)
   if (s.earlier.length) parts.push(`<p class="small muted">Earlier answers</p><ul class="small">${s.earlier.map((e) => `<li>${esc(answerLabel(e.answer))}, ${esc(e.by?.name ?? 'someone')}, ${esc(moment(e.at))}${e.rationale ? `: ${esc(e.rationale)}` : ''}</li>`).join('')}</ul>`)
   return `<section class="step" data-step="${esc(s.step)}">${parts.join('')}</section>`

@@ -38,19 +38,19 @@ export const dayText = (day: string | null) => (day ? new Date(`${day}T00:00:00`
 /** "Dec 1, 2026, 3:04 PM" from a moment. */
 export const momentText = (iso: string) => new Date(iso).toLocaleString([], { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
-/** Who can answer a step, in a line: "Alex Rivera, or Sam Lee as alternate". */
+/** Who can answer a step, in a line: "Alex Rivera, or Sam Lee as backup". */
 export function reviewersLine(primary: { name: string }[], alternate: { name: string }[]) {
   const p = primary.map((x) => x.name).join(' and ')
   const a = alternate.map((x) => x.name).join(' and ')
   if (!p && !a) return 'Nobody is set up yet'
-  if (!p) return `Only an alternate: ${a}`
-  return a ? `${p}, or ${a} as alternate` : p
+  if (!p) return `Only a backup: ${a}`
+  return a ? `${p}, or ${a} as backup` : p
 }
 
 export const KIND_LABEL: Record<string, string> = {
   team: 'You are on this team',
   leader: 'You see every team (read-only)',
-  reviewer: 'You review steps of this launch',
-  external: 'You review steps of this launch as an external reviewer',
+  reviewer: 'You approve steps of this launch',
+  external: 'You review steps of this launch as an external approver',
   visitor: 'Read-only view',
 }

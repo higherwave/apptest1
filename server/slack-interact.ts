@@ -41,7 +41,7 @@ async function actor(deps: InteractDeps, payload: Json, workspaceId: string, ans
 }
 
 const refusal = (err: unknown, launchName: string, step: string): string | null => {
-  if (err instanceof NotTheReviewer) return err.who.length ? `Only ${err.who.join(' or ')} can answer ${stepName(step)} on ${launchName}. Your click was not recorded.` : `Nobody is set up to answer ${stepName(step)} yet, so your click was not recorded. An owner can add a reviewer in Signal Flow.`
+  if (err instanceof NotTheReviewer) return err.who.length ? `Only ${err.who.join(' or ')} can answer ${stepName(step)} on ${launchName}. Your click was not recorded.` : `Nobody is set up to answer ${stepName(step)} yet, so your click was not recorded. An owner can add an approver in Signal Flow.`
   if (err instanceof StepNotUsed) return `${launchName} does not use ${stepName(step)}.`
   if (err instanceof LaunchNotFound) return 'That launch is not available to you.'
   return null
@@ -137,7 +137,7 @@ async function messageAction(deps: InteractDeps, payload: Json): Promise<void> {
   if (!who.ok) return void (await ephemeral(deps, payload, who.text))
   const launch = await getLaunch(deps.db, who.ctx, row.id)
   const mine = launch?.steps.filter((s) => s.canAnswer) ?? []
-  if (!launch || mine.length === 0) return void (await ephemeral(deps, payload, `You are not a reviewer of any step of ${row.name}, so you cannot add evidence to it.`))
+  if (!launch || mine.length === 0) return void (await ephemeral(deps, payload, `You are not an approver of any step of ${row.name}, so you cannot add evidence to it.`))
   const url = FIRST_URL.exec(String(payload.message?.text ?? ''))?.[0]
   await deps.slack.openView(String(payload.trigger_id), {
     ...modal({
