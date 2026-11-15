@@ -1,73 +1,39 @@
 import { useState } from 'react'
-import { friendlyMessage, type Member, type MemberRole } from '../../api/client'
-import { useMe, useCreateTeam, useDeleteTeam, useMembers, useMoveProject, useRemoveTeamMember, useRenameTeam, useSetTeamMember, useSetTeamSlackChannel, useTeams } from '../../api/hooks'
+import { friendlyMessage } from '../../api/client'
+import { useCreateTeam, useDeleteTeam, useMe, useMembers, useSaveTeam, useTeams } from '../../api/hooks'
 import { TeamsView } from './TeamsView'
 
-// Container: the teams, which one is open, and the leader-only changes.
+// Container: the teams, the panel that is open, and the owner-only changes.
 export function TeamsPage() {
-  const teams = useTeams()
   const me = useMe()
+  const teams = useTeams()
   const members = useMembers()
   const create = useCreateTeam()
-  const rename = useRenameTeam()
+  const save = useSaveTeam()
   const del = useDeleteTeam()
-  const setMember = useSetTeamMember()
-  const removeMember = useRemoveTeamMember()
-  const move = useMoveProject()
-  const setSlack = useSetTeamSlackChannel()
-  const [slackEdit, setSlackEdit] = useState<{ id: string; value: string } | null>(null)
-  const [pickedId, setPickedId] = useState<string | undefined>()
-  const [newName, setNewName] = useState('')
-  const [draft, setDraft] = useState<{ id: string; name: string } | null>(null)
-  const [addPerson, setAddPerson] = useState<Member | null>(null)
-  const [addRole, setAddRole] = useState<MemberRole>('editor')
-  const [confirmDelete, setConfirmDelete] = useState(false)
-
-  const list = teams.data?.data ?? []
-  const selected = list.find((t) => t.id === pickedId) ?? list[0]
-  // The name box follows the open team until the person types in it.
-  const nameDraft = draft && draft.id === selected?.id ? draft.name : (selected?.name ?? '')
-  const failure = [create, rename, del, setMember, removeMember, move, setSlack].find((m) => m.isError)?.error
-  const state = teams.isPending || members.isPending ? 'loading' : teams.isError || members.isError ? 'error' : 'ready'
-  const busy = [create, rename, del, setMember, removeMember, move, setSlack].some((m) => m.isPending)
-  // The channel box follows the open team until the person types in it.
-  const slackDraft = slackEdit && slackEdit.id === selected?.id ? slackEdit.value : (selected?.slackChannel ?? '')
+  const [panel, setPanel] = useState<{ type: 'new' } | { type: 'team'; id: string } | null>(null)
+  const [notice, setNotice] = useState<string | undefined>()
+  const mutation = [create, save, del].find((m) => m.isError)
+  const reset = () => { create.reset(); save.reset(); del.reset() }
+  const open = (next: typeof panel) => { setNotice(undefined); reset(); setPanel(next) }
 
   return (
     <TeamsView
-      state={state}
-      teams={list}
-      people={members.data?.data ?? []}
-      selected={selected}
+      state={teams.isPending || members.isPending ? 'loading' : teams.isError || members.isError ? 'error' : 'ready'}
+      teams={teams.data?.data ?? []}
+      members={members.data?.data ?? []}
       groupsManage={!!me.data?.teamsManagedBySso}
-      errorText={teams.isError ? friendlyMessage(teams.error) : members.isError ? friendlyMessage(members.error) : failure ? friendlyMessage(failure) : undefined}
-      newName={newName}
-      nameDraft={nameDraft}
-      addPerson={addPerson}
-      addRole={addRole}
-      busy={busy}
-      confirmDelete={confirmDelete}
-      slackDraft={slackDraft}
-      onSlackDraft={(value) => selected && setSlackEdit({ id: selected.id, value })}
-      onSaveSlack={() => selected && setSlack.mutate({ id: selected.id, channel: slackDraft.trim() || null }, { onSuccess: () => setSlackEdit(null) })}
-      onSelect={(id) => {
-        setPickedId(id)
-        setDraft(null)
-        setAddPerson(null)
-      }}
-      onNewName={setNewName}
-      onCreate={() => create.mutate(newName.trim(), { onSuccess: (t) => { setNewName(''); setPickedId((t as { id: string }).id ?? undefined) } })}
-      onNameDraft={(name) => selected && setDraft({ id: selected.id, name })}
-      onRename={() => selected && rename.mutate({ id: selected.id, name: nameDraft.trim() }, { onSuccess: () => setDraft(null) })}
-      onAddPerson={setAddPerson}
-      onAddRole={setAddRole}
-      onAdd={() => selected && addPerson && setMember.mutate({ id: selected.id, memberId: addPerson.id, role: addRole }, { onSuccess: () => setAddPerson(null) })}
-      onChangeRole={(memberId, role) => selected && setMember.mutate({ id: selected.id, memberId, role })}
-      onRemovePerson={(memberId) => selected && removeMember.mutate({ id: selected.id, memberId })}
-      onMoveProject={(projectId, toTeamId) => move.mutate({ id: toTeamId, projectId })}
-      onAskDelete={() => setConfirmDelete(true)}
-      onCancelDelete={() => setConfirmDelete(false)}
-      onDelete={() => selected && del.mutate(selected.id, { onSettled: () => { setConfirmDelete(false); setPickedId(undefined) } })}
+      errorText={teams.isError ? friendlyMessage(teams.error) : members.isError ? friendlyMessage(members.error) : undefined}
+      notice={notice}
+      busy={create.isPending || save.isPending || del.isPending}
+      panel={panel}
+      panelError={mutation ? friendlyMessage(mutation.error) : undefined}
+      onNew={() => open({ type: 'new' })}
+      onOpen={(id) => open({ type: 'team', id })}
+      onClosePanel={() => { setPanel(null); reset() }}
+      onCreate={(input) => create.mutate(input, { onSuccess: (t) => { setPanel(null); const n = Object.keys(input.members ?? {}).length; setNotice(`${(t as { name: string }).name} created${n ? ` with ${n} ${n === 1 ? 'person' : 'people'}` : ''}.`) } })}
+      onSave={(id, body) => save.mutate({ id, body }, { onSuccess: () => { setPanel(null); setNotice('Changes saved.') } })}
+      onDelete={(id) => del.mutate(id, { onSuccess: () => { setPanel(null); setNotice('Team deleted.') } })}
     />
   )
 }

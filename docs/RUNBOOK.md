@@ -27,7 +27,7 @@ and push again, or apply it by hand (`node db/migrate.mjs up --yes`) and push.
 ## Access
 
 - First owners: `node db/bootstrap-owners.mjs a@example.com b@example.com --yes` (safe to repeat).
-- After that, owners invite, change roles and remove people on the Members page. The last owner cannot be removed.
+- After that, owners invite, change roles and remove people on the People page (Admin, People). The last owner cannot be removed.
 - Editing mode is set by `OPEN_EDITING` and `PUBLIC_VIEW`; a company deployment runs `OPEN_EDITING=false`.
 
 ## AI

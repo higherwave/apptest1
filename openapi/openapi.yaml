@@ -315,12 +315,14 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
     post:
       operationId: createTeam
-      summary: Owners only. Creates a team. 409 `team_name_taken` if the name is in use (case does not matter).
+      summary: >
+        Owners only. Creates a team, with its Slack channel and its people if given, all or nothing. 409 `team_name_taken` if the name is in use (case does not
+        matter); 422 `invalid` for a Slack channel name Slack would not accept; 409 `managed_by_sso` for people when sign-in groups decide teams; 404 for an unknown person.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/TeamNameRequest' }
+            schema: { $ref: '#/components/schemas/CreateTeamRequest' }
       responses:
         '201':
           description: Created.
@@ -334,18 +336,22 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
   /teams/{id}:
     patch:
-      operationId: renameTeam
-      summary: Owners only. Renames a team. 409 `team_name_taken`.
+      operationId: saveTeam
+      summary: >
+        Owners only. Saves a team as its panel shows it, all or nothing: its name, its Slack channel (empty for none), its people (`members`: member id to role in
+        the team; the team ends with exactly these) and projects moved to other teams (`moveProjects`: project id to team id; only this team's projects). Anything left
+        out is unchanged. 409 `team_name_taken`; 422 `invalid` for a Slack channel name; 409 `managed_by_sso` for the people of a team other than the default one
+        while sign-in groups decide teams; 404 for an unknown team, person or project.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/TeamNameRequest' }
+            schema: { $ref: '#/components/schemas/SaveTeamRequest' }
       responses:
         '200':
-          description: Renamed.
+          description: Saved.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/Team' }
@@ -4278,10 +4284,11 @@ components:
           items: { $ref: '#/components/schemas/Team' }
     Team:
       type: object
-      required: [id, name, isDefault, slackChannel, members, projects]
+      required: [id, name, isDefault, slackChannel, members, projects, gaps]
       properties:
         id: { type: string }
         name: { type: string }
+        gaps: { type: integer, description: 'Steps this team uses that nobody approves (see Approvals).' }
         slackChannel: { type: [string, 'null'], description: 'The Slack channel (no #) this team’s launches are announced in; null for none.' }
         isDefault: { type: boolean, description: The team new people and new projects land in when no other is named. It cannot be deleted. }
         members:
@@ -4327,11 +4334,20 @@ components:
         state: { type: string, enum: [started, already, off, no_channel, failed] }
         url: { type: [string, 'null'], description: The thread's link in Slack. }
         problem: { type: [string, 'null'] }
-    TeamNameRequest:
+    CreateTeamRequest:
       type: object
       required: [name]
       properties:
         name: { type: string, description: 1 to 60 characters. }
+        slackChannel: { type: [string, 'null'], description: 'The channel launches are announced in; a leading # and capitals are cleaned. Empty or null for none.' }
+        members: { type: object, additionalProperties: { type: string, enum: [owner, editor, viewer] }, description: 'Member id to the person''s role in the team.' }
+    SaveTeamRequest:
+      type: object
+      properties:
+        name: { type: string, description: 1 to 60 characters. }
+        slackChannel: { type: [string, 'null'] }
+        members: { type: object, additionalProperties: { type: string, enum: [owner, editor, viewer] }, description: 'Member id to the person''s role in the team. The team ends with exactly these people.' }
+        moveProjects: { type: object, additionalProperties: { type: string }, description: 'Project id to the team it moves to.' }
     CreateLaunchRequest:
       type: object
       properties:

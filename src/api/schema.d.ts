@@ -272,7 +272,7 @@ export interface paths {
         /** Owners (leaders) only, 403 otherwise. Every team with its people (and their role in it) and its research projects, the default team first. */
         get: operations["listTeams"];
         put?: never;
-        /** Owners only. Creates a team. 409 `team_name_taken` if the name is in use (case does not matter). */
+        /** Owners only. Creates a team, with its Slack channel and its people if given, all or nothing. 409 `team_name_taken` if the name is in use (case does not matter); 422 `invalid` for a Slack channel name Slack would not accept; 409 `managed_by_sso` for people when sign-in groups decide teams; 404 for an unknown person. */
         post: operations["createTeam"];
         delete?: never;
         options?: never;
@@ -294,8 +294,8 @@ export interface paths {
         delete: operations["deleteTeam"];
         options?: never;
         head?: never;
-        /** Owners only. Renames a team. 409 `team_name_taken`. */
-        patch: operations["renameTeam"];
+        /** Owners only. Saves a team as its panel shows it, all or nothing: its name, its Slack channel (empty for none), its people (`members`: member id to role in the team; the team ends with exactly these) and projects moved to other teams (`moveProjects`: project id to team id; only this team's projects). Anything left out is unchanged. 409 `team_name_taken`; 422 `invalid` for a Slack channel name; 409 `managed_by_sso` for the people of a team other than the default one while sign-in groups decide teams; 404 for an unknown team, person or project. */
+        patch: operations["saveTeam"];
         trace?: never;
     };
     "/projects/{id}/launch": {
@@ -3398,6 +3398,8 @@ export interface components {
         Team: {
             id: string;
             name: string;
+            /** @description Steps this team uses that nobody approves (see Approvals). */
+            gaps: number;
             /** @description The Slack channel (no #) this team’s launches are announced in; null for none. */
             slackChannel: string | null;
             /** @description The team new people and new projects land in when no other is named. It cannot be deleted. */
@@ -3438,9 +3440,28 @@ export interface components {
             url: string | null;
             problem: string | null;
         };
-        TeamNameRequest: {
+        CreateTeamRequest: {
             /** @description 1 to 60 characters. */
             name: string;
+            /** @description The channel launches are announced in; a leading # and capitals are cleaned. Empty or null for none. */
+            slackChannel?: string | null;
+            /** @description Member id to the person's role in the team. */
+            members?: {
+                [key: string]: "owner" | "editor" | "viewer";
+            };
+        };
+        SaveTeamRequest: {
+            /** @description 1 to 60 characters. */
+            name?: string;
+            slackChannel?: string | null;
+            /** @description Member id to the person's role in the team. The team ends with exactly these people. */
+            members?: {
+                [key: string]: "owner" | "editor" | "viewer";
+            };
+            /** @description Project id to the team it moves to. */
+            moveProjects?: {
+                [key: string]: string;
+            };
         };
         CreateLaunchRequest: {
             /** @description Defaults to the project's name. */
@@ -4241,7 +4262,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TeamNameRequest"];
+                "application/json": components["schemas"]["CreateTeamRequest"];
             };
         };
         responses: {
@@ -4286,7 +4307,7 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
-    renameTeam: {
+    saveTeam: {
         parameters: {
             query?: never;
             header?: never;
@@ -4297,11 +4318,11 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["TeamNameRequest"];
+                "application/json": components["schemas"]["SaveTeamRequest"];
             };
         };
         responses: {
-            /** @description Renamed. */
+            /** @description Saved. */
             200: {
                 headers: {
                     [name: string]: unknown;

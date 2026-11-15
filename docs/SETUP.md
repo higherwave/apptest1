@@ -101,8 +101,8 @@ optional `email` claim to the ID token, and send groups as group ids or names in
 
 Who gets in, in order of how much the identity provider decides:
 
-1. **Invitation only (default).** Owners invite people on the Members page; the provider only proves who they are.
-2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the Members page. If Google sign-in is also on, add `SSO_ALLOWED_DOMAINS=acme.com` so only company addresses are added; without it nobody is (any Gmail account would otherwise qualify).
+1. **Invitation only (default).** Owners invite people on the People page (Admin, People); the provider only proves who they are.
+2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the People page (Admin, People). If Google sign-in is also on, add `SSO_ALLOWED_DOMAINS=acme.com` so only company addresses are added; without it nobody is (any Gmail account would otherwise qualify).
 3. **Groups decide.** Set `SSO_OWNER_GROUPS`, `SSO_EDITOR_GROUPS`, `SSO_VIEWER_GROUPS`. Roles follow the groups at every sign-in; remove someone from a group
    and their role goes at their next sign-in (end a session now by removing them from the company directory, which stops new sign-ins). Put the people who
    run the workspace in the owner group **before** switching this on.
@@ -110,7 +110,7 @@ Who gets in, in order of how much the identity provider decides:
 To try a provider on your own machine before deploying, with a throwaway database, see [SSO-TRY.md](SSO-TRY.md) (`npm run sso:try`).
 
 Offboarding is the provider's job: a person it no longer signs in cannot start a session. An existing session lasts up to seven days; removing a member
-on the Members page (modes 1 and 2) ends theirs at once.
+on the People page (Admin, People) (modes 1 and 2) ends theirs at once.
 
 Google still works beside it (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect `<BETTER_AUTH_URL>/api/v1/auth/callback/google`); use one provider
 per company unless you know why you want both, because the same person signing in two ways is two accounts.

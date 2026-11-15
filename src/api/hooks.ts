@@ -2,9 +2,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread,  setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
-  changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
+  changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
@@ -125,16 +125,12 @@ function useTeamMutation<T>(fn: (input: T) => Promise<unknown>) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: fn,
-    onSuccess: () => Promise.all(['teams', 'projects', 'me', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
+    onSuccess: () => Promise.all(['teams', 'projects', 'me', 'members', 'approvals', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
   })
 }
-export const useCreateTeam = () => useTeamMutation((name: string) => createTeam(name))
-export const useRenameTeam = () => useTeamMutation(({ id, name }: { id: string; name: string }) => renameTeam(id, name))
-export const useSetTeamSlackChannel = () => useTeamMutation(({ id, channel }: { id: string; channel: string | null }) => setTeamSlackChannel(id, channel))
+export const useCreateTeam = () => useTeamMutation((input: Parameters<typeof createTeam>[0]) => createTeam(input))
+export const useSaveTeam = () => useTeamMutation(({ id, body }: { id: string; body: Parameters<typeof saveTeam>[1] }) => saveTeam(id, body))
 export const useDeleteTeam = () => useTeamMutation((id: string) => deleteTeam(id))
-export const useSetTeamMember = () => useTeamMutation(({ id, memberId, role }: { id: string; memberId: string; role: MemberRole }) => setTeamMember(id, memberId, role))
-export const useRemoveTeamMember = () => useTeamMutation(({ id, memberId }: { id: string; memberId: string }) => removeTeamMember(id, memberId))
-export const useMoveProject = () => useTeamMutation(({ id, projectId }: { id: string; projectId: string }) => moveProjectToTeam(id, projectId))
 
 export const useAiStatus = () => {
   const token = useToken()

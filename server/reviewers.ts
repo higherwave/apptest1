@@ -198,3 +198,9 @@ export async function setReviewerUnavailable(db: Db, ctx: RequestContext, userId
     return { away: m.display_name as string, covering: [...covering.values()] }
   })
 }
+
+/** For each team, how many steps it uses that nobody approves: the number the Teams screen shows beside its approvals. */
+export async function teamGaps(db: Queryable, workspaceId: string): Promise<Map<string, number>> {
+  const o = await approvalsOverview(db, workspaceId)
+  return new Map(o.teams.map((t, i) => [t.id, o.steps.filter((s) => s.teams[i].state === 'gap').length]))
+}

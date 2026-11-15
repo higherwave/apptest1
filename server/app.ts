@@ -7,7 +7,7 @@ import { signInOptions, ssoPolicy } from './sso.js'
 import { AlreadyMember, ExternalNeedsViewer, ExternalNoTeams, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, TeamsManagedBySso, UnknownTeam, updateMember } from './members.js'
 import { noticeAnswered, requestAnswers, sweepLaunch, sweepLaunches, tellAlternatesCover } from './launch-notices.js'
 import { addLink, answerStep, BadAnswer, RequirementsNotPublished, BadLink, createLaunch, getLaunch, getProjectLaunch, LaunchExists, LaunchNotFound, LinkNotFound, listLaunches, NeedsRationale, NoThemes, NotTheReviewer, removeLink, setUpLaunch, StepNotUsed } from './launches.js'
-import { approvalsOverview, BackupNeedsApprover, BadStep, ExternalAllTeams, NoAlternate, SamePerson, saveApprovalStep, setReviewerUnavailable } from './reviewers.js'
+import { approvalsOverview, BackupNeedsApprover, BadStep, ExternalAllTeams, NoAlternate, SamePerson, saveApprovalStep, setReviewerUnavailable, teamGaps } from './reviewers.js'
 import { requestContext } from './context.js'
 import { getMailer, type Mailer } from './mailer.js'
 import { startThread } from './launch-slack.js'
@@ -21,7 +21,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, teamNameSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -53,7 +53,7 @@ import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
 import { editableTeamIds, enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
-import { createTeam, deleteTeam, listTeams, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, renameTeam, setTeamMember, setTeamSlackChannel, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
+import { createTeam, deleteTeam, listTeams, MembersManagedBySso, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, saveTeam, setTeamMember, setTeamSlackChannel, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService }
@@ -241,6 +241,7 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof TeamNotEmpty) throw new ApiError(409, 'team_has_projects', 'Move the team’s projects to another team first.')
     if (err instanceof PersonNotInWorkspace) throw new ApiError(404, 'not_found', 'No such member.')
     if (err instanceof TeamProjectNotFound) throw new ApiError(404, 'not_found', 'No such project.')
+    if (err instanceof MembersManagedBySso) throw new ApiError(409, 'managed_by_sso', 'People’s places in this team come from your sign-in groups. Change them in your identity provider.')
     throw err
   }
   const teamId = (c: Context) => {
@@ -248,8 +249,13 @@ export function createApp(options: AppOptions = {}) {
     if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such team.')
     return id
   }
+  // Every team with the number of steps it uses that nobody approves.
+  const teamsWithGaps = async (workspaceId: string) => {
+    const [teams, gaps] = await Promise.all([listTeams(getDb(), workspaceId), teamGaps(getDb(), workspaceId)])
+    return teams.map((t) => ({ ...t, gaps: gaps.get(t.id) ?? 0 }))
+  }
   const oneTeam = async (c: Context, id: string) => {
-    const team = (await listTeams(getDb(), c.get('ctx').workspaceId)).find((t) => t.id === id)
+    const team = (await teamsWithGaps(c.get('ctx').workspaceId)).find((t) => t.id === id)
     if (!team) throw new ApiError(404, 'not_found', 'No such team.')
     return team
   }
@@ -483,21 +489,31 @@ export function createApp(options: AppOptions = {}) {
       return teamErrors(err)
     }
     c.header('Cache-Control', 'no-store')
-    return c.json({ data: await listTeams(getDb(), c.get('ctx').workspaceId) })
+    return c.json({ data: await teamsWithGaps(c.get('ctx').workspaceId) })
   })
 
   app.get('/teams', withContext, async (c) => {
     requireLeader(c)
     c.header('Cache-Control', 'private, no-store')
-    return c.json({ data: await listTeams(getDb(), c.get('ctx').workspaceId) })
+    return c.json({ data: await teamsWithGaps(c.get('ctx').workspaceId) })
   })
+
+  // A Slack channel as typed: empty is none, anything else is cleaned (a leading # and capitals go); one Slack would not accept is refused.
+  const channelOf = (raw: string | null | undefined): string | null | undefined => {
+    if (raw === undefined) return undefined
+    if (raw === null || raw.trim() === '') return null
+    const channel = cleanChannel(raw)
+    if (!channel) throw new ApiError(422, 'invalid', 'A Slack channel name is lower case letters, numbers, hyphens and underscores, such as launches.', 'slackChannel')
+    return channel
+  }
+  const teamGroupsOn = !!ssoPolicy(env).teamGroupPrefix
 
   app.post('/teams', withContext, async (c) => {
     requireLeader(c)
-    const input = parseBody(teamNameSchema, await readJson(c))
+    const input = parseBody(createTeamSchema, await readJson(c))
     let id: string
     try {
-      id = await createTeam(getDb(), c.get('ctx'), input.name)
+      id = await createTeam(getDb(), c.get('ctx'), { name: input.name, slackChannel: channelOf(input.slackChannel), members: input.members }, { membersLocked: teamGroupsOn })
     } catch (err) {
       return teamErrors(err)
     }
@@ -508,9 +524,9 @@ export function createApp(options: AppOptions = {}) {
   app.patch('/teams/:id', withContext, async (c) => {
     requireLeader(c)
     const id = teamId(c)
-    const input = parseBody(teamNameSchema, await readJson(c))
+    const input = parseBody(saveTeamSchema, await readJson(c))
     try {
-      await renameTeam(getDb(), c.get('ctx'), id, input.name)
+      await saveTeam(getDb(), c.get('ctx'), id, { ...input, slackChannel: channelOf(input.slackChannel) }, { membersLocked: teamGroupsOn })
     } catch (err) {
       return teamErrors(err)
     }

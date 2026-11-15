@@ -164,7 +164,12 @@ export const approvalStepSchema = z.object({
 })
 export const reviewerAwaySchema = z.object({ unavailable: z.boolean() })
 export const teamSlackSchema = z.object({ channel: z.string().max(80).nullable() })
-export const teamNameSchema = z.object({ name: z.string().trim().min(1, 'Enter a team name.').max(60) })
+// A team as its panel saves it: name, Slack channel, people (member id -> role there) and projects moved to other teams (project id -> team id).
+const teamRoles = z.record(z.uuid(), z.enum(['owner', 'editor', 'viewer']))
+export const createTeamSchema = z.object({ name: z.string().trim().min(1, 'Enter a team name.').max(60), slackChannel: z.string().max(80).nullable().optional(), members: teamRoles.optional() })
+export const saveTeamSchema = z
+  .object({ name: z.string().trim().min(1, 'Enter a team name.').max(60).optional(), slackChannel: z.string().max(80).nullable().optional(), members: teamRoles.optional(), moveProjects: z.record(z.uuid(), z.uuid()).optional() })
+  .refine((v) => Object.values(v).some((x) => x !== undefined), 'Nothing to save.')
 
 // A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.
 export const measureSchema = z.object({

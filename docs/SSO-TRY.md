@@ -50,7 +50,7 @@ Create `db/.env.sso.local` (the `.local` ending keeps it out of git; never paste
 | Sign in with the owner address | `signed in: you@... as owner` |
 | Sign in as a second Okta user nobody invited | `refused (403): not_invited` |
 | Add `SSO_DEFAULT_ROLE=viewer`, restart, sign in as that second user | `as viewer` |
-| Turn on the group settings, restart, sign in | The role of your group; the Members page is read-only |
+| Turn on the group settings, restart, sign in | The role of your group; the People page's roles are read-only |
 | Move yourself to another group in Okta, sign out, sign in again | The role changes at the next sign-in |
 | Remove yourself from every group, sign in again | `refused (403): not_in_group` |
 
