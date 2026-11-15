@@ -1,11 +1,9 @@
 @use '../../tokens' as tokens;
-@use '../insights/body';
 
-.page {
+.stack {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  @include body.below-hero;
 }
 
 .card {

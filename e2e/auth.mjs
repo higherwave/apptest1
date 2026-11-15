@@ -130,22 +130,23 @@ try {
   await page.keyboard.press('Escape')
   await page.goto(`${BASE}/settings/status`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => document.body.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })
-  ok('AI usage and costs is an Admin tab with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="AI usage and costs"]')?.dataset.current === 'true' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
+  ok('Usage and Costs opens on AI (the old AI address redirects there), with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="Usage and Costs"]')?.dataset.current === 'true' && location.search === '?tab=ai' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
   await new Promise((r) => setTimeout(r, 600))
-  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="System usage"]').click())
+  await page.click('[data-testid="tab-system"]')
   await page.waitForSelector('[data-testid="usage-database"]', { timeout: 8000 })
-  ok('System usage is an Admin tab with the database size against its limit, read from the database itself', await page.evaluate(() => { const card = document.querySelector('[data-testid="usage-database"]'); return location.pathname === '/settings/usage' && /Database size/.test(card.innerText) && /\d+ (KB|MB|GB) of 1\.00 GB \(\d+%\)/.test(card.innerText) && !!card.querySelector('[role="progressbar"]') }))
+  ok('System is a sub-tab of Usage and Costs with the database size against its limit, read from the database itself', await page.evaluate(() => { const card = document.querySelector('[data-testid="usage-database"]'); return location.pathname === '/settings/usage' && location.search === '?tab=system' && /Database size/.test(card.innerText) && /\d+ (KB|MB|GB) of 1\.00 GB \(\d+%\)/.test(card.innerText) && !!card.querySelector('[role="progressbar"]') }))
   page.off('request', canned)
   await page.setRequestInterception(false)
   await page.reload({ waitUntil: 'networkidle0' })
   await waitText('Projects')
   await page.goto(`${BASE}/members`, { waitUntil: 'networkidle0' })
-  ok('the old Members address lands on the Admin People tab', await page.evaluate(() => location.pathname === '/settings/people' && document.querySelector('nav[aria-label="Admin sections"] [data-label="People"]')?.dataset.current === 'true'))
+  ok('the old Members address lands on People, under User Access', await page.evaluate(() => location.pathname === '/settings/access' && location.search === '?tab=people' && document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]')?.dataset.current === 'true' && document.querySelector('[data-testid="tab-people"]')?.getAttribute('aria-selected') === 'true'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
   await waitText('Experience')
-  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="People"]').click())
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]').click())
   await page.waitForSelector('[data-testid="people-table"]', { timeout: 8000 })
+  ok('the Admin tabs are Experience Categories, Notifications, Usage and Costs, User Access and Audit log, and User Access has People, Teams and Approvals', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].map((b) => b.innerText.trim()).join('|') === 'Experience Categories|Notifications|Usage and Costs|User Access|Audit log' && [...document.querySelectorAll('[aria-label="User access views"] [role="tab"]')].map((t) => t.innerText.trim()).join('|') === 'People|Teams|Approvals'))
   await waitText('sam@demo.signalflow.example') // the list arrives after the form
   ok('the People tab lists the demo people, each with a role, teams and approvals', await page.evaluate(() => { const row = document.querySelector('[data-testid="person-sam@demo.signalflow.example"]'); return !!row && /Viewer/.test(row.innerText) && /General/.test(row.innerText) && !!document.querySelector('[data-testid="approvals-sam@demo.signalflow.example"]') }))
   const panelOpen = (testid) => page.waitForSelector(`.cds--modal.is-visible [data-testid="${testid}"]`, { visible: true, timeout: 5000 })
@@ -201,10 +202,12 @@ try {
   ok('the Audit log tab lists who changed what, newest first, including the invitation and the role change just made', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid="audit-row"]')].map((r) => r.innerText); return location.pathname === '/settings/audit' && rows.length >= 2 && /Member/.test(rows[0]) && rows.some((r) => /e2e\.person@example\.com/.test(r) && /role/i.test(r)) && rows.some((r) => /Created|Invited/i.test(r) && /e2e\.person@example\.com/.test(r)) }))
 
   // Teams: the owner makes a team in a panel, moves a project into it, and a person who is not in it no longer sees that project.
-  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Teams"]').click())
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]').click())
+  await page.waitForSelector('[data-testid="tab-teams"]', { timeout: 8000 })
+  await page.click('[data-testid="tab-teams"]')
   await page.waitForSelector('[data-testid="teams-table"]', { timeout: 8000 })
   await waitText('Default')
-  ok('Teams is an Admin tab for owners: the default team holds the demo people and the projects', await page.evaluate(async () => { const r = await (await fetch('/api/v1/teams')).json(); const g = r.data.find((t) => t.isDefault); const row = document.querySelector('[data-testid="team-General"]'); return location.pathname === '/settings/teams' && g?.name === 'General' && g.members.length >= 3 && g.projects.length >= 3 && /Default/.test(row.innerText) && /people/.test(row.innerText) && /gaps?|Covered/.test(document.querySelector('[data-testid="team-approvals-General"]').innerText) }))
+  ok('Teams is a sub-tab of User Access: the default team holds the demo people and the projects', await page.evaluate(async () => { const r = await (await fetch('/api/v1/teams')).json(); const g = r.data.find((t) => t.isDefault); const row = document.querySelector('[data-testid="team-General"]'); return location.pathname === '/settings/access' && location.search === '?tab=teams' && g?.name === 'General' && g.members.length >= 3 && g.projects.length >= 3 && /Default/.test(row.innerText) && /people/.test(row.innerText) && /gaps?|Covered/.test(document.querySelector('[data-testid="team-approvals-General"]').innerText) }))
   await page.click('[data-testid="new-team"]')
   await panelOpen('team-panel')
   await page.type('.cds--modal.is-visible #team-name', 'general')
@@ -254,8 +257,8 @@ try {
   const person = async (key) => (await api('/approvals')).people.find((x) => x.email.startsWith(`${key}@`) || x.email === key).userId
   await page.goto(`${BASE}/settings/members?tab=reviewers`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="approvals-grid"]', { timeout: 8000 })
-  ok('the old Reviewers address lands on the Approvals tab', page.url().endsWith('/settings/approvals'))
-  ok('Approvals is an Admin tab, and Members no longer has a Reviewers tab', await page.evaluate(() => [...document.querySelectorAll('[aria-label="Admin sections"] button')].some((b) => b.innerText.trim() === 'Approvals' && b.getAttribute('aria-current') === 'page')))
+  ok('the old Reviewers address lands on Approvals, under User Access', page.url().endsWith('/settings/access?tab=approvals'))
+  ok('Approvals is a sub-tab of User Access, and the sub-tab is in the address', await page.evaluate(() => document.querySelector('[data-testid="tab-approvals"]')?.getAttribute('aria-selected') === 'true' && document.querySelector('[aria-label="Admin sections"] [data-label="User Access"]')?.getAttribute('aria-current') === 'page'))
   ok('the grid shows every step, a column per team, and says how many steps have nobody', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="step-row-"]')].map((r) => r.dataset.testid.replace('step-row-', '')); return rows.join() === 'product_leadership,sales,legal,documentation,marketing,final_decision' && /steps without an approver/.test(document.querySelector('[data-testid="gap-summary"]').innerText) && [...document.querySelectorAll('[role="columnheader"]')].map((h) => h.innerText.trim()).join('|').toLowerCase().includes('support') }))
   const panel = (sel) => `.cds--modal.is-visible ${sel}`
   const openStep = async (key) => { await page.evaluate((k) => document.querySelector(`[data-testid="open-step-${k}"]`).click(), key); await page.waitForSelector(panel(`[data-testid="step-panel"][data-step="${key}"]`), { visible: true, timeout: 5000 }) }
@@ -313,7 +316,7 @@ try {
   await waitText('Launches to review')
   ok('an external member sees only the launches they are asked to review, with no menu and a way to sign out', await page.evaluate(() => /No launches yet/.test(document.body.innerText) && !document.querySelector('[data-nav]') && /external approver/.test(document.body.innerText) && [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Sign out')))
   await signInAs('david@demo.signalflow.example')
-  await page.goto(`${BASE}/settings/people`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/settings/access?tab=people`, { waitUntil: 'networkidle0' })
   await waitText('Invite person')
   await page.evaluate(async (id) => { await fetch(`/api/v1/members/${id}`, { method: 'DELETE' }) }, counsel.id)
 
@@ -322,7 +325,7 @@ try {
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Projects')
   ok('a viewer does not see Admin in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Admin'))))
-  for (const path of ['/settings/categories', '/settings/members', '/settings/people', '/settings/approvals', '/settings/audit', '/settings/usage', '/members']) {
+  for (const path of ['/settings/categories', '/settings/members', '/settings/people', '/settings/approvals', '/settings/access', '/settings/audit', '/settings/usage', '/members']) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
     await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
   }
@@ -342,7 +345,7 @@ try {
 
   // The owner removes the person, who is then locked out.
   await signInAs('david@demo.signalflow.example')
-  await page.goto(`${BASE}/settings/people`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/settings/access?tab=people`, { waitUntil: 'networkidle0' })
   await waitText('e2e.person@example.com')
   await page.click('[data-testid="open-person-e2e.person@example.com"]')
   await panelOpen('person-panel')

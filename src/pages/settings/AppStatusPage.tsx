@@ -1,6 +1,5 @@
 import { ProgressBar, Tag } from '@carbon/react'
 import { useAiStatus, useMe } from '../../api/hooks'
-import { SettingsHeader } from './SettingsHeader'
 import styles from './AppStatusPage.module.scss'
 
 const PURPOSE_LABEL: Record<string, string> = { analysis: 'Transcript analysis', spec_step: 'Requirements drafting', theme_match: 'Theme matching', storyboard: 'Storyboard' }
@@ -8,14 +7,13 @@ const SPEND_LABEL = { half: '50% reached', high: '80% reached', reached: 'Budget
 
 // How the app is running: this month's AI spend against its budget, and the recent problems the AI steps ran into. Owners only: the
 // Settings gate sends everyone else away, and the server sends these figures to owners alone.
-export function AppStatusPage() {
+export function AiUsage() {
   const me = useMe()
   const ai = useAiStatus()
   const owner = me.data?.role === 'owner'
   const pct = (spent: number, budget: number) => Math.round((spent / Math.max(budget, 0.01)) * 100)
   return (
-    <div className={styles.page}>
-      <SettingsHeader />
+    <div className={styles.stack}>
       {owner && ai.isSuccess && (
         <>
           <section className={styles.card} aria-label="AI mode">

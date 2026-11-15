@@ -1,17 +1,15 @@
 import { InlineNotification, Loading, ProgressBar, Tag } from '@carbon/react'
 import { friendlyMessage } from '../../api/client'
 import { useUsage } from '../../api/hooks'
-import { SettingsHeader } from './SettingsHeader'
 import { formatBytes, LEVEL_LABEL, share } from './usageText'
 import styles from './AppStatusPage.module.scss'
 
 // How much of each limit the app has used. Owners only: the Admin gate sends everyone else away, and the server refuses them. Today the database's
 // size against the plan's limit; more rows come when the accounts behind the app are on plans worth connecting.
-export function UsagePage() {
+export function SystemUsage() {
   const usage = useUsage()
   return (
-    <div className={styles.page}>
-      <SettingsHeader />
+    <div className={styles.stack}>
       <p className={styles.text}>How much of each limit the app has used. The figures are read from the app’s own database; nothing here connects to another account.</p>
       {usage.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={friendlyMessage(usage.error)} />}
       {usage.isPending && <Loading small withOverlay={false} description="Loading usage" />}

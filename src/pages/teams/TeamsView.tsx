@@ -2,7 +2,6 @@ import { Button, InlineNotification, Loading, Tag } from '@carbon/react'
 import type { CreateTeamInput, Member, SaveTeamInput, Team } from '../../api/client'
 import { RightPanel } from '../../components/RightPanel'
 import { initials } from '../people/peopleLogic'
-import { SettingsHeader } from '../settings/SettingsHeader'
 import { TeamPanel } from './TeamPanel'
 import styles from './TeamsView.module.scss'
 
@@ -35,10 +34,8 @@ export function TeamsView(p: TeamsViewProps) {
   const team = openId ? p.teams.find((t) => t.id === openId) : undefined
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <div className={styles.head}>
         <div>
-          <h2 className={styles.title}>Teams</h2>
           <p className={styles.intro}>A team owns projects, and a person has a role in each team they belong to. Owners of the workspace see every team’s projects; everyone else sees only their own teams’. Anyone invited to the workspace starts in the default team.</p>
         </div>
         <Button kind="primary" size="md" onClick={p.onNew} data-testid="new-team">New team</Button>

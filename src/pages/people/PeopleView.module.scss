@@ -1,11 +1,9 @@
 @use '../../tokens' as tokens;
-@use '../insights/body';
 
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-  @include body.below-hero;
 }
 
 .head {
@@ -14,12 +12,6 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: var(--at-space-md);
-}
-
-.title {
-  @include tokens.role('title-lg');
-  margin: 0 0 var(--at-space-xs);
-  color: var(--at-ink);
 }
 
 .intro {

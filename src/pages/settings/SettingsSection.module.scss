@@ -1,0 +1,9 @@
+@use '../insights/body';
+
+// An Admin section that has sub-tabs: the header, then the tabs at the width of the header's contents.
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}

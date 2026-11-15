@@ -1,0 +1,4 @@
+// The content under a sub-tab sits flush: the page's own spacing already separates it.
+.tabPanel {
+  padding: var(--at-space-lg) 0 0;
+}

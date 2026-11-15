@@ -1,7 +1,6 @@
 import { Button, InlineNotification, Loading, Tag } from '@carbon/react'
 import type { Member, MemberRole, Team } from '../../api/client'
 import { RightPanel } from '../../components/RightPanel'
-import { SettingsHeader } from '../settings/SettingsHeader'
 import { InvitePanel, type InviteInput } from './InvitePanel'
 import { approvalsLine, initials, ROLE_LABEL, TEAM_ROLE_LABEL, type TeamChoice } from './peopleLogic'
 import { PersonPanel } from './PersonPanel'
@@ -36,10 +35,8 @@ export function PeopleView(p: PeopleViewProps) {
   const person = openId ? p.members.find((m) => m.id === openId) : undefined
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <div className={styles.head}>
         <div>
-          <h2 className={styles.title}>People</h2>
           <p className={styles.intro}>Who can use Signal Flow, their role in the workspace and the teams they belong to. Invite someone by their email address; they sign in with that account. Approvals are set under Approvals.</p>
         </div>
         <Button kind="primary" size="md" onClick={p.onInviteOpen} data-testid="invite-person">Invite person</Button>

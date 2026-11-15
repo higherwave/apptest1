@@ -4,10 +4,10 @@ import { friendlyMessage } from '../../api/client'
 import { useChangeMember, useInviteMember, useMe, useMembers, useRemoveMember, useTeams } from '../../api/hooks'
 import { PeopleView } from './PeopleView'
 
-// The old Members address: the Reviewers tab is now Approvals, and the rest is People.
+// The old Members address: the Reviewers tab is now Approvals, and the rest is People, both under User Access.
 export function MembersEntry() {
   const [params] = useSearchParams()
-  return <Navigate to={params.get('tab') === 'reviewers' ? '/settings/approvals' : '/settings/people'} replace />
+  return <Navigate to={`/settings/access?tab=${params.get('tab') === 'reviewers' ? 'approvals' : 'people'}`} replace />
 }
 
 // Container: the people, the panel that is open, and the owner-only changes.

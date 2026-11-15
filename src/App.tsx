@@ -4,13 +4,11 @@ import { TourProvider } from './tour/TourProvider'
 import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
-import { TeamsPage } from './pages/teams/TeamsPage'
-import { MembersEntry, PeoplePage } from './pages/people/PeoplePage'
-import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
-import { AppStatusPage } from './pages/settings/AppStatusPage'
+import { MembersEntry } from './pages/people/PeoplePage'
+import { AccessPage } from './pages/settings/AccessPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
-import { UsagePage } from './pages/settings/UsagePage'
+import { UsageAndCostsPage } from './pages/settings/UsageAndCostsPage'
 import { SettingsGate } from './pages/settings/SettingsGate'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
@@ -76,7 +74,7 @@ export function App() {
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
-        <Route path="members" element={<Navigate to="/settings/people" replace />} />
+        <Route path="members" element={<Navigate to="/settings/access?tab=people" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
         <Route path="insights/personas" element={<CustomersPage />} />
         <Route path="insights/customers" element={<Navigate to="/insights/personas" replace />} />
@@ -88,12 +86,13 @@ export function App() {
           <Route path="areas" element={<Navigate to="/settings/categories" replace />} />
           <Route path="categories" element={<AreasPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="status" element={<AppStatusPage />} />
-          <Route path="usage" element={<UsagePage />} />
-          <Route path="teams" element={<TeamsPage />} />
+          <Route path="usage" element={<UsageAndCostsPage />} />
+          <Route path="status" element={<Navigate to="/settings/usage?tab=ai" replace />} />
+          <Route path="teams" element={<Navigate to="/settings/access?tab=teams" replace />} />
+          <Route path="access" element={<AccessPage />} />
           <Route path="members" element={<MembersEntry />} />
-          <Route path="people" element={<PeoplePage />} />
-          <Route path="approvals" element={<ApprovalsPage />} />
+          <Route path="people" element={<Navigate to="/settings/access?tab=people" replace />} />
+          <Route path="approvals" element={<Navigate to="/settings/access?tab=approvals" replace />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />

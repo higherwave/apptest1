@@ -1,7 +1,6 @@
 import { Button, InlineNotification, Loading, Modal, Tag, Toggle } from '@carbon/react'
 import type { ApprovalPerson, ApprovalsOverview, ApprovalStep, ApprovalStepInput, ApprovalTeamCell } from '../../api/client'
 import { RightPanel } from '../../components/RightPanel'
-import { SettingsHeader } from '../settings/SettingsHeader'
 import { backupsFor } from './approvalsLogic'
 import { StepPanel } from './StepPanel'
 import styles from './ApprovalsView.module.scss'
@@ -56,10 +55,8 @@ export function ApprovalsView(p: ApprovalsViewProps) {
   const open = o?.steps.find((s) => s.key === p.openStep)
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <div className={styles.head}>
         <div>
-          <h2 className={styles.title}>Approvals</h2>
           <p className={styles.intro}>
             Who approves each step of a launch. Choose one approver for the workspace, and a backup who steps in while the approver is away. A team can have its own approver for a step, or not use it. A step a team uses
             that nobody approves is a gap, here and on its launches.
