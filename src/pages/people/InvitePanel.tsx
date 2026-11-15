@@ -18,6 +18,7 @@ export function InvitePanel({ teams, members, busy, error, onSave, onCancel }: {
   const save = () => onSave({ email: email.trim(), role: external ? 'viewer' : role, external, teams: external ? {} : chosen })
   return (
     <div className={parts.body} data-testid="invite-panel">
+      <div className={parts.scroll}>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
       <section className={parts.section}>
         <TextInput id="invite-email" type="email" labelText="Email address" placeholder="name@example.com" value={email} invalid={!!problem} invalidText={problem ?? ''} onChange={(e) => setEmail(e.target.value)} />
@@ -45,6 +46,7 @@ export function InvitePanel({ teams, members, busy, error, onSave, onCancel }: {
           </section>
         </>
       )}
+      </div>
       <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-invite">Cancel</Button>
         <Button kind="primary" size="md" disabled={!email.trim() || !!problem || busy} onClick={save} data-testid="save-invite">{busy ? 'Saving…' : 'Invite'}</Button>

@@ -30,6 +30,7 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
   const change = personChange(member, { role, teams: member.external ? {} : chosen })
   return (
     <div className={parts.body} data-testid="person-panel" data-person={member.email}>
+      <div className={parts.scroll}>
       <p className={parts.lead}>{member.email}{isYou && ' (you)'}</p>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
       <section className={parts.section} aria-label="Workspace role">
@@ -81,6 +82,7 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
           )}
         </section>
       )}
+      </div>
       <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-person">Cancel</Button>
         <Button kind="primary" size="md" disabled={busy} onClick={() => (change ? onSave(change) : onCancel())} data-testid="save-person">{busy ? 'Saving…' : 'Save'}</Button>

@@ -41,6 +41,7 @@ export function StepPanel({ step, overview, busy, error, onSave, onCancel }: { s
     })
   return (
     <div className={parts.body} data-testid="step-panel" data-step={step.key}>
+      <div className={parts.scroll}>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
       <section className={parts.section} aria-label="Workspace approver">
         <h3 className={parts.heading}>Workspace approver</h3>
@@ -77,6 +78,7 @@ export function StepPanel({ step, overview, busy, error, onSave, onCancel }: { s
         {!step.optional && <p className={parts.note}>The final decision is always used, so it cannot be set to Not used.</p>}
       </section>
       {problem && <p className={styles.problem} role="alert">{problem}</p>}
+      </div>
       <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-step">Cancel</Button>
         <Button kind="primary" size="md" disabled={!!problem || busy} onClick={save} data-testid="save-step">{busy ? 'Saving…' : 'Save'}</Button>

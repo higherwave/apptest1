@@ -42,6 +42,7 @@ export function TeamPanel({ team, teams, members, membersLocked, busy, error, on
   }
   return (
     <div className={parts.body} data-testid="team-panel" data-team={team?.name ?? 'new'}>
+      <div className={parts.scroll}>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
       <section className={parts.section} aria-label="Team">
         <TextInput id="team-name" labelText="Team name" placeholder="e.g. Support" value={draft.name} invalid={!!draft.name.trim() && !!nameBad} invalidText={nameBad ?? ''} onChange={(e) => set({ name: e.target.value })} />
@@ -115,6 +116,7 @@ export function TeamPanel({ team, teams, members, membersLocked, busy, error, on
           )}
         </section>
       )}
+      </div>
       <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-team">Cancel</Button>
         <Button kind="primary" size="md" disabled={!valid || !draft.name.trim() || busy} onClick={save} data-testid="save-team">{busy ? 'Saving…' : team ? 'Save' : 'Create team'}</Button>

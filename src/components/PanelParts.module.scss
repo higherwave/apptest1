@@ -4,7 +4,17 @@
 // panel), a small green note for instructions, two-line rows for people and projects, and the Cancel and Save buttons kept at the bottom.
 .body {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
+  min-block-size: 0;
+}
+
+// The part of a panel that scrolls. The buttons below it (.actions) are not part of it: they stay at the bottom of the panel however long the content is.
+.scroll {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-block-end: var(--at-space-lg);
 }
 
 .section {
@@ -52,12 +62,10 @@
 .confirmActions { display: flex; gap: var(--at-space-sm); }
 
 .actions {
-  position: sticky;
-  inset-block-end: 0;
+  flex: none;
   display: flex;
   justify-content: flex-end;
   gap: var(--at-space-sm);
-  margin-block-start: var(--at-space-xl);
   padding-block: var(--at-space-md);
   background: var(--at-canvas);
 }
