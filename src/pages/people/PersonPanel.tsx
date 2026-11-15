@@ -9,7 +9,7 @@ const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 
 // One person, edited as a draft: their workspace role and their teams (with their role in each). Their approvals are shown, never edited here: those are
 // set under Approvals. Nothing is saved until Save; removing someone asks first and acts at once. Rendered with a key per person, so a draft never carries over.
-export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, busy, error, onSave, onCancel, onRemove, onApprovals }: {
+export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, busy, error, onSave, onCancel, onRemove }: {
   member: Member
   teams: Team[]
   isYou: boolean
@@ -22,7 +22,6 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
   onSave: (change: { role?: MemberRole; teams?: TeamChoice }) => void
   onCancel: () => void
   onRemove: () => void
-  onApprovals: () => void
 }) {
   const [role, setRole] = useState<MemberRole>(member.role)
   const [chosen, setChosen] = useState<TeamChoice>(() => Object.fromEntries(member.teams.map((t) => [t.teamId, t.role])))
@@ -61,7 +60,7 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
       <section className={parts.section} aria-label="Approvals">
         <h3 className={parts.heading}>Approvals</h3>
         {member.approvals.length ? <p className={parts.small} data-testid="person-approvals">{approvalsLine(member.approvals)}</p> : <p className={parts.help}>Not an approver for any step.</p>}
-        <div><Button kind="ghost" size="sm" onClick={onApprovals} data-testid="manage-approvals">Manage approvals</Button></div>
+        <p className={parts.help} data-testid="approvals-hint">{member.approvals.length ? 'Approvals are changed in the Approvals tab.' : 'Add approvals in the Approvals tab.'}</p>
       </section>
       {!isYou && (
         <section className={parts.section} aria-label="Remove">

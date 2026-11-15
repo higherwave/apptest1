@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useChangeMember, useInviteMember, useMe, useMembers, useRemoveMember, useTeams } from '../../api/hooks'
 import { PeopleView } from './PeopleView'
@@ -18,7 +18,6 @@ export function PeoplePage() {
   const invite = useInviteMember()
   const change = useChangeMember()
   const remove = useRemoveMember()
-  const navigate = useNavigate()
   const [panel, setPanel] = useState<{ type: 'invite' } | { type: 'person'; id: string } | null>(null)
   const [notice, setNotice] = useState<string | undefined>()
   const mutation = [invite, change, remove].find((m) => m.isError)
@@ -44,7 +43,6 @@ export function PeoplePage() {
       onInvite={(input) => invite.mutate(input, { onSuccess: (m) => { setPanel(null); setNotice(`${m.email} is invited as ${m.external ? 'an external viewer' : m.role}. They sign in with that account.`) } })}
       onSavePerson={(id, body) => change.mutate({ id, body }, { onSuccess: () => { setPanel(null); setNotice('Changes saved.') } })}
       onRemove={(id) => remove.mutate(id, { onSuccess: () => { setPanel(null); setNotice('Removed from the workspace.') } })}
-      onApprovals={() => navigate('/settings/approvals')}
     />
   )
 }

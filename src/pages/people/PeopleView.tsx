@@ -28,7 +28,6 @@ export type PeopleViewProps = {
   onInvite: (input: InviteInput) => void
   onSavePerson: (id: string, change: { role?: MemberRole; teams?: TeamChoice }) => void
   onRemove: (id: string) => void
-  onApprovals: () => void
 }
 
 // Presentational: who is in the workspace, their role, teams and approvals. Everything is edited in a right-hand panel, as a draft that Save commits.
@@ -112,7 +111,6 @@ export function PeopleView(p: PeopleViewProps) {
             onCancel={p.onClosePanel}
             onSave={(change) => p.onSavePerson(person.id, change)}
             onRemove={() => p.onRemove(person.id)}
-            onApprovals={p.onApprovals}
           />
         )}
       </RightPanel>

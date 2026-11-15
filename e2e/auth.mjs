@@ -177,7 +177,7 @@ try {
   await new Promise((r) => setTimeout(r, 400))
   await page.click('[data-testid="open-person-e2e.person@example.com"]')
   await panelOpen('person-panel')
-  ok('a person’s panel shows their role, teams and approvals, and a way to remove them', await page.evaluate(() => { const t = document.querySelector('.cds--modal.is-visible [data-testid="person-panel"]').innerText; return /Workspace role/.test(t) && /Teams/.test(t) && /Not an approver/.test(t) && !!document.querySelector('.cds--modal.is-visible [data-testid="remove-person"]') }))
+  ok('a person’s panel shows their role, teams and approvals, and a way to remove them', await page.evaluate(() => { const t = document.querySelector('.cds--modal.is-visible [data-testid="person-panel"]').innerText; return /Workspace role/.test(t) && /Teams/.test(t) && /Not an approver/.test(t) && /Add approvals in the Approvals tab/.test(t) && !document.querySelector('.cds--modal.is-visible [data-testid="manage-approvals"]') && !!document.querySelector('.cds--modal.is-visible [data-testid="remove-person"]') }))
   await inPanel('[data-testid="person-role-viewer"]')
   await inPanel('[data-testid="cancel-person"]')
   await new Promise((r) => setTimeout(r, 500))
