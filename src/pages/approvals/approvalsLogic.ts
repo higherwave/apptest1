@@ -1,4 +1,5 @@
 import type { ApprovalPerson, ApprovalsOverview } from '../../api/client'
+import { T } from '../../../shared/terms.mjs'
 
 // Pure rules the Approvals screen uses, so they can be tested without a browser.
 
@@ -38,12 +39,12 @@ export function draftResult(workspaceApprover: string, draft: TeamDraft, optiona
 
 /** Whether the panel's draft can be saved: a backup needs an approver, a team's own setting needs its approver, and nobody is their own backup. */
 export function draftProblem(approver: string, backup: string, teams: Record<string, TeamDraft>): string | null {
-  if (backup && !approver) return 'Choose an approver before a backup.'
-  if (approver && approver === backup) return 'The approver and the backup must be different people.'
+  if (backup && !approver) return `Choose ${T.a('approver')} before ${T.a('backup')}.`
+  if (approver && approver === backup) return `The ${T.approver} and the ${T.backup} must be different people.`
   for (const t of Object.values(teams)) {
     if (t.mode !== 'custom') continue
-    if (!t.approver) return 'Choose an approver for each team that has its own.'
-    if (t.approver === t.backup) return 'A team’s approver and backup must be different people.'
+    if (!t.approver) return `Choose ${T.a('approver')} for each team that has its own.`
+    if (t.approver === t.backup) return `A team’s ${T.approver} and ${T.backup} must be different people.`
   }
   return null
 }

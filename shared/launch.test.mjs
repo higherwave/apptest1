@@ -33,6 +33,7 @@ test('coverage: covered, gap (nobody, or only an alternate), and not used', () =
 })
 
 import { answersFor, isAnswerFor, rationaleRequired, stepState } from './launch.mjs'
+import { T } from './terms.mjs'
 
 test('answers: a step and the final decision take different answers, and only a plain ready or go needs no reason', () => {
   assert.deepEqual(answersFor('legal').map((a) => a.key), ['ready', 'ready_with_conditions', 'changes_needed', 'not_applicable'])
@@ -51,7 +52,7 @@ test('step state: not used, missing (never hidden), waiting, answered, and reope
   assert.equal(stepState({ used: true, hasPrimary: false, answer: 'ready', reopened: false }), 'ready', 'an answer given before the reviewer left still stands')
 })
 
-test('a team’s own backup without its own approver does not count: the workspace’s approvers decide', () => {
+test(`a team’s own ${T.backup} without its own ${T.approver} does not count: the workspace’s ${T.approvers} decide`, () => {
   const a = [
     { userId: 'w', step: 'legal', teamId: null, role: 'primary' },
     { userId: 'b', step: 'legal', teamId: 't1', role: 'alternate' },

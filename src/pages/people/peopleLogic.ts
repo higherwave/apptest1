@@ -1,4 +1,5 @@
 import type { Member, MemberRole } from '../../api/client'
+import { T } from '../../../shared/terms.mjs'
 
 // Pure rules the People screen uses, so they can be tested without a browser.
 
@@ -18,7 +19,7 @@ export const initials = (name: string) => {
 
 /** The approvals of a person in a line: "Sales, Marketing · Growth, Final decision (backup)", or an empty string when there are none. */
 export function approvalsLine(approvals: Member['approvals']): string {
-  return approvals.map((a) => `${a.label}${a.role === 'backup' ? ' (backup)' : ''}${a.teamName ? ` · ${a.teamName}` : ''}`).join(', ')
+  return approvals.map((a) => `${a.label}${a.role === 'backup' ? ` (${T.backup})` : ''}${a.teamName ? ` · ${a.teamName}` : ''}`).join(', ')
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/

@@ -6,6 +6,7 @@ import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { createDemoDatabase, setApprovers } from './test-utils.js'
 import { documentUrl, stageLine } from './launch-updates.js'
+import { T } from '../shared/terms.mjs'
 
 declare global {
   interface Response {
@@ -29,7 +30,7 @@ async function fixture() {
   return { mailer, call, member, person, reviewer }
 }
 
-test('an approver with no backup cannot be marked away, and nothing changes or is sent', async () => {
+test(`${T.a('approver')} with no ${T.backup} cannot be marked away, and nothing changes or is sent`, async () => {
   const { call, person, reviewer, mailer } = await fixture()
   await reviewer('david', ['product_leadership'])
   const res = await call('PUT', `/approvals/people/${await person('david')}`, { unavailable: true })
@@ -40,7 +41,7 @@ test('an approver with no backup cannot be marked away, and nothing changes or i
   assert.equal(mailer.sent.length, 0)
 })
 
-test('every step needs a backup: one covered step is not enough', async () => {
+test(`every step needs ${T.a('backup')}: one covered step is not enough`, async () => {
   const { call, person, reviewer } = await fixture()
   await reviewer('david', ['product_leadership', 'legal'])
   await reviewer('sam', ['legal'], 'alternate')

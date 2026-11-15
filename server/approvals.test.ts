@@ -3,6 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from './app.js'
 import { createDemoDatabase, setApprovers } from './test-utils.js'
+import { T } from '../shared/terms.mjs'
 
 declare global {
   interface Response {
@@ -33,7 +34,7 @@ async function fixture() {
   return { pg, db, as, call, owner, member, person, save, team, cell, grid, apply }
 }
 
-test('owners set up approvers once: the grid shows covered, gap and not used, and a team’s own approver beats the workspace’s', async () => {
+test(`owners set up ${T.approvers} once: the grid shows covered, gap and not used, and a team’s own ${T.approver} beats the workspace’s`, async () => {
   const { owner, call, grid, apply, save, team, cell, person } = await fixture()
   const payments = await team('Payments')
   assert.equal((await apply('alex', ['legal'])).status, 200)
@@ -41,7 +42,7 @@ test('owners set up approvers once: the grid shows covered, gap and not used, an
   assert.deepEqual(o.steps.map((s: any) => s.key), ['product_leadership', 'sales', 'legal', 'documentation', 'marketing', 'final_decision'])
   assert.deepEqual(o.teams.map((t: any) => t.name).sort(), ['General', 'Payments'])
   assert.equal(cell(o, 'General', 'legal').state, 'covered')
-  assert.equal(cell(o, 'Payments', 'legal').state, 'covered', 'the workspace approver covers a team made before or after')
+  assert.equal(cell(o, 'Payments', 'legal').state, 'covered', `the workspace ${T.approver} covers a team made before or after`)
   assert.equal(cell(o, 'Payments', 'sales').state, 'gap', 'a step nobody approves is a gap, never hidden')
   assert.equal(o.gaps, 10, 'five steps in each of the two teams still have nobody')
 
@@ -71,7 +72,7 @@ test('owners set up approvers once: the grid shows covered, gap and not used, an
   void owner; void call; void person
 })
 
-test('a team with only a backup of its own still uses the workspace approver', async () => {
+test(`a team with only ${T.a('backup')} of its own still uses the workspace ${T.approver}`, async () => {
   const { grid, apply, team, cell } = await fixture()
   const payments = await team('Payments')
   await apply('alex', ['documentation'])
@@ -82,7 +83,7 @@ test('a team with only a backup of its own still uses the workspace approver', a
   assert.equal(cell(await grid(), 'Payments', 'documentation').mode, 'default')
 })
 
-test('one approver and one backup per step, different people; saving a step replaces what it had, all or nothing', async () => {
+test(`one ${T.approver} and one ${T.backup} per step, different people; saving a step replaces what it had, all or nothing`, async () => {
   const { call, owner, grid, apply, save, person, team, cell } = await fixture()
   const payments = await team('Payments')
   await apply('alex', ['documentation'])
@@ -110,7 +111,7 @@ test('one approver and one backup per step, different people; saving a step repl
   void call; void owner
 })
 
-test('only owners can see or change approvals', async () => {
+test(`only owners can see or change ${T.approvals}`, async () => {
   const { as, call, person, team } = await fixture()
   const payments = await team('Payments')
   const alex = await person('alex')
@@ -146,7 +147,7 @@ test('an external person is a viewer, can approve for a team only, and is refuse
   assert.equal(w.status, 422, 'not for the whole workspace')
   assert.equal((await w.json()).error.code, 'external_all_teams')
   const b = await save('legal', { approver: await person('alex'), backup: them0, teams: {} })
-  assert.equal(b.status, 422, 'nor as the workspace backup')
+  assert.equal(b.status, 422, `nor as the workspace ${T.backup}`)
   // As a team's own approver they are fine.
   assert.equal((await save('legal', { approver: await person('alex'), backup: null, teams: { [payments]: { mode: 'custom', approver: them0, backup: null } } })).status, 200)
   const o = await grid()
@@ -189,6 +190,7 @@ test('every change is in the audit log, under its own filter, as one entry per s
   await save('sales', { approver: null, backup: null, teams: { [payments]: { mode: 'off' } } }) // nothing changed: no entry
   const log = await (await call(owner, 'GET', '/audit?group=reviewers')).json()
   const verbs = log.data.map((e: any) => `${e.entity}:${e.verb}`)
+  // terms:ignore  the stored audit verb
   assert.deepEqual(verbs, ['core.reviewer_assignments:approvers changed', 'core.reviewer_assignments:approvers changed'])
   const legal = log.data.find((e: any) => e.after.step === 'legal')
   assert.equal(legal.after.teams.Payments.approver.endsWith('@demo.signalflow.example'), true)

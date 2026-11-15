@@ -7,6 +7,7 @@ import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { recordingSlack } from './slack-recorder.js'
 import { createDemoDatabase, setApprovers } from './test-utils.js'
+import { T } from '../shared/terms.mjs'
 
 declare global {
   interface Response {
@@ -217,5 +218,5 @@ test('"Add link as evidence" on a message in the launch thread: the reviewer pic
   await f.pg.query(`delete from core.reviewer_assignments where user_id = (select id from core.users where email like 'david@%')`)
   await f.interact(action('U_DAVID'))
   assert.equal(f.rec.views.length, views)
-  assert.match(f.rec.responses.at(-1)!.body.text, /not an approver of any step/)
+  assert.match(f.rec.responses.at(-1)!.body.text, new RegExp(`not ${T.a('approver')} of any step`))
 })

@@ -58,6 +58,10 @@ Launch (release readiness) is built in slices; the plan is the "Launch: build pl
 - Anything done from Slack runs the same function as the screen, as the member the Slack user is linked to (`contextForUser`): never re-implement a rule for Slack. A Slack request is acted on only after `verifySlackSignature` and `rememberRequest` (see `fromSlack` in `server/app.ts`); a Slack identity comes only from a one-time code, never from a name or email on the Slack account.
 - Do not start a `data-testid` with `story-` for anything but a story card: the project tour points at `[data-testid^="story-"]`.
 
+## Vocabulary
+
+The words people read for the sign-off roles (approver, backup, approvals) live in ONE place, `shared/terms.mjs` (`T.approver`, `T.Approver`, `T.a('approver')`, ...). Terminology changes with customer feedback and the market, so no sentence, label, email, Slack post, PDF or error message hard-codes them: write `${T.approver}` (and `T.a(...)` for the article, so "an approver" becomes "a reviewer" correctly). `scripts/terms.test.mjs` fails on a hard-coded one; put `terms:ignore` on the line before it only when the word is stored data (an audit-log verb: history is not re-worded). What does NOT change with the wording, on purpose: tables, API paths and fields (`/approvals`, `approver`, `backup`), error codes, and the names inside the code. To rename: edit `DEFAULTS` in `shared/terms.mjs`, run `npm run check:all`, then update the browser tests (`e2e/` assert the shipped words) and the docs; the nouns are covered, the verbs around them ("approves", "Approved by") are plain English to edit in place. A per-customer vocabulary is `makeTerms({...})`; wiring it to `brand/brand.json` is the next step if a customer needs their own.
+
 ## Database
 
 - A migration is `db/migrations/NNNN_name.sql` plus `NNNN_name.down.sql`. Never edit one that has been applied anywhere.

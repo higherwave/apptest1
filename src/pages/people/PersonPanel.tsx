@@ -4,6 +4,7 @@ import type { Member, MemberRole, Team } from '../../api/client'
 import { approvalsLine, personChange, ROLE_HELP, ROLE_LABEL, type TeamChoice } from './peopleLogic'
 import { TeamPicker } from './TeamPicker'
 import parts from '../../components/PanelParts.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 
@@ -58,10 +59,10 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
           <TeamPicker teams={teams} value={chosen} defaultRole={role} idPrefix="person" locked={(t) => teamsManaged && !t.isDefault} onChange={setChosen} />
         </section>
       )}
-      <section className={parts.section} aria-label="Approvals">
-        <h3 className={parts.heading}>Approvals</h3>
-        {member.approvals.length ? <p className={parts.small} data-testid="person-approvals">{approvalsLine(member.approvals)}</p> : <p className={parts.help}>Not an approver for any step.</p>}
-        <p className={parts.help} data-testid="approvals-hint">{member.approvals.length ? 'Approvals are changed in the Approvals tab.' : 'Add approvals in the Approvals tab.'}</p>
+      <section className={parts.section} aria-label={`${T.Approvals}`}>
+        <h3 className={parts.heading}>{T.Approvals}</h3>
+        {member.approvals.length ? <p className={parts.small} data-testid="person-approvals">{approvalsLine(member.approvals)}</p> : <p className={parts.help}>Not {T.a('approver')} for any step.</p>}
+        <p className={parts.help} data-testid="approvals-hint">{member.approvals.length ? `${T.Approvals} are changed in the ${T.Approvals} tab.` : `Add ${T.approvals} in the ${T.Approvals} tab.`}</p>
       </section>
       {!isYou && (
         <section className={parts.section} aria-label="Remove">
@@ -70,7 +71,7 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
             <div className={parts.confirmBox} data-testid="remove-confirm">
               <p className={parts.help}>
                 {member.status === 'invited' ? 'They won’t be able to sign in with this invitation.' : 'They lose access right away and are signed out.'}
-                {member.approvals.length > 0 && ` Their ${member.approvals.length} approval ${member.approvals.length === 1 ? 'step' : 'steps'} will pass to the backup or show as a gap.`}
+                {member.approvals.length > 0 && ` Their ${member.approvals.length} approval ${member.approvals.length === 1 ? 'step' : 'steps'} will pass to the ${T.backup} or show as a gap.`}
               </p>
               <div className={parts.confirmActions}>
                 <Button kind="danger" size="sm" disabled={busy} onClick={onRemove} data-testid="confirm-remove">{member.status === 'invited' ? 'Cancel invite' : 'Remove'}</Button>

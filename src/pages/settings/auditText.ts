@@ -1,10 +1,11 @@
 import type { AuditEntry, AuditGroup } from '../../api/client'
+import { T } from '../../../shared/terms.mjs'
 
 // The words the audit log uses for what changed. No React in here, so it is easy to test.
 export const GROUP_LABEL: Record<AuditGroup, string> = {
   members: 'People and roles',
   teams: 'Teams',
-  reviewers: 'Launch approvers',
+  reviewers: `Launch ${T.approvers}`,
   launches: 'Launches',
   categories: 'Experience categories',
   projects: 'Projects',
@@ -16,7 +17,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.memberships': 'Member',
   'core.teams': 'Team',
   'core.team_memberships': 'Team member',
-  'core.reviewer_assignments': 'Launch approver',
+  'core.reviewer_assignments': `Launch ${T.approver}`,
   'core.team_launch_steps': 'Launch steps',
   'delivery.launches': 'Launch',
   'delivery.launch_answers': 'Launch answer',

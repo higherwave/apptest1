@@ -2,6 +2,7 @@ import { Button, InlineNotification, Loading, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import { ProjectHeader } from '../project/ProjectHeader'
 import styles from './LaunchView.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 export type LaunchStartViewProps = {
   state: 'loading' | 'ready'
@@ -22,14 +23,14 @@ export function LaunchStartView(p: LaunchStartViewProps) {
   const dateOk = date.trim() === '' || DAY.test(date.trim())
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Launch" description="The go signals from each function, with the evidence behind them. Everyone sees every section; each step’s approver answers their own." />
+      <ProjectHeader title="Launch" description={`The go signals from each function, with the evidence behind them. Everyone sees every section; each step’s ${T.approver} answers their own.`} />
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Not started" subtitle={p.errorText} />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading the launch" />}
       {p.state === 'ready' && (
         <section className={styles.start} aria-label="Start the launch" data-testid="launch-start">
           <h2 className={styles.launchName}>No launch yet</h2>
           <p className={styles.notes}>
-            Start the launch to ask each function for its go signal. Approvers are set up once under Admin, Approvals; a step nobody covers shows as “approver missing”. Functions can follow the project from now,
+            Start the launch to ask each function for its go signal. {T.Approvers} are set up once under Admin, {T.Approvals}; a step nobody covers shows as “{T.approver} missing”. Functions can follow the project from now,
             well before anything is asked of them.
           </p>
           {p.canCreate ? (

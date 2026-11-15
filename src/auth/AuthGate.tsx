@@ -10,6 +10,7 @@ import { LaunchesPage } from '../pages/launch/LaunchesPage'
 import { signInWith, signOut } from './authClient'
 import styles from './AuthGate.module.scss'
 import brand from '../../brand/brand.json'
+import { T } from '../../shared/terms.mjs'
 
 // Where a sign-in screen is shown instead of the app: when the API says the request has no session (401 unauthenticated),
 // or that the signed-in account was not invited or is in no allowed group (403). Anything else, including loading, shows the app.
@@ -92,7 +93,7 @@ function ExternalApp({ name }: { name: string }) {
           <Logo />
           <span>{brand.appName}</span>
         </p>
-        <span className={styles.externalName}>{name} · external approver</span>
+        <span className={styles.externalName}>{name} · external {T.approver}</span>
         <Button kind="ghost" size="sm" onClick={signOut}>
           Sign out
         </Button>

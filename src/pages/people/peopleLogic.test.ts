@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { approvalsLine, emailProblem, initials, personChange } from './peopleLogic'
+import { T } from '../../../shared/terms.mjs'
 
 test('initials come from the name, or from the part of the address before the @', () => {
   assert.equal(initials('David Garrett'), 'DG')
@@ -8,7 +9,7 @@ test('initials come from the name, or from the part of the address before the @'
   assert.equal(initials('alex.rivera@acme.com'), 'AR')
 })
 
-test('approvals read as a line: backups say so, and a team’s own approvals name the team', () => {
+test(`${T.approvals} read as a line: ${T.backups} say so, and a team’s own ${T.approvals} name the team`, () => {
   assert.equal(approvalsLine([]), '')
   assert.equal(
     approvalsLine([
@@ -16,7 +17,7 @@ test('approvals read as a line: backups say so, and a team’s own approvals nam
       { step: 'marketing', label: 'Marketing', role: 'approver', teamId: 't', teamName: 'Growth' },
       { step: 'final_decision', label: 'Final decision', role: 'backup', teamId: null, teamName: null },
     ]),
-    'Sales, Marketing · Growth, Final decision (backup)',
+    `Sales, Marketing · Growth, Final decision (${T.backup})`,
   )
 })
 

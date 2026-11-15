@@ -7,6 +7,7 @@ import { Avatar } from './Avatar'
 import { SlackConnectModal } from './SlackConnectModal'
 import { signOut } from './authClient'
 import styles from './AccountPanel.module.scss'
+import { T } from '../../shared/terms.mjs'
 
 type Props = { name: string; email: string; role: string; avatarUrl: string | null }
 
@@ -36,7 +37,7 @@ export function AccountPanel({ name, email, role, avatarUrl }: Props) {
               setOpen(false)
               navigate('/launches')
             }}>
-            My approvals
+            My {T.approvals}
           </Button>
           {slack.data?.configured && (
             <Button kind="ghost" size="md" className={styles.link} renderIcon={LogoSlack} data-testid="connect-slack" onClick={() => {

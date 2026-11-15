@@ -4,6 +4,7 @@ import { RightPanel } from '../../components/RightPanel'
 import { initials } from '../people/peopleLogic'
 import { TeamPanel } from './TeamPanel'
 import styles from './TeamsView.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 export type TeamsViewProps = {
   state: 'loading' | 'error' | 'ready'
@@ -51,7 +52,7 @@ export function TeamsView(p: TeamsViewProps) {
               <div className={`${styles.headCell} ${styles.membersCol}`} role="columnheader">Members</div>
               <div className={`${styles.headCell} ${styles.slackCol}`} role="columnheader">Slack channel</div>
               <div className={`${styles.headCell} ${styles.projectsCol}`} role="columnheader">Projects</div>
-              <div className={`${styles.headCell} ${styles.approvalsCol}`} role="columnheader">Approvals</div>
+              <div className={`${styles.headCell} ${styles.approvalsCol}`} role="columnheader">{T.Approvals}</div>
             </div>
             {p.teams.map((t) => (
               <div key={t.id} className={styles.row} role="row" data-testid={`team-${t.name}`} data-selected={openId === t.id ? true : undefined}>

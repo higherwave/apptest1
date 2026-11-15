@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { createDemoDatabase, setApprovers } from './test-utils.js'
+import { T } from '../shared/terms.mjs'
 
 declare global {
   interface Response {
@@ -58,7 +59,7 @@ test('the launch owner asks the reviewers of the steps still waiting: one email 
   assert.match(toDavid.text, /Product leadership, Final decision/)
   assert.match(toDavid.text, /The target date is Dec 1, 2026\./)
   assert.ok(toDavid.text.includes(`https://app.example.test/launches/${launch.id}?step=product_leadership`), 'a link straight to their first step')
-  assert.ok(toDavid.text.includes('https://app.example.test/launches'), 'and to all their approvals')
+  assert.ok(toDavid.text.includes('https://app.example.test/launches'), `and to all their ${T.approvals}`)
   assert.match(toDavid.html, /<a href="https:\/\/app\.example\.test\/launches\/[0-9a-f-]+\?step=product_leadership">Open the launch<\/a>/)
   // Again for the same brief: nothing more is sent.
   const again = await (await call(alex, 'POST', `/launches/${launch.id}/request`)).json()
@@ -131,8 +132,8 @@ test('a step nobody covers is told to the owner once a week, and only after some
   mailer.sent.length = 0
   const first = await sweepLaunches(deps())
   assert.equal(first.sent, 2, 'sales and documentation have no reviewer')
-  assert.deepEqual(mailer.sent.map((m) => m.subject).sort(), ['Signal Flow: no approver for Documentation on Spring release', 'Signal Flow: no approver for Sales on Spring release'])
-  assert.match(mailer.sent[0].text, /Admin, Approvals/)
+  assert.deepEqual(mailer.sent.map((m) => m.subject).sort(), [`Signal Flow: no ${T.approver} for Documentation on Spring release`, `Signal Flow: no ${T.approver} for Sales on Spring release`])
+  assert.match(mailer.sent[0].text, new RegExp(`Admin, ${T.Approvals}`))
   assert.equal((await sweepLaunches(deps())).sent, 0, 'once this week')
   assert.equal((await sweepLaunches(deps(8))).sent >= 2, true, 'and again the next week')
 })

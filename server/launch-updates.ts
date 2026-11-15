@@ -11,6 +11,7 @@ import { deliver, type Launch } from './launch-notices.js'
 import { reply, startThread } from './launch-slack.js'
 import type { Mailer } from './mailer.js'
 import { slackText, type SlackClient } from './slack.js'
+import { T } from '../shared/terms.mjs'
 
 export type UpdateDeps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient }
 
@@ -99,7 +100,7 @@ export async function afterStoryboard(deps: UpdateDeps, ctx: RequestContext, pro
     const lines = [
       before ? `The storyboard for ${launch.name} was updated after the research changed.` : `The research on ${launch.name} now has a storyboard: the problem, what people said, and the directions recommended. The solutions and trade-offs are best guesses for the team to react to.`,
       'For your awareness: there is nothing to answer yet.',
-      `Where this release stands: ${stageLine('storyboard')}. Approvals open once the requirements are published.`,
+      `Where this release stands: ${stageLine('storyboard')}. ${T.Approvals} open once the requirements are published.`,
     ]
     await tell(deps, launch, {
       kind: 'launch.storyboard',
@@ -108,7 +109,7 @@ export async function afterStoryboard(deps: UpdateDeps, ctx: RequestContext, pro
       message: { subject: `Signal Flow: ${before ? 'the storyboard was updated' : 'the storyboard is ready'} for ${launch.name}`, lines, documentLabel: 'Storyboard (PDF)', documentLink: link, launchLink: launchUrl(deps.env, launchId), threadUrl },
       slack: {
         key: `storyboard:${at}`,
-        text: `:newspaper: ${before ? 'The storyboard was updated' : 'The storyboard is ready'}: <${link}|Storyboard (PDF)>. For your awareness, nothing to answer yet.\nWhere this release stands: ${slackText(stageLine('storyboard'))}. Approvals open once the requirements are published. Questions or concerns? Reply here.`,
+        text: `:newspaper: ${before ? 'The storyboard was updated' : 'The storyboard is ready'}: <${link}|Storyboard (PDF)>. For your awareness, nothing to answer yet.\nWhere this release stands: ${slackText(stageLine('storyboard'))}. ${T.Approvals} open once the requirements are published. Questions or concerns? Reply here.`,
       },
     })
   } catch (err) {

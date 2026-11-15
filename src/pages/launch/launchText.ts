@@ -1,10 +1,11 @@
+import { T } from '../../../shared/terms.mjs'
 // The words and tag colours the Launch screens use for a step's state. No React in here, so it is easy to test.
 export type TagType = 'green' | 'teal' | 'red' | 'purple' | 'gray' | 'warm-gray' | 'outline'
 
 export const STATE_LABEL: Record<string, string> = {
   preparing: 'Preparing',
   waiting: 'Waiting',
-  missing: 'Approver missing',
+  missing: `${T.Approver} missing`,
   not_used: 'Not used',
   reopened: 'Reopened',
   ready: 'Ready',
@@ -43,14 +44,14 @@ export function reviewersLine(primary: { name: string }[], alternate: { name: st
   const p = primary.map((x) => x.name).join(' and ')
   const a = alternate.map((x) => x.name).join(' and ')
   if (!p && !a) return 'Nobody is set up yet'
-  if (!p) return `Only a backup: ${a}`
-  return a ? `${p}, or ${a} as backup` : p
+  if (!p) return `Only ${T.a('backup')}: ${a}`
+  return a ? `${p}, or ${a} as ${T.backup}` : p
 }
 
 export const KIND_LABEL: Record<string, string> = {
   team: 'You are on this team',
   leader: 'You see every team (read-only)',
   reviewer: 'You approve steps of this launch',
-  external: 'You review steps of this launch as an external approver',
+  external: `You review steps of this launch as an external ${T.approver}`,
   visitor: 'Read-only view',
 }

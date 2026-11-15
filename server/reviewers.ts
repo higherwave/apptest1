@@ -5,6 +5,7 @@ import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
 import { MemberNotFound } from './members.js'
 import { TeamNotFound } from './team-admin.js'
+import { T } from '../shared/terms.mjs'
 
 export class ExternalAllTeams extends Error {}
 export class BadStep extends Error {}
@@ -156,6 +157,7 @@ export async function saveApprovalStep(db: Db, ctx: RequestContext, step: string
       }
     }
     const after = summary(await approvalsOverview(tx, ctx.workspaceId), step)
+    // terms:ignore  the verb is stored in the audit log: history is not re-worded when the vocabulary changes
     if (JSON.stringify(before) !== JSON.stringify(after)) await audit(tx, ctx, 'core.reviewer_assignments', null, 'approvers changed', { step, ...before }, { step, ...after })
   })
 }

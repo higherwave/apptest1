@@ -16,6 +16,7 @@ import type { Mailer } from './mailer.js'
 import { remindersOnlyFor } from './notifications.js'
 import { postApprovalCards, reply, settleCards, slackLines } from './launch-slack.js'
 import { slackText, type SlackClient } from './slack.js'
+import { T } from '../shared/terms.mjs'
 
 export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date }
 const slackOf = (d: Deps) => ({ db: d.db, env: d.env, slack: d.slack })
@@ -32,8 +33,8 @@ const dayText = (day: string | null) => (day ? new Date(`${day}T00:00:00`).toLoc
 
 /** The page every launch message has: a greeting, a few lines, one link to the launch, and where all of a person's approvals are. */
 function compose(o: { name: string; subject: string; lines: string[]; link: string; linkText: string; allReviews: string }) {
-  const text = [`Hi ${first(o.name)},`, '', ...o.lines, '', `${o.linkText}: ${o.link}`, '', `All your approvals: ${o.allReviews}`].join('\n')
-  const html = [`<p>Hi ${esc(first(o.name))},</p>`, ...o.lines.map((l) => `<p>${esc(l)}</p>`), `<p><a href="${esc(o.link)}">${esc(o.linkText)}</a></p>`, `<p><small><a href="${esc(o.allReviews)}">All your approvals</a></small></p>`].join('\n')
+  const text = [`Hi ${first(o.name)},`, '', ...o.lines, '', `${o.linkText}: ${o.link}`, '', `All your ${T.approvals}: ${o.allReviews}`].join('\n')
+  const html = [`<p>Hi ${esc(first(o.name))},</p>`, ...o.lines.map((l) => `<p>${esc(l)}</p>`), `<p><a href="${esc(o.link)}">${esc(o.linkText)}</a></p>`, `<p><small><a href="${esc(o.allReviews)}">All your ${T.approvals}</a></small></p>`].join('\n')
   return { subject: o.subject, text, html }
 }
 
@@ -66,10 +67,10 @@ export async function tellAlternatesCover(deps: Deps, workspaceId: string, away:
       if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
       const m = compose({
         name: alt.person.name,
-        subject: `Signal Flow: you are covering launch approvals for ${away.name}`,
-        lines: [`${away.name} is away, so you are now the approver for: ${alt.steps.join(', ')}.`, 'You will get the launch messages and answer requests for these steps until they are back.'],
+        subject: `Signal Flow: you are covering launch ${T.approvals} for ${away.name}`,
+        lines: [`${away.name} is away, so you are now the ${T.approver} for: ${alt.steps.join(', ')}.`, 'You will get the launch messages and answer requests for these steps until they are back.'],
         link: `${base}/launches`,
-        linkText: 'Open your approvals',
+        linkText: `Open your ${T.approvals}`,
         allReviews: `${base}/launches`,
       })
       await deps.mailer.send({ to: alt.person.email, ...m })
@@ -276,7 +277,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
             key: `escalated-alt:${launch.id}:${s.step}:${launch.briefAt}`,
             payload: { step: s.step, briefAt: launch.briefAt },
             build: (link, allReviews) =>
-              compose({ name: p.name, subject: `Signal Flow: ${s.label} on ${launch.name} is waiting. Can you cover it?`, lines: [`${s.label} on ${launch.name} has been waiting for an answer for ${Math.floor(days)} days. You are the alternate: please answer it if the primary approver cannot.`], link, linkText: 'Open the launch', allReviews }),
+              compose({ name: p.name, subject: `Signal Flow: ${s.label} on ${launch.name} is waiting. Can you cover it?`, lines: [`${s.label} on ${launch.name} has been waiting for an answer for ${Math.floor(days)} days. You are the ${T.backup}: please answer it if the ${T.approver} cannot.`], link, linkText: 'Open the launch', allReviews }),
           }))
         }
       }
@@ -300,7 +301,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
         key: `missing:${launch.id}:${s.step}:${isoWeek(now)}`,
         payload: { step: s.step },
         build: (link, allReviews) =>
-          compose({ name: to.name, subject: `Signal Flow: no approver for ${s.label} on ${launch.name}`, lines: [`${s.label} on ${launch.name} has no approver, so nobody can answer it. A workspace owner can add one under Admin, Approvals.`], link, linkText: 'Open the launch', allReviews }),
+          compose({ name: to.name, subject: `Signal Flow: no ${T.approver} for ${s.label} on ${launch.name}`, lines: [`${s.label} on ${launch.name} has no ${T.approver}, so nobody can answer it. A workspace owner can add one under Admin, ${T.Approvals}.`], link, linkText: 'Open the launch', allReviews }),
       }))
     }
   }

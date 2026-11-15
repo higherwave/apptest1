@@ -4,6 +4,7 @@ import { RightPanel } from '../../components/RightPanel'
 import { backupsFor } from './approvalsLogic'
 import { StepPanel } from './StepPanel'
 import styles from './ApprovalsView.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 export type ApprovalsViewProps = {
   state: 'loading' | 'error' | 'ready'
@@ -28,8 +29,8 @@ export type ApprovalsViewProps = {
 function UseBackup({ person, overview, busy, id, onAway }: { person: ApprovalPerson; overview: ApprovalsOverview; busy: boolean; id: string; onAway: ApprovalsViewProps['onAway'] }) {
   const can = backupsFor(overview, person.userId).length > 0 || person.unavailable
   return (
-    <span className={styles.useBackup} title={can ? undefined : 'Add a backup for every step this person approves before marking them away.'} data-testid={id}>
-      <Toggle id={id} labelText={`Use backup while ${person.name} is away`} hideLabel labelA="" labelB="" toggled={person.unavailable} disabled={!can || busy} onToggle={(on) => { if (on !== person.unavailable) onAway(person, on) }} />
+    <span className={styles.useBackup} title={can ? undefined : `Add ${T.a('backup')} for every step this person approves before marking them away.`} data-testid={id}>
+      <Toggle id={id} labelText={`Use ${T.backup} while ${person.name} is away`} hideLabel labelA="" labelB="" toggled={person.unavailable} disabled={!can || busy} onToggle={(on) => { if (on !== person.unavailable) onAway(person, on) }} />
     </span>
   )
 }
@@ -40,12 +41,12 @@ function TeamCell({ cell, step, overview, busy, onAway }: { cell: ApprovalTeamCe
     return (
       <>
         <span className={styles.who}>{cell.approver.name}</span>
-        <span className={styles.sub}>Team approver{cell.approver.unavailable ? ' · away' : ''}</span>
+        <span className={styles.sub}>Team {T.approver}{cell.approver.unavailable ? ' · away' : ''}</span>
         <UseBackup person={cell.approver} overview={overview} busy={busy} id={`use-backup-${step.key}-${cell.teamId}`} onAway={onAway} />
       </>
     )
   }
-  if (cell.state === 'gap') return <span className={styles.gap}>No approver</span>
+  if (cell.state === 'gap') return <span className={styles.gap}>No {T.approver}</span>
   return <span className={styles.default}>Default</span>
 }
 
@@ -58,22 +59,22 @@ export function ApprovalsView(p: ApprovalsViewProps) {
       <div className={styles.head}>
         <div>
           <p className={styles.intro}>
-            Who approves each step of a launch. Choose one approver for the workspace, and a backup who steps in while the approver is away. A team can have its own approver for a step, or not use it. A step a team uses
+            Who approves each step of a launch. Choose one {T.approver} for the workspace, and {T.a('backup')} who steps in while the {T.approver} is away. A team can have its own {T.approver} for a step, or not use it. A step a team uses
             that nobody approves is a gap, here and on its launches.
           </p>
         </div>
-        {o && <p className={styles.summary} data-gaps={o.gaps} data-testid="gap-summary">{o.gaps === 0 ? 'Every step has an approver' : `${o.gaps} ${o.gaps === 1 ? 'step' : 'steps'} without an approver`}</p>}
+        {o && <p className={styles.summary} data-gaps={o.gaps} data-testid="gap-summary">{o.gaps === 0 ? `Every step has ${T.a('approver')}` : `${o.gaps} ${o.gaps === 1 ? 'step' : 'steps'} without ${T.a('approver')}`}</p>}
       </div>
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.notice && <InlineNotification kind="success" lowContrast hideCloseButton title="Saved" subtitle={p.notice} data-testid="approvals-notice" />}
-      {p.state === 'loading' && <Loading small withOverlay={false} description="Loading approvals" />}
+      {p.state === 'loading' && <Loading small withOverlay={false} description={`Loading ${T.approvals}`} />}
       {p.state === 'ready' && o && (
         <div className={styles.tableWrap}>
           <div className={styles.grid} role="table" aria-label="Who approves each step, by team" data-testid="approvals-grid">
             <div className={styles.row} role="row">
               <div className={`${styles.head1} ${styles.stepCol}`} role="columnheader">Step</div>
-              <div className={`${styles.head1} ${styles.approverCol}`} role="columnheader">Workspace approver</div>
-              <div className={`${styles.head1} ${styles.backupCol}`} role="columnheader">Use backup</div>
+              <div className={`${styles.head1} ${styles.approverCol}`} role="columnheader">Workspace {T.approver}</div>
+              <div className={`${styles.head1} ${styles.backupCol}`} role="columnheader">Use {T.backup}</div>
               {o.teams.map((t) => <div key={t.id} className={`${styles.head1} ${styles.teamCol}`} role="columnheader">{t.name}</div>)}
             </div>
             {o.steps.map((s) => (
@@ -86,10 +87,10 @@ export function ApprovalsView(p: ApprovalsViewProps) {
                   {s.approver ? (
                     <>
                       <span className={styles.who}>{s.approver.name}{s.approver.unavailable && <Tag size="sm" type="gray" className={styles.tag}>Away</Tag>}</span>
-                      <span className={styles.sub}>{s.backup ? `Backup: ${s.backup.name}` : 'No backup'}</span>
+                      <span className={styles.sub}>{s.backup ? `${T.Backup}: ${s.backup.name}` : `No ${T.backup}`}</span>
                     </>
                   ) : (
-                    <Button kind="ghost" size="sm" className={styles.choose} onClick={() => p.onOpen(s.key)}>Choose approver</Button>
+                    <Button kind="ghost" size="sm" className={styles.choose} onClick={() => p.onOpen(s.key)}>Choose {T.approver}</Button>
                   )}
                 </div>
                 <div className={`${styles.cell} ${styles.backupCol}`} role="cell">
@@ -106,22 +107,22 @@ export function ApprovalsView(p: ApprovalsViewProps) {
         </div>
       )}
 
-      <RightPanel open={!!open} heading={open ? open.label : 'Step'} label="Approvals" onClose={p.onClosePanel}>
+      <RightPanel open={!!open} heading={open ? open.label : 'Step'} label={`${T.Approvals}`} onClose={p.onClosePanel}>
         {open && o && <StepPanel key={open.key} step={open} overview={o} busy={p.busy} error={p.panelError} onCancel={p.onClosePanel} onSave={(input) => p.onSave(open.key, input)} />}
       </RightPanel>
 
       <Modal
         open={!!p.awayFor}
         size="sm"
-        modalHeading="Use the backup?"
-        primaryButtonText={p.busy ? 'Saving…' : 'Use backup'}
+        modalHeading={`Use the ${T.backup}?`}
+        primaryButtonText={p.busy ? 'Saving…' : `Use ${T.backup}`}
         secondaryButtonText="Cancel"
         primaryButtonDisabled={p.busy}
         onRequestClose={p.onCancelAway}
         onRequestSubmit={p.onConfirmAway}
       >
         <p className={styles.confirm} data-testid="away-dialog">
-          While {p.awayFor?.name} is away, {p.awayFor?.covering.join(', ')} {p.awayFor && p.awayFor.covering.length === 1 ? 'is' : 'are'} the approver{p.awayFor && p.awayFor.covering.length === 1 ? '' : 's'} for all their steps and will get the launch messages and answer requests. Each backup is emailed now. Switch it off when they return.
+          While {p.awayFor?.name} is away, {p.awayFor?.covering.join(', ')} {p.awayFor && p.awayFor.covering.length === 1 ? 'is' : 'are'} the {T.approver}{p.awayFor && p.awayFor.covering.length === 1 ? '' : 's'} for all their steps and will get the launch messages and answer requests. Each {T.backup} is emailed now. Switch it off when they return.
         </p>
       </Modal>
     </div>

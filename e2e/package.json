@@ -3,5 +3,7 @@
   "private": true,
   "type": "module",
   "description": "Browser flow tests. Kept separate so the app's dependencies stay small.",
-  "dependencies": { "puppeteer-core": "^24.0.0" }
+  "dependencies": {
+    "puppeteer-core": "^25.17.0"
+  }
 }

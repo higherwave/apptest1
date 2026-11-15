@@ -12,6 +12,8 @@ const ok = (name, cond, extra = '') => { results.push([cond ? 'ok  ' : 'FAIL', n
 
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--window-size=1400,900', ...(process.env.CI ? ['--no-sandbox'] : [])] })
 const page = await browser.newPage()
+// Puppeteer 25 no longer selects a field's text on a triple click: select it explicitly, so typing replaces it.
+const selectAll = async (sel) => { await page.click(sel); await page.$eval(sel, (el) => el.select()) }
 await page.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: [] })) } catch { /* ignore */ } }) // the welcome screen is tested in tour.mjs; here it would only be in the way
 await page.setViewport({ width: 1400, height: 900 })
 page.on('pageerror', (e) => ok('no page errors', false, e.message))
@@ -710,7 +712,7 @@ try {
   await new Promise((r) => setTimeout(r, 400))
   const reqStory = await storyOf(firstReq)
   ok('Create Jira ticket opens a dialog pre-filled from the story and says the connection is simulated, with no story points', await page.evaluate((t) => { const m = document.querySelector('.cds--modal.is-visible'); const d = m.querySelector('#ticket-description').value; return m.querySelector('#ticket-summary').value === t && d.length > 0 && /Source: http/.test(d) && /Simulated Jira connection/.test(m.innerText) && !m.querySelector('#ticket-points') && m.querySelector('#ticket-labels').value.length > 0 }, reqStory.title))
-  await page.click('.cds--modal.is-visible #ticket-summary', { clickCount: 3 })
+  await selectAll('.cds--modal.is-visible #ticket-summary')
   await page.keyboard.type('Prefill the booking form (edited in the dialog)')
   await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Create ticket').click())
   await page.waitForSelector('[data-testid="ticket-confirmation"]', { timeout: 8000 })
@@ -784,7 +786,7 @@ try {
   await page.waitForSelector('#design-link-R1', { visible: true })
   await page.type('#design-link-R1', 'figma.com/no-scheme')
   ok('a link without http(s) is refused in the dialog', await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Save link')?.disabled === true))
-  await page.click('#design-link-R1', { clickCount: 3 })
+  await selectAll('#design-link-R1')
   await page.type('#design-link-R1', 'https://example.com/prototype-r1')
   await clickInOpenDialog('Save link')
   await page.waitForFunction(() => document.body.innerText.includes('All changes saved at'), { timeout: 8000 })
@@ -823,7 +825,7 @@ try {
   const setLink = async (url) => {
     await page.evaluate(() => [...document.querySelectorAll('[data-testid="design-R1"] [data-frame] button')].find((b) => b.innerText.trim() === 'Edit link').click())
     await page.waitForSelector('#design-link-R1', { visible: true })
-    await page.click('#design-link-R1', { clickCount: 3 })
+    await selectAll('#design-link-R1')
     await page.type('#design-link-R1', url)
     await clickInOpenDialog('Save link')
   }
@@ -1171,7 +1173,7 @@ try {
   await page.type('input[placeholder="Search themes"]', ' zzzqqq')
   await page.waitForFunction(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length === 0 && /No theme matches/.test(document.body.innerText), { timeout: 5000 })
   ok('a search with no match says so', true)
-  await page.click('input[placeholder="Search themes"]', { clickCount: 3 })
+  await selectAll('input[placeholder="Search themes"]')
   await page.keyboard.press('Backspace')
   await page.waitForFunction((n) => document.querySelectorAll('[data-testid^="platform-theme-"]').length === n, { timeout: 5000 }, themeCount)
   ok('clearing the search brings every theme back', true)
@@ -1452,7 +1454,7 @@ try {
   // Reopen step 2: edit it, see it go back to review and the later steps marked, approve it again.
   await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].find((b) => b.innerText.trim() === 'Edit').click())
   await page.waitForSelector('#step-text-2', { visible: true })
-  await page.click('#step-text-2', { clickCount: 3 })
+  await selectAll('#step-text-2')
   await page.type('#step-text-2', 'Edited after publishing')
   await clickText('Save edit')
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'review', { timeout: 8000 })

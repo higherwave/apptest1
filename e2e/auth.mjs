@@ -9,6 +9,8 @@ const ok = (name, cond, extra = '') => { results.push([cond ? 'ok  ' : 'FAIL', n
 
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--window-size=1400,900', ...(process.env.CI ? ['--no-sandbox'] : [])] })
 const page = await browser.newPage()
+// Puppeteer 25 no longer selects a field's text on a triple click: select it explicitly, so typing replaces it.
+const selectAll = async (sel) => { await page.click(sel); await page.$eval(sel, (el) => el.select()) }
 await page.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: [] })) } catch { /* ignore */ } }) // the welcome screen is tested in tour.mjs; here it would only be in the way
 await page.setViewport({ width: 1400, height: 900 })
 page.on('pageerror', (e) => ok('no page errors', false, e.message))
@@ -169,7 +171,7 @@ try {
   await panelOpen('invite-panel')
   await page.type('.cds--modal.is-visible #invite-email', 'not-an-address')
   ok('an email that is not one says so, and Invite stays off', await page.evaluate(() => /valid email/.test(document.querySelector('.cds--modal.is-visible [data-testid="invite-panel"]').innerText) && document.querySelector('.cds--modal.is-visible [data-testid="save-invite"]').disabled === true))
-  await page.click('.cds--modal.is-visible #invite-email', { clickCount: 3 })
+  await selectAll('.cds--modal.is-visible #invite-email')
   await page.type('.cds--modal.is-visible #invite-email', 'e2e.person@example.com')
   ok('the default team is ticked for a new invitation', await page.evaluate(() => !!document.querySelector('.cds--modal.is-visible [data-testid="team-picker"] input[type="checkbox"]:checked')))
   await inPanel('[data-testid="save-invite"]')
@@ -212,11 +214,11 @@ try {
   await panelOpen('team-panel')
   await page.type('.cds--modal.is-visible #team-name', 'general')
   ok('a team name another team has is refused, whatever its case, and Create stays off', await page.evaluate(() => /already exists/.test(document.querySelector('.cds--modal.is-visible [data-testid="team-panel"]').innerText) && document.querySelector('.cds--modal.is-visible [data-testid="save-team"]').disabled === true))
-  await page.click('.cds--modal.is-visible #team-name', { clickCount: 3 })
+  await selectAll('.cds--modal.is-visible #team-name')
   await page.type('.cds--modal.is-visible #team-name', 'Support')
   await page.type('.cds--modal.is-visible #team-slack', 'Bad Channel!')
   ok('a Slack channel Slack would not accept is refused with the rule', await page.evaluate(() => /lowercase letters/.test(document.querySelector('.cds--modal.is-visible [data-testid="team-panel"]').innerText) && document.querySelector('.cds--modal.is-visible [data-testid="save-team"]').disabled === true))
-  await page.click('.cds--modal.is-visible #team-slack', { clickCount: 3 })
+  await selectAll('.cds--modal.is-visible #team-slack')
   await page.type('.cds--modal.is-visible #team-slack', 'support-launches')
   await inPanel('[data-testid="save-team"]')
   await page.waitForSelector('[data-testid="team-Support"]', { timeout: 8000 })

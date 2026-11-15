@@ -6,6 +6,7 @@ import { TEAM_ROLE_LABEL } from '../people/peopleLogic'
 import { addable, channelProblem, deleteBlock, nameProblem, normalizeChannel, teamChange, type TeamDraft } from './teamsLogic'
 import parts from '../../components/PanelParts.module.scss'
 import styles from './TeamPanel.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 
@@ -105,7 +106,7 @@ export function TeamPanel({ team, teams, members, membersLocked, busy, error, on
             <p className={parts.help} data-testid="delete-blocked">{block}</p>
           ) : confirming ? (
             <div className={parts.confirmBox} data-testid="delete-confirm">
-              <p className={parts.help}>The team’s people stay in the workspace; they just leave this team. Its approvals go with it.</p>
+              <p className={parts.help}>The team’s people stay in the workspace; they just leave this team. Its {T.approvals} go with it.</p>
               <div className={parts.confirmActions}>
                 <Button kind="danger" size="sm" disabled={busy} onClick={onDelete} data-testid="confirm-delete-team">Delete</Button>
                 <Button kind="ghost" size="sm" onClick={() => setConfirming(false)}>Keep</Button>

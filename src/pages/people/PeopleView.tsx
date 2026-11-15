@@ -5,6 +5,7 @@ import { InvitePanel, type InviteInput } from './InvitePanel'
 import { approvalsLine, initials, ROLE_LABEL, TEAM_ROLE_LABEL, type TeamChoice } from './peopleLogic'
 import { PersonPanel } from './PersonPanel'
 import styles from './PeopleView.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 export type PeopleViewProps = {
   state: 'loading' | 'error' | 'ready'
@@ -37,7 +38,7 @@ export function PeopleView(p: PeopleViewProps) {
     <div className={styles.page}>
       <div className={styles.head}>
         <div>
-          <p className={styles.intro}>Who can use Signal Flow, their role in the workspace and the teams they belong to. Invite someone by their email address; they sign in with that account. Approvals are set under Approvals.</p>
+          <p className={styles.intro}>Who can use Signal Flow, their role in the workspace and the teams they belong to. Invite someone by their email address; they sign in with that account. {T.Approvals} are set under {T.Approvals}.</p>
         </div>
         <Button kind="primary" size="md" onClick={p.onInviteOpen} data-testid="invite-person">Invite person</Button>
       </div>
@@ -54,7 +55,7 @@ export function PeopleView(p: PeopleViewProps) {
               <div className={`${styles.headCell} ${styles.personCol}`} role="columnheader">Person</div>
               <div className={`${styles.headCell} ${styles.roleCol}`} role="columnheader">Workspace role</div>
               <div className={`${styles.headCell} ${styles.teamsCol}`} role="columnheader">Teams</div>
-              <div className={`${styles.headCell} ${styles.approvalsCol}`} role="columnheader">Approvals</div>
+              <div className={`${styles.headCell} ${styles.approvalsCol}`} role="columnheader">{T.Approvals}</div>
             </div>
             {p.members.map((m) => {
               const you = !!p.myEmail && m.email.toLowerCase() === p.myEmail.toLowerCase()

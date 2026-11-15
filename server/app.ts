@@ -55,6 +55,7 @@ import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, Not
 import { editableTeamIds, enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
 import { createTeam, deleteTeam, listTeams, MembersManagedBySso, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, saveTeam, setTeamMember, setTeamSlackChannel, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
+import { T } from '../shared/terms.mjs'
 
 export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService }
 
@@ -265,10 +266,10 @@ export function createApp(options: AppOptions = {}) {
   // outside the team, and an external approver, reach it through /launches/{id}, where access is decided by who they are to that launch (launches.ts).
   const launchErrors = (err: unknown): never => {
     if (err instanceof LaunchNotFound || err instanceof LinkNotFound) throw new ApiError(404, 'not_found', 'No such launch.')
-    if (err instanceof RequirementsNotPublished) throw new ApiError(409, 'requirements_not_published', 'Approvals open once the requirements are published.')
+    if (err instanceof RequirementsNotPublished) throw new ApiError(409, 'requirements_not_published', `${T.Approvals} open once the requirements are published.`)
     if (err instanceof NoThemes) throw new ApiError(409, 'no_themes', 'A launch can start once the project has themes.')
     if (err instanceof LaunchExists) throw new ApiError(409, 'launch_exists', 'This project already has a launch.')
-    if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : 'Nobody is set up to answer this step yet. An owner can add an approver under Admin, Approvals.')
+    if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : `Nobody is set up to answer this step yet. An owner can add ${T.a('approver')} under Admin, ${T.Approvals}.`)
     if (err instanceof StepNotUsed) throw new ApiError(409, 'step_not_used', 'This team’s launches do not use that step.')
     if (err instanceof BadAnswer) throw new ApiError(422, 'validation_failed', 'That is not an answer for this step.', 'answer')
     if (err instanceof NeedsRationale) throw new ApiError(422, 'validation_failed', 'Say why: this answer needs a reason.', 'rationale')
@@ -333,7 +334,7 @@ export function createApp(options: AppOptions = {}) {
   // The launch record as a PDF a stakeholder outside Signal Flow can read: a snapshot of what the caller may see, never more (an external approver is refused).
   app.get('/launches/:id/export.pdf', withReadContext, async (c) => {
     const launch = await oneLaunch(c, launchId(c))
-    if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', 'An external approver cannot export the launch.')
+    if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', `An external ${T.approver} cannot export the launch.`)
     if (env.PDF_EXPORT === 'false') throw new ApiError(503, 'unavailable', 'PDF export is switched off on this deployment.')
     const at = new Date()
     let file: Buffer
@@ -364,7 +365,7 @@ export function createApp(options: AppOptions = {}) {
   }
   app.get('/launches/:id/storyboard.pdf', withReadContext, async (c) => {
     const launch = await oneLaunch(c, launchId(c))
-    if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', 'The storyboard is not available to an external approver.')
+    if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', `The storyboard is not available to an external ${T.approver}.`)
     const board = await getStoryboard(getDb(), c.get('ctx').workspaceId, launch.projectId)
     if (!board?.draft) throw new ApiError(404, 'not_found', 'The storyboard has not been written yet.')
     return sendPdf(c, storyboardHtml(board, launch.name), `${launch.name}: storyboard`, exportFileName(launch, 'pdf', 'storyboard'))
@@ -390,7 +391,7 @@ export function createApp(options: AppOptions = {}) {
     const id = launchId(c)
     const launch = await oneLaunch(c, id)
     if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can ask for answers.')
-    if (launch.stage === 'storyboard') throw new ApiError(409, 'requirements_not_published', 'Approvals open once the requirements are published.')
+    if (launch.stage === 'storyboard') throw new ApiError(409, 'requirements_not_published', `${T.Approvals} open once the requirements are published.`)
     const result = await requestAnswers({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id)
     c.header('Cache-Control', 'no-store')
     return c.json(result)
@@ -439,18 +440,18 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof TeamNotFound) throw new ApiError(404, 'not_found', 'No such team.')
     if (err instanceof BadStep) throw new ApiError(422, 'bad_step', 'That step cannot be set that way.')
     if (err instanceof ExternalAllTeams) throw new ApiError(422, 'external_all_teams', 'An external person can approve for a team only, not for the whole workspace.')
-    if (err instanceof BackupNeedsApprover) throw new ApiError(422, 'needs_approver', 'Choose an approver before a backup, and for a team’s own approvers.')
-    if (err instanceof SamePerson) throw new ApiError(422, 'same_person', 'The approver and the backup must be different people.')
-    if (err instanceof NoAlternate) throw new ApiError(409, 'no_backup', 'Add a backup for every step this person approves before marking them away.')
+    if (err instanceof BackupNeedsApprover) throw new ApiError(422, 'needs_approver', `Choose ${T.a('approver')} before ${T.a('backup')}, and for a team’s own ${T.approvers}.`)
+    if (err instanceof SamePerson) throw new ApiError(422, 'same_person', `The ${T.approver} and the ${T.backup} must be different people.`)
+    if (err instanceof NoAlternate) throw new ApiError(409, 'no_backup', `Add ${T.a('backup')} for every step this person approves before marking them away.`)
     throw err
   }
   app.get('/approvals', withContext, async (c) => {
-    requireLeader(c, 'launch approvers')
+    requireLeader(c, `launch ${T.approvers}`)
     c.header('Cache-Control', 'private, no-store')
     return c.json(await approvalsOverview(getDb(), c.get('ctx').workspaceId))
   })
   app.put('/approvals/steps/:step', withContext, async (c) => {
-    requireLeader(c, 'launch approvers')
+    requireLeader(c, `launch ${T.approvers}`)
     const input = parseBody(approvalStepSchema, await readJson(c))
     try {
       await saveApprovalStep(getDb(), c.get('ctx'), c.req.param('step') ?? '', input)
@@ -462,7 +463,7 @@ export function createApp(options: AppOptions = {}) {
   })
   // An approver who is away: their backups become the active approvers (and get the messages) until it is switched off. Applies to all their steps.
   app.put('/approvals/people/:userId', withContext, async (c) => {
-    requireLeader(c, 'launch approvers')
+    requireLeader(c, `launch ${T.approvers}`)
     const userId = c.req.param('userId') ?? ''
     if (!UUID.test(userId)) throw new ApiError(404, 'not_found', 'No such person.')
     const input = parseBody(reviewerAwaySchema, await readJson(c))

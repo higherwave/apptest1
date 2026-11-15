@@ -3,9 +3,10 @@
 // (inline styles, no fonts or pictures fetched) so the PDF service never needs the network; every piece of user text is escaped. Pure: no I/O.
 import { answerLabel } from '../shared/launch.mjs'
 import type { LaunchDetail, LaunchStep } from './launches.js'
+import { T } from '../shared/terms.mjs'
 
 const STATE: Record<string, string> = {
-  preparing: 'Preparing', waiting: 'Waiting', missing: 'Approver missing', not_used: 'Not used', reopened: 'Reopened', ready: 'Ready',
+  preparing: 'Preparing', waiting: 'Waiting', missing: `${T.Approver} missing`, not_used: 'Not used', reopened: 'Reopened', ready: 'Ready',
   ready_with_conditions: 'Ready with conditions', changes_needed: 'Changes needed', not_applicable: 'Not applicable', go: 'Go', go_with_conditions: 'Go with conditions', no_go: 'No-go',
 }
 const stateLabel = (s: string) => STATE[s] ?? s
@@ -54,7 +55,7 @@ function stepHtml(s: LaunchStep): string {
     parts.push(`<p class="by">${esc(a.by?.name ?? 'Someone')} · ${esc(moment(a.at))}${a.reopened ? ' · the brief has changed since, so this needs confirming' : ''}</p>`)
     parts.push(a.rationale ? `<p class="why">${esc(a.rationale)}</p>` : '<p class="muted">No reason was needed.</p>')
     if (a.openItems?.length) parts.push(`<p class="small muted">Went past these open steps:</p><ul>${a.openItems.map((i) => `<li><strong>${esc(i.label)}</strong> (${esc(stateLabel(i.state).toLowerCase())})${i.rationale ? `: ${esc(i.rationale)}` : ''}</li>`).join('')}</ul>`)
-  } else parts.push(`<p class="muted">${s.state === 'missing' ? 'No approver is set up for this step.' : `Waiting for ${esc(approvers || 'its approver')}.`}</p>`)
+  } else parts.push(`<p class="muted">${s.state === 'missing' ? `No ${T.approver} is set up for this step.` : `Waiting for ${esc(approvers || `its ${T.approver}`)}.`}</p>`)
   if (s.links.length) parts.push(`<p class="small muted">Links</p><ul>${s.links.map((l) => `<li>${link(l.url, l.title)}</li>`).join('')}</ul>`)
   if (s.earlier.length) parts.push(`<p class="small muted">Earlier answers</p><ul class="small">${s.earlier.map((e) => `<li>${esc(answerLabel(e.answer))}, ${esc(e.by?.name ?? 'someone')}, ${esc(moment(e.at))}${e.rationale ? `: ${esc(e.rationale)}` : ''}</li>`).join('')}</ul>`)
   return `<section class="step" data-step="${esc(s.step)}">${parts.join('')}</section>`
@@ -66,7 +67,7 @@ export function launchRecordHtml(launch: LaunchDetail, at: Date = new Date()): s
   const standingTone = s.state === 'no_go' || s.blocking.length ? 'bad' : s.state === 'go' ? 'good' : s.state === 'go_with_conditions' ? 'cond' : s.state === 'reopened' ? 'reopened' : 'plain'
   const counts = [
     [s.counts.ready, 'ready'], [s.counts.conditions, 'ready with conditions'], [s.counts.notApplicable, 'not applicable'], [s.counts.changes, 'changes needed'],
-    [s.counts.reopened, 'reopened'], [s.counts.waiting, 'waiting'], [s.counts.missing, 'approver missing'],
+    [s.counts.reopened, 'reopened'], [s.counts.waiting, 'waiting'], [s.counts.missing, `${T.approver} missing`],
   ].filter(([n]) => (n as number) > 0).map(([n, l]) => `${n} ${l}`)
   const b = launch.brief
   const meta = [launch.projectName, launch.teamName, day(launch.targetDate) ? `Target ${day(launch.targetDate)}` : null].filter(Boolean).join(' · ')

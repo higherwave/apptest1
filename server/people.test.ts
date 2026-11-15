@@ -4,6 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from './app.js'
 import { createDemoDatabase, setApprovers } from './test-utils.js'
+import { T } from '../shared/terms.mjs'
 
 declare global {
   interface Response {
@@ -99,7 +100,7 @@ test('with sign-in groups deciding teams, only the default team is changed by ha
   assert.equal(ok.status, 200)
 })
 
-test('removing an approver passes their steps to the backup; a backup who leaves is dropped; a team’s own approver reverts to the workspace’s', async () => {
+test(`removing ${T.a('approver')} passes their steps to the ${T.backup}; ${T.a('backup')} who leaves is dropped; a team’s own ${T.approver} reverts to the workspace’s`, async () => {
   const { call, byEmail, team, approve } = await fixture()
   const payments = await team('Payments')
   await approve('alex', ['legal', 'sales'])
@@ -110,10 +111,10 @@ test('removing an approver passes their steps to the backup; a backup who leaves
   assert.equal((await call('DELETE', `/members/${alex.id}`)).status, 204)
   const o = await (await call('GET', '/approvals')).json()
   const legal = o.steps.find((s: any) => s.key === 'legal')
-  assert.deepEqual([legal.approver.email.split('@')[0], legal.backup], ['sam', null], 'the backup took over')
-  assert.equal(o.steps.find((s: any) => s.key === 'sales').approver, null, 'a step with no backup is a gap, never hidden')
+  assert.deepEqual([legal.approver.email.split('@')[0], legal.backup], ['sam', null], `the ${T.backup} took over`)
+  assert.equal(o.steps.find((s: any) => s.key === 'sales').approver, null, `a step with no ${T.backup} is a gap, never hidden`)
   const marketing = o.steps.find((s: any) => s.key === 'marketing')
-  assert.equal(marketing.teams[o.teams.findIndex((t: any) => t.name === 'Payments')].mode, 'default', 'the team uses the workspace’s approver again')
+  assert.equal(marketing.teams[o.teams.findIndex((t: any) => t.name === 'Payments')].mode, 'default', `the team uses the workspace’s ${T.approver} again`)
   assert.equal(marketing.approver.email.split('@')[0], 'david')
   // A backup who leaves is simply dropped.
   await approve('david', ['documentation'])

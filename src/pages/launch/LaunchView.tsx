@@ -6,6 +6,7 @@ import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { dayText, KIND_LABEL, momentText, reviewersLine, stateLabel, stateTag } from './launchText'
 import styles from './LaunchView.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 export type LaunchViewProps = {
   state: 'loading' | 'error' | 'ready'
@@ -76,19 +77,19 @@ function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemo
         <Tag size="sm" type={stateTag(step.state)} data-testid={`state-${step.step}`}>{stateLabel(step.state)}</Tag>
       </header>
       <p className={styles.reviewers}>
-        {step.used ? <><span className={styles.small}>Reviewer:</span> {reviewersLine(step.reviewers.primary, step.reviewers.alternate)}</> : 'This team’s launches do not use this step.'}
+        {step.used ? <><span className={styles.small}>{T.Approver}:</span> {reviewersLine(step.reviewers.primary, step.reviewers.alternate)}</> : 'This team’s launches do not use this step.'}
       </p>
       {step.state === 'missing' && (
         <InlineNotification
           kind="warning"
           lowContrast
           hideCloseButton
-          title="Approver missing"
-          subtitle={reviewersHref ? 'Nobody is set up to answer this step. An owner can add an approver.' : 'Nobody is set up to answer this step. Ask a workspace owner to add an approver.'}
+          title={`${T.Approver} missing`}
+          subtitle={reviewersHref ? `Nobody is set up to answer this step. An owner can add ${T.a('approver')}.` : `Nobody is set up to answer this step. Ask a workspace owner to add ${T.a('approver')}.`}
         />
       )}
       {step.answer && <AnswerBlock answer={step.answer} step={step.step} showTag={reopened} />}
-      {reopened && <p className={styles.reopened}>The brief changed after this answer was given. {step.canAnswer ? 'Please confirm it, or answer again.' : 'The approver is asked to confirm it.'}</p>}
+      {reopened && <p className={styles.reopened}>The brief changed after this answer was given. {step.canAnswer ? 'Please confirm it, or answer again.' : `The ${T.approver} is asked to confirm it.`}</p>}
       {step.links.length > 0 && (
         <ul className={styles.links} aria-label={`Links for ${step.label}`}>
           {step.links.map((l) => (
@@ -201,7 +202,7 @@ function Summary({ launch, onEdit, onAsk }: { launch: LaunchDetail; onEdit: () =
     { key: 'changes_needed', label: 'Changes needed', n: s.counts.changes },
     { key: 'reopened', label: 'Reopened', n: s.counts.reopened },
     { key: 'waiting', label: 'Waiting', n: s.counts.waiting },
-    { key: 'missing', label: 'Approver missing', n: s.counts.missing },
+    { key: 'missing', label: `${T.Approver} missing`, n: s.counts.missing },
   ]
   const external = launch.you.kind === 'external'
   // The colour says at a glance how it stands: green once it is a go, coral while something holds it back or it is a no-go, cream when the brief has
@@ -275,11 +276,11 @@ function Brief({ launch }: { launch: LaunchDetail }) {
     <div className={styles.brief} data-testid="launch-brief">
       {launch.briefNotes ? (
         <div>
-          <p className={styles.eyebrow}>{external ? 'What you need to know' : 'Notes for approvers'}</p>
+          <p className={styles.eyebrow}>{external ? 'What you need to know' : `Notes for ${T.approvers}`}</p>
           <p className={styles.notes}>{launch.briefNotes}</p>
         </div>
       ) : (
-        <p className={styles.small}>{external ? 'No notes have been added for you yet.' : 'No notes yet. The launch owner can add what approvers should know.'}</p>
+        <p className={styles.small}>{external ? 'No notes have been added for you yet.' : `No notes yet. The launch owner can add what ${T.approvers} should know.`}</p>
       )}
       {!external && (
         <BriefStage n={1} stage="storyboard" now={launch.stage}>
@@ -303,7 +304,7 @@ function Brief({ launch }: { launch: LaunchDetail }) {
         )}
       </BriefStage>
       <BriefStage n={external ? 2 : 3} stage="approval" now={launch.stage}>
-        <p className={styles.notes}>Answers have been asked for. Each approver gives a go signal on the Launch Summary tab. The brief at this stage is complete.</p>
+        <p className={styles.notes}>Answers have been asked for. Each {T.approver} gives a go signal on the Launch Summary tab. The brief at this stage is complete.</p>
       </BriefStage>
     </div>
   )
@@ -330,7 +331,7 @@ function Docs({ launch }: { launch: LaunchDetail }) {
       ))}
       {fromReviewers.length > 0 && (
         <li className={styles.doc} data-testid="doc-reviewers">
-          <p className={styles.docTitle}>From approvers</p>
+          <p className={styles.docTitle}>From {T.approvers}</p>
           <p className={styles.small}>Links added to an approval step.</p>
           <ul className={styles.docLinks}>
             {fromReviewers.map((l) => (
@@ -348,8 +349,8 @@ function focusText(launch: LaunchDetail, key: string): string | null {
   const s = launch.steps.find((x) => x.step === key)
   if (!s) return null
   if (!s.used) return `This team’s launches do not use ${s.label}.`
-  if (s.state === 'missing') return `${s.label} has no approver yet.`
-  if (s.state === 'reopened') return s.canAnswer ? `The brief changed after ${s.label} was answered. Please confirm it, or answer again.` : `The brief changed after ${s.label} was answered. Its approver is asked to confirm it.`
+  if (s.state === 'missing') return `${s.label} has no ${T.approver} yet.`
+  if (s.state === 'reopened') return s.canAnswer ? `The brief changed after ${s.label} was answered. Please confirm it, or answer again.` : `The brief changed after ${s.label} was answered. Its ${T.approver} is asked to confirm it.`
   if (s.answer) return `${s.label} was answered by ${s.answer.by?.name ?? 'someone'} on ${momentText(s.answer.at)}: ${stateLabel(s.answer.answer).toLowerCase()}.${s.canAnswer ? ' You can answer again below.' : ''}`
   return s.canAnswer ? `Your answer is wanted on ${s.label}.` : `${s.label} is waiting for ${reviewersLine(s.reviewers.primary, s.reviewers.alternate)}.`
 }
@@ -396,7 +397,7 @@ export function LaunchView(p: LaunchViewProps) {
   }
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Launch" description="The go signals from each function, with the evidence behind them. Everyone sees every section; each step’s approver answers their own." />
+      <ProjectHeader title="Launch" description={`The go signals from each function, with the evidence behind them. Everyone sees every section; each step’s ${T.approver} answers their own.`} />
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={p.errorText} />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading the launch" />}
       {p.state === 'error' && !p.errorText && <p className={styles.small}>The launch could not be loaded.</p>}
@@ -414,7 +415,7 @@ export function LaunchView(p: LaunchViewProps) {
                 asked.asked.length ? asked.asked.map((a) => `${a.name} (${a.steps.join(', ')})`).join('; ') : '',
                 asked.alreadyAsked.length ? `${asked.alreadyAsked.length} already asked for this brief.` : '',
                 asked.held.length ? `${asked.held.length} not emailed (a placeholder address, or the temporary recipient limit).` : '',
-                asked.missing.length ? `No approver for ${asked.missing.map((m) => m.label).join(', ')}.` : '',
+                asked.missing.length ? `No ${T.approver} for ${asked.missing.map((m) => m.label).join(', ')}.` : '',
               ].filter(Boolean).join(' ')}
               onCloseButtonClick={() => setAsked(null)}
               data-testid="asked-result"
@@ -467,14 +468,14 @@ export function LaunchView(p: LaunchViewProps) {
             <div className={styles.modalForm} data-testid="ask-dialog">
               {toAsk.length ? (
                 <>
-                  <p className={styles.notes}>These approvers get one email each, with a link to their step:</p>
+                  <p className={styles.notes}>These {T.approvers} get one email each, with a link to their step:</p>
                   <ul className={styles.plain}>{toAsk.map((a) => <li key={a.name}><strong>{a.name}</strong>: {a.steps.join(', ')}</li>)}</ul>
                   {launch?.slack.channel && <p className={styles.notes}>A card with answer buttons for each waiting step is also posted in the launch’s Slack thread (#{launch.slack.channel}).</p>}
                 </>
               ) : (
-                <p className={styles.notes}>No step is waiting on an approver who can be asked.</p>
+                <p className={styles.notes}>No step is waiting on {T.a('approver')} who can be asked.</p>
               )}
-              {withoutReviewer.length > 0 && <p className={styles.notes}>No approver is set up for {withoutReviewer.map((x) => x.label).join(', ')}, so nobody can be asked. An owner can add one under Admin, Approvals.</p>}
+              {withoutReviewer.length > 0 && <p className={styles.notes}>No {T.approver} is set up for {withoutReviewer.map((x) => x.label).join(', ')}, so nobody can be asked. An owner can add one under Admin, {T.Approvals}.</p>}
             </div>
           </Modal>
           <Modal
@@ -492,7 +493,7 @@ export function LaunchView(p: LaunchViewProps) {
             <div className={styles.modalForm}>
               <TextInput id="launch-name" labelText="Name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
               <TextInput id="launch-date" labelText="Target date" placeholder="2026-12-01" helperText="A day, like 2026-12-01. Leave empty if there is none yet." value={date} invalid={!dateOk} invalidText="Use a date like 2026-12-01." onChange={(e) => setDate(e.target.value)} />
-              <TextArea id="launch-notes" labelText="Notes for approvers" helperText="What they should know. Changing these notes changes the brief: answers given on the old one are asked for again." rows={6} value={notes} maxCount={8000} onChange={(e) => setNotes(e.target.value)} />
+              <TextArea id="launch-notes" labelText={`Notes for ${T.approvers}`} helperText="What they should know. Changing these notes changes the brief: answers given on the old one are asked for again." rows={6} value={notes} maxCount={8000} onChange={(e) => setNotes(e.target.value)} />
             </div>
           </Modal>
         </>

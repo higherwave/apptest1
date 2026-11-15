@@ -3,6 +3,7 @@ import { friendlyMessage, type ApprovalPerson } from '../../api/client'
 import { useApprovals, useSaveApprovalStep, useSetApproverAway } from '../../api/hooks'
 import { backupsFor } from './approvalsLogic'
 import { ApprovalsView } from './ApprovalsView'
+import { T } from '../../../shared/terms.mjs'
 
 // Container: the approvals grid, the step open in the panel, and the owner-only changes.
 export function ApprovalsPage() {
@@ -29,7 +30,7 @@ export function ApprovalsPage() {
       onOpen={(step) => { setNotice(undefined); away.reset(); save.reset(); setOpenStep(step) }}
       onClosePanel={closePanel}
       onSave={(step, input) =>
-        save.mutate({ step, input }, { onSuccess: () => { setOpenStep(null); setNotice('Approvers saved.') } })
+        save.mutate({ step, input }, { onSuccess: () => { setOpenStep(null); setNotice(`${T.Approvers} saved.`) } })
       }
       awayFor={awayFor}
       onAway={(person, on) => {

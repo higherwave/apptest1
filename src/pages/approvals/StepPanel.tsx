@@ -4,10 +4,11 @@ import type { ApprovalsOverview, ApprovalStep, ApprovalStepInput } from '../../a
 import { draftProblem, draftResult, type TeamDraft } from './approvalsLogic'
 import parts from '../../components/PanelParts.module.scss'
 import styles from './ApprovalsView.module.scss'
+import { T } from '../../../shared/terms.mjs'
 
 const MODES: { key: TeamDraft['mode']; label: string }[] = [
   { key: 'default', label: 'Default' },
-  { key: 'custom', label: 'Team approver' },
+  { key: 'custom', label: `Team ${T.approver}` },
   { key: 'off', label: 'Not used' },
 ]
 
@@ -43,15 +44,15 @@ export function StepPanel({ step, overview, busy, error, onSave, onCancel }: { s
     <div className={parts.body} data-testid="step-panel" data-step={step.key}>
       <div className={parts.scroll}>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
-      <section className={parts.section} aria-label="Workspace approver">
-        <h3 className={parts.heading}>Workspace approver</h3>
-        <p className={parts.note}>Approves this step for every team that does not choose its own. The backup answers only while the approver is marked away.</p>
-        <PersonSelect id="approver-select" label="Approver" value={approver} none="No approver" people={overview.people} noExternal onChange={(v) => { setApprover(v); if (!v) setBackup('') }} />
-        <PersonSelect id="backup-select" label="Backup" value={backup} none="No backup" people={overview.people} exclude={approver} noExternal disabled={!approver} onChange={setBackup} />
+      <section className={parts.section} aria-label={`Workspace ${T.approver}`}>
+        <h3 className={parts.heading}>Workspace {T.approver}</h3>
+        <p className={parts.note}>Approves this step for every team that does not choose its own. The {T.backup} answers only while the {T.approver} is marked away.</p>
+        <PersonSelect id="approver-select" label={`${T.Approver}`} value={approver} none={`No ${T.approver}`} people={overview.people} noExternal onChange={(v) => { setApprover(v); if (!v) setBackup('') }} />
+        <PersonSelect id="backup-select" label={`${T.Backup}`} value={backup} none={`No ${T.backup}`} people={overview.people} exclude={approver} noExternal disabled={!approver} onChange={setBackup} />
       </section>
       <section className={parts.section} aria-label="Teams">
         <h3 className={parts.heading}>Teams</h3>
-        <p className={parts.note}>{overview.teams.length ? 'Each team uses the workspace approver unless you choose otherwise.' : 'No teams yet.'}</p>
+        <p className={parts.note}>{overview.teams.length ? `Each team uses the workspace ${T.approver} unless you choose otherwise.` : 'No teams yet.'}</p>
         {overview.teams.map((t) => {
           const d = teams[t.id] ?? { mode: 'default' as const, approver: '', backup: '' }
           const r = draftResult(approver, d, step.optional)
@@ -59,7 +60,7 @@ export function StepPanel({ step, overview, busy, error, onSave, onCancel }: { s
             <div key={t.id} className={styles.teamBlock} data-testid={`team-block-${t.name}`}>
               <div className={styles.teamHead}>
                 <p className={styles.teamName}>{t.name}</p>
-                <p className={styles.resultLine} data-kind={r.kind}>{r.kind === 'off' ? 'Step not used by this team' : r.kind === 'approver' ? `Approved by ${nameOf(r.userId!)}` : 'No approver'}</p>
+                <p className={styles.resultLine} data-kind={r.kind}>{r.kind === 'off' ? 'Step not used by this team' : r.kind === 'approver' ? `Approved by ${nameOf(r.userId!)}` : `No ${T.approver}`}</p>
               </div>
               <ContentSwitcher size="sm" selectedIndex={MODES.findIndex((m) => m.key === d.mode)} onChange={(e) => setTeam(t.id, { mode: e.name as TeamDraft['mode'] })}>
                 {MODES.map((m) => (
@@ -68,8 +69,8 @@ export function StepPanel({ step, overview, busy, error, onSave, onCancel }: { s
               </ContentSwitcher>
               {d.mode === 'custom' && (
                 <div className={styles.teamPickers}>
-                  <PersonSelect id={`team-approver-${t.id}`} label={`${t.name} approver`} value={d.approver} none="Choose an approver" people={overview.people} onChange={(v) => setTeam(t.id, { approver: v, backup: v ? d.backup : '' })} />
-                  <PersonSelect id={`team-backup-${t.id}`} label={`${t.name} backup`} value={d.backup} none="No backup" people={overview.people} exclude={d.approver} disabled={!d.approver} onChange={(v) => setTeam(t.id, { backup: v })} />
+                  <PersonSelect id={`team-approver-${t.id}`} label={`${t.name} ${T.approver}`} value={d.approver} none={`Choose ${T.a('approver')}`} people={overview.people} onChange={(v) => setTeam(t.id, { approver: v, backup: v ? d.backup : '' })} />
+                  <PersonSelect id={`team-backup-${t.id}`} label={`${t.name} ${T.backup}`} value={d.backup} none={`No ${T.backup}`} people={overview.people} exclude={d.approver} disabled={!d.approver} onChange={(v) => setTeam(t.id, { backup: v })} />
                 </div>
               )}
             </div>
