@@ -4,7 +4,7 @@ import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
 import { authConfigured, makeBetterAuth, type AuthService } from './auth.js'
 import { signInOptions, ssoPolicy } from './sso.js'
-import { AlreadyMember, changeRole, ExternalNeedsViewer, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, setExternal } from './members.js'
+import { AlreadyMember, ExternalNeedsViewer, ExternalNoTeams, inviteMember, LastOwner, listMembers, MemberNotFound, removeMember, TeamsManagedBySso, UnknownTeam, updateMember } from './members.js'
 import { noticeAnswered, requestAnswers, sweepLaunch, sweepLaunches, tellAlternatesCover } from './launch-notices.js'
 import { addLink, answerStep, BadAnswer, RequirementsNotPublished, BadLink, createLaunch, getLaunch, getProjectLaunch, LaunchExists, LaunchNotFound, LinkNotFound, listLaunches, NeedsRationale, NoThemes, NotTheReviewer, removeLink, setUpLaunch, StepNotUsed } from './launches.js'
 import { approvalsOverview, BackupNeedsApprover, BadStep, ExternalAllTeams, NoAlternate, SamePerson, saveApprovalStep, setReviewerUnavailable } from './reviewers.js'
@@ -181,7 +181,10 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof MemberNotFound) throw new ApiError(404, 'not_found', 'No such member.')
     if (err instanceof AlreadyMember) throw new ApiError(409, 'already_member', 'That person is already a member.')
     if (err instanceof LastOwner) throw new ApiError(409, 'last_owner', 'A workspace needs at least one owner.')
-    if (err instanceof ExternalNeedsViewer) throw new ApiError(409, 'external_needs_viewer', 'An external member is a viewer. Change the role to viewer first.')
+    if (err instanceof ExternalNeedsViewer) throw new ApiError(409, 'external_needs_viewer', 'An external member is a viewer, and that does not change.')
+    if (err instanceof ExternalNoTeams) throw new ApiError(422, 'external_no_teams', 'An external person does not join teams. They see a launch only when they are asked to approve it.')
+    if (err instanceof TeamsManagedBySso) throw new ApiError(409, 'managed_by_sso', 'People’s places in teams come from your sign-in groups. Change them in your identity provider.')
+    if (err instanceof UnknownTeam) throw new ApiError(404, 'not_found', 'No such team.')
     throw err
   }
 
@@ -209,10 +212,7 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(changeRoleSchema, await readJson(c))
     try {
       c.header('Cache-Control', 'no-store')
-      let member
-      if (input.role !== undefined) member = await changeRole(getDb(), c.get('ctx'), id, input.role)
-      if (input.external !== undefined) member = await setExternal(getDb(), c.get('ctx'), id, input.external)
-      return c.json(member!)
+      return c.json(await updateMember(getDb(), c.get('ctx'), id, input, { teamsLocked: !!ssoPolicy(env).teamGroupPrefix }))
     } catch (err) {
       return memberErrors(err)
     }

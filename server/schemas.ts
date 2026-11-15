@@ -129,12 +129,15 @@ export const inviteMemberSchema = z.object({
   role: z.enum(['owner', 'editor', 'viewer']),
   /** From outside the company (outside counsel, a partner): a viewer whose access is limited to the launches they are asked to review. */
   external: z.boolean().optional(),
+  /** Team id -> the person's role in that team. Left out, they start in the default team. An external person joins none. */
+  teams: z.record(z.uuid(), z.enum(['owner', 'editor', 'viewer'])).optional(),
 })
 export const notificationPrefsSchema = z.object({ digestEnabled: z.boolean().optional(), timeZone: z.string().min(1).max(64).optional() })
 export const teamMemberRoleSchema = z.object({ role: z.enum(['owner', 'editor', 'viewer']) })
+// A person as the People panel saves it: their workspace role and/or their places in teams (team id -> role there). Whether someone is external is set when they are invited and never changed.
 export const changeRoleSchema = z
-  .object({ role: z.enum(['owner', 'editor', 'viewer']).optional(), external: z.boolean().optional() })
-  .refine((v) => v.role !== undefined || v.external !== undefined, 'Choose a role or whether the member is external.')
+  .object({ role: z.enum(['owner', 'editor', 'viewer']).optional(), teams: z.record(z.uuid(), z.enum(['owner', 'editor', 'viewer'])).optional() })
+  .refine((v) => v.role !== undefined || v.teams !== undefined, 'Choose a role or the teams.')
 
 // A launch (one per project): its setup, a reviewer's answer to a step, and a link to evidence.
 const LAUNCH_ANSWERS = ['ready', 'ready_with_conditions', 'changes_needed', 'not_applicable', 'go', 'go_with_conditions', 'no_go'] as const

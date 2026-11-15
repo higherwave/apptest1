@@ -105,9 +105,9 @@ export const mergeArea = (id: string, intoId: string) => request<Area>(`/areas/$
 export const retireArea = (id: string) => request<Area>(`/areas/${id}/retire`, { method: 'POST' })
 export const listMembers = () => request<components['schemas']['MemberList']>('/members')
 export const inviteMember = (input: components['schemas']['InviteMemberRequest']) => request<Member>('/members', { method: 'POST', body: input })
-export const changeMemberRole = (id: string, role: MemberRole) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { role } })
+export type MemberChange = components['schemas']['ChangeMemberRequest']
+export const changeMember = (id: string, body: MemberChange) => request<Member>(`/members/${id}`, { method: 'PATCH', body })
 export const removeMember = (id: string) => request<null>(`/members/${id}`, { method: 'DELETE' })
-export const setMemberExternal = (id: string, external: boolean) => request<Member>(`/members/${id}`, { method: 'PATCH', body: { external } })
 
 // A launch: one per project, answered step by step by each step's reviewer.
 export type LaunchDetail = components['schemas']['LaunchDetail']

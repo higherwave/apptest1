@@ -165,15 +165,10 @@ test('an external person is a viewer, can approve for a team only, and is refuse
   }
   assert.equal((await call(them, 'POST', '/teams', { name: 'Sneaky' })).status, 403)
 
-  // An editor cannot be marked external; marking a viewer external ends their workspace-wide assignments.
-  assert.equal((await call(owner, 'PATCH', `/members/${member('alex')}`, { external: true })).status, 409)
-  await save('sales', { approver: await person('alex'), backup: await person('sam'), teams: {} })
-  const sam = await (await call(owner, 'PATCH', `/members/${member('sam')}`, { external: true })).json()
-  assert.equal(sam.external, true)
-  const after = await grid()
-  assert.equal(after.steps.find((s: any) => s.key === 'sales').backup, null, 'the workspace-wide assignment ended')
-  assert.equal((await call(owner, 'PATCH', `/members/${made.id}`, { role: 'editor' })).status, 409)
-  assert.equal((await (await call(owner, 'PATCH', `/members/${made.id}`, { external: false })).json()).external, false)
+  // Whether someone is external is set when they are invited and never changed: there is no way to flip it.
+  assert.equal((await call(owner, 'PATCH', `/members/${member('sam')}`, { external: true })).status, 422)
+  assert.equal((await call(owner, 'PATCH', `/members/${made.id}`, { external: false })).status, 422)
+  assert.equal((await call(owner, 'PATCH', `/members/${made.id}`, { role: 'editor' })).status, 409, 'an external person stays a viewer')
 })
 
 test('removing a member ends their assignments, so the step shows as a gap', async () => {

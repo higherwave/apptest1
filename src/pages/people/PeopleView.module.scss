@@ -1,0 +1,135 @@
+@use '../../tokens' as tokens;
+@use '../insights/body';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.title {
+  @include tokens.role('title-lg');
+  margin: 0 0 var(--at-space-xs);
+  color: var(--at-ink);
+}
+
+.intro {
+  @include tokens.role('body-md');
+  max-inline-size: 42rem;
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+// Grids with table roles, because the design rules do not allow a raw table. Columns are flex bases so they line up row to row.
+.table { min-inline-size: 48rem; }
+
+.row {
+  display: flex;
+  gap: var(--at-space-md);
+  align-items: center;
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  &:first-child { border-block-start: none; }
+  &[data-testid^='person-']:hover,
+  &[data-selected] { background: var(--at-surface-soft); }
+}
+
+.headCell {
+  @include tokens.role('eyebrow');
+  padding: var(--at-space-xs) 0;
+  color: var(--at-muted);
+}
+
+.personCol { flex: 2.2 1 0; min-inline-size: 0; }
+.roleCol { flex: 1 1 0; }
+.teamsCol { flex: 2 1 0; min-inline-size: 0; }
+.approvalsCol { flex: 2 1 0; min-inline-size: 0; }
+
+.cell {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  padding-block: var(--at-space-xs);
+  @include tokens.role('body-md');
+  color: var(--at-ink);
+}
+
+.who { min-inline-size: 0; }
+
+.name {
+  @include tokens.role('label-md');
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.nameButton { @include tokens.role('label-md'); padding-inline-start: 0; }
+.you { @include tokens.role('meta'); margin-inline-end: var(--at-space-xs); color: var(--at-muted); }
+.tag { margin-inline-start: var(--at-space-xs); }
+
+.email {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+  overflow-wrap: anywhere;
+}
+
+.muted { @include tokens.role('body-md'); color: var(--at-text-tertiary); }
+.chips { display: flex; flex-wrap: wrap; gap: var(--at-space-xs); }
+.approvalsText { @include tokens.role('meta'); color: var(--at-muted); overflow-wrap: anywhere; }
+
+.avatar,
+.avatarBig {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--at-radius-full);
+  background: var(--at-surface-hover-strong);
+  color: var(--at-ink);
+  @include tokens.role('meta');
+  inline-size: 2rem;
+  block-size: 2rem;
+}
+.avatarBig { inline-size: 2.75rem; block-size: 2.75rem; @include tokens.role('label-md'); }
+
+// The panels.
+.panelBody { display: flex; flex-direction: column; gap: var(--at-space-xl); }
+.panelSection { display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.panelHeading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
+.help { @include tokens.role('meta'); margin: 0; color: var(--at-muted); }
+.personHead { display: flex; align-items: center; gap: var(--at-space-md); }
+.personName { @include tokens.role('title-md'); margin: 0; color: var(--at-ink); }
+.teamList { display: flex; flex-direction: column; gap: var(--at-space-xs); }
+.teamRow { display: flex; align-items: center; justify-content: space-between; gap: var(--at-space-sm); min-block-size: 2.75rem; }
+.confirmBox { display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.confirmActions { display: flex; gap: var(--at-space-sm); }
+.panelActions {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--at-space-sm);
+  padding-block: var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+  background: var(--at-canvas);
+}

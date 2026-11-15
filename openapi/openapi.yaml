@@ -263,8 +263,10 @@ paths:
     patch:
       operationId: changeMemberRole
       summary: >
-        Owners only. Changes a member's role and/or marks them external or not. 409 `last_owner` if it would leave the workspace with no owner; 409
-        `external_needs_viewer` for an external member who is not a viewer. Marking someone external ends any all-teams approver assignment they hold.
+        Owners only. Changes a member's workspace role and/or their places in teams (`teams`: team id to their role there; a team left out takes them out of
+        it), all or nothing. Whether someone is external is set when they are invited and cannot be changed. 409 `last_owner` if it would leave the workspace
+        with no owner; 409 `external_needs_viewer` for an external member's role; 422 `external_no_teams` for teams on an external member; 409 `managed_by_sso`
+        for another team than the default one while sign-in groups decide teams; 404 for an unknown team.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       requestBody:
@@ -287,7 +289,7 @@ paths:
     delete:
       operationId: removeMember
       summary: >
-        Owners only. Removes a member and ends their open sessions. 409 `last_owner` if they are the only owner.
+        Owners only. Removes a member, takes them out of every team and ends their open sessions. Where they were a step's approver its backup takes over; a team's own approver for a step reverts to the workspace's. 409 `last_owner` if they are the only owner.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -4001,7 +4003,7 @@ components:
               label: { type: string, description: 'Completes "Continue with ...".' }
     Member:
       type: object
-      required: [id, email, displayName, role, status, avatarUrl, external]
+      required: [id, email, displayName, role, status, avatarUrl, external, teams, approvals]
       properties:
         id: { type: string, description: 'The membership id.' }
         email: { type: string }
@@ -4009,7 +4011,29 @@ components:
         role: { type: string, enum: [owner, editor, viewer] }
         status: { type: string, enum: [active, invited], description: 'Invited until their first sign-in.' }
         avatarUrl: { type: string, nullable: true }
-        external: { type: boolean, description: 'From outside the company. An external member is a viewer with limited access.' }
+        external: { type: boolean, description: 'From outside the company. An external member is a viewer with limited access. Set when invited; never changed.' }
+        teams:
+          type: array
+          description: The teams the person is in, with their role in each (the default team first).
+          items:
+            type: object
+            required: [teamId, name, role]
+            properties:
+              teamId: { type: string }
+              name: { type: string }
+              role: { type: string, enum: [owner, editor, viewer] }
+        approvals:
+          type: array
+          description: The launch steps the person approves (or is the backup for), for the workspace or for one team.
+          items:
+            type: object
+            required: [step, label, role, teamId, teamName]
+            properties:
+              step: { type: string }
+              label: { type: string }
+              role: { type: string, enum: [approver, backup] }
+              teamId: { type: [string, 'null'], description: 'Null: for the whole workspace.' }
+              teamName: { type: [string, 'null'] }
     Ticket:
       type: object
       required: [id, storyId, storyKey, jiraKey, project, issueType, summary, description, priority, assignee, labels, points, simulated, jiraUrl, createdBy, createdAt]
@@ -4243,7 +4267,8 @@ components:
       properties:
         email: { type: string }
         role: { type: string, enum: [owner, editor, viewer] }
-        external: { type: boolean, description: 'Invite from outside the company. Needs role viewer (409 `external_needs_viewer` otherwise).' }
+        external: { type: boolean, description: 'Invite from outside the company. Needs role viewer (409 `external_needs_viewer` otherwise). Cannot be changed later. An external person joins no team (422 `external_no_teams` if teams are sent).' }
+        teams: { type: object, additionalProperties: { type: string, enum: [owner, editor, viewer] }, description: 'Team id to the person''s role in that team. Left out, they start in the default team.' }
     TeamList:
       type: object
       required: [data]
@@ -4556,7 +4581,7 @@ components:
       type: object
       properties:
         role: { type: string, enum: [owner, editor, viewer] }
-        external: { type: boolean }
+        teams: { type: object, additionalProperties: { type: string, enum: [owner, editor, viewer] }, description: 'Team id to the person''s role in that team. A team left out takes them out of it.' }
     Error:
       type: object
       required: [error]

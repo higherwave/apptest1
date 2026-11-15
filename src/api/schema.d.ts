@@ -254,11 +254,11 @@ export interface paths {
         get?: never;
         put?: never;
         post?: never;
-        /** Owners only. Removes a member and ends their open sessions. 409 `last_owner` if they are the only owner. */
+        /** Owners only. Removes a member, takes them out of every team and ends their open sessions. Where they were a step's approver its backup takes over; a team's own approver for a step reverts to the workspace's. 409 `last_owner` if they are the only owner. */
         delete: operations["removeMember"];
         options?: never;
         head?: never;
-        /** Owners only. Changes a member's role and/or marks them external or not. 409 `last_owner` if it would leave the workspace with no owner; 409 `external_needs_viewer` for an external member who is not a viewer. Marking someone external ends any all-teams approver assignment they hold. */
+        /** Owners only. Changes a member's workspace role and/or their places in teams (`teams`: team id to their role there; a team left out takes them out of it), all or nothing. Whether someone is external is set when they are invited and cannot be changed. 409 `last_owner` if it would leave the workspace with no owner; 409 `external_needs_viewer` for an external member's role; 422 `external_no_teams` for teams on an external member; 409 `managed_by_sso` for another team than the default one while sign-in groups decide teams; 404 for an unknown team. */
         patch: operations["changeMemberRole"];
         trace?: never;
     };
@@ -3178,8 +3178,25 @@ export interface components {
              */
             status: "active" | "invited";
             avatarUrl: string | null;
-            /** @description From outside the company. An external member is a viewer with limited access. */
+            /** @description From outside the company. An external member is a viewer with limited access. Set when invited; never changed. */
             external: boolean;
+            /** @description The teams the person is in, with their role in each (the default team first). */
+            teams: {
+                teamId: string;
+                name: string;
+                /** @enum {string} */
+                role: "owner" | "editor" | "viewer";
+            }[];
+            /** @description The launch steps the person approves (or is the backup for), for the workspace or for one team. */
+            approvals: {
+                step: string;
+                label: string;
+                /** @enum {string} */
+                role: "approver" | "backup";
+                /** @description Null: for the whole workspace. */
+                teamId: string | null;
+                teamName: string | null;
+            }[];
         };
         Ticket: {
             id: string;
@@ -3368,8 +3385,12 @@ export interface components {
             email: string;
             /** @enum {string} */
             role: "owner" | "editor" | "viewer";
-            /** @description Invite from outside the company. Needs role viewer (409 `external_needs_viewer` otherwise). */
+            /** @description Invite from outside the company. Needs role viewer (409 `external_needs_viewer` otherwise). Cannot be changed later. An external person joins no team (422 `external_no_teams` if teams are sent). */
             external?: boolean;
+            /** @description Team id to the person's role in that team. Left out, they start in the default team. */
+            teams?: {
+                [key: string]: "owner" | "editor" | "viewer";
+            };
         };
         TeamList: {
             data: components["schemas"]["Team"][];
@@ -3670,7 +3691,10 @@ export interface components {
         ChangeMemberRequest: {
             /** @enum {string} */
             role?: "owner" | "editor" | "viewer";
-            external?: boolean;
+            /** @description Team id to the person's role in that team. A team left out takes them out of it. */
+            teams?: {
+                [key: string]: "owner" | "editor" | "viewer";
+            };
         };
         Error: {
             error: {

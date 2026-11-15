@@ -4,7 +4,7 @@ import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
   getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread,  setTeamSlackChannel, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
-  changeMemberRole, setMemberExternal, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
+  changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, renameTeam, deleteTeam, setTeamMember, removeTeamMember, moveProjectToTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
@@ -63,25 +63,17 @@ export const useAudit = (group?: AuditGroup, teamId?: string) =>
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   })
 export const useMembers = () => useQuery({ queryKey: ['members'], queryFn: listMembers })
-export const useInviteMember = () => {
+// People: every change can move a person between teams or end approvals, so each refreshes members, teams, approvals, the audit log and who I am.
+const PEOPLE_KEYS = ['members', 'teams', 'approvals', 'audit', 'me', 'projects']
+function usePeopleMutation<T, R>(fn: (input: T) => Promise<R>) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (input: { email: string; role: MemberRole; external?: boolean }) => inviteMember(input), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
+  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all(PEOPLE_KEYS.map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
 }
-export const useChangeMemberRole = () => {
-  const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ id, role }: { id: string; role: MemberRole }) => changeMemberRole(id, role), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['members'] }) })
-}
-export const useRemoveMember = () => {
-  const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (id: string) => removeMember(id), onSuccess: () => Promise.all(['members', 'reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
-}
+export const useInviteMember = () => usePeopleMutation((input: Parameters<typeof inviteMember>[0]) => inviteMember(input))
+export const useChangeMember = () => usePeopleMutation(({ id, body }: { id: string; body: Parameters<typeof changeMember>[1] }) => changeMember(id, body))
+export const useRemoveMember = () => usePeopleMutation((id: string) => removeMember(id))
 
 // Teams. Every change can move people and projects between teams, so each refreshes the teams, the project list and who I am.
-export const useSetMemberExternal = () => {
-  const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ id, external }: { id: string; external: boolean }) => setMemberExternal(id, external), onSuccess: () => Promise.all(['members', 'reviewers', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
-}
-
 // A launch (one per project). A mutation returns the launch as the caller now sees it, which replaces the cached copy.
 export const useProjectLaunch = (projectId: string | undefined) => useQuery({ queryKey: ['project-launch', projectId], queryFn: () => getProjectLaunch(projectId!), enabled: !!projectId })
 export const useLaunch = (id: string | undefined) => useQuery({ queryKey: ['launch', id], queryFn: () => getLaunch(id!), enabled: !!id, retry: false })
@@ -123,7 +115,7 @@ export const useRemoveLaunchLink = () => useLaunchMutation(({ id, linkId }: { id
 export const useApprovals = (enabled = true) => useQuery({ queryKey: ['approvals'], queryFn: getApprovals, enabled })
 function useApprovalMutation<T>(fn: (input: T) => Promise<unknown>) {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all(['approvals', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+  return useMutation({ mutationFn: fn, onSuccess: () => Promise.all(['approvals', 'members', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
 }
 export const useSaveApprovalStep = () => useApprovalMutation(({ step, input }: { step: string; input: Parameters<typeof saveApprovalStep>[1] }) => saveApprovalStep(step, input))
 export const useSetApproverAway = () => useApprovalMutation(({ userId, unavailable }: { userId: string; unavailable: boolean }) => setApproverAway(userId, unavailable))

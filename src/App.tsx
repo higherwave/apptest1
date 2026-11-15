@@ -5,7 +5,7 @@ import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
 import { TeamsPage } from './pages/teams/TeamsPage'
-import { MembersEntry } from './pages/members/MembersPage'
+import { MembersEntry, PeoplePage } from './pages/people/PeoplePage'
 import { ApprovalsPage } from './pages/approvals/ApprovalsPage'
 import { AppStatusPage } from './pages/settings/AppStatusPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
@@ -76,7 +76,7 @@ export function App() {
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
-        <Route path="members" element={<Navigate to="/settings/members" replace />} />
+        <Route path="members" element={<Navigate to="/settings/people" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
         <Route path="insights/personas" element={<CustomersPage />} />
         <Route path="insights/customers" element={<Navigate to="/insights/personas" replace />} />
@@ -92,6 +92,7 @@ export function App() {
           <Route path="usage" element={<UsagePage />} />
           <Route path="teams" element={<TeamsPage />} />
           <Route path="members" element={<MembersEntry />} />
+          <Route path="people" element={<PeoplePage />} />
           <Route path="approvals" element={<ApprovalsPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>
