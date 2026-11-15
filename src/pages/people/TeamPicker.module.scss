@@ -1,0 +1,5 @@
+@use '../../tokens' as tokens;
+
+.teamList { display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.teamRow { display: flex; align-items: center; justify-content: space-between; gap: var(--at-space-sm); }
+.teamRow > :last-child:not(:first-child) { flex: none; inline-size: 11rem; } // the role pickers line up

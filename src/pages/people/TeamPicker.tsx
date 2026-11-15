@@ -1,7 +1,7 @@
 import { Checkbox, Select, SelectItem } from '@carbon/react'
 import type { MemberRole, Team } from '../../api/client'
 import { TEAM_ROLE_LABEL, type TeamChoice } from './peopleLogic'
-import styles from './PeopleView.module.scss'
+import styles from './TeamPicker.module.scss'
 
 const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 

@@ -2,9 +2,10 @@ import { Button, InlineNotification, Select, SelectItem, TextInput } from '@carb
 import { Close } from '@carbon/icons-react'
 import { useState } from 'react'
 import type { CreateTeamInput, Member, MemberRole, SaveTeamInput, Team } from '../../api/client'
-import { initials, TEAM_ROLE_LABEL } from '../people/peopleLogic'
+import { TEAM_ROLE_LABEL } from '../people/peopleLogic'
 import { addable, channelProblem, deleteBlock, nameProblem, normalizeChannel, teamChange, type TeamDraft } from './teamsLogic'
-import styles from './TeamsView.module.scss'
+import parts from '../../components/PanelParts.module.scss'
+import styles from './TeamPanel.module.scss'
 
 const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 
@@ -40,29 +41,30 @@ export function TeamPanel({ team, teams, members, membersLocked, busy, error, on
     else onCancel()
   }
   return (
-    <div className={styles.panelBody} data-testid="team-panel" data-team={team?.name ?? 'new'}>
+    <div className={parts.body} data-testid="team-panel" data-team={team?.name ?? 'new'}>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
-      <section className={styles.panelSection} aria-label="Team">
+      <section className={parts.section} aria-label="Team">
         <TextInput id="team-name" labelText="Team name" placeholder="e.g. Support" value={draft.name} invalid={!!draft.name.trim() && !!nameBad} invalidText={nameBad ?? ''} onChange={(e) => set({ name: e.target.value })} />
         <div className={styles.channel}>
           <span className={styles.hash} aria-hidden="true">#</span>
           <TextInput id="team-slack" labelText="Slack channel for launches" placeholder="launches" value={draft.channel.replace(/^#/, '')} invalid={!!chanBad} invalidText={chanBad ?? ''} maxLength={80} onChange={(e) => set({ channel: e.target.value })} />
         </div>
-        <p className={styles.help}>Each launch of this team gets one thread here, with a reply when answers are asked for, a step is answered, the final decision is made or the brief reopens an answer. Leave it empty to post nothing. Invite the Signal Flow app to a private channel first.</p>
+        <p className={parts.note}>Each launch of this team gets one thread here, with a reply when answers are asked for, a step is answered, the final decision is made or the brief reopens an answer. Leave it empty to post nothing. Invite the Signal Flow app to a private channel first.</p>
       </section>
-      <section className={styles.panelSection} aria-label="People">
-        <h3 className={styles.panelHeading}>People</h3>
-        {!team && <p className={styles.help}>Optional. You can add people later.</p>}
-        {membersLocked && <p className={styles.help}>People’s places in this team come from your sign-in groups. Change them in your identity provider.</p>}
-        <ul className={styles.memberList} aria-label="People in the team">
+      <section className={parts.section} aria-label="People">
+        <h3 className={parts.heading}>People</h3>
+        {!team && <p className={parts.note}>Optional. You can add people later.</p>}
+        {membersLocked && <p className={parts.note}>People’s places in this team come from your sign-in groups. Change them in your identity provider.</p>}
+        <ul className={parts.list} aria-label="People in the team">
           {people.map((p) => (
-            <li key={p.id} className={styles.memberRow} data-testid={`team-member-${p.who!.email}`}>
-              <span className={styles.avatar} aria-hidden="true">{initials(p.who!.displayName || p.who!.email)}</span>
-              <span className={styles.memberWho}><span className={styles.memberName}>{p.who!.displayName}</span><span className={styles.sub}>{p.who!.email}</span></span>
-              <Select id={`role-${p.id}`} labelText={`${p.who!.displayName} role`} hideLabel size="sm" value={p.role} disabled={membersLocked} onChange={(e) => set({ members: { ...draft.members, [p.id]: e.target.value as MemberRole } })}>
-                {ROLES.map((r) => <SelectItem key={r} value={r} text={TEAM_ROLE_LABEL[r]} />)}
-              </Select>
+            <li key={p.id} className={parts.item} data-testid={`team-member-${p.who!.email}`}>
+              <span><span className={parts.itemName}>{p.who!.displayName}</span><span className={parts.itemSub}>{p.who!.email}</span></span>
               <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove ${p.who!.displayName} from the team`} tooltipPosition="left" disabled={membersLocked} data-testid={`remove-member-${p.who!.email}`} onClick={() => { const next = { ...draft.members }; delete next[p.id]; set({ members: next }) }} />
+              <div className={parts.itemField}>
+                <Select id={`role-${p.id}`} labelText={`${p.who!.displayName} role`} hideLabel size="sm" value={p.role} disabled={membersLocked} onChange={(e) => set({ members: { ...draft.members, [p.id]: e.target.value as MemberRole } })}>
+                  {ROLES.map((r) => <SelectItem key={r} value={r} text={TEAM_ROLE_LABEL[r]} />)}
+                </Select>
+              </div>
             </li>
           ))}
         </ul>
@@ -72,35 +74,38 @@ export function TeamPanel({ team, teams, members, membersLocked, busy, error, on
             {choices.map((m) => <SelectItem key={m.id} value={m.id} text={`${m.displayName} · ${m.email}`} />)}
           </Select>
         ) : (
-          <p className={styles.help}>Everyone in the workspace is in this team.</p>
+          <p className={parts.help}>Everyone in the workspace is in this team.</p>
         )}
       </section>
       {team && (
-        <section className={styles.panelSection} aria-label="Projects">
-          <h3 className={styles.panelHeading}>Projects</h3>
-          {team.projects.length === 0 && <p className={styles.help}>This team has no projects.</p>}
-          <ul className={styles.memberList} aria-label="Projects in the team">
+        <section className={parts.section} aria-label="Projects">
+          <h3 className={parts.heading}>Projects</h3>
+          {team.projects.length === 0 && <p className={parts.help}>This team has no projects.</p>}
+          <ul className={parts.list} aria-label="Projects in the team">
             {team.projects.map((pr) => (
-              <li key={pr.id} className={styles.memberRow} data-testid={`team-project-${pr.name}`}>
-                <span className={styles.memberWho}><span className={styles.memberName}>{pr.name}</span></span>
-                <Select id={`move-${pr.id}`} labelText={`Move ${pr.name} to`} hideLabel size="sm" value={draft.moves[pr.id] ?? ''} onChange={(e) => set({ moves: { ...draft.moves, [pr.id]: e.target.value } })}>
-                  <SelectItem value="" text="Move to…" />
-                  {teams.filter((t) => t.id !== team.id).map((t) => <SelectItem key={t.id} value={t.id} text={t.name} />)}
-                </Select>
+              <li key={pr.id} className={parts.item} data-testid={`team-project-${pr.name}`}>
+                <span className={parts.itemName}>{pr.name}</span>
+                <span />
+                <div className={parts.itemField}>
+                  <Select id={`move-${pr.id}`} labelText={`Move ${pr.name} to`} hideLabel size="sm" value={draft.moves[pr.id] ?? ''} onChange={(e) => set({ moves: { ...draft.moves, [pr.id]: e.target.value } })}>
+                    <SelectItem value="" text="Move to…" />
+                    {teams.filter((t) => t.id !== team.id).map((t) => <SelectItem key={t.id} value={t.id} text={t.name} />)}
+                  </Select>
+                </div>
               </li>
             ))}
           </ul>
         </section>
       )}
       {team && (
-        <section className={styles.panelSection} aria-label="Delete">
-          <h3 className={styles.panelHeading}>Delete this team</h3>
+        <section className={parts.section} aria-label="Delete">
+          <h3 className={parts.heading}>Delete this team</h3>
           {block ? (
-            <p className={styles.help} data-testid="delete-blocked">{block}</p>
+            <p className={parts.help} data-testid="delete-blocked">{block}</p>
           ) : confirming ? (
-            <div className={styles.confirmBox} data-testid="delete-confirm">
-              <p className={styles.help}>The team’s people stay in the workspace; they just leave this team. Its approvals go with it.</p>
-              <div className={styles.confirmActions}>
+            <div className={parts.confirmBox} data-testid="delete-confirm">
+              <p className={parts.help}>The team’s people stay in the workspace; they just leave this team. Its approvals go with it.</p>
+              <div className={parts.confirmActions}>
                 <Button kind="danger" size="sm" disabled={busy} onClick={onDelete} data-testid="confirm-delete-team">Delete</Button>
                 <Button kind="ghost" size="sm" onClick={() => setConfirming(false)}>Keep</Button>
               </div>
@@ -110,7 +115,7 @@ export function TeamPanel({ team, teams, members, membersLocked, busy, error, on
           )}
         </section>
       )}
-      <div className={styles.panelActions}>
+      <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-team">Cancel</Button>
         <Button kind="primary" size="md" disabled={!valid || !draft.name.trim() || busy} onClick={save} data-testid="save-team">{busy ? 'Saving…' : team ? 'Save' : 'Create team'}</Button>
       </div>

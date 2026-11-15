@@ -31,7 +31,6 @@ function UseBackup({ person, overview, busy, id, onAway }: { person: ApprovalPer
   return (
     <span className={styles.useBackup} title={can ? undefined : 'Add a backup for every step this person approves before marking them away.'} data-testid={id}>
       <Toggle id={id} labelText={`Use backup while ${person.name} is away`} hideLabel labelA="" labelB="" toggled={person.unavailable} disabled={!can || busy} onToggle={(on) => { if (on !== person.unavailable) onAway(person, on) }} />
-      {!can && <span className={styles.noBackup}>No backup</span>}
     </span>
   )
 }
@@ -58,7 +57,7 @@ export function ApprovalsView(p: ApprovalsViewProps) {
   return (
     <div className={styles.page}>
       <SettingsHeader />
-      <header className={styles.head}>
+      <div className={styles.head}>
         <div>
           <h2 className={styles.title}>Approvals</h2>
           <p className={styles.intro}>
@@ -67,7 +66,7 @@ export function ApprovalsView(p: ApprovalsViewProps) {
           </p>
         </div>
         {o && <p className={styles.summary} data-gaps={o.gaps} data-testid="gap-summary">{o.gaps === 0 ? 'Every step has an approver' : `${o.gaps} ${o.gaps === 1 ? 'step' : 'steps'} without an approver`}</p>}
-      </header>
+      </div>
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.notice && <InlineNotification kind="success" lowContrast hideCloseButton title="Saved" subtitle={p.notice} data-testid="approvals-notice" />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading approvals" />}
@@ -100,7 +99,7 @@ export function ApprovalsView(p: ApprovalsViewProps) {
                   {s.approver && <UseBackup person={s.approver} overview={o} busy={p.busy} id={`use-backup-${s.key}`} onAway={p.onAway} />}
                 </div>
                 {s.teams.map((t) => (
-                  <div key={t.teamId} className={`${styles.cell} ${styles.teamCol}`} role="cell" data-testid={`cell-${s.key}-${o.teams.find((x) => x.id === t.teamId)?.name}`} data-state={t.state} data-mode={t.mode}>
+                   <div key={t.teamId} className={`${styles.cell} ${styles.teamCol}`} role="cell" data-testid={`cell-${s.key}-${o.teams.find((x) => x.id === t.teamId)?.name}`} data-state={t.state} data-mode={t.mode}>
                     <TeamCell cell={t} step={s} overview={o} busy={p.busy} onAway={p.onAway} />
                   </div>
                 ))}
@@ -110,7 +109,7 @@ export function ApprovalsView(p: ApprovalsViewProps) {
         </div>
       )}
 
-      <RightPanel open={!!open} heading={open ? `${open.label} approvers` : 'Approvers'} label="Approvals" onClose={p.onClosePanel}>
+      <RightPanel open={!!open} heading={open ? open.label : 'Step'} label="Approvals" onClose={p.onClosePanel}>
         {open && o && <StepPanel key={open.key} step={open} overview={o} busy={p.busy} error={p.panelError} onCancel={p.onClosePanel} onSave={(input) => p.onSave(open.key, input)} />}
       </RightPanel>
 

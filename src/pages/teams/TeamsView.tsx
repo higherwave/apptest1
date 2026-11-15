@@ -36,13 +36,13 @@ export function TeamsView(p: TeamsViewProps) {
   return (
     <div className={styles.page}>
       <SettingsHeader />
-      <header className={styles.head}>
+      <div className={styles.head}>
         <div>
           <h2 className={styles.title}>Teams</h2>
           <p className={styles.intro}>A team owns projects, and a person has a role in each team they belong to. Owners of the workspace see every team’s projects; everyone else sees only their own teams’. Anyone invited to the workspace starts in the default team.</p>
         </div>
         <Button kind="primary" size="md" onClick={p.onNew} data-testid="new-team">New team</Button>
-      </header>
+      </div>
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.notice && <InlineNotification kind="success" lowContrast hideCloseButton title="Saved" subtitle={p.notice} data-testid="teams-notice" />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading teams" />}

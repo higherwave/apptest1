@@ -413,6 +413,10 @@ body {
   }
 }
 
+// The close button says what it is by its icon alone: no "Close" tooltip on it, anywhere.
+.cds--modal-close-button .cds--popover-content,
+.cds--modal-close-button .cds--tooltip-content { display: none; }
+
 // -- Dialogs and overflow menus ------------------------------------------------------
 // Carbon's modal is square with edge-to-edge footer buttons; here it is a rounded white card with the
 // buttons sitting at the right at their own width, and a delete button in the signature rust.

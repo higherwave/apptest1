@@ -49,6 +49,7 @@
 .grid { min-inline-size: 48rem; }
 
 .row {
+  position: relative;
   display: flex;
   gap: var(--at-space-md);
   align-items: flex-start;
@@ -56,17 +57,21 @@
   border-block-start: 1px solid var(--at-hairline);
 
   &:first-child { border-block-start: none; }
+  &[data-testid^='step-row-'] { cursor: pointer; }
+  &[data-testid^='step-row-']:hover,
+  &[data-testid^='step-row-']:focus-within { background: var(--at-surface-soft); }
 }
 
 .head1 {
   @include tokens.role('eyebrow');
+  white-space: nowrap;
   padding: var(--at-space-xs) 0;
   color: var(--at-muted);
 }
 
-.stepCol { flex: 0 0 11rem; }
+.stepCol { flex: 0 0 12rem; }
 .approverCol { flex: 0 0 13rem; }
-.backupCol { flex: 0 0 8rem; }
+.backupCol { flex: 0 0 7rem; }
 .teamCol { flex: 1 1 9rem; min-inline-size: 0; }
 
 .cell {
@@ -78,8 +83,14 @@
   min-inline-size: 0;
 }
 
-.stepButton { @include tokens.role('label-md'); }
-.choose { color: var(--at-link); }
+.stepButton.stepButton {
+  @include tokens.role('label-md');
+  position: static; // so the row, not the button, is what the click area stretches to
+
+  // The whole row opens the step: this button's click area is stretched over it. The switches in the row sit above it.
+  &::after { content: ''; position: absolute; inset: 0; }
+}
+.choose.choose { color: var(--at-link); position: static; &::after { content: ''; position: absolute; inset: 0; } }
 
 .who {
   @include tokens.role('body-md');
@@ -98,7 +109,7 @@
 .gap { @include tokens.role('label-md'); color: var(--at-signature-coral); }
 .tag { margin-inline-start: var(--at-space-xs); }
 
-.useBackup { display: flex; flex-direction: column; align-items: flex-start; gap: var(--at-space-xxs); }
+.useBackup { position: relative; z-index: var(--at-z-raised); display: flex; align-items: center; }
 .useBackup :global(.cds--toggle__text),
 .useBackup :global(.cds--toggle__label-text) {
   // Spoken ("Use backup while <name> is away") but not drawn: the column heading says it.
@@ -109,7 +120,6 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
-.noBackup { @include tokens.role('meta'); color: var(--at-muted); }
 
 .confirm {
   @include tokens.role('body-md');
@@ -117,35 +127,15 @@
   color: var(--at-body);
 }
 
-// The step panel.
-.panelBody { display: flex; flex-direction: column; gap: var(--at-space-xl); }
-.panelSection { display: flex; flex-direction: column; gap: var(--at-space-sm); }
-.panelHeading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
-.help {
+.resultLine {
   @include tokens.role('meta');
   margin: 0;
   color: var(--at-muted);
 
   &[data-kind='gap'] { color: var(--at-signature-coral); }
 }
-.teamBlock {
-  display: flex;
-  flex-direction: column;
-  gap: var(--at-space-sm);
-  padding-block-start: var(--at-space-md);
-  border-block-start: 1px solid var(--at-hairline);
-}
+.teamBlock { display: flex; flex-direction: column; gap: var(--at-space-sm); margin-block-start: var(--at-space-md); }
 .teamHead { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
 .teamName { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
 .teamPickers { display: flex; flex-direction: column; gap: var(--at-space-sm); }
 .problem { @include tokens.role('body-md'); margin: 0; color: var(--at-signature-coral); }
-.panelActions {
-  position: sticky;
-  inset-block-end: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--at-space-sm);
-  padding-block: var(--at-space-md);
-  border-block-start: 1px solid var(--at-hairline);
-  background: var(--at-canvas);
-}

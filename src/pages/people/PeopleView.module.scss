@@ -40,6 +40,7 @@
 .table { min-inline-size: 48rem; }
 
 .row {
+  position: relative;
   display: flex;
   gap: var(--at-space-md);
   align-items: center;
@@ -47,7 +48,9 @@
   border-block-start: 1px solid var(--at-hairline);
 
   &:first-child { border-block-start: none; }
+  &[data-testid^='person-'] { cursor: pointer; }
   &[data-testid^='person-']:hover,
+  &[data-testid^='person-']:focus-within,
   &[data-selected] { background: var(--at-surface-soft); }
 }
 
@@ -82,7 +85,14 @@
   color: var(--at-ink);
 }
 
-.nameButton { @include tokens.role('label-md'); padding-inline-start: 0; }
+.nameButton.nameButton {
+  @include tokens.role('label-md');
+  position: static; // so the row, not the button, is what the click area stretches to
+  padding-inline-start: 0;
+
+  // The whole row opens the person.
+  &::after { content: ''; position: absolute; inset: 0; }
+}
 .you { @include tokens.role('meta'); margin-inline-end: var(--at-space-xs); color: var(--at-muted); }
 .tag { margin-inline-start: var(--at-space-xs); }
 
@@ -97,8 +107,7 @@
 .chips { display: flex; flex-wrap: wrap; gap: var(--at-space-xs); }
 .approvalsText { @include tokens.role('meta'); color: var(--at-muted); overflow-wrap: anywhere; }
 
-.avatar,
-.avatarBig {
+.avatar {
   display: inline-flex;
   flex: none;
   align-items: center;
@@ -109,27 +118,4 @@
   @include tokens.role('meta');
   inline-size: 2rem;
   block-size: 2rem;
-}
-.avatarBig { inline-size: 2.75rem; block-size: 2.75rem; @include tokens.role('label-md'); }
-
-// The panels.
-.panelBody { display: flex; flex-direction: column; gap: var(--at-space-xl); }
-.panelSection { display: flex; flex-direction: column; gap: var(--at-space-sm); }
-.panelHeading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
-.help { @include tokens.role('meta'); margin: 0; color: var(--at-muted); }
-.personHead { display: flex; align-items: center; gap: var(--at-space-md); }
-.personName { @include tokens.role('title-md'); margin: 0; color: var(--at-ink); }
-.teamList { display: flex; flex-direction: column; gap: var(--at-space-xs); }
-.teamRow { display: flex; align-items: center; justify-content: space-between; gap: var(--at-space-sm); min-block-size: 2.75rem; }
-.confirmBox { display: flex; flex-direction: column; gap: var(--at-space-sm); }
-.confirmActions { display: flex; gap: var(--at-space-sm); }
-.panelActions {
-  position: sticky;
-  inset-block-end: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--at-space-sm);
-  padding-block: var(--at-space-md);
-  border-block-start: 1px solid var(--at-hairline);
-  background: var(--at-canvas);
 }

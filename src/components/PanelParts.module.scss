@@ -1,0 +1,63 @@
+@use '../tokens' as tokens;
+
+// The parts the right-hand panels share (Approvals, People, Teams), so they read the same: sections set apart by one horizontal line (the only lines in a
+// panel), a small green note for instructions, two-line rows for people and projects, and the Cancel and Save buttons kept at the bottom.
+.body {
+  display: flex;
+  flex-direction: column;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+
+  & + & {
+    margin-block-start: var(--at-space-xl);
+    padding-block-start: var(--at-space-xl);
+    border-block-start: 1px solid var(--at-hairline);
+  }
+}
+
+.heading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
+.help { @include tokens.role('meta'); margin: 0; color: var(--at-muted); }
+.lead { @include tokens.role('meta'); margin: 0 0 var(--at-space-lg); color: var(--at-muted); overflow-wrap: anywhere; }
+.small { @include tokens.role('meta'); margin: 0; color: var(--at-muted); overflow-wrap: anywhere; }
+
+// A block of instructions: the same light green as the banners on Requirements and Design, small.
+.note {
+  @include tokens.role('meta');
+  margin: 0;
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  background: var(--at-tint-mint);
+  color: var(--at-body);
+}
+
+// A person or a project: its name (and email) on top, its field below, a remove button at the right of the name. No lines between rows.
+.list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--at-space-md); }
+.item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--at-space-sm);
+  row-gap: var(--at-space-xs);
+
+}
+.itemField { grid-column: 1 / -1; }
+.itemName { @include tokens.role('label-md'); display: block; color: var(--at-ink); overflow-wrap: anywhere; }
+.itemSub { @include tokens.role('meta'); display: block; color: var(--at-muted); overflow-wrap: anywhere; }
+
+.confirmBox { display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.confirmActions { display: flex; gap: var(--at-space-sm); }
+
+.actions {
+  position: sticky;
+  inset-block-end: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--at-space-sm);
+  margin-block-start: var(--at-space-xl);
+  padding-block: var(--at-space-md);
+  background: var(--at-canvas);
+}

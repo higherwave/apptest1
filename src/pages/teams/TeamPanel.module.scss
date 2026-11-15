@@ -1,0 +1,5 @@
+@use '../../tokens' as tokens;
+
+.channel { display: flex; align-items: flex-end; gap: var(--at-space-xs); }
+.channel > :last-child { flex: 1; }
+.hash { @include tokens.role('body-md'); padding-block-end: var(--at-space-sm); color: var(--at-muted); }

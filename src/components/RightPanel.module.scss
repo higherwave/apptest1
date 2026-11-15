@@ -5,7 +5,7 @@
     inset-block: 0;
     inset-inline-end: 0;
     inset-inline-start: auto;
-    inline-size: min(28rem, 100vw);
+    inline-size: min(34rem, 100vw);
     max-inline-size: 100vw;
     block-size: 100%;
     max-block-size: 100%;
@@ -19,3 +19,5 @@
     :global(.cds--modal-container) { transition: none; }
   }
 }
+
+.start:focus { outline: none; }

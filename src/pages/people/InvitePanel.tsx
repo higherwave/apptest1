@@ -3,7 +3,7 @@ import { useState } from 'react'
 import type { Member, MemberRole, Team } from '../../api/client'
 import { emailProblem, ROLE_HELP, ROLE_LABEL, type TeamChoice } from './peopleLogic'
 import { TeamPicker } from './TeamPicker'
-import styles from './PeopleView.module.scss'
+import parts from '../../components/PanelParts.module.scss'
 
 const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 export type InviteInput = { email: string; role: MemberRole; external: boolean; teams: TeamChoice }
@@ -17,17 +17,18 @@ export function InvitePanel({ teams, members, busy, error, onSave, onCancel }: {
   const problem = emailProblem(email, members)
   const save = () => onSave({ email: email.trim(), role: external ? 'viewer' : role, external, teams: external ? {} : chosen })
   return (
-    <div className={styles.panelBody} data-testid="invite-panel">
+    <div className={parts.body} data-testid="invite-panel">
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
-      <section className={styles.panelSection}>
+      <section className={parts.section}>
         <TextInput id="invite-email" type="email" labelText="Email address" placeholder="name@example.com" value={email} invalid={!!problem} invalidText={problem ?? ''} onChange={(e) => setEmail(e.target.value)} />
         <Checkbox id="invite-external" labelText="From outside the company" checked={external} onChange={(_, { checked }) => setExternal(checked)} />
-        <p className={styles.help}>A viewer who can reach only the launches they’re asked to approve. This is set now and cannot be changed later.</p>
+        <p className={parts.note}>A viewer who can reach only the launches they’re asked to approve. This is set now and cannot be changed later.</p>
+        {external && <p className={parts.note}>External people don’t join teams. They see a launch only when they’re asked to approve it.</p>}
       </section>
       {!external && (
         <>
-          <section className={styles.panelSection} aria-label="Workspace role">
-            <h3 className={styles.panelHeading}>Workspace role</h3>
+          <section className={parts.section} aria-label="Workspace role">
+            <h3 className={parts.heading}>Workspace role</h3>
             <ContentSwitcher size="sm" selectedIndex={ROLES.indexOf(role)} onChange={(e) => {
               const next = e.name as MemberRole
               setRole(next)
@@ -36,16 +37,15 @@ export function InvitePanel({ teams, members, busy, error, onSave, onCancel }: {
             }}>
               {ROLES.map((r) => <Switch key={r} name={r} text={ROLE_LABEL[r]} data-testid={`invite-role-${r}`} />)}
             </ContentSwitcher>
-            <p className={styles.help}>{ROLE_HELP[role]}</p>
+            <p className={parts.help}>{ROLE_HELP[role]}</p>
           </section>
-          <section className={styles.panelSection} aria-label="Teams">
-            <h3 className={styles.panelHeading}>Teams</h3>
+          <section className={parts.section} aria-label="Teams">
+            <h3 className={parts.heading}>Teams</h3>
             <TeamPicker teams={teams} value={chosen} defaultRole={role} idPrefix="invite" onChange={setChosen} />
           </section>
         </>
       )}
-      {external && <p className={styles.help}>External people don’t join teams. They see a launch only when they’re asked to approve it.</p>}
-      <div className={styles.panelActions}>
+      <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-invite">Cancel</Button>
         <Button kind="primary" size="md" disabled={!email.trim() || !!problem || busy} onClick={save} data-testid="save-invite">{busy ? 'Saving…' : 'Invite'}</Button>
       </div>

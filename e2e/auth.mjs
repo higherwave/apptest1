@@ -282,7 +282,7 @@ try {
   ok('choosing a workspace approver covers that step for every team that uses the workspace approver', await page.evaluate(() => document.querySelector('[data-testid="cell-legal-General"]').dataset.state === 'covered' && /Alex/.test(document.querySelector('[data-testid="step-row-legal"]').innerText)))
   await new Promise((r) => setTimeout(r, 400))
   // The Use backup toggle: disabled, with the reason, until there is a backup.
-  ok('Use backup is disabled with a reason while the step has no backup', await page.evaluate(() => { const w = document.querySelector('[data-testid="use-backup-legal"]'); return /backup/i.test(w.getAttribute('title') ?? '') && w.querySelector('button[role="switch"]').disabled === true && /No backup/.test(w.innerText) }))
+  ok('Use backup is disabled with a reason while the step has no backup', await page.evaluate(() => { const w = document.querySelector('[data-testid="use-backup-legal"]'); return /backup/i.test(w.getAttribute('title') ?? '') && w.querySelector('button[role="switch"]').disabled === true && /No backup/.test(document.querySelector('[data-testid="step-row-legal"]').innerText) }))
   await openStep('legal')
   await page.select('.cds--modal.is-visible #backup-select', samId)
   await page.evaluate(() => document.querySelector('.cds--modal.is-visible [data-testid="save-step"]').click())

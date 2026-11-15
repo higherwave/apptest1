@@ -38,13 +38,13 @@ export function PeopleView(p: PeopleViewProps) {
   return (
     <div className={styles.page}>
       <SettingsHeader />
-      <header className={styles.head}>
+      <div className={styles.head}>
         <div>
           <h2 className={styles.title}>People</h2>
           <p className={styles.intro}>Who can use Signal Flow, their role in the workspace and the teams they belong to. Invite someone by their email address; they sign in with that account. Approvals are set under Approvals.</p>
         </div>
         <Button kind="primary" size="md" onClick={p.onInviteOpen} data-testid="invite-person">Invite person</Button>
-      </header>
+      </div>
       {p.rolesManaged && (
         <InlineNotification kind="info" lowContrast hideCloseButton title="Roles come from your sign-in groups" subtitle="Your identity provider decides who can use Signal Flow and as what. Change a person's access there; it applies at their next sign-in." />
       )}

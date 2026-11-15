@@ -40,6 +40,7 @@
 .table { min-inline-size: 48rem; }
 
 .row {
+  position: relative;
   display: flex;
   gap: var(--at-space-md);
   align-items: center;
@@ -47,7 +48,9 @@
   border-block-start: 1px solid var(--at-hairline);
 
   &:first-child { border-block-start: none; }
+  &[data-testid^='team-'] { cursor: pointer; }
   &[data-testid^='team-']:hover,
+  &[data-testid^='team-']:focus-within,
   &[data-selected] { background: var(--at-surface-soft); }
 }
 
@@ -72,7 +75,14 @@
   color: var(--at-ink);
 }
 
-.nameButton { @include tokens.role('label-md'); padding-inline-start: 0; }
+.nameButton.nameButton {
+  @include tokens.role('label-md');
+  position: static; // so the row, not the button, is what the click area stretches to
+  padding-inline-start: 0;
+
+  // The whole row opens the team.
+  &::after { content: ''; position: absolute; inset: 0; }
+}
 .tag { margin-inline-start: var(--at-space-xs); }
 .sub { @include tokens.role('meta'); color: var(--at-muted); overflow-wrap: anywhere; }
 .muted { @include tokens.role('body-md'); color: var(--at-text-tertiary); }
@@ -95,51 +105,4 @@
   @include tokens.role('meta');
 
   &:first-child { margin-inline-start: 0; }
-}
-
-.avatar {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  inline-size: 2rem;
-  block-size: 2rem;
-  border-radius: var(--at-radius-full);
-  background: var(--at-surface-hover-strong);
-  color: var(--at-ink);
-  @include tokens.role('meta');
-}
-
-// The panel.
-.panelBody { display: flex; flex-direction: column; gap: var(--at-space-xl); }
-.panelSection { display: flex; flex-direction: column; gap: var(--at-space-sm); }
-.panelHeading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
-.help { @include tokens.role('meta'); margin: 0; color: var(--at-muted); }
-.channel { display: flex; align-items: flex-end; gap: var(--at-space-xs); }
-.channel > :last-child { flex: 1; }
-.hash { @include tokens.role('body-md'); padding-block-end: var(--at-space-sm); color: var(--at-muted); }
-.memberList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
-.memberRow {
-  display: flex;
-  align-items: center;
-  gap: var(--at-space-sm);
-  min-block-size: 2.75rem;
-  padding-block: var(--at-space-xs);
-  border-block-start: 1px solid var(--at-hairline);
-
-  &:first-child { border-block-start: none; }
-}
-.memberWho { display: flex; flex: 1; flex-direction: column; min-inline-size: 0; }
-.memberName { @include tokens.role('label-md'); color: var(--at-ink); overflow-wrap: anywhere; }
-.confirmBox { display: flex; flex-direction: column; gap: var(--at-space-sm); }
-.confirmActions { display: flex; gap: var(--at-space-sm); }
-.panelActions {
-  position: sticky;
-  inset-block-end: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--at-space-sm);
-  padding-block: var(--at-space-md);
-  border-block-start: 1px solid var(--at-hairline);
-  background: var(--at-canvas);
 }

@@ -1,9 +1,9 @@
 import { Button, ContentSwitcher, InlineNotification, Switch } from '@carbon/react'
 import { useState } from 'react'
 import type { Member, MemberRole, Team } from '../../api/client'
-import { approvalsLine, initials, personChange, ROLE_HELP, ROLE_LABEL, type TeamChoice } from './peopleLogic'
+import { approvalsLine, personChange, ROLE_HELP, ROLE_LABEL, type TeamChoice } from './peopleLogic'
 import { TeamPicker } from './TeamPicker'
-import styles from './PeopleView.module.scss'
+import parts from '../../components/PanelParts.module.scss'
 
 const ROLES: MemberRole[] = ['owner', 'editor', 'viewer']
 
@@ -30,19 +30,13 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
   const roleLocked = isYou || member.external || rolesManaged
   const change = personChange(member, { role, teams: member.external ? {} : chosen })
   return (
-    <div className={styles.panelBody} data-testid="person-panel" data-person={member.email}>
-      <header className={styles.personHead}>
-        <span className={styles.avatarBig} aria-hidden="true">{initials(member.displayName || member.email)}</span>
-        <div>
-          <p className={styles.personName}>{member.displayName}{isYou && ' (you)'}</p>
-          <p className={styles.email}>{member.email}</p>
-        </div>
-      </header>
+    <div className={parts.body} data-testid="person-panel" data-person={member.email}>
+      <p className={parts.lead}>{member.email}{isYou && ' (you)'}</p>
       {error && <InlineNotification kind="error" lowContrast hideCloseButton title="Not saved" subtitle={error} />}
-      <section className={styles.panelSection} aria-label="Workspace role">
-        <h3 className={styles.panelHeading}>Workspace role</h3>
+      <section className={parts.section} aria-label="Workspace role">
+        <h3 className={parts.heading}>Workspace role</h3>
         {member.external ? (
-          <p className={styles.help}>Viewer (external). From outside the company; this is set when someone is invited and cannot be changed.</p>
+          <p className={parts.note}>Viewer (external). From outside the company; this is set when someone is invited and cannot be changed.</p>
         ) : (
           <>
             <ContentSwitcher size="sm" selectedIndex={ROLES.indexOf(role)} onChange={(e) => {
@@ -53,32 +47,32 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
             }}>
               {ROLES.map((r) => <Switch key={r} name={r} text={ROLE_LABEL[r]} disabled={roleLocked} data-testid={`person-role-${r}`} />)}
             </ContentSwitcher>
-            <p className={styles.help}>{isYou ? 'You can’t change your own role.' : rolesManaged ? 'Roles come from your sign-in groups.' : ROLE_HELP[role]}</p>
+            <p className={parts.help}>{isYou ? 'You can’t change your own role.' : rolesManaged ? 'Roles come from your sign-in groups.' : ROLE_HELP[role]}</p>
           </>
         )}
       </section>
       {!member.external && (
-        <section className={styles.panelSection} aria-label="Teams">
-          <h3 className={styles.panelHeading}>Teams</h3>
-          {teamsManaged && <p className={styles.help}>Places in teams other than the default come from your sign-in groups.</p>}
+        <section className={parts.section} aria-label="Teams">
+          <h3 className={parts.heading}>Teams</h3>
+          {teamsManaged && <p className={parts.note}>Places in teams other than the default come from your sign-in groups.</p>}
           <TeamPicker teams={teams} value={chosen} defaultRole={role} idPrefix="person" locked={(t) => teamsManaged && !t.isDefault} onChange={setChosen} />
         </section>
       )}
-      <section className={styles.panelSection} aria-label="Approvals">
-        <h3 className={styles.panelHeading}>Approvals</h3>
-        {member.approvals.length ? <p className={styles.approvalsText} data-testid="person-approvals">{approvalsLine(member.approvals)}</p> : <p className={styles.help}>Not an approver for any step.</p>}
+      <section className={parts.section} aria-label="Approvals">
+        <h3 className={parts.heading}>Approvals</h3>
+        {member.approvals.length ? <p className={parts.small} data-testid="person-approvals">{approvalsLine(member.approvals)}</p> : <p className={parts.help}>Not an approver for any step.</p>}
         <div><Button kind="ghost" size="sm" onClick={onApprovals} data-testid="manage-approvals">Manage approvals</Button></div>
       </section>
       {!isYou && (
-        <section className={styles.panelSection} aria-label="Remove">
-          <h3 className={styles.panelHeading}>{member.status === 'invited' ? 'Cancel the invite' : 'Remove from the workspace'}</h3>
+        <section className={parts.section} aria-label="Remove">
+          <h3 className={parts.heading}>{member.status === 'invited' ? 'Cancel the invite' : 'Remove from the workspace'}</h3>
           {confirming ? (
-            <div className={styles.confirmBox} data-testid="remove-confirm">
-              <p className={styles.help}>
+            <div className={parts.confirmBox} data-testid="remove-confirm">
+              <p className={parts.help}>
                 {member.status === 'invited' ? 'They won’t be able to sign in with this invitation.' : 'They lose access right away and are signed out.'}
                 {member.approvals.length > 0 && ` Their ${member.approvals.length} approval ${member.approvals.length === 1 ? 'step' : 'steps'} will pass to the backup or show as a gap.`}
               </p>
-              <div className={styles.confirmActions}>
+              <div className={parts.confirmActions}>
                 <Button kind="danger" size="sm" disabled={busy} onClick={onRemove} data-testid="confirm-remove">{member.status === 'invited' ? 'Cancel invite' : 'Remove'}</Button>
                 <Button kind="ghost" size="sm" onClick={() => setConfirming(false)}>Keep</Button>
               </div>
@@ -88,7 +82,7 @@ export function PersonPanel({ member, teams, isYou, rolesManaged, teamsManaged, 
           )}
         </section>
       )}
-      <div className={styles.panelActions}>
+      <div className={parts.actions}>
         <Button kind="secondary" size="md" onClick={onCancel} data-testid="cancel-person">Cancel</Button>
         <Button kind="primary" size="md" disabled={busy} onClick={() => (change ? onSave(change) : onCancel())} data-testid="save-person">{busy ? 'Saving…' : 'Save'}</Button>
       </div>
