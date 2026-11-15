@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
+import { workspaceSlugFor } from './workspace-host.js'
 import { ApiError } from './errors.js'
 import type { AuthService, AuthUser } from './auth.js'
 import type { Db, Env } from './db.js'
@@ -126,7 +127,7 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
   const cache = new Map<string, { at: number; value: RequestContext }>()
   return async (c, next) => {
     const { env, auth } = deps
-    const slug = env.WORKSPACE_SLUG || env.DEMO_WORKSPACE_SLUG || 'higherwave-demo'
+    const slug = workspaceSlugFor(c.req.header('host'), env)
     const token = env.DEV_TOKEN
     const bearer = c.req.header('authorization')
     const openEditing = env.OPEN_EDITING === 'true'

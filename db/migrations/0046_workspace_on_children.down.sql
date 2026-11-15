@@ -1,0 +1,15 @@
+drop trigger fill_workspace on delivery.launch_answers;
+drop trigger fill_workspace on delivery.launch_links;
+drop trigger fill_workspace on delivery.launch_digests;
+drop trigger fill_workspace on delivery.launch_followers;
+drop trigger fill_workspace on delivery.launch_slack_posts;
+drop trigger fill_workspace on core.team_launch_steps;
+drop trigger fill_workspace on core.reminder_state;
+drop function core.fill_workspace_id();
+alter table delivery.launch_answers     drop column workspace_id;
+alter table delivery.launch_links       drop column workspace_id;
+alter table delivery.launch_digests     drop column workspace_id;
+alter table delivery.launch_followers   drop column workspace_id;
+alter table delivery.launch_slack_posts drop column workspace_id;
+alter table core.team_launch_steps      drop column workspace_id;
+alter table core.reminder_state         drop column workspace_id;
