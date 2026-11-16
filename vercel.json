@@ -1,5 +1,8 @@
 {
   "framework": "vite",
+  "regions": [
+    "pdx1"
+  ],
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "functions": {
