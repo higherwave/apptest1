@@ -142,6 +142,7 @@ test('every write in the other workspace aimed at the first workspace is refused
 const NOT_IN_ONE_WORKSPACE: Record<string, string> = {
   'core.workspaces': 'the workspaces themselves',
   'core.users': 'a person can belong to several workspaces',
+  'core.rate_limits': 'counters for the platform’s own request ceilings; only the owner role touches it',
   'core.plans': 'the platform’s plans, shared by every workspace; a workspace may read them and never change them',
   'core.notification_preferences': 'a person’s own choices about email, the same in every workspace they belong to',
   'core.slack_connect_codes': 'one-time codes that link a person’s Slack account, checked by the person who holds the code',

@@ -73,6 +73,11 @@ test('a launch record downloads as a PDF with a clear file name; an external rev
   assert.match(made[0], /<h1>Spring/)
   assert.equal(made[1], 'Spring <b>release</b> & more: launch record')
   assert.equal(exportFileName({ name: '!!!' }, 'pdf'), 'launch-launch-record.pdf')
+  // The export is on the record: who took the document out, and which one.
+  const entry = (await pg.query<any>(`select a.verb, a.after, u.display_name from core.audit_log a left join core.users u on u.id = a.actor_id where a.entity = 'delivery.launches' and a.entity_id = $1 and a.verb = 'exported'`, [launch.id])).rows
+  assert.equal(entry.length, 1)
+  assert.equal(entry[0].after.document, 'launch record')
+  assert.ok(entry[0].display_name, 'with the person who exported it')
   // An external reviewer.
   await reviewer('sam', ['marketing'])
   await call(owner, 'POST', '/members', { email: 'counsel@outside-firm.com', role: 'viewer', external: true })

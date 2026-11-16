@@ -88,9 +88,18 @@ export function createApp(options: AppOptions = {}) {
   const captureOn = () => !!capture && env.DESIGN_CAPTURE !== 'false'
   const app = new Hono().basePath('/api/v1')
 
+  // Headers every answer carries, whatever hosts it (vercel.json adds the page-level ones, including the content security policy).
+  app.use('*', async (c, next) => {
+    await next()
+    c.res.headers.set('X-Content-Type-Options', 'nosniff')
+    c.res.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin')
+  })
+
   app.onError((err, c) => {
     if (err instanceof ApiError) return c.json(envelope(err.code, err.message, err.field, err.extra), err.status)
-    console.error(err)
+    // The error's name, code and message only: a database error's detail can carry a value someone typed.
+    const e = err as { name?: string; code?: string; message?: string }
+    console.error('unhandled error', e.name ?? 'Error', e.code ?? '', String(e.message ?? '').slice(0, 300))
     return c.json(envelope('internal_error', 'Something went wrong.'), 500)
   })
   app.notFound((c) => c.json(envelope('not_found', `No route for ${c.req.method} ${c.req.path}.`), 404))
@@ -113,6 +122,37 @@ export function createApp(options: AppOptions = {}) {
   }
   const withContext = inTeams(requestContext({ env, getDb: platformDb, auth })) // strict: a signed-in person, or the token
   const withReadContext = inTeams(requestContext({ env, getDb: platformDb, auth }, 'read')) // reads are also open to the read-only demo viewer, before sign-in exists
+
+
+  // Who took which document out of Signal Flow, and when. A failed entry never stops the export itself.
+  const auditExport = async (c: Context, launch: { id: string; name: string }, document: string) => {
+    const ctx = c.get('ctx')
+    await getDb()
+      .query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'delivery.launches', $3, 'exported', null, $4)`, [ctx.workspaceId, ctx.anonymous ? null : ctx.userId, launch.id, JSON.stringify({ document, launch: launch.name })])
+      .catch((err) => console.error('export not recorded', err instanceof Error ? err.message : err))
+  }
+  // A ceiling on how often one person can start a costly thing: `kind` names the budget (AI work, exports, invitations), `max` is per minute.
+  // Counted in the database (the app is many short-lived instances). A counting failure lets the request through: the limiter must not take the app down.
+  const RATE_WINDOW_MS = 60_000
+  const limited = (kind: string, max: number): MiddlewareHandler => async (c, next) => {
+    const ctx = c.get('ctx')
+    let n = 0
+    try {
+      const start = new Date(Math.floor(Date.now() / RATE_WINDOW_MS) * RATE_WINDOW_MS)
+      n = (await platformDb().query(
+        `insert into core.rate_limits (bucket, window_start, n) values ($1, $2, 1) on conflict (bucket, window_start) do update set n = core.rate_limits.n + 1 returning n`,
+        [`${kind}:${ctx.workspaceId}:${ctx.userId}`, start],
+      )).rows[0].n as number
+      if (Math.random() < 0.02) await platformDb().query(`delete from core.rate_limits where window_start < now() - interval '1 day'`).catch(() => undefined)
+    } catch (err) {
+      console.error('rate limit not counted', err instanceof Error ? err.message : err)
+    }
+    if (n > max) {
+      c.header('Retry-After', String(Math.ceil((RATE_WINDOW_MS - (Date.now() % RATE_WINDOW_MS)) / 1000)))
+      throw new ApiError(429, 'rate_limited', 'That is being done too often. Wait a minute and try again.')
+    }
+    await next()
+  }
 
   // Anonymous reads may be cached by the CDN for a minute, so repeated requests never reach (or wake) the
   // database. Requests with the token are never cached.
@@ -210,7 +250,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json({ data: await listMembers(getDb(), c.get('ctx').workspaceId) })
   })
 
-  app.post('/members', withContext, async (c) => {
+  app.post('/members', withContext, limited('invite', 30), async (c) => {
     requireOwner(c)
     const input = parseBody(inviteMemberSchema, await readJson(c))
     try {
@@ -347,7 +387,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json(await oneLaunch(c, id))
   })
   // The launch record as a PDF a stakeholder outside Signal Flow can read: a snapshot of what the caller may see, never more (an external approver is refused).
-  app.get('/launches/:id/export.pdf', withReadContext, async (c) => {
+  app.get('/launches/:id/export.pdf', withReadContext, limited('export', 20), async (c) => {
     const launch = await oneLaunch(c, launchId(c))
     if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', `An external ${T.approver} cannot export the launch.`)
     if (env.PDF_EXPORT === 'false') throw new ApiError(503, 'unavailable', 'PDF export is switched off on this deployment.')
@@ -361,11 +401,12 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'private, no-store')
     c.header('Content-Disposition', `attachment; filename="${exportFileName(launch, 'pdf')}"`)
+    await auditExport(c, launch, 'launch record')
     return c.body(new Uint8Array(file), 200, { 'Content-Type': 'application/pdf' })
   })
   // The documents an approver reads before being asked to approve, as PDFs that open in the browser: the storyboard (never for an external approver, because it
   // carries customer quotes) and the published requirements. What the caller may see of the launch decides who may open them.
-  const sendPdf = async (c: Context, html: string, footer: string, name: string) => {
+  const sendPdf = async (c: Context, html: string, footer: string, name: string, audit: { launch: { id: string; name: string }; document: string }) => {
     if (env.PDF_EXPORT === 'false') throw new ApiError(503, 'unavailable', 'PDF export is switched off on this deployment.')
     let file: Buffer
     try {
@@ -376,21 +417,22 @@ export function createApp(options: AppOptions = {}) {
     }
     c.header('Cache-Control', 'private, no-store')
     c.header('Content-Disposition', `inline; filename="${name}"`)
+    await auditExport(c, audit.launch, audit.document)
     return c.body(new Uint8Array(file), 200, { 'Content-Type': 'application/pdf' })
   }
-  app.get('/launches/:id/storyboard.pdf', withReadContext, async (c) => {
+  app.get('/launches/:id/storyboard.pdf', withReadContext, limited('export', 20), async (c) => {
     const launch = await oneLaunch(c, launchId(c))
     if (launch.you.kind === 'external') throw new ApiError(403, 'forbidden', `The storyboard is not available to an external ${T.approver}.`)
     const board = await getStoryboard(getDb(), c.get('ctx').workspaceId, launch.projectId)
     if (!board?.draft) throw new ApiError(404, 'not_found', 'The storyboard has not been written yet.')
-    return sendPdf(c, storyboardHtml(board, launch.name), `${launch.name}: storyboard`, exportFileName(launch, 'pdf', 'storyboard'))
+    return sendPdf(c, storyboardHtml(board, launch.name), `${launch.name}: storyboard`, exportFileName(launch, 'pdf', 'storyboard'), { launch, document: 'storyboard' })
   })
-  app.get('/launches/:id/requirements.pdf', withReadContext, async (c) => {
+  app.get('/launches/:id/requirements.pdf', withReadContext, limited('export', 20), async (c) => {
     const launch = await oneLaunch(c, launchId(c))
     const specRow = (await getDb().query(`select id from delivery.specs where project_id = $1 and status = 'published' order by published_at desc limit 1`, [launch.projectId])).rows[0]
     const spec = specRow ? await getSpec(getDb(), c.get('ctx').workspaceId, specRow.id as string) : undefined
     if (!spec) throw new ApiError(404, 'not_found', 'The requirements are not published yet.')
-    return sendPdf(c, requirementsHtml(spec, launch.name), `${launch.name}: requirements`, exportFileName(launch, 'pdf', 'requirements'))
+    return sendPdf(c, requirementsHtml(spec, launch.name), `${launch.name}: requirements`, exportFileName(launch, 'pdf', 'requirements'), { launch, document: 'requirements' })
   })
   // Opens the launch's Slack thread (for a launch made before its team had a channel, or after a failed post). The result says why, if it could not.
   app.post('/launches/:id/slack', withContext, async (c) => {
@@ -756,7 +798,7 @@ export function createApp(options: AppOptions = {}) {
   })
   app.put('/projects/:id/transcripts', withContext, (c) => save(c, saveTranscriptsSchema, (id, v, input) => saveTranscripts(getDb(), c.get('ctx'), id, v, input), 'transcripts'))
   // Phase 1 runs the simulated analysis inline and answers 201 with the finished run; a real model would answer 202 and be polled.
-  app.post('/projects/:id/analysis-runs', withContext, (c) =>
+  app.post('/projects/:id/analysis-runs', withContext, limited('ai', 30), (c) =>
     save(
       c,
       z.object({}).passthrough(),
@@ -927,9 +969,9 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     return c.json(await specDetail(c, id))
   }
-  app.post('/agent-steps/:id/approve', withContext, (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), ai, c.get('ctx'), stepId, v, c.req.query('draftNext') !== 'false')))
-  app.post('/agent-steps/:id/draft', withContext, (c) => stepAction(c, null, (stepId, v) => draftWaitingStep(getDb(), ai, c.get('ctx'), stepId, v)))
-  app.post('/agent-steps/:id/redo', withContext, (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), ai, c.get('ctx'), stepId, v, input.instructions)))
+  app.post('/agent-steps/:id/approve', withContext, limited('ai', 30), (c) => stepAction(c, null, (stepId, v) => approveStep(getDb(), ai, c.get('ctx'), stepId, v, c.req.query('draftNext') !== 'false')))
+  app.post('/agent-steps/:id/draft', withContext, limited('ai', 30), (c) => stepAction(c, null, (stepId, v) => draftWaitingStep(getDb(), ai, c.get('ctx'), stepId, v)))
+  app.post('/agent-steps/:id/redo', withContext, limited('ai', 30), (c) => stepAction(c, redoSchema, (stepId, v, input) => redoStep(getDb(), ai, c.get('ctx'), stepId, v, input.instructions)))
   app.patch('/agent-steps/:id', withContext, (c) => stepAction(c, editStepSchema, (stepId, v, input) => editStep(getDb(), c.get('ctx'), stepId, v, input.text)))
 
   // What "Update board" would change (preview) or does (apply). Never removes a story that has been worked on.
@@ -1185,7 +1227,7 @@ export function createApp(options: AppOptions = {}) {
 
   // Takes a thumbnail from the saved prototype link, on our side. The model-free work runs before any database transaction: the page
   // is loaded first, then the picture is kept only if the row still has that link.
-  app.post('/stories/:id/design/capture', withContext, async (c) => {
+  app.post('/stories/:id/design/capture', withContext, limited('capture', 10), async (c) => {
     requireEditor(c)
     const id = storyId(c)
     const ctx = c.get('ctx')
@@ -1355,7 +1397,7 @@ export function createApp(options: AppOptions = {}) {
       throw err
     }
   })
-  app.post('/insights/merge-suggestions/run', withContext, async (c) => {
+  app.post('/insights/merge-suggestions/run', withContext, limited('ai', 30), async (c) => {
     requireEditor(c)
     requireLeader(c, 'the platform themes')
     c.header('Cache-Control', 'no-store')
@@ -1374,7 +1416,7 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
   })
-  app.post('/insights/roadmap/rationale', withContext, async (c) => {
+  app.post('/insights/roadmap/rationale', withContext, limited('ai', 30), async (c) => {
     requireEditor(c)
     requireLeader(c, 'the platform themes')
     c.header('Cache-Control', 'no-store')
@@ -1387,7 +1429,7 @@ export function createApp(options: AppOptions = {}) {
     c.header('Vary', 'Authorization')
     return c.json(board)
   })
-  app.post('/projects/:id/storyboard/generate', withContext, async (c) => {
+  app.post('/projects/:id/storyboard/generate', withContext, limited('ai', 30), async (c) => {
     requireEditor(c)
     c.header('Cache-Control', 'no-store')
     try {
@@ -1482,7 +1524,7 @@ export function createApp(options: AppOptions = {}) {
   })
 
   // Makes the Jira ticket for one requirement (a real issue when Jira is connected, else simulated). Once: a story that has a ticket cannot be sent again.
-  app.post('/stories/:id/tickets', withContext, async (c) => {
+  app.post('/stories/:id/tickets', withContext, limited('jira', 30), async (c) => {
     requireEditor(c)
     const id = storyId(c)
     const input = parseBody(createTicketSchema, await readJson(c))
@@ -1574,7 +1616,7 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'private, no-store')
     return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && (await slackOf(c)).live })
   })
-  app.post('/me/slack/code', withContext, async (c) => {
+  app.post('/me/slack/code', withContext, limited('slackcode', 10), async (c) => {
     c.header('Cache-Control', 'no-store')
     return c.json(await createConnectCode(getDb(), c.get('ctx').userId), 201)
   })

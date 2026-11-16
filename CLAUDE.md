@@ -54,6 +54,13 @@ Each customer is a workspace; nothing is shared between them. Two locks, both te
 - Plans (`core.plans`, set with `node db/set-plan.mjs`): a workspace's AI cap is its own setting, else its plan's, else `AI_MONTHLY_BUDGET_USD` (`workspaceBudget` in `server/ai.ts`); `AI_PLATFORM_MONTHLY_USD` caps all workspaces together; a plan's `seats` limit refuses an invitation with 409 `seat_limit`. The restricted role may only read plans and workspaces.
 - Not yet per workspace: company sign-in settings (`OIDC_*`, `SSO_*`), Slack's inbound calls (one signing secret, so the home Slack app), and a master usage view across workspaces.
 
+## Security baseline
+
+- **Headers.** `vercel.json` sets the content security policy and the other security headers on every page and answer; the API adds `nosniff` and a referrer policy itself. The policy allows only this site (no external scripts, fonts, images from other places except `https:` images such as profile pictures) and exactly one inline script, the landing page's, by hash. If `public/landing.html`'s inline script changes, `scripts/headers.test.mjs` fails: put the new hash in `vercel.json`. Do not add `'unsafe-inline'` to `script-src`; add a hash or move the script to a file. Do not load anything from another site without adding it to the policy on purpose.
+- **Rate limits.** Costly routes (AI work, PDF exports, thumbnail captures, invitations, Slack codes, Jira tickets) carry `limited(kind, perMinute)` after their context middleware (counted per person in `core.rate_limits`; answers 429 `rate_limited` with `Retry-After`; a counting failure lets the request through). A new route that spends money or starts a slow job gets one.
+- **Errors and logs.** An unexpected error answers a plain 500 and logs only its name, code and a short message, never a database detail (it can carry a typed value). Log names and messages, never request bodies, tokens, emails or transcript text.
+- **Audit.** A PDF export is recorded (`exported`, with the document and who). New actions that take data out of Signal Flow, or change who may see it, get an audit row.
+
 ## Launch
 
 Launch (release readiness) is built in slices; the plan is the "Launch: build plan" doc. Rules so far:
