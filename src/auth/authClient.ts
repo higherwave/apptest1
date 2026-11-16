@@ -7,8 +7,11 @@ export const authClient = createAuthClient({ baseURL: `${window.location.origin}
 
 // Starts sign-in with Google or the company's identity provider; the provider sends the person back to where they were.
 // (The company provider is registered with the server as the social provider "oidc".)
-export async function signInWith(id: SignInOption['id'], callbackURL = window.location.pathname + window.location.search) {
-  const result = await authClient.signIn.social({ provider: id, callbackURL })
+// The way back is a full address: with customer addresses the sign-in itself happens on one fixed address, so a bare path would land the person
+// there instead of where they started. (On a single address it is the same place either way.)
+export async function signInWith(id: SignInOption['id'], callbackURL = window.location.origin + window.location.pathname + window.location.search) {
+  const target = callbackURL.startsWith('/') ? window.location.origin + callbackURL : callbackURL
+  const result = await authClient.signIn.social({ provider: id, callbackURL: target })
   // A provider the server could not reach at start-up (a wrong issuer address) is reported as not found.
   if (result?.error?.code === 'PROVIDER_NOT_FOUND') result.error.message = 'The sign-in provider could not be reached. Ask whoever runs this workspace to check its sign-in settings.'
   return result

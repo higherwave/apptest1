@@ -3,8 +3,9 @@
 // is not a member of that workspace is refused, whatever the address says). Without it, the whole deployment serves one workspace named
 // by WORKSPACE_SLUG, exactly as before. Pure: no database, so it is easy to test.
 import type { Env } from './db.js'
+import { RESERVED_SLUGS } from '../shared/reserved-slugs.mjs'
 
-const RESERVED = new Set(['www', 'app', 'api', 'admin', 'auth', 'status', 'staff', 'mail', 'docs', 'help'])
+const RESERVED = new Set<string>(RESERVED_SLUGS)
 const SLUG = /^[a-z0-9](?:[a-z0-9-]{0,39}[a-z0-9])$/
 
 export function fallbackSlug(env: Env): string {

@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import pg from 'pg';
 import { bootstrapOwners } from './bootstrap-owners.mjs';
 import { findConnectionString, loadEnvFile } from './migrate.mjs';
+import { RESERVED_SLUGS } from '../shared/reserved-slugs.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const TEMPLATES = JSON.parse(readFileSync(join(here, 'seed', 'data', 'research.json'), 'utf8')).TEMPLATES;
@@ -23,6 +24,7 @@ export const validSlug = (s) => /^[a-z0-9][a-z0-9-]{1,40}$/.test(s);
 export function checkInput({ name, slug, owners }) {
   if (!name?.trim()) throw new Error('A workspace name is required (--name).');
   if (!validSlug(slug || '')) throw new Error('The slug must be 2 to 41 characters: lowercase letters, digits and hyphens (--slug).');
+  if (RESERVED_SLUGS.includes(slug)) throw new Error(`"${slug}" is a name the platform keeps for itself and cannot be a workspace address. Choose another (--slug).`);
   if (!owners?.length) throw new Error('At least one owner email is required (--owners), or nobody can sign in.');
   for (const o of owners) if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(o.trim())) throw new Error(`"${o}" is not an email address (--owners).`);
 }

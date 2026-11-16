@@ -127,7 +127,8 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
   const cache = new Map<string, { at: number; value: RequestContext }>()
   return async (c, next) => {
     const { env, auth } = deps
-    const slug = workspaceSlugFor(c.req.header('host'), env)
+    // The Host header names the address in production; a request built from a full address (a test, a local call) carries it in the URL instead.
+    const slug = workspaceSlugFor(c.req.header('host') ?? new URL(c.req.url).host, env)
     const token = env.DEV_TOKEN
     const bearer = c.req.header('authorization')
     const openEditing = env.OPEN_EDITING === 'true'

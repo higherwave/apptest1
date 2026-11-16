@@ -61,8 +61,27 @@ export function oidcProfileToUser(profile: Record<string, unknown>, env: Env) {
   return { name, emailVerified, groups: JSON.stringify(claimGroups(profile, ssoPolicy(env).groupsClaim)) }
 }
 
+/**
+ * Customer addresses (<customer>.<WORKSPACE_BASE_DOMAIN>) share one sign-in. BETTER_AUTH_URL is the one address registered with the identity
+ * provider (for example https://app.<domain>); a person starts on their customer address, goes through it and the provider, and comes back to
+ * where they started. For that the session and sign-in cookies belong to the parent domain, and any address under it is a trusted place to
+ * return to (and nothing else is: a return address on another domain is refused, which is what stops an open redirect).
+ */
+export function subdomainSignIn(env: Env): { trustedOrigins: string[]; advanced?: BetterAuthOptions['advanced'] } {
+  const base = (env.WORKSPACE_BASE_DOMAIN ?? '').trim().toLowerCase().replace(/^\.+|\.+$/g, '')
+  if (!base) return { trustedOrigins: [] }
+  let scheme = 'https:'
+  try {
+    scheme = new URL(env.BETTER_AUTH_URL ?? '').protocol
+  } catch {
+    /* no valid sign-in address yet: authConfigured is false and none of this is used */
+  }
+  return { trustedOrigins: [`${scheme}//*.${base}`], advanced: { crossSubDomainCookies: { enabled: true, domain: `.${base}` } } }
+}
+
 /** The Better Auth options for this app. `extra` lets a test add what it needs (for example email and password). */
 export function authOptions(env: Env, pool: pg.Pool, extra: Partial<BetterAuthOptions> = {}): BetterAuthOptions {
+  const subdomains = subdomainSignIn(env)
   return {
     baseURL: env.BETTER_AUTH_URL,
     secret: env.BETTER_AUTH_SECRET,
@@ -71,7 +90,8 @@ export function authOptions(env: Env, pool: pg.Pool, extra: Partial<BetterAuthOp
     ...tables,
     // The address in BETTER_AUTH_URL is trusted automatically. List other addresses the app is served from (for example while
     // moving to a new domain), comma-separated, so sign-in started there is accepted too.
-    trustedOrigins: (env.BETTER_AUTH_TRUSTED_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean),
+    trustedOrigins: [...(env.BETTER_AUTH_TRUSTED_ORIGINS ?? '').split(',').map((o) => o.trim()).filter(Boolean), ...subdomains.trustedOrigins],
+    ...(subdomains.advanced ? { advanced: subdomains.advanced } : {}),
     socialProviders: googleConfigured(env) ? { google: { clientId: env.GOOGLE_CLIENT_ID ?? '', clientSecret: env.GOOGLE_CLIENT_SECRET ?? '' } } : {},
     plugins: oidcConfigured(env)
       ? [

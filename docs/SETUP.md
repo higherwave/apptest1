@@ -132,3 +132,19 @@ Turn on the CI workflow (`.github/workflows/ci.yml`; no secrets needed), push to
 ## 10. Hand over
 
 Keep `CLAUDE.md` (how Claude Code should work in this repo) and `docs/RUNBOOK.md` current: they are the memory of how this is run.
+
+## 11. Customer addresses on your own domain (several customers on one deployment)
+
+One deployment can serve many customers, each at its own address, `<customer>.<your domain>`, with one sign-in shared by all of them. The address chooses the workspace; being signed in never lets a person into a workspace they were not invited to.
+
+1. **The domain, on Vercel.** Add the domain and its wildcard (`example.org` and `*.example.org`) to the Vercel project. A wildcard needs the domain's DNS to be served by Vercel, so point the domain's nameservers at the ones Vercel shows. Use a domain that holds nothing else.
+2. **Settings** (Vercel, Production):
+   - `WORKSPACE_BASE_DOMAIN=example.org`
+   - `BETTER_AUTH_URL=https://app.example.org`: the one fixed sign-in address. People start on their customer address, go through this one and the identity provider, and come back to where they started.
+   - `WORKSPACE_SLUG` stays the name of the deployment's own (home) workspace, which is what `app.example.org` itself shows.
+3. **Google.** Add `https://app.example.org/api/v1/auth/callback/google` as an authorized redirect URI (keep the old one while people move over), and add `example.org` as an authorized domain on the consent screen. A new home page or privacy address on the consent screen can trigger a re-review by Google: do that change on purpose, not by surprise.
+4. **A customer.** `node db/init-workspace.mjs --name "Acme" --slug acme --owners a@acme.com` (names such as `app`, `www`, `api` and `login` are refused), then `node db/set-plan.mjs --workspace acme --plan pilot`, and its own Slack and Jira with `node db/set-integration.mjs`. Acme's address is `acme.example.org` from that moment.
+5. **What changes for people already signed in.** Their old session belongs to the old address only. They sign in once more; after that one session works on every address they belong to.
+6. **Try it before a customer does** (nothing replaces a real browser here): sign in at `acme.example.org` and land back there; open `beta.example.org` with the same session and expect "not invited"; sign out at one and expect to be signed out at the other; open a sign-in link whose return address is another domain and expect it to be refused.
+
+Security notes: one session works on every customer address, so any address under the domain that could be taken over or show someone else's content would expose it. Only the platform creates addresses, nothing else is hosted under the domain, and the platform's own names are reserved in code and in the database. A return address or origin outside the domain is refused.
