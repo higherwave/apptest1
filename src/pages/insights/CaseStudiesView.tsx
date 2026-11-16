@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
+import { startOpen } from '../../shell/startOpen'
 import { Button, InlineNotification, Loading, Tag, TextArea } from '@carbon/react'
 import { useState } from 'react'
 import type { CaseBrief, CaseStudy } from '../../api/client'
@@ -210,10 +211,10 @@ function StudyBody({ study, onOpenTheme, groupBy }: { study: CaseStudy; onOpenTh
 export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpenTheme, groupBy = 'none', onGroupBy }: CaseStudiesViewProps) {
   const [opened, setOpened] = useState<Set<string>>(new Set())
   const [started, setStarted] = useState(false)
-  // The first row opens, so the page does not start as a closed list.
+  // The rows start closed, unless there is only one.
   if (!started && state === 'ready' && (briefs[0] || cases[0])) {
     setStarted(true)
-    setOpened(new Set([briefs[0] ? `p-${briefs[0].projectId}` : `c-${cases[0].id}`]))
+    setOpened(startOpen([...briefs.map((b) => `p-${b.projectId}`), ...cases.map((c) => `c-${c.id}`)]))
   }
   const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const all = [...briefs.map((b) => `p-${b.projectId}`), ...cases.map((c) => `c-${c.id}`)]

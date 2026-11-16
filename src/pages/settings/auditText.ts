@@ -65,3 +65,21 @@ export function auditDetail(before: unknown, after: unknown): string {
 }
 
 export const describe = (e: Pick<AuditEntry, 'entity' | 'verb' | 'before' | 'after'>) => ({ what: `${entityLabel(e.entity)} · ${verbLabel(e.verb)}`, detail: auditDetail(e.before, e.after) })
+
+// The date filter on the audit log: a few presets, each a starting moment ("All time" has none). "Today" starts at midnight where the person is.
+export type AuditRange = 'all' | 'today' | '7d' | '30d' | '90d'
+export const AUDIT_RANGES: { key: AuditRange; label: string }[] = [
+  { key: 'all', label: 'All time' },
+  { key: 'today', label: 'Today' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: '90d', label: 'Last 90 days' },
+]
+const DAYS: Record<Exclude<AuditRange, 'all' | 'today'>, number> = { '7d': 7, '30d': 30, '90d': 90 }
+
+/** The moment a range starts, as an ISO time to send as `since`; undefined for "All time". */
+export function sinceFor(range: AuditRange, now: Date = new Date()): string | undefined {
+  if (range === 'all') return undefined
+  if (range === 'today') return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+  return new Date(now.getTime() - DAYS[range] * 86_400_000).toISOString()
+}

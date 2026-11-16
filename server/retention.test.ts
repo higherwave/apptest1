@@ -212,3 +212,25 @@ test('ending an agreement removes the whole workspace and the people who belonge
   assert.match(text, /1 projects/)
   assert.match(text, /2026-12-08/, 'the day the last database copy expires, a week later by default')
 })
+
+test('the audit log can be narrowed to changes since a moment, and a bad date is a 422', async () => {
+  const f = await fixture()
+  const ws = f.ids['higherwave-demo']
+  await f.pg.query(`delete from core.audit_log where workspace_id = $1`, [ws])
+  await f.pg.query(
+    `insert into core.audit_log (workspace_id, entity, entity_id, verb, created_at) values ($1, 'core.projects', gen_random_uuid(), 'today-entry', now()), ($1, 'core.projects', gen_random_uuid(), 'last-week-entry', now() - interval '3 days'), ($1, 'core.projects', gen_random_uuid(), 'last-month-entry', now() - interval '20 days'), ($1, 'core.projects', gen_random_uuid(), 'old-entry', now() - interval '200 days')`,
+    [ws],
+  )
+  const verbs = async (since?: string) => (await (await f.call(f.owner, 'GET', `/audit?limit=100${since ? `&since=${encodeURIComponent(since)}` : ''}`)).json()).data.map((e: any) => e.verb).sort()
+  const ago = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
+  assert.deepEqual(await verbs(), ['last-month-entry', 'last-week-entry', 'old-entry', 'today-entry'], 'no filter: everything')
+  assert.deepEqual(await verbs(ago(1)), ['today-entry'])
+  assert.deepEqual(await verbs(ago(7)), ['last-week-entry', 'today-entry'])
+  assert.deepEqual(await verbs(ago(30)), ['last-month-entry', 'last-week-entry', 'today-entry'])
+  assert.deepEqual(await verbs(ago(90)), ['last-month-entry', 'last-week-entry', 'today-entry'])
+  assert.deepEqual(await verbs(new Date(Date.now() + 86_400_000).toISOString()), [], 'a moment in the future: nothing')
+  const bad = await f.call(f.owner, 'GET', '/audit?since=yesterday-ish')
+  assert.equal(bad.status, 422)
+  assert.equal((await bad.json()).error.field, 'since')
+  assert.equal((await f.call(f.editor, 'GET', `/audit?since=${encodeURIComponent(ago(1))}`)).status, 403, 'still owners only')
+})

@@ -2075,8 +2075,8 @@ export interface components {
             description?: string | null;
             /** @description The team to add the project to; the caller must be an editor or owner there. Optional when the caller edits in one team, or in the default team. */
             teamId?: string;
-            /** @description At least one. Name and a valid email are required. */
-            participants: components["schemas"]["ParticipantInput"][];
+            /** @description Optional. Left out, the participants are unchanged (the Test Plan tabs do not edit them). Sent, they replace the list, and there must be at least one. */
+            participants?: components["schemas"]["ParticipantInput"][];
         };
         BoardStory: {
             id: string;
@@ -2877,8 +2877,8 @@ export interface components {
             methods?: string[];
             /** @description A short */
             description?: string | null;
-            /** @description At least one. Name and a valid email are required. */
-            participants: components["schemas"]["ParticipantInput"][];
+            /** @description Optional. Participants are their own step, so a project can be created first and its participants added after. */
+            participants?: components["schemas"]["ParticipantInput"][];
         };
         ProjectList: {
             data: components["schemas"]["ProjectSummary"][];
@@ -5610,6 +5610,8 @@ export interface operations {
                 group?: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data";
                 /** @description Only changes about this team: its people, its projects and the team itself. */
                 teamId?: string;
+                /** @description Only changes made at or after this moment (the date filter). 422 when it is not a date and time. */
+                since?: string;
                 limit?: number;
                 cursor?: string;
             };

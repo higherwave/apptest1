@@ -6,7 +6,7 @@ import { EDITING_LOCKED } from '../../auth/messages'
 import { emptyForm, toRequest, validate, type FieldErrors, type PlanForm } from './form'
 import { NewTestPlanView } from './NewTestPlanView'
 
-// Container: holds the form, validates it, creates the project, and opens its What to ask or observe tab. A server-side 422
+// Container: holds the plan form (name, description, methods), validates it, creates the project, and opens its What to ask or observe tab. A server-side 422
 // puts the message on the field it names.
 export function NewTestPlanPage() {
   const navigate = useNavigate()
@@ -25,7 +25,7 @@ export function NewTestPlanPage() {
   const state = templates.isPending ? 'loading' : templates.isError ? 'error' : 'ready'
 
   const save = async () => {
-    const found = validate(form)
+    const found = validate(form, 'test') // the name; participants are added on their own step once the plan exists
     if (choosing && !teamId) found.teamId = 'Choose a team.'
     setErrors(found)
     setSubmitError(undefined)

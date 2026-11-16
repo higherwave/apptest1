@@ -672,8 +672,11 @@ export function createApp(options: AppOptions = {}) {
     const limit = Math.min(100, Math.max(1, Number(c.req.query('limit') ?? 50) || 50))
     const team = c.req.query('teamId')
     if (team && !UUID.test(team)) throw new ApiError(422, 'validation_failed', 'Not a team id.', 'teamId')
+    const sinceRaw = c.req.query('since')
+    if (sinceRaw && Number.isNaN(Date.parse(sinceRaw))) throw new ApiError(422, 'validation_failed', 'Not a date and time.', 'since')
+    const since = sinceRaw ? new Date(sinceRaw).toISOString() : undefined
     c.header('Cache-Control', 'private, no-store')
-    return c.json(await listAudit(getDb(), c.get('ctx').workspaceId, { group: group as AuditGroup | undefined, teamId: team, limit, cursor: c.req.query('cursor') }).catch((err) => {
+    return c.json(await listAudit(getDb(), c.get('ctx').workspaceId, { group: group as AuditGroup | undefined, teamId: team, since, limit, cursor: c.req.query('cursor') }).catch((err) => {
       if (err instanceof BadCursor) throw new ApiError(422, 'validation_failed', 'That page marker is not valid.', 'cursor')
       throw err
     }))

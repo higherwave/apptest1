@@ -1,7 +1,7 @@
 import { Button, Dropdown, InlineNotification, Loading } from '@carbon/react'
 import type { AuditEntry, AuditGroup } from '../../api/client'
 import { SettingsHeader } from './SettingsHeader'
-import { describe, GROUP_LABEL } from './auditText'
+import { AUDIT_RANGES, describe, GROUP_LABEL, type AuditRange } from './auditText'
 import styles from './AuditLogView.module.scss'
 
 const FILTERS: { key: AuditGroup | 'all'; label: string }[] = [{ key: 'all', label: 'All changes' }, ...(Object.keys(GROUP_LABEL) as AuditGroup[]).map((key) => ({ key, label: GROUP_LABEL[key] }))]
@@ -14,6 +14,9 @@ export type AuditLogViewProps = {
   teams: { id: string; name: string }[]
   team: string
   onTeam: (id: string) => void
+  /** The date filter: when the changes were made. */
+  range: AuditRange
+  onRange: (r: AuditRange) => void
   errorText?: string
   hasMore: boolean
   loadingMore: boolean
@@ -54,12 +57,22 @@ export function AuditLogView(p: AuditLogViewProps) {
             selectedItem={FILTERS.find((f) => f.key === p.group)}
             onChange={({ selectedItem }) => selectedItem && p.onGroup(selectedItem.key)}
           />
+          <Dropdown
+            id="audit-range"
+            titleText="When"
+            label="All time"
+            size="md"
+            items={AUDIT_RANGES}
+            itemToString={(r) => r?.label ?? ''}
+            selectedItem={AUDIT_RANGES.find((r) => r.key === p.range)}
+            onChange={({ selectedItem }) => selectedItem && p.onRange(selectedItem.key)}
+          />
         </div>
       </div>
 
       {p.errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={p.errorText} />}
       {p.state === 'loading' && <Loading small withOverlay={false} description="Loading the audit log" />}
-      {p.state === 'ready' && p.entries.length === 0 && <p className={styles.intro}>Nothing has changed yet.</p>}
+      {p.state === 'ready' && p.entries.length === 0 && <p className={styles.intro}>{p.range === 'all' ? 'Nothing has changed yet.' : 'Nothing changed in that time.'}</p>}
       {p.state === 'ready' && p.entries.length > 0 && (
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Audit log">

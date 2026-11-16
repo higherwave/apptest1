@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
+import { startOpen } from '../../shell/startOpen'
 import { Button, InlineNotification, Loading, Tag } from '@carbon/react'
 import { useState } from 'react'
 import type { Customers } from '../../api/client'
@@ -81,12 +82,11 @@ export function CustomersView({ state, customers, errorText, onOpenTheme, onOpen
   const [opened, setOpened] = useState<Set<string>>(new Set())
   const groups = customers?.groups ?? []
   const toggle = (key: string) => setOpened((o) => { const n = new Set(o); if (n.has(key)) n.delete(key); else n.add(key); return n })
-  // The largest group opens first, so the page does not start as a closed list.
-  const first = groups[0]?.key
+  // The groups start closed, unless there is only one.
   const [started, setStarted] = useState(false)
-  if (!started && first) {
+  if (!started && groups.length > 0) {
     setStarted(true)
-    setOpened(new Set([first]))
+    setOpened(startOpen(groups.map((g) => g.key)))
   }
   return (
     <div className={styles.page}>

@@ -123,6 +123,8 @@ $frame-max: 44rem;
 
 // The open row is off-white, head and details together, against the white table (as on Platform Insights > Themes across projects).
 .item[data-open='true'] { background: var(--at-surface-soft); }
+// The same as a theme in Themes across projects: the name goes bold while its row is open.
+.item[data-open='true'] .reqTitle { font-weight: 600; }
 
 .itemHead { margin: 0; }
 

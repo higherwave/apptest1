@@ -1,4 +1,5 @@
 import { Close } from '@carbon/icons-react'
+import { startOpen } from '../../shell/startOpen'
 import { Button, Dropdown, FileUploaderDropContainer, InlineNotification, Loading, Tab, TabList, TabPanel, TabPanels, Tabs, TextArea, TextInput } from '@carbon/react'
 import { useState } from 'react'
 import type { ProjectDetail, TranscriptList } from '../../api/client'
@@ -48,6 +49,12 @@ const PLATFORM_ITEMS: { key: Platform | null; label: string }[] = [{ key: null, 
 export function TranscriptsView({ state, project, items, saved, errors, errorText, notice, save, progress, onChange, onAddFiles, onAddSample }: TranscriptsViewProps) {
   const [tool, setTool] = useState<Platform>('zoom')
   const [open, setOpen] = useState<Set<string>>(new Set())
+  const [started, setStarted] = useState(false)
+  // The transcripts start closed, unless there is only one.
+  if (!started && items.length > 0) {
+    setStarted(true)
+    setOpen(startOpen(items.map((t) => t.key)))
+  }
   const [source, setSource] = useState<Source>('customer') // Customer feedback is the default tab
 
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading transcripts" />
@@ -134,7 +141,7 @@ export function TranscriptsView({ state, project, items, saved, errors, errorTex
                 <Button kind="ghost" size="sm" onClick={() => toggle(t.key)}>
                   {open.has(t.key) ? 'Hide text' : readOnly ? 'View text' : 'Edit text'}
                 </Button>
-                {!readOnly && <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove ${t.name}`} tooltipPosition="left" onClick={() => onChange(items.filter((_, j) => j !== i))} />}
+                {!readOnly && <Button kind="ghost" size="sm" hasIconOnly renderIcon={Close} iconDescription={`Remove ${t.name}`} tooltipPosition="left" data-testid="remove-transcript" onClick={() => onChange(items.filter((_, j) => j !== i))} />}
               </div>
               {errors[i]?.rawText && <p className={styles.error}>{errors[i]?.rawText}</p>}
               {open.has(t.key) && (

@@ -101,9 +101,16 @@ test('the save request carries everything on the page: participants keep ids and
   const added = { ...f, participants: [...f.participants, { ...blankParticipant(), name: 'Cy', email: 'cy@example.com' }] }
   const req = toPlanRequest(added)
   assert.deepEqual(Object.keys(req).sort(), ['description', 'methods', 'name', 'participants'])
-  assert.deepEqual(req.participants.map((p) => [p.id, p.name]), [['a1', 'Ada'], ['b2', 'Bo'], [null, 'Cy']])
+  assert.deepEqual(req.participants!.map((p) => [p.id, p.name]), [['a1', 'Ada'], ['b2', 'Bo'], [null, 'Cy']])
   assert.equal(req.description, 'Whether it works')
   assert.equal(toPlanRequest({ ...added, description: '   ' }).description, null, 'a blank description is sent as none')
+})
+
+test('the Test Plan tabs leave the participants out of the save, so they stay as they are; a new plan needs only a name', () => {
+  const f = formFromProject(detail as never)
+  assert.deepEqual(Object.keys(toPlanRequest(f, false)).sort(), ['description', 'methods', 'name'])
+  assert.deepEqual(validate({ ...emptyForm(), name: 'Study' }, 'test'), {}, 'participants come later, on their own step')
+  assert.deepEqual(toRequest({ ...emptyForm(), name: 'Study' }).participants, [], 'a new plan is created with none')
 })
 
 test('task list: unchanged is not dirty; blank rows are ignored; requests are trimmed', () => {

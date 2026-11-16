@@ -23,6 +23,14 @@
   inline-size: 100%;
 
   > :first-child { flex: 1 1 auto; }
+  // The same height as the text field next to it (the theme makes fields 2.75rem), so the two read as one row.
+  > :last-child { block-size: 2.75rem; min-block-size: 2.75rem; }
+}
+
+.addHelp {
+  @include tokens.role('meta');
+  margin: var(--at-space-xs) 0 0;
+  color: var(--at-muted);
 }
 
 .found {

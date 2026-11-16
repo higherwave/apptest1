@@ -76,35 +76,18 @@ try {
   await page.waitForSelector('#project-description') // the form shows once the test methods have loaded
   await waitText('Test methods')
   ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Projects'))
-  const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description', '#p-name-0', '#p-phone-0'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), template: document.body.innerText.includes('Starting template'), what: /what are we testing/i.test(document.body.innerText), item: !!document.querySelector('#item-0-description') }))
-  ok('one page holds the name, a project description, methods and participants, and no What are we testing? section', plan.fields.every(Boolean) && plan.methods && !plan.template && !plan.what && !plan.item, JSON.stringify(plan))
+  const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), participants: !!document.querySelector('#p-name-0') || /Add participant/i.test(document.body.innerText), tabs: [...document.querySelectorAll('[data-testid^="plan-tab-"]')].map((t) => `${t.innerText.trim()}${t.hasAttribute('disabled') || t.getAttribute('aria-disabled') === 'true' ? ' (waits)' : ''}`).join('|') }))
+  ok('a new test plan looks like an existing project’s Test Plan: its two tabs (the second waits until the plan is saved), the name, a description and the methods, and no participants table', plan.fields.every(Boolean) && plan.methods && !plan.participants && plan.tabs === 'What to test|What to ask or observe (waits)', JSON.stringify(plan))
   ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 9 }))
   ok('while a project is being set up the step to work on is marked current and the rest are locked', await page.evaluate(() => { const st = Object.fromEntries([...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => [a.dataset.label, a.dataset.state])); return st['Test Plan'] === 'current' && Object.entries(st).filter(([k]) => k !== 'Test Plan').every(([, v]) => v === 'locked') }))
   await clickText('Save test plan')
   await waitText('Enter a project name.')
   ok('Save asks for a project name', true)
   await page.type('#project-name', 'E2E Study')
-  await clickText('Save test plan')
-  await waitText('Add at least one participant.')
-  ok('Save asks for a participant', true)
   await clickText('Survey')
   ok('a test method toggles on when chosen', await page.evaluate(() => [...document.querySelectorAll('button[aria-pressed]')].find((b) => b.innerText.trim() === 'Survey').getAttribute('aria-pressed') === 'true'))
   await page.type('#project-description', 'Whether first-time users can book')
   ok('the project description sits just below the project name and above the methods', await page.evaluate(() => { const n = document.querySelector('#project-name').getBoundingClientRect(); const d = document.querySelector('#project-description').getBoundingClientRect(); const m = document.querySelector('#methods-label').getBoundingClientRect(); return d.top >= n.bottom - 1 && d.bottom <= m.top + 1 && /project description/i.test(document.querySelector('label[for="project-description"]').innerText) }))
-  await page.type('#p-name-0', 'Ada Lovelace')
-  await page.type('#p-email-0', 'not-an-email')
-  await page.type('#p-phone-0', '(555) 010-0000')
-  ok('the participants table asks for Session length, with a dropdown and no date field', await page.evaluate(() => /session length/i.test(document.querySelector('[role="table"][aria-label="Participants"]').innerText) && !/session date/i.test(document.body.innerText) && !document.querySelector('#p-date-0') && !!document.querySelector('#p-length-0')))
-  await page.$eval('#p-length-0', (el) => el.scrollIntoView({ block: 'center' })) // a list that opens below the window cannot be hit-tested
-  await page.click('#p-length-0')
-  await page.waitForSelector('[role="option"]')
-  ok('the choices are 30 min, 45 min and 1 hour', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].map((o) => o.innerText.trim()).join('|') === '30 min|45 min|1 hour'))
-  ok('the open list is on top of the table, not clipped inside its row', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].every((o) => { const r = o.getBoundingClientRect(); const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return top === o || o.contains(top) })))
-  await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.trim() === '45 min').click())
-  await clickText('Save test plan')
-  await waitText('Enter a valid email address.')
-  ok('a bad email is caught', true)
-  await retype('#p-email-0', 'ada@example.com')
   await clickText('Save test plan')
 
   // 4. Create lands on the Test Plan's What to ask or observe tab, and the project is in the list as a draft.
@@ -112,9 +95,9 @@ try {
   ok('creating opens the new project’s What to ask or observe tab', true, page.url().replace(BASE, ''))
   const createdId = page.url().match(/projects\/([0-9a-f-]{36})\//)[1]
   const created = await (await fetch(`${API}/api/v1/projects/${createdId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  ok('the chosen session length is saved with the participant', created.participants[0].sessionMinutes === 45)
-  ok('the plan was saved: the description, the method and the phone number',
-    created.description === 'Whether first-time users can book' && created.study.methods.join() === 'Survey' && created.participants[0].phone === '(555) 010-0000',
+  ok('a project is created with no participants: they are added on their own step', created.participants.length === 0)
+  ok('the plan was saved: the description and the method',
+    created.description === 'Whether first-time users can book' && created.study.methods.join() === 'Survey',
     JSON.stringify(created.description))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('E2E Study')
@@ -221,11 +204,22 @@ try {
   await clickText('+ Add participant')
   await page.waitForSelector('#p-name-2')
   await page.type('#p-name-2', 'Zed Zeta')
-  await page.type('#p-email-2', 'zed@example.com')
+  await page.type('#p-email-2', 'not-an-email')
+  await page.type('#p-phone-2', '(555) 010-0000')
+  ok('the participants table asks for Session length, with a dropdown and no date field', await page.evaluate(() => /session length/i.test(document.querySelector('[role="table"][aria-label="Participants"]').innerText) && !/session date/i.test(document.querySelector('[role="table"][aria-label="Participants"]').innerText)))
+  await page.$eval('#p-length-2', (el) => el.scrollIntoView({ block: 'center' })) // a list that opens below the window cannot be hit-tested
+  await page.click('#p-length-2')
+  await page.waitForSelector('[role="option"]')
+  ok('the choices are 30 min, 45 min and 1 hour', await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].map((o) => o.innerText.trim()).join('|') === '30 min|45 min|1 hour'))
+  await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.trim() === '45 min').click())
+  await clickText('Save participants')
+  await waitText('Enter a valid email address.')
+  ok('a bad email is caught', true)
+  await retype('#p-email-2', 'zed@example.com')
   await clickText('Save participants')
   await waitText('All changes saved at')
   const after = (await apiGet()).participants
-  ok('a new participant is added and the others keep their ids', after.length === 3 && after[2].name === 'Zed Zeta' && before.every((id, i) => after[i].id === id))
+  ok('a new participant is added with their phone and session length, and the others keep their ids', after.length === 3 && after[2].name === 'Zed Zeta' && after[2].phone === '(555) 010-0000' && after[2].sessionMinutes === 45 && before.every((id, i) => after[i].id === id))
 
   // What to ask or observe: the second tab of the Test Plan.
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Test Plan').click())
@@ -370,7 +364,8 @@ try {
   ok('and it is not listed under Customer feedback', await page.evaluate(() => !document.querySelector('[data-testid="transcript-0"]')))
   await page.click('[data-testid="source-team"]')
   await page.waitForSelector('[data-testid="transcript-0"]')
-  await page.evaluate(() => [...document.querySelector('[data-testid="transcript-0"]').querySelectorAll('button')].at(-1).click())
+  // The only transcript starts open, so its last button is not the remove one: name it.
+  await page.click('[data-testid="transcript-0"] [data-testid="remove-transcript"]')
   await page.click('[data-testid="source-customer"]')
   await waitText('No customer transcripts yet')
   ok('Themes is still locked before analysis', await navLocked('Themes'))
@@ -762,7 +757,7 @@ try {
   await page.goto(`${BASE}/projects/${projectId}/design`, { waitUntil: 'networkidle0' })
   ok('Decisions from the requirements is a light green box with the description showing; Considered and rejected is collapsed', await page.evaluate(() => { const d = document.querySelector('section[aria-label="Decisions from the requirements"]'); if (!d) return true; const c = getComputedStyle(d).backgroundColor.match(/\d+/g).map(Number); const toggle = [...d.querySelectorAll('button')].find((b) => /Considered and rejected/.test(b.innerText)); return c[1] > c[0] && c[1] > c[2] && d.querySelector('p') && (!toggle || (toggle.getAttribute('aria-expanded') === 'false' && !d.querySelector('#design-decisions'))) }))
   await page.waitForSelector('[data-testid^="design-R"]', { timeout: 8000 })
-  ok('with nothing designed yet, the first requirement opens on arrival', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="design-R"]')]; return rows.length > 1 && rows[0].dataset.open === 'true' && !!rows[0].querySelector('[data-frame]') && rows.slice(1).every((r) => r.dataset.open === 'false') }))
+  ok('with more than one requirement, every row starts folded', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="design-R"]')]; return rows.length > 1 && rows.every((r) => r.dataset.open === 'false') && rows.every((r) => !r.querySelector('[data-frame]')) }))
   // From the Stories panel, a requirement links to its row in Design, which opens and comes into view; an open question has no such link.
   await navTo('Stories')
   await page.waitForSelector('[data-testid="story-R2"]')
@@ -801,7 +796,8 @@ try {
   await navTo('Design')
   await page.waitForSelector('[data-testid^="design-"]')
   ok('the Design step lists one row per requirement, none for open questions', (await page.$$('[data-testid^="design-"]')).length === preview.requirements && !(await page.$('[data-testid="design-Q1"]')))
-  ok('rows other than the first start folded to the requirement’s title, with what has been done', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="design-"]')].slice(1).every((r) => r.querySelector('h3 button[aria-expanded="false"]') && !r.querySelector('input, textarea')) && /No prototype/.test(document.querySelector('[data-testid="design-R1"]').innerText)))
+  ok('every row starts folded to the requirement’s title, with what has been done', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="design-"]')].every((r) => r.querySelector('h3 button[aria-expanded="false"]') && !r.querySelector('input, textarea')) && /No prototype/.test(document.querySelector('[data-testid="design-R1"]').innerText)))
+  await page.click('[data-testid="design-R1"] h3 button') // a row opens with a click
   await page.waitForSelector('[data-testid="design-R1"] [data-frame]')
   ok('opened, a row shows the prototype on the left (the wider column) and the design notes on the right', await page.evaluate(() => { const f = document.querySelector('[data-testid="design-R1"] [data-frame]').getBoundingClientRect(); const n = document.querySelector('#design-notes-R1').getBoundingClientRect(); return f.right <= n.left + 1 && f.width > n.width }))
   ok('an empty prototype box offers Upload screenshot and Link prototype', await page.evaluate(() => { const t = [...document.querySelectorAll('[data-testid="design-R1"] [data-frame] button')].map((b) => b.innerText.trim()); return t.includes('Upload screenshot') && t.includes('Link prototype') }))
@@ -1002,9 +998,13 @@ try {
   await page.click('h1')
   await page.waitForFunction(() => /100 a week/.test(document.querySelector('[data-testid="measure-reading-R1"]')?.innerText ?? ''), { timeout: 8000 })
   const m3 = (await measureApi()).items.find((i) => i.key === 'R1')
+  // The cards start folded to their top line (there is more than one); Expand all opens them to their readings.
+  ok('the cards start folded and the toggle offers Expand all', await page.evaluate(() => !document.querySelector('[data-testid="measure-strip-R1"]') && [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Expand all')))
+  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Expand all').click())
+  await page.waitForSelector('[data-testid="measure-strip-R1"]')
   ok('a reading is saved with the status, shown with its unit, and again on the card', m3.checkins.length === 1 && m3.checkins[0].value === '100' && m3.checkins[0].verdict === 'needs_attention' && await page.evaluate(() => /100 a week/.test(document.querySelector('[data-testid="measure-strip-R1"]')?.innerText ?? '')))
   // Cards open to their latest reading; Collapse all folds them to their top line, and Expand all brings them back.
-  ok('every card shows its reading by default and the toggle offers Collapse all', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Collapse all') && !!document.querySelector('[data-testid="measure-strip-R1"]')))
+  ok('Expand all opened every card to its reading, and the toggle now offers Collapse all', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Collapse all') && !!document.querySelector('[data-testid="measure-strip-R1"]')))
   await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Collapse all').click())
   await new Promise((r) => setTimeout(r, 300))
   ok('Collapse all folds the cards to their top line and the toggle says Expand all', await page.evaluate(() => !document.querySelector('[data-testid="measure-strip-R1"]') && [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Expand all')))
@@ -1112,7 +1112,7 @@ try {
     await page.waitForFunction(() => document.querySelector('ul[aria-label^="Recommendations"]').scrollLeft > 0, { timeout: 5000 })
     ok('Next moves the strip along', true)
   } else ok('all recommendations fit in the row, so there are no Previous and Next buttons', await page.evaluate(() => document.querySelectorAll('section[aria-labelledby="recs-heading"] [class*="controls"] button').length === 0))
-  ok('the first theme is open until another is picked', await page.evaluate((id) => document.querySelector(`[data-testid="platform-theme-${id}"]`).dataset.open === 'true', insights.themes[0].id))
+  ok('the themes start folded, and one opens when it is picked', await page.evaluate((ids) => ids.length > 1 && ids.every((id) => document.querySelector(`[data-testid="platform-theme-${id}"]`).dataset.open !== 'true'), insights.themes.map((t) => t.id)))
   const second = insights.themes[1]
   await page.click(`[data-testid="platform-theme-${second.id}"] button`)
   await page.waitForSelector(`#theme-body-${second.id}`, { timeout: 8000 })
@@ -1165,7 +1165,9 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('[data-label]')].find((a) => a.dataset.label === 'Personas').click())
   await page.waitForSelector('[data-testid^="customer-"]', { timeout: 8000 })
   const customers = await (await fetch(`${API}/api/v1/insights/customers`)).json()
-  ok('Personas lists each group once, the largest first, with the first one open', await page.evaluate((groups) => { const rows = [...document.querySelectorAll('[data-testid^="customer-"]')]; return rows.length === groups.length && rows.every((r, i) => r.innerText.includes(groups[i].name) && r.innerText.includes(`${groups[i].participantCount} participant`)) && rows[0].dataset.open === 'true' && rows.slice(1).every((r) => r.dataset.open === 'false') }, customers.groups))
+  ok('Personas lists each group once, the largest first, every group folded', await page.evaluate((groups) => { const rows = [...document.querySelectorAll('[data-testid^="customer-"]')]; return rows.length === groups.length && rows.every((r, i) => r.innerText.includes(groups[i].name) && r.innerText.includes(`${groups[i].participantCount} participant`)) && rows.every((r) => r.dataset.open === 'false') }, customers.groups))
+  await page.evaluate(() => document.querySelector('[data-testid^="customer-"] h3 button').click()) // a group opens with a click
+  await page.waitForSelector('[data-testid^="customer-"][data-open="true"]', { timeout: 5000 })
   ok('an open group shows what they struggle with and what they said', await page.evaluate(() => { const r = document.querySelector('[data-testid^="customer-"][data-open="true"]'); return /What they struggle with/i.test(r.innerText) && /In their words/i.test(r.innerText) && r.querySelectorAll('blockquote').length >= 1 }))
   // Rolled up by experience category: None is the default; Experience category puts what each group struggles with under area headings, and is in the address.
   ok('Personas starts ungrouped', await page.evaluate(() => document.querySelector('[data-testid="group-none"]').getAttribute('aria-pressed') === 'true' && !document.querySelector('[data-testid^="persona-area-"]')))
@@ -1186,6 +1188,9 @@ try {
   ok('the table has a Source column, and Participants is a narrow column with a small bar', await page.evaluate(() => { const heads = [...document.querySelectorAll('section[aria-labelledby="themes-heading"] > div[aria-hidden] > *')].map((e) => e.innerText.trim().toLowerCase()); const row = document.querySelector('[data-testid^="platform-theme-"]'); const cells = [...row.querySelector('[class*="columns"]').children]; const part = cells[cells.length - 1].getBoundingClientRect().width; const src = cells[heads.indexOf('source')]; return heads.join() === 'themes,type,source,status,trend,participants' && part < 180 && /^(Customers|Team|Customers \+ Team)$/.test(src.innerText.trim()) && !!cells[cells.length - 1].querySelector('[role="progressbar"], [class*="progress"]') }))
   ok('a theme row in Design uses the same font and size as a theme in Themes across projects', true)
   ok('every theme row says where it was heard (Customers, Team or Customers + Team)', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="platform-theme-"]')]; return rows.length > 0 && rows.every((r) => /^(Customers|Team|Customers \+ Team)$/.test(r.querySelector('[data-testid^="origin-"]')?.innerText.trim() ?? '')) }))
+  // The themes start folded: open one (the checks below are about an open theme).
+  await page.evaluate(() => { if (!document.querySelector('[data-testid^="platform-theme-"][data-open="true"]')) document.querySelector('[data-testid^="platform-theme-"] button').click() })
+  await page.waitForSelector('[data-testid^="platform-theme-"][data-open="true"]', { timeout: 5000 })
   ok('the open theme says in one line how it was matched, under its title', await page.evaluate(() => { const open = document.querySelector('[data-testid^="platform-theme-"][data-open="true"]'); const line = open?.querySelector('[class*="matchLine"]'); return !!line && /Matched by AI|Set by hand/.test(line.innerText) && line.getBoundingClientRect().top > open.querySelector('[class*="rowTitle"]').getBoundingClientRect().top }))
   ok('the recommendation box in an open theme is a grayish blue', await page.evaluate(() => { const b = document.querySelector('[data-testid^="recommendation-"]'); const c = getComputedStyle(b).backgroundColor.match(/\d+/g).map(Number); return c[2] > c[0] + 5 && c[2] > c[1] }))
   const themeCount = await page.evaluate(() => document.querySelectorAll('[data-testid^="platform-theme-"]').length)
@@ -1222,10 +1227,11 @@ try {
     await page.waitForSelector('[data-testid="area-group-Unassigned"]', { timeout: 8000 })
   }
   {
-    // The first theme of the table is open until another is picked; open the first unassigned one if it is not.
-    if (!(await page.$('[data-testid^="open-assign-"]'))) {
+    // The themes start folded: open the first unassigned one. (A click on a theme that is already open closes it, so look again and click once more if need be.)
+    for (let tries = 0; tries < 2 && !(await page.$('[data-testid^="open-assign-"]')); tries++) {
       await page.evaluate(() => document.querySelector('[data-testid="area-group-Unassigned"] li button').scrollIntoView({ block: 'center' }))
       await page.click('[data-testid="area-group-Unassigned"] li button')
+      await new Promise((r) => setTimeout(r, 500))
     }
     const opener = await page.$('[data-testid^="open-assign-"]')
     ok('an unassigned theme offers Add to Experience Category', !!opener)
@@ -1291,7 +1297,9 @@ try {
   const briefs = (await (await fetch(`${API}/api/v1/insights/case-briefs`)).json()).data
   ok('Case Studies is a table of expandable rows: a row for each analysed project and for each written case study', await page.evaluate((n) => { const rows = [...document.querySelectorAll('[data-testid^="case-row-"]')]; return rows.length === n && rows.every((r) => r.querySelector('h3 button[aria-expanded]')) }, briefs.length + cases.length))
   ok('each row has the name, a line on how it turned out, the chevron, and a Copy prompt button with a tooltip', await page.evaluate((all) => { const rows = [...document.querySelectorAll('[data-testid^="case-row-"]')]; return all.every((x, i) => { const head = rows[i].querySelector('h3'); const copy = [...rows[i].querySelectorAll('button')].find((b) => b.innerText.trim() === 'Copy prompt'); return head.innerText.includes(x.name) && head.innerText.includes(x.outcome) && !!head.querySelector('svg') && !!copy && /AI tool such as Claude Design/.test(copy.title) && !head.contains(copy) }) }, [...briefs.map((b) => ({ name: b.projectName, outcome: b.outcome })), ...cases.map((c) => ({ name: c.title, outcome: c.outcome }))]))
-  ok('the first row opens with the problem, what people said, decided and designed, and What happened across the full width in a darker box', await page.evaluate(() => { const r = document.querySelector('[data-testid^="case-row-"][data-open="true"]'); const sec = (n) => r.querySelector(`section[aria-label="${n}"]`); const happened = sec('What happened'); const grid = sec('The problem').parentElement.getBoundingClientRect(); const h = happened.getBoundingClientRect(); const bg = (e) => getComputedStyle(e).backgroundColor; return ['The problem', 'What people said', 'What we decided', 'What we designed'].every((n) => !!sec(n)) && h.width >= grid.width - 2 && bg(happened) !== bg(r.querySelector('[id^="case-body-"]')) && r.querySelectorAll('blockquote').length >= 1 && !r.querySelector('button[class*="copy"]') }))
+  await page.evaluate(() => document.querySelector('[data-testid^="case-row-"] h3 button').click()) // the rows start folded: open the first
+  await page.waitForSelector('[data-testid^="case-row-"][data-open="true"]', { timeout: 5000 })
+  ok('a row opens with the problem, what people said, decided and designed, and What happened across the full width in a darker box', await page.evaluate(() => { const r = document.querySelector('[data-testid^="case-row-"][data-open="true"]'); const sec = (n) => r.querySelector(`section[aria-label="${n}"]`); const happened = sec('What happened'); const grid = sec('The problem').parentElement.getBoundingClientRect(); const h = happened.getBoundingClientRect(); const bg = (e) => getComputedStyle(e).backgroundColor; return ['The problem', 'What people said', 'What we decided', 'What we designed'].every((n) => !!sec(n)) && h.width >= grid.width - 2 && bg(happened) !== bg(r.querySelector('[id^="case-body-"]')) && r.querySelectorAll('blockquote').length >= 1 && !r.querySelector('button[class*="copy"]') }))
   ok('only projects where something worked are case studies, and What happened carries no Worked badge', await page.evaluate((n) => { const rows = [...document.querySelectorAll('[data-testid^="case-row-p-"]')]; const happened = document.querySelector('[data-testid^="case-row-p-"] section[aria-label="What happened"]'); return rows.length === n && n >= 1 && !!happened && !/worked/i.test(happened.innerText.replace(/Nothing/gi, '')) && !happened.querySelector('[class*="tag"]') }, briefs.length))
   await page.click('[data-testid="group-area"]')
   await page.waitForSelector('[data-testid="case-row-p-' + (await page.evaluate(() => document.querySelector('[data-testid^="case-row-"]').dataset.testid.replace('case-row-p-', ''))) + '"] section[aria-label$=" themes"]', { timeout: 5000 }).catch(() => {})
@@ -1538,7 +1546,7 @@ try {
   ok('the edited transcript kept its place and gained a line', await page.waitForFunction(() => document.querySelector('[data-testid="transcript-1"]')?.innerText.includes('Session 2'), { timeout: 10000 }).then(() => true, () => false))
 
   // Remove them all: the analysis is retired, the project is a draft, and the steps lock again.
-  for (let i = 0; i < 3; i++) await page.evaluate(() => [...document.querySelector('[data-testid="transcript-0"]').querySelectorAll('button')].at(-1).click())
+  for (let i = 0; i < 3; i++) await page.click('[data-testid="transcript-0"] [data-testid="remove-transcript"]')
   await waitText('No customer transcripts yet')
   ok('with nothing to analyze the button just says Save', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Save')))
   await clickText('Save')

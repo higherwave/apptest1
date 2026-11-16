@@ -1,4 +1,5 @@
 import { ChevronDown, ChevronUp, Link as LinkIcon } from '@carbon/icons-react'
+import { startOpen } from '../../shell/startOpen'
 import { Button, FileUploaderDropContainer, InlineNotification, Loading, Modal, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useRef, useState } from 'react'
 import { designImageUrl, type Design, type DesignItem, type DesignRequest } from '../../api/client'
@@ -304,13 +305,12 @@ export function DesignView(props: DesignViewProps) {
       row.querySelector<HTMLElement>('h3 button')?.focus({ preventScroll: true })
     })
   }, [target])
-  // Nothing designed yet (first visit): open the first requirement so the way in is on screen. Once, and not when a link asked for a row.
+  // The rows start closed, unless there is only one. Once, and not when a link asked for a row.
   const started = useRef(false)
   useEffect(() => {
     if (started.current || !design || props.openKey) return
     started.current = true
-    const first = design.items[0]
-    if (first && design.items.every((i) => !i.hasImage && !i.prototypeUrl && !i.notes)) setOpened((o) => new Set(o).add(first.storyId))
+    setOpened(startOpen(design.items.map((i) => i.storyId)))
   }, [design, props.openKey])
   const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const decisions = design?.decisions

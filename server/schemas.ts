@@ -31,7 +31,8 @@ export const createProjectSchema = z.object({
   methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
   description: projectDescription,
   teamId: z.string().uuid().optional(),
-  participants: z.array(participantSchema).min(1, 'Add at least one participant.'),
+  // Participants are their own step: a project can be made first and its participants added after.
+  participants: z.array(participantSchema).default([]),
 })
 export type CreateProjectInput = z.infer<typeof createProjectSchema>
 
@@ -50,7 +51,8 @@ export const savePlanSchema = z.object({
   name: text(120).min(1, 'Enter a project name.'),
   methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
   description: projectDescription,
-  participants: z.array(participantSchema.extend({ id: z.uuid().nullish().transform((v) => v ?? null) })).min(1, 'Add at least one participant.'),
+  // Left out, the participants are untouched (the Test Plan tabs do not edit them); sent, they replace the list and there must be at least one.
+  participants: z.array(participantSchema.extend({ id: z.uuid().nullish().transform((v) => v ?? null) })).min(1, 'Add at least one participant.').optional(),
 })
 export type SavePlanInput = z.infer<typeof savePlanSchema>
 

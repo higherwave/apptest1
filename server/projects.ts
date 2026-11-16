@@ -243,26 +243,28 @@ export async function savePlan(db: Db, ctx: { workspaceId: string; userId: strin
     await claimVersion(tx, ctx, projectId, expected, input.name)
     await tx.query(`update research.studies set methods = $2, what_testing = $3, updated_by = $4 where project_id = $1`, [projectId, input.methods, input.description, ctx.userId])
 
-    const existing = new Set((await tx.query(`select id from research.participants where project_id = $1`, [projectId])).rows.map((r) => r.id as string))
-    const keep = new Set<string>()
-    for (const [position, p] of input.participants.entries()) {
-      if (p.id) {
-        if (!existing.has(p.id)) throw new UnknownParticipant(p.id)
-        keep.add(p.id)
-        await tx.query(
-          `update research.participants set name = $2, role = $3, email = $4, phone = $5, session_minutes = $6, position = $7, updated_by = $8 where id = $1`,
-          [p.id, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionMinutes, position, ctx.userId],
-        )
-      } else {
-        await tx.query(
-          `insert into research.participants (workspace_id, project_id, position, name, role, email, phone, session_minutes, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
-          [ctx.workspaceId, projectId, position, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionMinutes, ctx.userId],
-        )
+    if (input.participants) {
+      const existing = new Set((await tx.query(`select id from research.participants where project_id = $1`, [projectId])).rows.map((r) => r.id as string))
+      const keep = new Set<string>()
+      for (const [position, p] of input.participants.entries()) {
+        if (p.id) {
+          if (!existing.has(p.id)) throw new UnknownParticipant(p.id)
+          keep.add(p.id)
+          await tx.query(
+            `update research.participants set name = $2, role = $3, email = $4, phone = $5, session_minutes = $6, position = $7, updated_by = $8 where id = $1`,
+            [p.id, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionMinutes, position, ctx.userId],
+          )
+        } else {
+          await tx.query(
+            `insert into research.participants (workspace_id, project_id, position, name, role, email, phone, session_minutes, created_by, updated_by) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $9)`,
+            [ctx.workspaceId, projectId, position, p.name, p.role, p.email.toLowerCase(), p.phone, p.sessionMinutes, ctx.userId],
+          )
+        }
       }
+      const remove = [...existing].filter((id) => !keep.has(id))
+      if (remove.length) await tx.query(`delete from research.participants where id = any($1::uuid[])`, [remove])
     }
-    const remove = [...existing].filter((id) => !keep.has(id))
-    if (remove.length) await tx.query(`delete from research.participants where id = any($1::uuid[])`, [remove])
-    await audit(tx, ctx, projectId, 'plan_saved', { name: input.name, participants: input.participants.length })
+    await audit(tx, ctx, projectId, 'plan_saved', { name: input.name, ...(input.participants ? { participants: input.participants.length } : {}) })
   })
 }
 

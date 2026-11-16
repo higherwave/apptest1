@@ -202,6 +202,14 @@ try {
   await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Audit log"]').click())
   await page.waitForSelector('[data-testid="audit-row"]', { timeout: 8000 })
   ok('the Audit log tab lists who changed what, newest first, including the invitation and the role change just made', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid="audit-row"]')].map((r) => r.innerText); return location.pathname === '/settings/audit' && rows.length >= 2 && /Member/.test(rows[0]) && rows.some((r) => /e2e\.person@example\.com/.test(r) && /role/i.test(r)) && rows.some((r) => /Created|Invited/i.test(r) && /e2e\.person@example\.com/.test(r)) }))
+  // The date filter is one dropdown of presets. What was just done is in Today, and the server narrows by date.
+  await page.click('#audit-range')
+  await page.waitForSelector('[role=option]', { visible: true })
+  ok('the When filter offers All time, Today and the last 7, 30 and 90 days', await page.evaluate(() => [...document.querySelectorAll('[role=option]')].map((o) => o.innerText.trim()).join('|') === 'All time|Today|Last 7 days|Last 30 days|Last 90 days'))
+  await page.evaluate(() => [...document.querySelectorAll('[role=option]')].find((o) => o.innerText.trim() === 'Today').click())
+  await new Promise((r) => setTimeout(r, 800))
+  ok('Today still lists what was just done', await page.evaluate(() => document.querySelectorAll('[data-testid="audit-row"]').length > 0))
+  ok('and a start in the future lists nothing', await page.evaluate(async () => (await (await fetch(`/api/v1/audit?since=${encodeURIComponent(new Date(Date.now() + 864e5).toISOString())}`)).json()).data.length === 0))
 
   // Data: the owner can take the data away, and it is recorded.
   await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Data"]').click())

@@ -78,11 +78,13 @@
 .stepButton.stepButton {
   @include tokens.role('label-md');
   position: static; // so the row, not the button, is what the click area stretches to
+  padding-inline: 0; // the name starts where the line under it ("Always used") starts; the click area is the whole row anyway
+  min-block-size: 0;
 
   // The whole row opens the step: this button's click area is stretched over it. The switches in the row sit above it.
   &::after { content: ''; position: absolute; inset: 0; }
 }
-.choose.choose { color: var(--at-link); position: static; &::after { content: ''; position: absolute; inset: 0; } }
+.choose.choose { color: var(--at-link); position: static; padding-inline: 0; min-block-size: 0; &::after { content: ''; position: absolute; inset: 0; } }
 
 .who {
   @include tokens.role('body-md');

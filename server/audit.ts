@@ -37,7 +37,7 @@ const CURSOR = /^[0-9:. +\-TZ]+\|[0-9a-f-]{36}$/i
 export class BadCursor extends Error {}
 
 /** Newest first, a page at a time. The cursor is the last row's timestamp and id, so a page never repeats or skips a row. */
-export async function listAudit(db: Queryable, workspaceId: string, opts: { group?: AuditGroup; teamId?: string; limit: number; cursor?: string }): Promise<AuditPage> {
+export async function listAudit(db: Queryable, workspaceId: string, opts: { group?: AuditGroup; teamId?: string; since?: string; limit: number; cursor?: string }): Promise<AuditPage> {
   const entities: string[] = opts.group ? [...AUDIT_GROUPS[opts.group]] : Object.values(AUDIT_GROUPS).flatMap((l) => [...l])
   const params: unknown[] = [workspaceId, entities]
   let after = ''
@@ -53,6 +53,12 @@ export async function listAudit(db: Queryable, workspaceId: string, opts: { grou
     params.push(opts.teamId)
     about = `and coalesce(t.id, p.team_id) = $${params.length}::uuid`
   }
+  // Only changes from this moment on (the date filter: Today, the last 7 days, and so on).
+  let recent = ''
+  if (opts.since) {
+    params.push(opts.since)
+    recent = `and a.created_at >= $${params.length}::timestamptz`
+  }
   params.push(opts.limit + 1)
   const rows = (
     await db.query(
@@ -62,7 +68,7 @@ export async function listAudit(db: Queryable, workspaceId: string, opts: { grou
        left join core.teams t on t.id = a.entity_id and a.entity in ('core.teams', 'core.team_memberships')
        left join core.projects p on p.id = a.entity_id and a.entity in ('core.projects', 'core.teams')
        left join core.teams tm on tm.id = coalesce(t.id, p.team_id)
-       where a.workspace_id = $1 and a.entity = any($2::text[]) ${after} ${about}
+       where a.workspace_id = $1 and a.entity = any($2::text[]) ${after} ${about} ${recent}
        order by a.created_at desc, a.id desc limit $${params.length}`,
       params,
     )

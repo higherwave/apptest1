@@ -310,12 +310,32 @@ test('POST /projects without a template uses the blank one and starts with no ta
   assert.equal((await pglite.query<any>(`select count(*)::int n from research.tasks where project_id = $1`, [created.id])).rows[0].n, 0)
 })
 
+test('POST /projects needs only a name: participants are their own step, so a project can be made first and its participants added after', async () => {
+  await demoDb()
+  const app = createApp({ env: TOKEN, getDb: () => db })
+  const { participants: _none, ...noParticipants } = newProject({ name: 'No participants yet' })
+  const res = await post(app, noParticipants)
+  assert.equal(res.status, 201)
+  const id = (await res.json()).id
+  assert.equal((await pglite.query<any>(`select count(*)::int n from research.participants where project_id = $1`, [id])).rows[0].n, 0)
+  const detail = await (await app.request(`/api/v1/projects/${id}`, { headers: auth })).json()
+  assert.deepEqual(detail.participants, [])
+  // Its Test Plan can still be saved (no participants are sent: they stay as they are) and a participant added on the Participants step.
+  const plan = { name: 'No participants yet', methods: ['Usability Test'], description: 'Why' }
+  const saved = await app.request(`/api/v1/projects/${id}/study`, { method: 'PUT', headers: { ...auth, 'if-match': String(detail.version) }, body: JSON.stringify(plan) })
+  assert.ok(saved.status < 300)
+  const again = await (await app.request(`/api/v1/projects/${id}`, { headers: auth })).json()
+  assert.deepEqual([again.study.methods, again.participants.length], [['Usability Test'], 0])
+  const added = await app.request(`/api/v1/projects/${id}/study`, { method: 'PUT', headers: { ...auth, 'if-match': String(again.version) }, body: JSON.stringify({ ...plan, participants: [{ name: 'Ada', email: 'ada@example.com' }] }) })
+  assert.ok(added.status < 300)
+  assert.equal((await (await app.request(`/api/v1/projects/${id}`, { headers: auth })).json()).participants.length, 1)
+})
+
 test('POST /projects validates, naming the field: 422 validation_failed', async () => {
   await demoDb()
   const app = createApp({ env: TOKEN, getDb: () => db })
   const cases: [Record<string, unknown>, string][] = [
     [newProject({ name: '  ' }), 'name'],
-    [newProject({ participants: [] }), 'participants'],
     [newProject({ participants: [{ name: 'Ada', email: 'not-an-email' }] }), 'participants.0.email'],
     [newProject({ participants: [{ name: '', email: 'a@b.co' }] }), 'participants.0.name'],
     [newProject({ methods: ['Mind reading'] }), 'methods.0'],

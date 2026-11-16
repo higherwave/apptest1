@@ -1114,6 +1114,7 @@ paths:
       parameters:
         - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data] } }
         - { name: teamId, in: query, required: false, schema: { type: string }, description: 'Only changes about this team: its people, its projects and the team itself.' }
+        - { name: since, in: query, required: false, schema: { type: string, format: date-time }, description: 'Only changes made at or after this moment (the date filter). 422 when it is not a date and time.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
         - { name: cursor, in: query, required: false, schema: { type: string } }
       responses:
@@ -2708,7 +2709,7 @@ components:
         sessionMinutes: { type: [integer, 'null'], enum: [30, 45, 60, null], description: The planned length of the session in minutes. }
     SavePlanRequest:
       type: object
-      required: [name, participants]
+      required: [name]
       properties:
         name: { type: string }
         methods:
@@ -2718,7 +2719,7 @@ components:
         teamId: { type: string, description: 'The team to add the project to; the caller must be an editor or owner there. Optional when the caller edits in one team, or in the default team.' }
         participants:
           type: array
-          description: At least one. Name and a valid email are required.
+          description: Optional. Left out, the participants are unchanged (the Test Plan tabs do not edit them). Sent, they replace the list, and there must be at least one.
           items: { $ref: '#/components/schemas/ParticipantInput' }
     BoardStory:
       type: object
@@ -3682,7 +3683,7 @@ components:
                 items: { type: string }
     CreateProjectRequest:
       type: object
-      required: [name, participants]
+      required: [name]
       properties:
         name: { type: string }
         templateKey: { type: string, enum: [usability, discovery, concept, blank], description: Optional; the test plan page no longer offers templates, so new projects use blank. }
@@ -3692,7 +3693,7 @@ components:
         description: { type: [string, 'null'], description: A short, high-level orientation for the whole project, at most 2000 characters. }
         participants:
           type: array
-          description: At least one. Name and a valid email are required.
+          description: Optional. Participants are their own step, so a project can be created first and its participants added after.
           items: { $ref: '#/components/schemas/ParticipantInput' }
     ProjectList:
       type: object

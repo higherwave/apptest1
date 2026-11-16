@@ -52,7 +52,7 @@ export function TestPlanTabsPage() {
       return
     }
     const after = await flow.save(async (version) => {
-      let latest = planDirty || overwrite ? await saveStudy.mutateAsync({ version, body: toPlanRequest(form) }) : undefined
+      let latest = planDirty || overwrite ? await saveStudy.mutateAsync({ version, body: toPlanRequest(form, false) }) : undefined
       if (tasksDirty || overwrite) latest = await saveTasks.mutateAsync({ version: latest?.version ?? version, body: toTasksRequest(tasks) })
       return latest ?? saved
     }, overwrite)

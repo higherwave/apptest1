@@ -62,7 +62,13 @@ export const formFromProject = (p: ProjectDetail): PlanForm => ({
 const planKey = (f: PlanForm) => JSON.stringify([f.name.trim(), descriptionRequest(f), [...f.methods].sort(), participantRequests(f).map((p) => ({ ...p, email: p.email.toLowerCase() }))])
 export const planChanged = (form: PlanForm, saved: ProjectDetail) => planKey(form) !== planKey(formFromProject(saved))
 
-export const toPlanRequest = (form: PlanForm) => ({ name: form.name.trim(), description: descriptionRequest(form), methods: form.methods, participants: participantRequests(form) })
+// `withParticipants` is false for the Test Plan tabs, which do not edit the participants: leaving them out leaves them as they are.
+export const toPlanRequest = (form: PlanForm, withParticipants = true) => ({
+  name: form.name.trim(),
+  description: descriptionRequest(form),
+  methods: form.methods,
+  ...(withParticipants ? { participants: participantRequests(form) } : {}),
+})
 
 // Task list --------------------------------------------------------------------------------------------
 

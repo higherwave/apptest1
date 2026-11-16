@@ -22,7 +22,8 @@ export function InsightThemesPage() {
   }
   const themes = overview.data?.themes ?? []
   const asked = params.get('theme')
-  const openId = closed ? null : themes.some((t) => t.id === asked) ? asked : (themes[0]?.id ?? null)
+  // A theme opens when the address asks for it, or when it is the only one; otherwise the list starts closed.
+  const openId = closed ? null : themes.some((t) => t.id === asked) ? asked : themes.length === 1 ? themes[0].id : null
 
   const state = overview.isError ? 'error' : overview.isPending ? 'loading' : themes.length === 0 ? 'empty' : 'ready'
   return (

@@ -101,7 +101,6 @@ export function AreasPage() {
               id="add-area-name"
               labelText="Add a category"
               placeholder="Type a name, for example Scheduling"
-              helperText="It joins the list for everyone. Questions can also add one as you type."
               value={newName}
               onChange={(e) => {
                 setNewName(e.target.value)
@@ -113,6 +112,8 @@ export function AreasPage() {
               Add
             </Button>
           </div>
+          {/* Under the row, not inside the field: a helper line inside it makes the field taller, and the button, aligned to the field's bottom, then sat below the input box. */}
+          <p className={styles.addHelp}>It joins the list for everyone. Questions can also add one as you type.</p>
           {heard.existing && <InlineNotification kind="warning" lowContrast hideCloseButton title="Already on the list" subtitle={`“${heard.existing}” is the same category.`} />}
           {heard.similar.length > 0 && (
             <div className={styles.found} data-testid="area-similar">

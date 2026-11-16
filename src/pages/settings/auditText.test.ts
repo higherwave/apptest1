@@ -23,3 +23,14 @@ test('long values are shortened and verbs read as phrases', () => {
   assert.equal(verbLabel('analysis_run'), 'Analysis run')
   assert.deepEqual(describe({ entity: 'core.memberships', verb: 'removed', before: { email: 'a@x.org' }, after: null }), { what: 'Member · Removed', detail: 'email: a@x.org' })
 })
+
+test('the date filter presets start at midnight today, or that many days back; All time has no start', async () => {
+  const { sinceFor, AUDIT_RANGES } = await import('./auditText.js')
+  const now = new Date(2026, 10, 16, 15, 30, 0) // 16 Nov 2026, 3:30pm where the person is
+  assert.deepEqual(AUDIT_RANGES.map((r) => r.label), ['All time', 'Today', 'Last 7 days', 'Last 30 days', 'Last 90 days'])
+  assert.equal(sinceFor('all', now), undefined)
+  assert.equal(sinceFor('today', now), new Date(2026, 10, 16, 0, 0, 0).toISOString(), 'the start of the day, not 24 hours ago')
+  assert.equal(sinceFor('7d', now), new Date(now.getTime() - 7 * 86_400_000).toISOString())
+  assert.equal(sinceFor('30d', now), new Date(now.getTime() - 30 * 86_400_000).toISOString())
+  assert.equal(sinceFor('90d', now), new Date(now.getTime() - 90 * 86_400_000).toISOString())
+})
