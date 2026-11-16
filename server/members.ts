@@ -115,12 +115,9 @@ export async function inviteMember(db: Db, ctx: RequestContext, input: { email: 
   if (input.external && input.role !== 'viewer') throw new ExternalNeedsViewer()
   if (input.external && input.teams && Object.keys(input.teams).length > 0) throw new ExternalNoTeams()
   return db.transaction(async (tx) => {
-    const found = await tx.query(`select id from core.users where lower(email) = $1`, [email])
-    let userId: string = found.rows[0]?.id
-    if (!userId) {
-      const made = await tx.query(`insert into core.users (email, display_name) values ($1, $2) returning id`, [email, email.split('@')[0]])
-      userId = made.rows[0].id
-    }
+    // People are shared by every workspace, and a workspace can see only its own members, so a person is found or created by email through a
+    // database function that hands back an id and nothing else (migration 0047).
+    const userId: string = (await tx.query(`select core.user_id_for_email($1, $2) as id`, [email, email.split('@')[0]])).rows[0].id
     const dup = await tx.query(`select id from core.memberships where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, userId])
     if (dup.rows[0]) throw new AlreadyMember()
     const made = await tx.query(

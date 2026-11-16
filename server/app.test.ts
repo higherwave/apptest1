@@ -24,7 +24,7 @@ const spec = parse(readFileSync(new URL('../openapi/openapi.yaml', import.meta.u
 
 // A Db that fails the test if anything uses it: proves a route never touches the database.
 const forbidden = async (): Promise<never> => { throw new Error('the database must not be used by this route') }
-const forbiddenDb: Db = { query: forbidden, transaction: forbidden }
+const forbiddenDb: Db = { query: forbidden, transaction: forbidden, inWorkspace: () => forbiddenDb }
 
 let pglite: PGlite
 let db: Db
@@ -149,7 +149,7 @@ test('a production deployment with no DEV_TOKEN refuses data routes', async () =
 
 test('a paused or unreachable database becomes a 503 db_unavailable envelope', async () => {
   const refuse = async (): Promise<never> => { throw Object.assign(new Error('connect ECONNREFUSED'), { code: 'ECONNREFUSED' }) }
-  const down = wrapDb({ query: refuse, transaction: refuse })
+  const down: Db = wrapDb({ query: refuse, transaction: refuse, inWorkspace: () => down })
   const app = createApp({ env: {}, getDb: () => down })
   const res = await app.request('/api/v1/health/db')
   assert.equal(res.status, 503)

@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs'
 import { PGlite } from '@electric-sql/pglite'
-import type { Db, Queryable } from './db.js'
+import { scopeSql, type Db, type Queryable } from './db.js'
 import type { AuthService } from './auth.js'
 // @ts-expect-error plain ESM helpers shared with the db/ tooling
 import { migrationFiles } from '../db/migrate.mjs'
@@ -12,13 +12,20 @@ import { loadAnchorCx } from '../db/seed/anchor-cx/load.mjs'
 type Rows = { rows: Record<string, any>[] }
 
 // Adapts an in-memory Postgres (PGlite) to the API's Db interface, including transactions.
-export function pgliteDb(pg: PGlite): Db {
+export function pgliteDb(pg: PGlite, workspaceId?: string): Db {
   const q = (target: { query: (s: string, p?: unknown[]) => Promise<unknown> }): Queryable => ({
     query: async (sql, params) => (await target.query(sql, params as unknown[])) as Rows,
   })
+  // With a workspace, each query is its own small transaction run as the restricted role with the workspace set, exactly as in production.
+  const inTx = <T>(fn: (tx: Queryable) => Promise<T>): Promise<T> =>
+    pg.transaction(async (tx) => {
+      if (workspaceId) await tx.query(scopeSql(workspaceId))
+      return fn(q(tx))
+    })
   return {
-    ...q(pg),
-    transaction: (fn) => pg.transaction((tx) => fn(q(tx))),
+    ...(workspaceId ? { query: (sql: string, params?: unknown[]) => inTx((t) => t.query(sql, params)) } : q(pg)),
+    transaction: workspaceId ? inTx : (fn) => pg.transaction((tx) => fn(q(tx))),
+    inWorkspace: (id) => pgliteDb(pg, id),
   }
 }
 
@@ -28,6 +35,7 @@ export async function createDemoDatabase(options: { anchor?: boolean } = {}): Pr
   const pglite = new PGlite()
   for (const f of migrationFiles()) await pglite.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
   await pglite.exec(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`)
+  await pglite.exec(`grant select on public.schema_migrations to sf_app`) // the migration tool's own bookkeeping table, which the health check reads
   for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
   await seed(pglite)
   if (options.anchor) await loadAnchorCx(pglite, { workspaceId: uid('workspace'), userId: uid('user:david') })

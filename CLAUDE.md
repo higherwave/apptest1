@@ -41,6 +41,17 @@ they are not in; the read-only demo viewer sees everything. Rules live in `serve
 - With `SSO_TEAM_GROUP_PREFIX` set, sign-in groups decide people's places in every team but the default (`server/team-groups.ts`, run from `memberFor`); the Teams page then refuses to edit those people.
 - Migration 0036's triggers keep the default team in step with workspace memberships and new projects, so the previous code still works during a deploy.
 
+## Workspaces (tenancy)
+
+Each customer is a workspace; nothing is shared between them. Two locks, both tested in `server/tenancy.test.ts`:
+
+- **The API checks** (team and project rules, `viewerOf` for launches) are the first lock, as before.
+- **Row-level security** (migration 0047) is the second: every query a signed-in request makes runs as the restricted role `sf_app` with `app.workspace_id` set, in its own small transaction, so the database refuses another workspace's rows even if application code is wrong. In a handler, `getDb()` is always one workspace's view (it throws outside a request's workspace). `platformDb()` is the owner role that row-level security does not restrict: use it only for paths that act for no workspace (finding who the caller is, the scheduler, Slack's inbound calls, the unsubscribe link), and say why in a comment. Do not add to that list lightly.
+- A new table with workspace data needs `workspace_id`, row-level security and the `workspace_isolation` policy (copy 0047's loop); a table that belongs to a person or to Slack goes in `NOT_IN_ONE_WORKSPACE` in the tenancy test with its reason. The test fails otherwise. A child table gets its workspace id from its parent with the `fill_workspace` trigger (migration 0046), so older code that omits it still works during a deploy.
+- People are global (one person, several workspaces). A workspace sees only its own members; find or create a person by email with `core.user_id_for_email(...)`, never by reading `core.users` directly.
+- Which workspace a request is for: `server/workspace-host.ts` (the subdomain under `WORKSPACE_BASE_DOMAIN`, else `WORKSPACE_SLUG`). Being signed in to one workspace never gets you into another.
+- Not yet per workspace (planned, see the pilot readiness build plan): Slack, Jira and company sign-in settings, the AI budget, and the scheduler's jobs.
+
 ## Launch
 
 Launch (release readiness) is built in slices; the plan is the "Launch: build plan" doc. Rules so far:

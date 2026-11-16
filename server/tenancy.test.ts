@@ -10,6 +10,7 @@ import { readFileSync } from 'node:fs'
 import { parse } from 'yaml'
 import { createApp } from './app.js'
 import { createDemoDatabase } from './test-utils.js'
+import { scopeSql } from './db.js'
 // @ts-expect-error plain ESM helper that creates a workspace
 import { initWorkspace } from '../db/init-workspace.mjs'
 
@@ -188,4 +189,73 @@ test('with a base domain, the address chooses the workspace, and being in one do
   const mine = app('david@demo.signalflow.example')
   assert.equal((await at(mine, `${f.first.slug}.signalflow.example`)).status, 200)
   assert.notEqual((await at(mine, 'other.signalflow.example')).status, 200)
+})
+
+// The database's own lock, with the API out of the picture: what the restricted role can reach when application code is wrong.
+const asRole = async (pg: any, workspaceId: string | null, run: (q: (sql: string, params?: unknown[]) => Promise<any[]>) => Promise<unknown>) => {
+  await pg.transaction(async (tx: any) => {
+    await tx.query(workspaceId ? scopeSql(workspaceId) : `select set_config('role', 'sf_app', true)`)
+    await run(async (sql, params) => (await tx.query(sql, params)).rows)
+    await tx.query('rollback').catch(() => undefined)
+  }).catch((e: any) => { if (!/rollback/i.test(String(e?.message))) throw e })
+}
+
+test('row-level security: every workspace table is locked, and the policy is the same everywhere', async () => {
+  const f = await fixture()
+  const rows = await f.q(`select schemaname || '.' || tablename as name, count(*)::int as n from pg_policies where policyname = 'workspace_isolation' group by 1`)
+  const locked = new Set(rows.map((r) => r.name))
+  const enabled = new Set((await f.q(`select n.nspname || '.' || c.relname as name from pg_class c join pg_namespace n on n.oid = c.relnamespace where c.relrowsecurity`)).map((r) => r.name))
+  const unlocked = f.tables.map((t) => `${t.schema}.${t.name}`).filter((n) => !locked.has(n) || !enabled.has(n))
+  assert.deepEqual(unlocked, [], 'a table with a workspace id and no row-level security')
+})
+
+test('row-level security: with no workspace set, the restricted role sees nothing; with one set, only that workspace', async () => {
+  const f = await fixture()
+  const other = (await f.q(`select id from core.workspaces where slug = 'other'`))[0].id
+  const own = (await f.q(`select workspace_id, count(*)::int n from core.projects group by 1`))
+  assert.ok(own.length >= 1 && own[0].n > 0, 'the first workspace has projects to protect')
+  // No workspace: nothing, in every table.
+  await asRole(f.pg, null, async (q) => {
+    for (const t of f.tables) assert.equal((await q(`select count(*)::int n from ${t.schema}.${t.name}`))[0].n, 0, `${t.schema}.${t.name} showed rows with no workspace set`)
+  })
+  // The other workspace set: still none of the first workspace's rows, in any table.
+  await asRole(f.pg, other, async (q) => {
+    for (const t of f.tables) assert.equal((await q(`select count(*)::int n from ${t.schema}.${t.name} where workspace_id = $1`, [f.first.id]))[0].n, 0, `${t.schema}.${t.name} leaked`)
+  })
+  // The first workspace set: its own rows are there.
+  await asRole(f.pg, f.first.id, async (q) => {
+    assert.ok((await q(`select count(*)::int n from core.projects`))[0].n > 0)
+  })
+})
+
+test('row-level security: a write that names another workspace is refused, and another workspace’s row cannot be changed or removed', async () => {
+  const f = await fixture()
+  const other = (await f.q(`select id from core.workspaces where slug = 'other'`))[0].id
+  const project = (await f.q(`select id from core.projects where workspace_id = $1 limit 1`, [f.first.id]))[0].id
+  await assert.rejects(
+    asRole(f.pg, other, (q) => q(`insert into core.projects (workspace_id, name, kind) values ($1, 'sneaky', 'research')`, [f.first.id])),
+    /row-level security/i,
+  )
+  await asRole(f.pg, other, async (q) => {
+    assert.deepEqual(await q(`update core.projects set name = 'hijacked' where id = $1 returning id`, [project]), [], 'no row to update')
+    assert.deepEqual(await q(`delete from core.projects where id = $1 returning id`, [project]), [], 'no row to delete')
+  })
+  assert.equal((await f.q(`select name from core.projects where id = $1`, [project]))[0].name !== 'hijacked', true)
+})
+
+test('row-level security: a workspace sees only its own members, and a person is still found or created through the function', async () => {
+  const f = await fixture()
+  const other = (await f.q(`select id from core.workspaces where slug = 'other'`))[0].id
+  await asRole(f.pg, other, async (q) => {
+    const emails = (await q(`select email from core.users`)).map((r) => r.email)
+    assert.deepEqual(emails, [OTHER_EMAIL], 'only its own member')
+    // A person who belongs to the first workspace is found by email (so one identity serves both), but the row itself stays hidden.
+    const id = (await q(`select core.user_id_for_email('david@demo.signalflow.example', 'x') as id`))[0].id
+    assert.ok(id)
+    assert.deepEqual(await q(`select email from core.users where id = $1`, [id]), [])
+    const fresh = (await q(`select core.user_id_for_email('Brand.New@Other.example.test', 'Brand') as id`))[0].id
+    assert.ok(fresh)
+  })
+  // The restricted role cannot read sign-in tables.
+  await assert.rejects(asRole(f.pg, other, (q) => q(`select * from public.auth_user`)), /permission denied/i)
 })

@@ -1,4 +1,5 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono'
+import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
 import { ApiError, envelope } from './errors.js'
 import { lazyPgDb, lazyPool, type Db, type Env } from './db.js'
@@ -62,7 +63,16 @@ export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; a
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
   const getPool = lazyPool(env)
-  const getDb = options.getDb ?? lazyPgDb(env, getPool)
+  // The platform's own handle: the owner role, which row-level security does not restrict. Only the paths that act for no workspace use it
+  // (finding who the caller is, the scheduler, Slack's inbound calls, the unsubscribe link). Everything a signed-in request does goes through
+  // getDb() below, which is always one workspace's view of the database.
+  const platformDb = options.getDb ?? lazyPgDb(env, getPool)
+  const scope = new AsyncLocalStorage<string>()
+  const getDb = (): Db => {
+    const workspaceId = scope.getStore()
+    if (!workspaceId) throw new Error('The database was used outside a workspace. Use platformDb() only for the platform’s own paths.')
+    return platformDb().inWorkspace(workspaceId)
+  }
   const auth = options.auth ?? (authConfigured(env) ? makeBetterAuth(env, getPool) : undefined)
   const ai = makeAi(env, options.provider)
   const mailer = options.mailer ?? getMailer(env)
@@ -93,11 +103,14 @@ export function createApp(options: AppOptions = {}) {
     if (c.get('ctx').external && !EXTERNAL_MAY_CALL.test(c.req.path.replace(/^\/api\/v1/, ''))) {
       throw new ApiError(403, 'external_member', 'Your access is limited to the launches you are asked to review.')
     }
-    await enforceProjectScope(getDb(), c.get('ctx'), c.req.method, c.req.path.replace(/^\/api\/v1/, ''))
-    await next()
+    // From here on, every query this request makes is the caller's workspace's view of the database.
+    await scope.run(c.get('ctx').workspaceId, async () => {
+      await enforceProjectScope(getDb(), c.get('ctx'), c.req.method, c.req.path.replace(/^\/api\/v1/, ''))
+      await next()
+    })
   }
-  const withContext = inTeams(requestContext({ env, getDb, auth })) // strict: a signed-in person, or the token
-  const withReadContext = inTeams(requestContext({ env, getDb, auth }, 'read')) // reads are also open to the read-only demo viewer, before sign-in exists
+  const withContext = inTeams(requestContext({ env, getDb: platformDb, auth })) // strict: a signed-in person, or the token
+  const withReadContext = inTeams(requestContext({ env, getDb: platformDb, auth }, 'read')) // reads are also open to the read-only demo viewer, before sign-in exists
 
   // Anonymous reads may be cached by the CDN for a minute, so repeated requests never reach (or wake) the
   // database. Requests with the token are never cached.
@@ -1518,7 +1531,7 @@ export function createApp(options: AppOptions = {}) {
     if (input.timeZone !== undefined && !validTimeZone(input.timeZone)) throw new ApiError(422, 'validation_failed', 'That is not a time zone.', 'timeZone')
     if (input.timeZone !== undefined) await getDb().query(`update core.users set time_zone = $2 where id = $1`, [ctx.userId, input.timeZone])
     if (input.digestEnabled !== undefined) {
-      await getDb().query(
+      await platformDb().query(
         `insert into core.notification_preferences (user_id, kind, enabled) values ($1, $2, $3)
          on conflict (user_id, kind, channel) do update set enabled = excluded.enabled, updated_at = now()`,
         [ctx.userId, DIGEST, input.digestEnabled],
@@ -1542,7 +1555,7 @@ export function createApp(options: AppOptions = {}) {
     const u = c.req.query('u') ?? ''
     const ok = UUID.test(u) && unsubscribeValid(env, u, c.req.query('t') ?? '')
     if (ok) {
-      await getDb().query(
+      await platformDb().query(
         `insert into core.notification_preferences (user_id, kind, enabled) values ($1, $2, false)
          on conflict (user_id, kind, channel) do update set enabled = false, updated_at = now()`,
         [u, DIGEST],
@@ -1576,7 +1589,7 @@ export function createApp(options: AppOptions = {}) {
     const signature = c.req.header('x-slack-signature')
     const verdict = verifySlackSignature({ secret: env.SLACK_SIGNING_SECRET, timestamp: c.req.header('x-slack-request-timestamp'), signature, body: raw })
     if (verdict !== 'ok') throw new ApiError(401, 'unauthorized', 'This request is not signed by Slack.')
-    if (!(await rememberRequest(getDb(), signature!))) {
+    if (!(await rememberRequest(platformDb(), signature!))) {
       // Slack itself retries a request it thinks was slow: acknowledge it quietly. Anything else is a replay.
       if (c.req.header('x-slack-retry-num')) return c.body(null, 200)
       throw new ApiError(401, 'unauthorized', 'This request was already handled.')
@@ -1592,13 +1605,13 @@ export function createApp(options: AppOptions = {}) {
     } catch {
       throw new ApiError(400, 'bad_request', 'Not a Slack interaction.')
     }
-    const out = await handleInteraction({ db: getDb(), env, mailer, slack }, payload)
+    const out = await handleInteraction({ db: platformDb(), env, mailer, slack }, payload)
     return out ? c.json(out) : c.body(null, 200)
   })
   app.post('/slack/commands', async (c) => {
     const got = await fromSlack(c)
     if (got instanceof Response) return got
-    return c.json(await handleCommand({ db: getDb(), env, mailer, slack }, new URLSearchParams(got.raw)))
+    return c.json(await handleCommand({ db: platformDb(), env, mailer, slack }, new URLSearchParams(got.raw)))
   })
 
   // The hourly job (vercel.json "crons"). Vercel sends CRON_SECRET as a Bearer token. Without that variable the route is closed.
@@ -1609,9 +1622,9 @@ export function createApp(options: AppOptions = {}) {
     const want = Buffer.from(`Bearer ${secret}`)
     if (got.length !== want.length || !timingSafeEqual(got, want)) throw new ApiError(401, 'unauthorized', 'Missing or invalid token.')
     c.header('Cache-Control', 'no-store')
-    const digest = await runDigest({ db: getDb(), env, mailer })
+    const digest = await runDigest({ db: platformDb(), env, mailer })
     // The same hourly run also sends the launch messages that are due: reopened answers, requests that have waited, a step nobody covers.
-    const launches = await sweepLaunches({ db: getDb(), env, mailer, slack })
+    const launches = await sweepLaunches({ db: platformDb(), env, mailer, slack })
     return c.json({ ...digest, launches })
   })
 
