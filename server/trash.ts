@@ -23,13 +23,15 @@ async function foreignKeys(db: Queryable): Promise<Edge[]> {
   if (edgesCache) return edgesCache
   const { rows } = await db.query(
     `select c.conrelid::regclass::text as child, c.confrelid::regclass::text as parent, c.confdeltype as rule,
-            (select array_agg(a.attname order by k.ord) from unnest(c.conkey) with ordinality k(attnum, ord) join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum) as cols,
-            (select array_agg(a.attname order by k.ord) from unnest(c.confkey) with ordinality k(attnum, ord) join pg_attribute a on a.attrelid = c.confrelid and a.attnum = k.attnum) as refs,
+            (select array_agg(a.attname::text order by k.ord) from unnest(c.conkey) with ordinality k(attnum, ord) join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum) as cols,
+            (select array_agg(a.attname::text order by k.ord) from unnest(c.confkey) with ordinality k(attnum, ord) join pg_attribute a on a.attrelid = c.confrelid and a.attnum = k.attnum) as refs,
             (select bool_and(not a.attnotnull) from unnest(c.conkey) k(attnum) join pg_attribute a on a.attrelid = c.conrelid and a.attnum = k.attnum) as nullable
        from pg_constraint c
       where c.contype = 'f' and c.connamespace::regnamespace::text in ('core', 'research', 'delivery', 'insights')`,
   )
-  edgesCache = rows as Edge[]
+  // Some drivers hand an array back as text ("{id}") when its element type is unusual: make sure these are real arrays whatever the driver does.
+  const list = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : String(v ?? '').replace(/^\{|\}$/g, '').split(',').filter(Boolean))
+  edgesCache = rows.map((r) => ({ child: String(r.child), parent: String(r.parent), cols: list(r.cols), refs: list(r.refs), rule: String(r.rule), nullable: !!r.nullable }))
   return edgesCache
 }
 
