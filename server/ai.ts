@@ -13,7 +13,7 @@ import type { StoryboardDraft, StoryboardInput } from './ai-storyboard.js'
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
 type Fn<K extends 'analyze' | 'buildSteps' | 'matchThemes'> = typeof import('../shared/providers.mjs')[K]
-export type Usage = { inputTokens: number; outputTokens: number; costUsd: number; model?: string }
+export type Usage = { inputTokens: number; outputTokens: number; costUsd: number; model?: string; /** Where the call ran, as the provider reported it ("us" or "global"). */ inferenceGeo?: string }
 export type Priced<T> = { value: T; usage: Usage }
 export type AiProvider = {
   name: string
@@ -130,7 +130,7 @@ export async function assertBudget(db: Queryable, ai: Ai, workspaceId: string): 
 
 export async function recordUsage(db: Queryable, ai: Ai, workspaceId: string, purpose: Purpose, usage: Usage, runId?: string): Promise<void> {
   if (!ai.provider.live || (!usage.inputTokens && !usage.outputTokens && !usage.costUsd)) return
-  await insertMany(db, 'core.ai_usage', [{ workspace_id: workspaceId, run_id: runId ?? null, purpose, provider: ai.provider.name, model: usage.model ?? null, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens, cost_usd: usage.costUsd }])
+  await insertMany(db, 'core.ai_usage', [{ workspace_id: workspaceId, run_id: runId ?? null, purpose, provider: ai.provider.name, model: usage.model ?? null, input_tokens: usage.inputTokens, output_tokens: usage.outputTokens, cost_usd: usage.costUsd, inference_geo: usage.inferenceGeo ?? null }])
 }
 
 // Every model call goes through here: refuse when the month's budget is spent, run it, record what it cost.

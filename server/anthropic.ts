@@ -20,10 +20,15 @@ export const PRICES: Record<string, { in: number; out: number }> = {
 const API_URL = 'https://api.anthropic.com/v1/messages'
 const TIMEOUT_MS = 240_000 // under the 300 s function limit, so a stuck call fails with our message, not Vercel's
 
-export const costUsd = (model: string, inputTokens: number, outputTokens: number): number => {
+// Inference restricted to US infrastructure is billed at 1.1 times the global rate (Anthropic's data residency page).
+export const US_INFERENCE_MULTIPLIER = 1.1
+export const costUsd = (model: string, inputTokens: number, outputTokens: number, inferenceGeo?: string | null): number => {
   const p = PRICES[model]
-  return p ? (inputTokens * p.in + outputTokens * p.out) / 1_000_000 : 0
+  return p ? ((inputTokens * p.in + outputTokens * p.out) / 1_000_000) * (inferenceGeo === 'us' ? US_INFERENCE_MULTIPLIER : 1) : 0
 }
+
+/** AI_INFERENCE_GEO: "us" asks every call to run on US infrastructure only, "global" asks for the default. Unset sends nothing (the workspace's own setting applies). */
+export const requestedGeo = (env: Env): 'us' | 'global' | undefined => (env.AI_INFERENCE_GEO === 'us' || env.AI_INFERENCE_GEO === 'global' ? env.AI_INFERENCE_GEO : undefined)
 
 const unavailable = (code: string, message: string) => new ApiError(503, code, message)
 
@@ -39,24 +44,28 @@ export function mapFailure(status: number, body: string): ApiError {
 }
 
 export function anthropicCall(env: Env, model: string, fetchImpl: typeof fetch = fetch): ModelCall {
+  const wanted = requestedGeo(env)
   return async ({ system, user, maxTokens }) => {
     let res: Response
     try {
       res = await fetchImpl(API_URL, {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-api-key': env.ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }] }),
+        body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }], ...(wanted ? { inference_geo: wanted } : {}) }),
         signal: AbortSignal.timeout(TIMEOUT_MS),
       })
     } catch {
       throw unavailable('ai_unreachable', 'The AI service did not answer in time. Try again shortly.')
     }
     if (!res.ok) throw mapFailure(res.status, await res.text().catch(() => ''))
-    const json = (await res.json().catch(() => null)) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } } | null
+    const json = (await res.json().catch(() => null)) as { content?: { type: string; text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number; inference_geo?: string } } | null
     const text = (json?.content ?? []).filter((b) => b.type === 'text').map((b) => b.text ?? '').join('')
     const inputTokens = json?.usage?.input_tokens ?? 0
     const outputTokens = json?.usage?.output_tokens ?? 0
-    const usage: Usage = { inputTokens, outputTokens, costUsd: costUsd(model, inputTokens, outputTokens), model }
+    // Where the call ran, as the provider reports it; if it does not say, what was asked for. The price follows it.
+    const geo = json?.usage?.inference_geo ?? wanted ?? undefined
+    if (wanted && json?.usage?.inference_geo && json.usage.inference_geo !== wanted) console.error(`AI call ran in "${json.usage.inference_geo}" but "${wanted}" was asked for (${model})`)
+    const usage: Usage = { inputTokens, outputTokens, costUsd: costUsd(model, inputTokens, outputTokens, geo), model, ...(geo ? { inferenceGeo: geo } : {}) }
     return { text, usage }
   }
 }

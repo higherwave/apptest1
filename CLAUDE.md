@@ -102,7 +102,7 @@ real library against a stand-in provider: extend it when sign-in changes. Never 
 
 Every model call goes through the provider seam in `server/ai.ts`. Call the model **before** opening a database transaction, never
 inside one. Model output is schema-checked and grounded (quotes verbatim, figures from the supplied numbers) before it is saved.
-Spend is capped by `AI_MONTHLY_BUDGET_USD`; `AI_ENABLED=false` returns everything to the simulation. If what is sent to a provider
+Where a call runs is the provider's `inference_geo`: set `AI_INFERENCE_GEO=us` to ask for US-only (billed at 1.1 times, already in `costUsd`), and the place each call ran is kept in `core.ai_usage.inference_geo`. The data location statement for customers depends on it. Spend is capped by `AI_MONTHLY_BUDGET_USD`; `AI_ENABLED=false` returns everything to the simulation. If what is sent to a provider
 changes, update `public/privacy.html` and the landing text in the same change.
 
 ## Browser-test traps (e2e/)

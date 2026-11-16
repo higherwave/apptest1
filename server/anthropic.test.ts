@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { getProvider, makeAi } from './ai.js'
 import { runAnalysis } from './analysis.js'
-import { anthropicCall, anthropicProvider, costUsd, DEFAULT_ANALYSIS_MODEL, DEFAULT_MATCH_MODEL, mapFailure } from './anthropic.js'
+import { anthropicCall, anthropicProvider, costUsd, requestedGeo, US_INFERENCE_MULTIPLIER, DEFAULT_ANALYSIS_MODEL, DEFAULT_MATCH_MODEL, mapFailure } from './anthropic.js'
 import { createProjectSpec, getSpec } from './specs.js'
 import { createDemoDatabase } from './test-utils.js'
 
@@ -45,6 +45,58 @@ test('a call sends the key and prompt to the Messages API and prices the reply f
   assert.equal(url, 'https://api.anthropic.com/v1/messages')
   assert.equal((init.headers as Record<string, string>)['x-api-key'], KEY)
   assert.deepEqual(JSON.parse(init.body as string), { model: DEFAULT_ANALYSIS_MODEL, max_tokens: 4000, system: 'SYS', messages: [{ role: 'user', content: 'USER' }] })
+})
+
+const withGeo = (geo: string | undefined, input = 20_000, output = 2_000) =>
+  new Response(JSON.stringify({ content: [{ type: 'text', text: 'hi' }], usage: { input_tokens: input, output_tokens: output, ...(geo ? { inference_geo: geo } : {}) } }))
+
+test('US-only inference: asked for in the request, priced at 1.1 times, and the place it ran is kept', async () => {
+  assert.equal(requestedGeo({ AI_INFERENCE_GEO: 'us' }), 'us')
+  assert.equal(requestedGeo({ AI_INFERENCE_GEO: 'eu' }), undefined, 'only us or global')
+  assert.equal(requestedGeo({}), undefined)
+  assert.equal(costUsd('claude-sonnet-5-5', 1_000_000, 1_000_000, 'us'), 12 * US_INFERENCE_MULTIPLIER)
+  assert.equal(costUsd('claude-sonnet-5-5', 1_000_000, 1_000_000, 'global'), 12)
+  const f = fetching(withGeo('us'))
+  const reply = await anthropicCall({ ANTHROPIC_API_KEY: KEY, AI_INFERENCE_GEO: 'us' }, DEFAULT_ANALYSIS_MODEL, f)({ system: 'S', user: 'U', maxTokens: 100 })
+  assert.equal(JSON.parse(f.calls[0].init.body as string).inference_geo, 'us')
+  assert.equal(reply.usage.inferenceGeo, 'us')
+  assert.ok(Math.abs(reply.usage.costUsd - 0.06 * 1.1) < 1e-9, `priced ${reply.usage.costUsd}`)
+})
+
+test('the price follows where the provider says the call ran, even when nothing was asked for', async () => {
+  const f = fetching(withGeo('us'))
+  const reply = await anthropicCall({ ANTHROPIC_API_KEY: KEY }, DEFAULT_ANALYSIS_MODEL, f)({ system: 'S', user: 'U', maxTokens: 100 })
+  assert.equal('inference_geo' in JSON.parse(f.calls[0].init.body as string), false, 'nothing is sent unless AI_INFERENCE_GEO is set')
+  assert.equal(reply.usage.inferenceGeo, 'us')
+  assert.ok(Math.abs(reply.usage.costUsd - 0.066) < 1e-9)
+  const plain = await anthropicCall({ ANTHROPIC_API_KEY: KEY }, DEFAULT_ANALYSIS_MODEL, fetching(withGeo(undefined)))({ system: 'S', user: 'U', maxTokens: 100 })
+  assert.equal('inferenceGeo' in plain.usage, false, 'no location reported: none recorded')
+  assert.equal(plain.usage.costUsd, 0.06)
+})
+
+test('a call that ran somewhere other than asked for is logged, kept as reported, and priced for where it ran', async () => {
+  const logged: unknown[][] = []
+  const original = console.error
+  console.error = (...a: unknown[]) => void logged.push(a)
+  try {
+    const reply = await anthropicCall({ ANTHROPIC_API_KEY: KEY, AI_INFERENCE_GEO: 'us' }, DEFAULT_ANALYSIS_MODEL, fetching(withGeo('global')))({ system: 'S', user: 'U', maxTokens: 100 })
+    assert.equal(reply.usage.inferenceGeo, 'global')
+    assert.equal(reply.usage.costUsd, 0.06)
+  } finally {
+    console.error = original
+  }
+  assert.match(String(logged[0]?.[0]), /ran in "global" but "us" was asked for/)
+})
+
+test('the usage ledger keeps where each call ran', async () => {
+  const { pglite: pg, db } = await createDemoDatabase()
+  const ws = (await pg.query<any>(`select id from core.workspaces limit 1`)).rows[0].id as string
+  const ai = { provider: { live: true, name: 'anthropic' } as any, env: {} }
+  const { recordUsage } = await import('./ai.js')
+  await recordUsage(db.inWorkspace(ws), ai, ws, 'analysis', { inputTokens: 10, outputTokens: 5, costUsd: 0.1, model: 'claude-sonnet-5-5', inferenceGeo: 'us' })
+  await recordUsage(db.inWorkspace(ws), ai, ws, 'analysis', { inputTokens: 10, outputTokens: 5, costUsd: 0.1, model: 'claude-sonnet-5-5' })
+  const rows = (await pg.query<any>(`select inference_geo from core.ai_usage order by created_at, id`)).rows.map((r) => r.inference_geo)
+  assert.deepEqual(rows.sort(), [null, 'us'].sort())
 })
 
 test('failures become plain 503s with a code, never retried, and never echo the response or the key', async () => {
