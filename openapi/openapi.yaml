@@ -918,9 +918,10 @@ paths:
         '428': { $ref: '#/components/responses/Error' }
     delete:
       operationId: deleteWorkflow
-      summary: Owners and editors. Deletes a workflow. The projects on it are taken off it and their stage mapping is cleared; the audit log records how many.
+      summary: Owners and editors. Moves a workflow to the Trash for 90 days; the projects on it are taken off it and their stage mapping is dropped (it comes back with the workflow). With `permanent=true` (owners only) it is deleted for good.
       parameters:
         - { $ref: '#/components/parameters/Id' }
+        - { name: permanent, in: query, required: false, schema: { type: boolean, default: false }, description: 'Owners only: delete for good instead of moving it to the Trash for 90 days.' }
       responses:
         '204': { description: Deleted. }
         '401': { $ref: '#/components/responses/Error' }
@@ -1092,6 +1093,16 @@ paths:
                       sent: { type: integer }
                       held: { type: integer, description: 'Kept, not sent: the recipient limit is on, or the address is a placeholder.' }
                       failed: { type: integer }
+                  retention:
+                    type: object
+                    description: What the same run cleaned up under the retention rules (absent if that step failed, which never fails the reminders).
+                    required: [trashRemoved, auditRemoved, usageRemoved, notificationsCleared, paused]
+                    properties:
+                      trashRemoved: { type: integer, description: 'Items whose 90 days in the Trash were up.' }
+                      auditRemoved: { type: integer, description: 'Audit log entries older than 12 months.' }
+                      usageRemoved: { type: integer, description: 'AI usage records older than 12 months.' }
+                      notificationsCleared: { type: integer, description: 'Message records older than 12 months that lost their content (the row stays as the marker that it was sent).' }
+                      paused: { type: integer, description: 'Workspaces with a legal hold in force.' }
         '401': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /audit:
@@ -1101,7 +1112,7 @@ paths:
         Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories,
         projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
       parameters:
-        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira] } }
+        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data] } }
         - { name: teamId, in: query, required: false, schema: { type: string }, description: 'Only changes about this team: its people, its projects and the team itself.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
         - { name: cursor, in: query, required: false, schema: { type: string } }
@@ -1114,6 +1125,148 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /holds:
+    get:
+      operationId: listHolds
+      summary: Owners only (403 otherwise). The legal holds of the workspace, those in force first and then the released ones as history.
+      responses:
+        '200':
+          description: The holds.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalHoldList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: placeHold
+      summary: >
+        Owners only. Places a legal hold on the whole workspace (no `projectId`) or on one project. What it covers cannot be deleted for good and is not aged out
+        until it is released; a hold has no end date. 409 `already_held` when that scope is already held.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewLegalHold' }
+      responses:
+        '201':
+          description: The hold.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalHold' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /holds/{id}/release:
+    post:
+      operationId: releaseHold
+      summary: Owners only. Ends a hold. Who released it and when is recorded; the hold stays in the history.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The released hold.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LegalHold' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /trash:
+    get:
+      operationId: listTrash
+      summary: >
+        What was deleted in the last 90 days and can still be restored. Owners see everything in the workspace; an editor sees what they deleted themselves;
+        a viewer sees nothing. `daysLeft` counts down to the day it is removed for good.
+      responses:
+        '200':
+          description: The items, newest first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TrashList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /trash/{id}/restore:
+    post:
+      operationId: restoreFromTrash
+      summary: >
+        Owners, or the editor who deleted it. Puts the item back with everything that was under it, under the same identity. 409 `already_exists` if something
+        with that identity is in the workspace now. `leftOut` counts rows that could not return because something they pointed at has since been removed.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: Restored.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Restored' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /trash/{id}:
+    delete:
+      operationId: deleteFromTrash
+      summary: Owners only. Removes the item from the Trash for good ("Delete now"). The audit log keeps its name, who did it and when.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '204': { description: Removed for good. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /export/workspace.zip:
+    get:
+      operationId: exportWorkspace
+      summary: >
+        Owners only (403 otherwise). Everything the workspace holds, as one ZIP: every table as JSON, readable files for each project (plan, transcripts,
+        themes with quotes, requirements and stories, launch answers), the audit log and the AI usage as spreadsheets, and a manifest of row counts.
+        Slack and Jira tokens are never included. Each download is recorded in the audit log.
+      responses:
+        '200':
+          description: The archive, as a download.
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /export/audit.csv:
+    get:
+      operationId: exportAuditCsv
+      summary: Owners only (403 otherwise). The workspace's audit log as a spreadsheet, newest first. Each download is recorded in the audit log.
+      responses:
+        '200':
+          description: The log, as a download.
+          content:
+            text/csv:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /export/ai-usage.csv:
+    get:
+      operationId: exportAiUsageCsv
+      summary: Owners only (403 otherwise). Every AI call made for the workspace, with its model, tokens, cost and where it ran, as a spreadsheet. Each download is recorded in the audit log.
+      responses:
+        '200':
+          description: The usage, as a download.
+          content:
+            text/csv:
+              schema: { type: string }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /projects:
     get:
@@ -1170,14 +1323,16 @@ paths:
     delete:
       operationId: deleteProject
       summary: >
-        Permanently deletes a project and everything under it (a hard delete; the page asks for confirmation first).
-        The audit log keeps the name, actor and time. Needs the token.
+        Moves a project, with everything under it, to the Trash, where it is held for 90 days and can be restored (GET /trash). With `permanent=true` (owners
+        only, 403 otherwise) it is deleted for good instead. The audit log keeps the name, actor and time either way. Needs the token.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: permanent, in: query, required: false, schema: { type: boolean, default: false }, description: 'Owners only: delete for good instead of moving it to the Trash for 90 days.' }
       responses:
         '204': { description: Deleted. }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /projects/{id}/stage:
@@ -1489,13 +1644,15 @@ paths:
         '503': { $ref: '#/components/responses/Error' }
     delete:
       operationId: deleteSpec
-      summary: Permanently deletes the document, its steps and, if published, its stories (a hard delete after the page's confirmation). Needs the token.
+      summary: Moves the document, its steps and, if published, its stories to the Trash for 90 days (a stand-alone document takes its project with it). With `permanent=true` (owners only) it is deleted for good.
       parameters:
         - { $ref: '#/components/parameters/Id' }
+        - { name: permanent, in: query, required: false, schema: { type: boolean, default: false }, description: 'Owners only: delete for good instead of moving it to the Trash for 90 days.' }
       responses:
         '204': { description: Deleted. }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
   /specs/{id}/themes/{themeId}:
@@ -2420,7 +2577,7 @@ components:
     Error:
       description: >
         Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable,
-        workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, seat_limit, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, rate_limited, internal_error.
+        workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, seat_limit, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, rate_limited, already_exists, legal_hold, already_held, internal_error.
       content:
         application/json:
           schema: { $ref: '#/components/schemas/Error' }
@@ -4246,12 +4403,61 @@ components:
           properties:
             id: { type: string }
             name: { type: string }
-        group: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira] }
+        group: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data] }
         entity: { type: string, description: 'What changed, for example insights.feature_areas.' }
         entityId: { type: [string, 'null'] }
         verb: { type: string, description: 'For example created, edited, merged, retired.' }
         before: { description: 'What it was, when the change replaced something.' }
         after: { description: 'What it became.' }
+    LegalHold:
+      type: object
+      required: [id, scope, projectId, scopeName, reason, setBy, setAt, releasedBy, releasedAt]
+      properties:
+        id: { type: string }
+        scope: { type: string, enum: [workspace, project] }
+        projectId: { type: string, nullable: true }
+        scopeName: { type: string, description: "The project's name when the hold was placed, or the workspace's." }
+        reason: { type: string }
+        setBy: { type: object, nullable: true, required: [id, name], properties: { id: { type: string }, name: { type: string } } }
+        setAt: { type: string, format: date-time }
+        releasedBy: { type: object, nullable: true, required: [id, name], properties: { id: { type: string }, name: { type: string } } }
+        releasedAt: { type: string, format: date-time, nullable: true }
+    LegalHoldList:
+      type: object
+      required: [data]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/LegalHold' } }
+    NewLegalHold:
+      type: object
+      required: [reason]
+      properties:
+        projectId: { type: string, nullable: true, description: 'Leave out to hold the whole workspace.' }
+        reason: { type: string, minLength: 3, maxLength: 1000 }
+    TrashItem:
+      type: object
+      required: [id, kind, name, deletedAt, deletedBy, purgeAt, daysLeft, summary]
+      properties:
+        id: { type: string }
+        kind: { type: string, enum: [project, document, journey] }
+        name: { type: string }
+        deletedAt: { type: string, format: date-time }
+        deletedBy: { type: object, nullable: true, required: [id, name], properties: { id: { type: string }, name: { type: string } } }
+        purgeAt: { type: string, format: date-time }
+        daysLeft: { type: integer, minimum: 0 }
+        summary: { type: object, additionalProperties: { type: integer }, description: 'What was in it, for example { transcripts: 4, themes: 7 }.' }
+    TrashList:
+      type: object
+      required: [data, retentionDays]
+      properties:
+        data: { type: array, items: { $ref: '#/components/schemas/TrashItem' } }
+        retentionDays: { type: integer }
+    Restored:
+      type: object
+      required: [name, kind, leftOut]
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [project, document, journey] }
+        leftOut: { type: integer, minimum: 0 }
     AuditPage:
       type: object
       required: [data, nextCursor]

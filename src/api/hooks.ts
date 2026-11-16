@@ -5,7 +5,7 @@ import {
   getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
-  createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
+  createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -144,7 +144,10 @@ export const useCreateProject = () => {
 
 export const useDeleteProject = () => {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (id: string) => deleteProject(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }) })
+  return useMutation({
+    mutationFn: ({ id, permanent }: { id: string; permanent?: boolean }) => deleteProject(id, permanent),
+    onSuccess: () => Promise.all(['projects', 'trash'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
+  })
 }
 
 export const useProject = (id: string | undefined) => useQuery({ queryKey: ['project', id], queryFn: () => getProject(id!), enabled: !!id })
@@ -268,7 +271,7 @@ export const useSaveWorkflow = () => {
 }
 export const useDeleteWorkflow = () => {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (id: string) => deleteWorkflow(id), onSuccess: () => refreshBlueprints(queryClient) })
+  return useMutation({ mutationFn: (id: string) => deleteWorkflow(id), onSuccess: () => Promise.all([refreshBlueprints(queryClient), queryClient.invalidateQueries({ queryKey: ['trash'] })]) })
 }
 export const useProjectBlueprint = (projectId: string | undefined) => useQuery({ queryKey: ['blueprint', projectId], queryFn: () => getProjectBlueprint(projectId!), enabled: !!projectId })
 export const useSetProjectWorkflow = (projectId: string) => {
@@ -335,3 +338,27 @@ export const useSaveNotificationPreferences = () => {
   return useMutation({ mutationFn: (body: Parameters<typeof saveNotificationPreferences>[0]) => saveNotificationPreferences(body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notification-preferences'] }) })
 }
 export const useSendReminderNow = () => useMutation({ mutationFn: () => sendReminderNow() })
+
+
+// The Trash: what the signed-in person may put back (owners see everything, an editor what they deleted).
+export const useTrash = () => useQuery({ queryKey: ['trash'], queryFn: listTrash })
+const TRASH_REFRESH = ['trash', 'projects', 'workflows', 'specs', 'insights', 'launches', 'measure']
+export const useRestoreFromTrash = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => restoreFromTrash(id), onSuccess: () => Promise.all(TRASH_REFRESH.map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+}
+export const useDeleteFromTrash = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => deleteFromTrash(id), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['trash'] }) })
+}
+
+// Legal holds (owners).
+export const useHolds = () => useQuery({ queryKey: ['holds'], queryFn: listHolds })
+export const usePlaceHold = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: placeHold, onSuccess: () => Promise.all(['holds', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+}
+export const useReleaseHold = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (id: string) => releaseHold(id), onSuccess: () => Promise.all(['holds', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+}

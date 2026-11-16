@@ -1,4 +1,5 @@
 import { callAiWithFallback, simulatedProvider, type Ai } from './ai.js'
+import { moveToTrash, RETENTION_DAYS } from './trash.js'
 import type { Db, Queryable } from './db.js'
 import { ApiError } from './errors.js'
 import { currentAnalysisRun } from './transcripts.js'
@@ -574,14 +575,21 @@ export async function syncBoard(db: Db, ctx: Actor, specId: string, apply: boole
   })
 }
 
-export async function deleteSpec(db: Db, ctx: Actor, specId: string): Promise<boolean> {
+// Deleting a document moves it (and its requirements and stories) to the Trash for 90 days; `permanent` deletes it for good. A stand-alone document owns its
+// project, so the whole project goes with it, and comes back with it.
+export async function deleteSpec(db: Db, ctx: Actor, specId: string, opts: { permanent?: boolean } = {}): Promise<boolean> {
   return db.transaction(async (tx) => {
     const spec = await specRow(tx, ctx.workspaceId, specId)
     if (!spec) return false
-    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'deleted', before: { name: spec.name } }])
-    await tx.query(`delete from delivery.specs where id = $1`, [specId])
-    // A stand-alone document owns its project; deleting the document removes it too.
-    if (spec.project_kind === 'standalone') await tx.query(`delete from core.projects where id = $1 and kind = 'standalone'`, [spec.project_id])
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: opts.permanent ? 'deleted permanently' : 'deleted', before: { name: spec.name }, after: opts.permanent ? null : { restorableForDays: RETENTION_DAYS } }])
+    if (opts.permanent) {
+      await tx.query(`delete from delivery.specs where id = $1`, [specId])
+      if (spec.project_kind === 'standalone') await tx.query(`delete from core.projects where id = $1 and kind = 'standalone'`, [spec.project_id])
+    } else if (spec.project_kind === 'standalone') {
+      await moveToTrash(tx, ctx, 'document', spec.project_id as string, spec.name as string, 'core.projects')
+    } else {
+      await moveToTrash(tx, ctx, 'document', specId, spec.name as string)
+    }
     return true
   })
 }

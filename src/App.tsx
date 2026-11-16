@@ -7,6 +7,8 @@ import { AreasPage } from './pages/areas/AreasPage'
 import { MembersEntry } from './pages/people/PeoplePage'
 import { AccessPage } from './pages/settings/AccessPage'
 import { AuditLogPage } from './pages/settings/AuditLogPage'
+import { DataPage } from './pages/settings/DataPage'
+import { TrashPage } from './pages/trash/TrashPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { UsageAndCostsPage } from './pages/settings/UsageAndCostsPage'
 import { SettingsGate } from './pages/settings/SettingsGate'
@@ -70,6 +72,7 @@ export function App() {
         <Route path="projects/:projectId/stories" element={<StoriesPage />} />
         <Route path="projects/:projectId/launch" element={<LaunchPage />} />
         <Route path="launches" element={<LaunchesPage />} />
+        <Route path="deleted" element={<TrashPage />} />
         <Route path="launches/:launchId" element={<LaunchByIdPage />} />
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
@@ -93,6 +96,7 @@ export function App() {
           <Route path="members" element={<MembersEntry />} />
           <Route path="people" element={<Navigate to="/settings/access?tab=people" replace />} />
           <Route path="approvals" element={<Navigate to="/settings/access?tab=approvals" replace />} />
+          <Route path="data" element={<DataPage />} />
           <Route path="audit" element={<AuditLogPage />} />
         </Route>
         <Route path="insights/onboarding" element={<Navigate to="/insights/journey" replace />} />

@@ -61,6 +61,16 @@ Each customer is a workspace; nothing is shared between them. Two locks, both te
 - **Errors and logs.** An unexpected error answers a plain 500 and logs only its name, code and a short message, never a database detail (it can carry a typed value). Log names and messages, never request bodies, tokens, emails or transcript text.
 - **Audit.** A PDF export is recorded (`exported`, with the document and who). New actions that take data out of Signal Flow, or change who may see it, get an audit row.
 
+## Data lifecycle
+
+Rules and procedures are in `docs/DATA-RETENTION.md`; the code is small and each rule has a test.
+
+- **Everything a workspace holds is exportable** (`server/export.ts`, Admin, Data). It dumps every table that carries a `workspace_id`, so a new table is in the export without anyone remembering it; secrets are redacted by name (`REDACT`), so a new table with a secret column needs an entry there. `server/export.test.ts` proves nothing of another workspace is in an export.
+- **Deleting content goes to the Trash first** (`server/trash.ts`): a snapshot of the item and everything under it (found from the database's own foreign keys), restorable for 90 days. New content that a person can delete should use `moveToTrash` inside its delete transaction (kinds are `project`, `document`, `journey`), and `?permanent=true` (owners) must check `assertNotHeld`. `server/trash.test.ts` restores a whole demo project and compares every table with what it was before: keep that test passing when tables change.
+- **Retention** (`server/retention.ts`, run from `/cron/digest`): Trash after 90 days, audit log and AI usage after 12 months, message records lose their content after 12 months (the row stays as the marker that it was sent: never delete those, or a message can repeat). **Legal holds** stop all of it for what they cover; nothing may delete for good while one is in force.
+- **Ending an agreement** is `node db/remove-workspace.mjs` (dry run first; it refuses under a hold and prints the written confirmation).
+- Do not add `deleted_at` columns to content tables: the Trash keeps deleted items out of the live tables so no query has to know about "deleted".
+
 ## Launch
 
 Launch (release readiness) is built in slices; the plan is the "Launch: build plan" doc. Rules so far:

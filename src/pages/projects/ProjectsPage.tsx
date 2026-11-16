@@ -33,12 +33,13 @@ export function ProjectsPage() {
       removing={removing}
       removePending={remove.isPending}
       removeError={remove.isError ? friendlyMessage(remove.error) : undefined}
+      canDeleteForGood={me.data?.role === 'owner'}
       onCancelRemove={() => {
         setRemoving(null)
         remove.reset()
       }}
-      // A hard delete, after the confirmation dialog: the list refreshes once the API has deleted it.
-      onConfirmRemove={() => removing && remove.mutate(removing.id, { onSuccess: () => setRemoving(null) })}
+      // After the confirmation dialog: it moves to the Trash (held 90 days), or an owner deletes it for good. The list refreshes once the API has done it.
+      onConfirmRemove={(permanent) => removing && remove.mutate({ id: removing.id, permanent }, { onSuccess: () => setRemoving(null) })}
     />
   )
 }

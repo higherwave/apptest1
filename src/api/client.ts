@@ -41,6 +41,28 @@ async function request<T>(path: string, { method = 'GET', body, token, version }
   return parsed as T
 }
 
+// A file the server sends as a download (an export). Fetched with the same sign-in as every other request, so a refusal arrives as a plain error
+// message, then handed to the browser to save. Resolves with the file's name.
+export async function download(path: string): Promise<string> {
+  const bearer = getToken()
+  const res = await fetch(`/api/v1${path}`, { headers: bearer ? { authorization: `Bearer ${bearer}` } : {} })
+  if (!res.ok) {
+    const parsed = await res.json().catch(() => null)
+    throw new ApiRequestError(res.status, parsed?.error?.code ?? 'unknown', parsed?.error?.message ?? res.statusText)
+  }
+  const blob = await res.blob()
+  const name = /filename="([^"]+)"/.exec(res.headers.get('content-disposition') ?? '')?.[1] ?? 'download'
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = name
+  document.body.append(link)
+  link.click()
+  link.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  return name
+}
+
 export type Health = { status: 'ok'; time: string; version: string }
 export type DatabaseHealth = { status: 'ok'; database: 'reachable'; migrations: number }
 
@@ -156,7 +178,21 @@ export type Template = components['schemas']['Template']
 export type CreateProjectRequest = components['schemas']['CreateProjectRequest']
 export const listTemplates = () => request<components['schemas']['TemplateList']>('/templates')
 export const createProject = (input: CreateProjectRequest) => request<Project>('/projects', { method: 'POST', body: input })
-export const deleteProject = (id: string) => request<null>(`/projects/${id}`, { method: 'DELETE' })
+// Moves the project to the Trash (held 90 days); `permanent` (owners) deletes it for good.
+export const deleteProject = (id: string, permanent = false) => request<null>(`/projects/${id}${permanent ? '?permanent=true' : ''}`, { method: 'DELETE' })
+
+export type LegalHold = components['schemas']['LegalHold']
+export type LegalHoldList = components['schemas']['LegalHoldList']
+export const listHolds = () => request<LegalHoldList>('/holds')
+export const placeHold = (body: { projectId?: string | null; reason: string }) => request<LegalHold>('/holds', { method: 'POST', body })
+export const releaseHold = (id: string) => request<LegalHold>(`/holds/${id}/release`, { method: 'POST' })
+
+export type TrashItem = components['schemas']['TrashItem']
+export type TrashList = components['schemas']['TrashList']
+export type Restored = components['schemas']['Restored']
+export const listTrash = () => request<TrashList>('/trash')
+export const restoreFromTrash = (id: string) => request<Restored>(`/trash/${id}/restore`, { method: 'POST' })
+export const deleteFromTrash = (id: string) => request<null>(`/trash/${id}`, { method: 'DELETE' })
 export type ProjectDetail = components['schemas']['ProjectDetail']
 export type StageInfo = components['schemas']['StageInfo']
 export type StepKey = keyof StageInfo['tabs']

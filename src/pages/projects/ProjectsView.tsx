@@ -1,3 +1,4 @@
+import { Help } from '@carbon/icons-react'
 import { Button, Dropdown, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tile } from '@carbon/react'
 import { useState } from 'react'
 import type { Project } from '../../api/client'
@@ -23,8 +24,11 @@ export type ProjectsViewProps = {
   removing: Project | null
   removePending: boolean
   removeError?: string
-  onConfirmRemove: () => void
+  /** `permanent` is true when an owner chose to delete for good instead of moving it to the Trash. */
+  onConfirmRemove: (permanent: boolean) => void
   onCancelRemove: () => void
+  /** Owners may delete for good; everyone else can only move a project to the Trash. */
+  canDeleteForGood?: boolean
   /** Whether the person may change this project (they edit in its team). Projects they may only read show "View only" and have no remove menu. */
   canChange: (project: Project) => boolean
 }
@@ -40,8 +44,14 @@ const readLayout = (): Layout => {
 }
 
 // Presentational: loading, error, empty and ready are all declared here. Data comes from the container.
-export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onGo, onNew, onRemove, removing, removePending, removeError, onConfirmRemove, onCancelRemove, canChange }: ProjectsViewProps) {
+export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onGo, onNew, onRemove, removing, removePending, removeError, onConfirmRemove, onCancelRemove, canDeleteForGood, canChange }: ProjectsViewProps) {
   const [layout, setLayout] = useState<Layout>(readLayout)
+  // The second step of an owner's "Delete now": a confirmation that it cannot be undone.
+  const [forGood, setForGood] = useState(false)
+  const cancelRemove = () => {
+    setForGood(false)
+    onCancelRemove()
+  }
   const [teamFilter, setTeamFilter] = useState('all')
   // With more than one team's projects in the list, each says which team it is, and the list can be narrowed to one.
   const teams = [...new Map(projects.filter((p) => p.teamId).map((p) => [p.teamId as string, p.teamName ?? ''])).entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name))
@@ -154,7 +164,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
                     <span role="cell">
                       {onRemove && canChange(project) && (
                         <OverflowMenu iconDescription={`Actions for ${project.name}`} flipped size="sm">
-                          <OverflowMenuItem itemText="Remove project" isDelete onClick={() => onRemove(project)} />
+                          <OverflowMenuItem itemText="Delete project" isDelete onClick={() => onRemove(project)} />
                         </OverflowMenu>
                       )}
                     </span>
@@ -168,22 +178,51 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
       </div>
 
-      <Modal
-        open={removing !== null}
-        danger
-        size="sm"
-        modalHeading="Remove this project?"
-        primaryButtonText={removePending ? 'Removing…' : 'Remove permanently'}
-        secondaryButtonText="Cancel"
-        primaryButtonDisabled={removePending}
-        onRequestClose={onCancelRemove}
-        onRequestSubmit={onConfirmRemove}
-      >
-        <p className={styles.confirm}>
-          This permanently deletes <strong>{removing?.name}</strong> and everything under it: its plan, transcripts, themes and requirements. It cannot be undone.
-        </p>
-        {removeError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not removed" subtitle={removeError} />}
-      </Modal>
+      {forGood ? (
+        <Modal
+          open={removing !== null}
+          danger
+          size="sm"
+          modalHeading="Delete now?"
+          primaryButtonText={removePending ? 'Deleting…' : 'Delete now'}
+          secondaryButtonText="Cancel"
+          primaryButtonDisabled={removePending}
+          onRequestClose={cancelRemove}
+          onRequestSubmit={() => onConfirmRemove(true)}
+        >
+          <p className={styles.confirm}>
+            This deletes <strong>{removing?.name}</strong> and everything under it for good: its plan, transcripts, themes and requirements. It cannot be restored.
+          </p>
+          {removeError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not deleted" subtitle={removeError} />}
+        </Modal>
+      ) : (
+        <Modal
+          open={removing !== null}
+          size="sm"
+          modalHeading="Delete this project?"
+          primaryButtonText={removePending ? 'Moving…' : 'Move to Trash'}
+          {...(canDeleteForGood
+            ? { secondaryButtons: [{ buttonText: 'Cancel', onClick: cancelRemove }, { buttonText: 'Delete now…', onClick: () => setForGood(true) }] as [{ buttonText: string; onClick: () => void }, { buttonText: string; onClick: () => void }] }
+            : { secondaryButtonText: 'Cancel' })}
+          primaryButtonDisabled={removePending}
+          onRequestClose={cancelRemove}
+          onRequestSubmit={() => onConfirmRemove(false)}
+        >
+          <p className={styles.confirm}>
+            <strong>{removing?.name}</strong> and everything under it moves to the Trash.
+            <Button
+              kind="ghost"
+              size="sm"
+              hasIconOnly
+              renderIcon={Help}
+              iconDescription="You can restore it from My deleted items, in your account menu, for 90 days. After that it is removed for good."
+              tooltipPosition="right"
+              data-testid="trash-help"
+            />
+          </p>
+          {removeError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not deleted" subtitle={removeError} />}
+        </Modal>
+      )}
     </div>
   )
 }

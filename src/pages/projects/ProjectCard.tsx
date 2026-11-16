@@ -68,7 +68,7 @@ export function ProjectCard({ project, onOpen, onGo, onRemove, team, viewOnly }:
       {onRemove && !viewOnly && (
         <div className={styles.menu}>
           <OverflowMenu iconDescription={`Actions for ${project.name}`} flipped size="sm">
-            <OverflowMenuItem itemText="Remove project" isDelete onClick={() => onRemove(project)} />
+            <OverflowMenuItem itemText="Delete project" isDelete onClick={() => onRemove(project)} />
           </OverflowMenu>
         </div>
       )}

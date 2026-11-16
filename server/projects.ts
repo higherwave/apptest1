@@ -1,4 +1,5 @@
 import type { Db, Queryable } from './db.js'
+import { moveToTrash, RETENTION_DAYS } from './trash.js'
 import type { CreateProjectInput, SavePlanInput, SaveTasksInput } from './schemas.js'
 import { DEFAULT_STAGES, TINTS } from './schemas.js'
 import { assertAreasUsable } from './areas.js'
@@ -154,14 +155,15 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
   })
 }
 
-// Hard delete: foreign keys cascade to everything under the project. The audit log keeps the name,
-// who deleted it and when, because it has no foreign key to the project.
-export async function deleteProject(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string): Promise<boolean> {
+// Deleting moves the project, with everything under it, to the Trash for 90 days (server/trash.ts); `permanent` deletes it for good. Either way the audit
+// log keeps the name, who did it and when, because it has no foreign key to the project.
+export async function deleteProject(db: Db, ctx: { workspaceId: string; userId: string }, projectId: string, opts: { permanent?: boolean } = {}): Promise<boolean> {
   return db.transaction(async (tx) => {
     const row = (await tx.query(`select name from core.projects where id = $1 and workspace_id = $2 and kind = 'research'`, [projectId, ctx.workspaceId])).rows[0]
     if (!row) return false
-    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.projects', entity_id: projectId, verb: 'deleted', before: { name: row.name } }])
-    await tx.query(`delete from core.projects where id = $1`, [projectId])
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.projects', entity_id: projectId, verb: opts.permanent ? 'deleted permanently' : 'deleted', before: { name: row.name }, after: opts.permanent ? null : { restorableForDays: RETENTION_DAYS } }])
+    if (opts.permanent) await tx.query(`delete from core.projects where id = $1`, [projectId])
+    else await moveToTrash(tx, ctx, 'project', projectId, row.name as string)
     return true
   })
 }

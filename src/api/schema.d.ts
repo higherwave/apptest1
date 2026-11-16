@@ -705,7 +705,7 @@ export interface paths {
         /** Owners and editors. Saves the whole workflow: a stage or backstage entry that keeps its id is changed in place (so projects mapped to it stay mapped), one without an id is added, and one left out is removed. If-Match is the workflow's version; a save that changes nothing keeps it. */
         put: operations["saveWorkflow"];
         post?: never;
-        /** Owners and editors. Deletes a workflow. The projects on it are taken off it and their stage mapping is cleared; the audit log records how many. */
+        /** Owners and editors. Moves a workflow to the Trash for 90 days; the projects on it are taken off it and their stage mapping is dropped (it comes back with the workflow). With `permanent=true` (owners only) it is deleted for good. */
         delete: operations["deleteWorkflow"];
         options?: never;
         head?: never;
@@ -866,6 +866,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/holds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only (403 otherwise). The legal holds of the workspace, those in force first and then the released ones as history. */
+        get: operations["listHolds"];
+        put?: never;
+        /** Owners only. Places a legal hold on the whole workspace (no `projectId`) or on one project. What it covers cannot be deleted for good and is not aged out until it is released; a hold has no end date. 409 `already_held` when that scope is already held. */
+        post: operations["placeHold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/holds/{id}/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners only. Ends a hold. Who released it and when is recorded; the hold stays in the history. */
+        post: operations["releaseHold"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What was deleted in the last 90 days and can still be restored. Owners see everything in the workspace; an editor sees what they deleted themselves; a viewer sees nothing. `daysLeft` counts down to the day it is removed for good. */
+        get: operations["listTrash"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/{id}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Owners, or the editor who deleted it. Puts the item back with everything that was under it, under the same identity. 409 `already_exists` if something with that identity is in the workspace now. `leftOut` counts rows that could not return because something they pointed at has since been removed. */
+        post: operations["restoreFromTrash"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/trash/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Owners only. Removes the item from the Trash for good ("Delete now"). The audit log keeps its name, who did it and when. */
+        delete: operations["deleteFromTrash"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/export/workspace.zip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only (403 otherwise). Everything the workspace holds, as one ZIP: every table as JSON, readable files for each project (plan, transcripts, themes with quotes, requirements and stories, launch answers), the audit log and the AI usage as spreadsheets, and a manifest of row counts. Slack and Jira tokens are never included. Each download is recorded in the audit log. */
+        get: operations["exportWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/export/audit.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only (403 otherwise). The workspace's audit log as a spreadsheet, newest first. Each download is recorded in the audit log. */
+        get: operations["exportAuditCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/export/ai-usage.csv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Owners only (403 otherwise). Every AI call made for the workspace, with its model, tokens, cost and where it ran, as a spreadsheet. Each download is recorded in the audit log. */
+        get: operations["exportAiUsageCsv"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/projects": {
         parameters: {
             query?: never;
@@ -895,7 +1032,7 @@ export interface paths {
         get: operations["getProject"];
         put?: never;
         post?: never;
-        /** Permanently deletes a project and everything under it (a hard delete; the page asks for confirmation first). The audit log keeps the name, actor and time. Needs the token. */
+        /** Moves a project, with everything under it, to the Trash, where it is held for 90 days and can be restored (GET /trash). With `permanent=true` (owners only, 403 otherwise) it is deleted for good instead. The audit log keeps the name, actor and time either way. Needs the token. */
         delete: operations["deleteProject"];
         options?: never;
         head?: never;
@@ -1101,7 +1238,7 @@ export interface paths {
         get: operations["getSpec"];
         put?: never;
         post?: never;
-        /** Permanently deletes the document, its steps and, if published, its stories (a hard delete after the page's confirmation). Needs the token. */
+        /** Moves the document, its steps and, if published, its stories to the Trash for 90 days (a stand-alone document takes its project with it). With `permanent=true` (owners only) it is deleted for good. */
         delete: operations["deleteSpec"];
         options?: never;
         head?: never;
@@ -3363,7 +3500,7 @@ export interface components {
                 name: string;
             } | null;
             /** @enum {string} */
-            group: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira";
+            group: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data";
             /** @description What changed, for example insights.feature_areas. */
             entity: string;
             entityId: string | null;
@@ -3373,6 +3510,64 @@ export interface components {
             before: unknown;
             /** @description What it became. */
             after: unknown;
+        };
+        LegalHold: {
+            id: string;
+            /** @enum {string} */
+            scope: "workspace" | "project";
+            projectId: string | null;
+            /** @description The project's name when the hold was placed, or the workspace's. */
+            scopeName: string;
+            reason: string;
+            setBy: {
+                id: string;
+                name: string;
+            } | null;
+            /** Format: date-time */
+            setAt: string;
+            releasedBy: {
+                id: string;
+                name: string;
+            } | null;
+            /** Format: date-time */
+            releasedAt: string | null;
+        };
+        LegalHoldList: {
+            data: components["schemas"]["LegalHold"][];
+        };
+        NewLegalHold: {
+            /** @description Leave out to hold the whole workspace. */
+            projectId?: string | null;
+            reason: string;
+        };
+        TrashItem: {
+            id: string;
+            /** @enum {string} */
+            kind: "project" | "document" | "journey";
+            name: string;
+            /** Format: date-time */
+            deletedAt: string;
+            deletedBy: {
+                id: string;
+                name: string;
+            } | null;
+            /** Format: date-time */
+            purgeAt: string;
+            daysLeft: number;
+            /** @description What was in it, for example { transcripts: 4, themes: 7 }. */
+            summary: {
+                [key: string]: number;
+            };
+        };
+        TrashList: {
+            data: components["schemas"]["TrashItem"][];
+            retentionDays: number;
+        };
+        Restored: {
+            name: string;
+            /** @enum {string} */
+            kind: "project" | "document" | "journey";
+            leftOut: number;
         };
         AuditPage: {
             data: components["schemas"]["AuditEntry"][];
@@ -3762,7 +3957,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, seat_limit, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, rate_limited, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, seat_limit, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, rate_limited, already_exists, legal_hold, already_held, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;
@@ -5123,7 +5318,10 @@ export interface operations {
     };
     deleteWorkflow: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Owners only: delete for good instead of moving it to the Trash for 90 days. */
+                permanent?: boolean;
+            };
             header?: never;
             path: {
                 id: components["parameters"]["Id"];
@@ -5386,6 +5584,19 @@ export interface operations {
                             held: number;
                             failed: number;
                         };
+                        /** @description What the same run cleaned up under the retention rules (absent if that step failed, which never fails the reminders). */
+                        retention?: {
+                            /** @description Items whose 90 days in the Trash were up. */
+                            trashRemoved: number;
+                            /** @description Audit log entries older than 12 months. */
+                            auditRemoved: number;
+                            /** @description AI usage records older than 12 months. */
+                            usageRemoved: number;
+                            /** @description Message records older than 12 months that lost their content (the row stays as the marker that it was sent). */
+                            notificationsCleared: number;
+                            /** @description Workspaces with a legal hold in force. */
+                            paused: number;
+                        };
                     };
                 };
             };
@@ -5396,7 +5607,7 @@ export interface operations {
     listAudit: {
         parameters: {
             query?: {
-                group?: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira";
+                group?: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data";
                 /** @description Only changes about this team: its people, its projects and the team itself. */
                 teamId?: string;
                 limit?: number;
@@ -5420,6 +5631,231 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listHolds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The holds. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHoldList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    placeHold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewLegalHold"];
+            };
+        };
+        responses: {
+            /** @description The hold. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    releaseHold: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The released hold. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LegalHold"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The items, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TrashList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    restoreFromTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Restored. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Restored"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    deleteFromTrash: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed for good. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    exportWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The archive, as a download. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/zip": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    exportAuditCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The log, as a download. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    exportAiUsageCsv: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The usage, as a download. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
@@ -5501,7 +5937,10 @@ export interface operations {
     };
     deleteProject: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Owners only: delete for good instead of moving it to the Trash for 90 days. */
+                permanent?: boolean;
+            };
             header?: never;
             path: {
                 id: string;
@@ -5520,6 +5959,7 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
@@ -5930,7 +6370,10 @@ export interface operations {
     };
     deleteSpec: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Owners only: delete for good instead of moving it to the Trash for 90 days. */
+                permanent?: boolean;
+            };
             header?: never;
             path: {
                 id: components["parameters"]["Id"];
@@ -5949,6 +6392,7 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

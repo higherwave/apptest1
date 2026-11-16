@@ -2,6 +2,7 @@
 // the backstage under it (teams, systems and processes, with owners). A person with edit access changes a workflow by saving the whole of it at once,
 // against the version they were looking at; the audit log gets one entry per save, listing what changed. A project is on at most one workflow and maps
 // each of its own journey stages to one of the workflow's stages, so the research of the projects on a workflow can be laid over its backstage.
+import { moveToTrash } from './trash.js'
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'
 import { ProjectNotFound } from './versioning.js'
@@ -204,13 +205,14 @@ export async function saveWorkflow(db: Db, ctx: RequestContext, id: string, expe
   }
 }
 
-/** Deletes a workflow. The projects on it are taken off it (their stages keep their names; the stage mapping goes), and the audit entry says how many. */
-export async function deleteWorkflow(db: Db, ctx: RequestContext, id: string): Promise<void> {
+/** Deletes a workflow: it goes to the Trash for 90 days (`permanent` deletes it for good). The projects on it are taken off it (their stages keep their names; the stage mapping goes), and the audit entry says how many. */
+export async function deleteWorkflow(db: Db, ctx: RequestContext, id: string, opts: { permanent?: boolean } = {}): Promise<void> {
   await db.transaction(async (tx) => {
     const before = await getWorkflow(tx, ctx.workspaceId, id)
     if (!before) throw new WorkflowMissing()
-    await tx.query(`delete from insights.workflows where workspace_id = $1 and id = $2`, [ctx.workspaceId, id])
-    await audit(tx, ctx, 'insights.workflows', 'deleted', id, { name: before.name, stages: before.stages.length, projects: before.projectCount }, null)
+    if (opts.permanent) await tx.query(`delete from insights.workflows where workspace_id = $1 and id = $2`, [ctx.workspaceId, id])
+    else await moveToTrash(tx, ctx, 'journey', id, before.name)
+    await audit(tx, ctx, 'insights.workflows', opts.permanent ? 'deleted permanently' : 'deleted', id, { name: before.name, stages: before.stages.length, projects: before.projectCount }, null)
   })
 }
 

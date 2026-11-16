@@ -1,4 +1,7 @@
 import { Hono, type Context, type MiddlewareHandler } from 'hono'
+import { assertNotHeld, listHolds, placeHold, releaseHold, runRetention } from './retention.js'
+import { listTrash, purgeFromTrash, restoreFromTrash } from './trash.js'
+import { exportWorkspace, auditCsv, aiUsageCsv } from './export.js'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { z } from 'zod'
 import { ApiError, envelope } from './errors.js'
@@ -22,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -676,6 +679,82 @@ export function createApp(options: AppOptions = {}) {
     }))
   })
 
+  // Taking the workspace's data away: all of it as a ZIP, and the two logs as spreadsheets. Owners only, always recorded.
+  const sendDownload = (c: Context, body: Buffer | string, type: string, fileName: string) => {
+    c.header('Cache-Control', 'private, no-store')
+    c.header('Content-Disposition', `attachment; filename="${fileName}"`)
+    return c.body(typeof body === 'string' ? body : new Uint8Array(body), 200, { 'Content-Type': type })
+  }
+  const auditDataExport = (c: Context, what: string, detail: Record<string, unknown> = {}) => {
+    const ctx = c.get('ctx')
+    return getDb()
+      .query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, before, after) values ($1, $2, 'core.workspaces', $1, 'exported', null, $3)`, [ctx.workspaceId, ctx.userId, JSON.stringify({ what, ...detail })])
+      .catch((err) => console.error('export not recorded', err instanceof Error ? err.message : err))
+  }
+  app.get('/export/workspace.zip', withContext, limited('export', 6), async (c) => {
+    requireOwner(c)
+    const ctx = c.get('ctx')
+    const ws = (await getDb().query(`select slug, name from core.workspaces where id = $1`, [ctx.workspaceId])).rows[0]
+    const out = await exportWorkspace(getDb(), { id: ctx.workspaceId, slug: ws.slug as string, name: ws.name as string })
+    await auditDataExport(c, 'all workspace data', { tables: Object.keys(out.counts).length })
+    return sendDownload(c, out.bytes, 'application/zip', out.fileName)
+  })
+  app.get('/export/audit.csv', withContext, limited('export', 6), async (c) => {
+    requireOwner(c)
+    const csv = await auditCsv(getDb(), c.get('ctx').workspaceId)
+    await auditDataExport(c, 'audit log')
+    return sendDownload(c, csv, 'text/csv; charset=utf-8', `audit-log-${new Date().toISOString().slice(0, 10)}.csv`)
+  })
+  app.get('/export/ai-usage.csv', withContext, limited('export', 6), async (c) => {
+    requireOwner(c)
+    const csv = await aiUsageCsv(getDb(), c.get('ctx').workspaceId)
+    await auditDataExport(c, 'AI usage')
+    return sendDownload(c, csv, 'text/csv; charset=utf-8', `ai-usage-${new Date().toISOString().slice(0, 10)}.csv`)
+  })
+
+  // The Trash: what was deleted in the last 90 days, put back or removed for good. Owners see all of it; an editor sees what they deleted.
+  app.get('/trash', withContext, async (c) => {
+    const ctx = c.get('ctx')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await listTrash(getDb(), ctx))
+  })
+  app.post('/trash/:id/restore', withContext, async (c) => {
+    requireEditor(c)
+    const id = c.req.param('id')
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'That is not in the Trash.')
+    c.header('Cache-Control', 'no-store')
+    return c.json(await restoreFromTrash(getDb(), c.get('ctx'), id))
+  })
+  app.delete('/trash/:id', withContext, async (c) => {
+    requireOwner(c)
+    const id = c.req.param('id')
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'That is not in the Trash.')
+    await purgeFromTrash(getDb(), c.get('ctx'), id)
+    c.header('Cache-Control', 'no-store')
+    return c.body(null, 204)
+  })
+
+  // Legal holds (owners): what a hold covers is not deleted for good, and is not aged out, until the hold is released.
+  app.get('/holds', withContext, async (c) => {
+    requireOwner(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await listHolds(getDb(), c.get('ctx').workspaceId))
+  })
+  app.post('/holds', withContext, async (c) => {
+    requireOwner(c)
+    const input = parseBody(holdSchema, await readJson(c))
+    if (input.projectId && !UUID.test(input.projectId)) throw new ApiError(422, 'validation_failed', 'Not a project id.', 'projectId')
+    c.header('Cache-Control', 'no-store')
+    return c.json(await placeHold(getDb(), c.get('ctx'), input), 201)
+  })
+  app.post('/holds/:id/release', withContext, async (c) => {
+    requireOwner(c)
+    const id = c.req.param('id')
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'No such hold, or it was already released.')
+    c.header('Cache-Control', 'no-store')
+    return c.json(await releaseHold(getDb(), c.get('ctx'), id))
+  })
+
   app.get('/projects', withReadContext, async (c) => {
     const data = await listProjects(getDb(), c.get('ctx').workspaceId, c.get('ctx'))
     cacheHeaders(c)
@@ -722,7 +801,12 @@ export function createApp(options: AppOptions = {}) {
   app.delete('/projects/:id', withContext, async (c) => {
     requireEditor(c)
     const id = c.req.param('id')
-    const found = UUID.test(id) && (await deleteProject(getDb(), c.get('ctx'), id))
+    const permanent = c.req.query('permanent') === 'true'
+    if (permanent) {
+      requireOwner(c) // deleting for good is an owner's decision; anyone who may edit can move it to the Trash
+      if (UUID.test(id)) await assertNotHeld(getDb(), c.get('ctx').workspaceId, id)
+    }
+    const found = UUID.test(id) && (await deleteProject(getDb(), c.get('ctx'), id, { permanent }))
     if (!found) throw new ApiError(404, 'not_found', 'No such project.')
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
@@ -1006,7 +1090,13 @@ export function createApp(options: AppOptions = {}) {
 
   app.delete('/specs/:id', withContext, async (c) => {
     requireEditor(c)
-    if (!(await deleteSpec(getDb(), c.get('ctx'), specId(c)))) throw new ApiError(404, 'not_found', 'No such document.')
+    const permanent = c.req.query('permanent') === 'true'
+    if (permanent) {
+      requireOwner(c)
+      const owner = (await getDb().query(`select project_id from delivery.specs where id = $1`, [specId(c)])).rows[0]
+      await assertNotHeld(getDb(), c.get('ctx').workspaceId, (owner?.project_id as string | undefined) ?? null)
+    }
+    if (!(await deleteSpec(getDb(), c.get('ctx'), specId(c), { permanent }))) throw new ApiError(404, 'not_found', 'No such document.')
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
   })
@@ -1165,7 +1255,12 @@ export function createApp(options: AppOptions = {}) {
   app.delete('/workflows/:id', withContext, async (c) => {
     requireEditor(c)
     const id = workflowId(c)
-    await deleteWorkflow(getDb(), c.get('ctx'), id).catch(workflowErrors)
+    const permanent = c.req.query('permanent') === 'true'
+    if (permanent) {
+      requireOwner(c)
+      await assertNotHeld(getDb(), c.get('ctx').workspaceId, null)
+    }
+    await deleteWorkflow(getDb(), c.get('ctx'), id, { permanent }).catch(workflowErrors)
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
   })
@@ -1670,7 +1765,12 @@ export function createApp(options: AppOptions = {}) {
     const digest = await runDigest({ db: platformDb(), env, mailer })
     // The same hourly run also sends the launch messages that are due: reopened answers, requests that have waited, a step nobody covers.
     const launches = await sweepLaunches({ db: platformDb(), env, mailer, slack, slackFor: async (workspaceId) => (await integrations(workspaceId)).slack })
-    return c.json({ ...digest, launches })
+    // The same run applies the retention rules (the Trash after 90 days, the audit log and AI usage after 12 months). It never fails the reminders.
+    const retention = await runRetention(platformDb()).catch((err) => {
+      console.error('retention run failed', err instanceof Error ? err.message : err)
+      return null
+    })
+    return c.json({ ...digest, launches, ...(retention ? { retention } : {}) })
   })
 
   return app

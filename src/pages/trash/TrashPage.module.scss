@@ -1,0 +1,65 @@
+@use '../../tokens' as tokens;
+@use '../insights/body';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}
+
+.muted {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+  max-inline-size: 40rem;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-md);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.what {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
+}
+
+.name {
+  @include tokens.role('label-md');
+  color: var(--at-ink);
+  overflow-wrap: anywhere;
+}
+
+.meta {
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+}
+
+.actions {
+  display: flex;
+  gap: var(--at-space-xs);
+}
+
+.confirm {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}

@@ -1,8 +1,8 @@
-import { Logout, LogoSlack, TaskView } from '@carbon/icons-react'
+import { Logout, LogoSlack, TaskView, TrashCan } from '@carbon/icons-react'
 import { Button, Popover, PopoverContent, Tag } from '@carbon/react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMySlack } from '../api/hooks'
+import { useMySlack, useTrash } from '../api/hooks'
 import { Avatar } from './Avatar'
 import { SlackConnectModal } from './SlackConnectModal'
 import { signOut } from './authClient'
@@ -17,6 +17,7 @@ export function AccountPanel({ name, email, role, avatarUrl }: Props) {
   const [slackOpen, setSlackOpen] = useState(false)
   const navigate = useNavigate()
   const slack = useMySlack()
+  const trash = useTrash()
   return (
     <>
     <Popover open={open} align="bottom-end" dropShadow onRequestClose={() => setOpen(false)}>
@@ -39,6 +40,14 @@ export function AccountPanel({ name, email, role, avatarUrl }: Props) {
             }}>
             My {T.approvals}
           </Button>
+          {(trash.data?.data.length ?? 0) > 0 && (
+            <Button kind="ghost" size="md" className={styles.link} renderIcon={TrashCan} data-testid="my-deleted" onClick={() => {
+                setOpen(false)
+                navigate('/deleted')
+              }}>
+              My deleted items
+            </Button>
+          )}
           {slack.data?.configured && (
             <Button kind="ghost" size="md" className={styles.link} renderIcon={LogoSlack} data-testid="connect-slack" onClick={() => {
                 setOpen(false)

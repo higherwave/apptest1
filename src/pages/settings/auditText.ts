@@ -11,6 +11,7 @@ export const GROUP_LABEL: Record<AuditGroup, string> = {
   projects: 'Projects',
   workflows: 'Journeys',
   jira: 'Jira hand-offs',
+  data: 'Data downloads',
 }
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -24,6 +25,8 @@ const ENTITY_LABEL: Record<string, string> = {
   'delivery.launch_links': 'Launch link',
   'insights.feature_areas': 'Experience category',
   'core.projects': 'Project',
+  'core.workspaces': 'Workspace data',
+  'core.legal_holds': 'Legal hold',
   'insights.workflows': 'Journey',
   'delivery.story_tickets': 'Jira ticket',
 }

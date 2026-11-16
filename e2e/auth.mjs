@@ -148,7 +148,7 @@ try {
   await waitText('Experience')
   await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]').click())
   await page.waitForSelector('[data-testid="people-table"]', { timeout: 8000 })
-  ok('the Admin tabs are Experience Categories, Notifications, Usage and Costs, User Access and Audit log, and User Access has People, Teams and Approvals', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].map((b) => b.innerText.trim()).join('|') === 'Experience Categories|Notifications|Usage and Costs|User Access|Audit log' && [...document.querySelectorAll('[aria-label="User access views"] [role="tab"]')].map((t) => t.innerText.trim()).join('|') === 'People|Teams|Approvals'))
+  ok('the Admin tabs are Experience Categories, Notifications, Usage and Costs, User Access, Data and Audit log, and User Access has People, Teams and Approvals', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].map((b) => b.innerText.trim()).join('|') === 'Experience Categories|Notifications|Usage and Costs|User Access|Data|Audit log' && [...document.querySelectorAll('[aria-label="User access views"] [role="tab"]')].map((t) => t.innerText.trim()).join('|') === 'People|Teams|Approvals'))
   await waitText('sam@demo.signalflow.example') // the list arrives after the form
   ok('the People tab lists the demo people, each with a role, teams and approvals', await page.evaluate(() => { const row = document.querySelector('[data-testid="person-sam@demo.signalflow.example"]'); return !!row && /Viewer/.test(row.innerText) && /General/.test(row.innerText) && !!document.querySelector('[data-testid="approvals-sam@demo.signalflow.example"]') }))
   const panelOpen = (testid) => page.waitForSelector(`.cds--modal.is-visible [data-testid="${testid}"]`, { visible: true, timeout: 5000 })
@@ -203,8 +203,33 @@ try {
   await page.waitForSelector('[data-testid="audit-row"]', { timeout: 8000 })
   ok('the Audit log tab lists who changed what, newest first, including the invitation and the role change just made', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid="audit-row"]')].map((r) => r.innerText); return location.pathname === '/settings/audit' && rows.length >= 2 && /Member/.test(rows[0]) && rows.some((r) => /e2e\.person@example\.com/.test(r) && /role/i.test(r)) && rows.some((r) => /Created|Invited/i.test(r) && /e2e\.person@example\.com/.test(r)) }))
 
+  // Data: the owner can take the data away, and it is recorded.
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="Data"]').click())
+  await page.waitForSelector('[data-testid="data-downloads"]', { timeout: 8000 })
+  ok('the Data tab offers the three downloads and says how long things are kept', await page.evaluate(() => ['workspace', 'audit', 'usage'].every((k) => document.querySelector(`[data-testid="download-${k}"]`)) && /12 months/.test(document.querySelector('[data-testid="data-keeping"]').innerText) && /90 days/.test(document.querySelector('[data-testid="data-keeping"]').innerText)))
+  await page.click('[data-testid="download-audit"]')
+  await page.waitForSelector('[data-testid="download-done"]', { timeout: 10000 })
+  ok('downloading the audit log works and names the file', await page.evaluate(() => /^audit-log-\d{4}-\d{2}-\d{2}\.csv$/.test(document.querySelector('[data-testid="download-done"]').innerText.replace('Downloaded', '').trim())))
+  await page.click('[data-testid="download-workspace"]')
+  await page.waitForFunction(() => /signal-flow-.*\.zip/.test(document.querySelector('[data-testid="download-done"]')?.innerText ?? ''), { timeout: 20000 })
+  ok('downloading all of the data gives a ZIP', true)
+  ok('each download is in the audit log', await page.evaluate(async () => (await (await fetch('/api/v1/audit?group=data')).json()).data.filter((e) => e.verb === 'exported').length >= 2))
+  // Legal hold: an owner places one with a reason, it shows as in force, and releasing it puts it in the history.
+  await page.type('#hold-reason', 'E2E matter: a customer dispute')
+  await page.click('[data-testid="hold-place"]')
+  await page.waitForSelector('[data-testid="hold-row"]', { timeout: 8000 })
+  ok('a legal hold on the workspace shows as in force with its reason', await page.evaluate(() => /In force/.test(document.querySelector('[data-testid="hold-row"]').innerText) && /customer dispute/.test(document.querySelector('[data-testid="hold-row"]').innerText)))
+  ok('while it is in force the server refuses to delete for good', await page.evaluate(async () => { const t = (await (await fetch('/api/v1/trash')).json()); const id = (await (await fetch('/api/v1/projects')).json()).data[0].id; const r = await fetch(`/api/v1/projects/${id}?permanent=true`, { method: 'DELETE' }); return r.status === 409 && (await r.json()).error.code === 'legal_hold' && Array.isArray(t.data) }))
+  await page.click('[data-testid="hold-release"]')
+  await new Promise((r) => setTimeout(r, 400))
+  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Release').click())
+  await page.waitForFunction(() => !document.querySelector('[data-testid="hold-row"]'), { timeout: 8000 })
+  await new Promise((r) => setTimeout(r, 600)) // the dialog finishes closing before the next click
+  ok('releasing it ends the hold, and it stays in the history', await page.evaluate(() => /released/i.test(document.querySelector('[data-testid="legal-hold"]').innerText)))
+
   // Teams: the owner makes a team in a panel, moves a project into it, and a person who is not in it no longer sees that project.
   await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]').click())
+  await page.waitForSelector('[data-testid="people-table"]', { timeout: 8000 }) // the People tab has loaded, so the tabs stay put when clicked
   await page.waitForSelector('[data-testid="tab-teams"]', { timeout: 8000 })
   await page.click('[data-testid="tab-teams"]')
   await page.waitForSelector('[data-testid="teams-table"]', { timeout: 8000 })
@@ -327,12 +352,12 @@ try {
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await waitText('Projects')
   ok('a viewer does not see Admin in the menu', await page.evaluate(() => ![...document.querySelectorAll('[data-nav] a')].some((a) => a.textContent.includes('Admin'))))
-  for (const path of ['/settings/categories', '/settings/members', '/settings/people', '/settings/approvals', '/settings/access', '/settings/audit', '/settings/usage', '/members']) {
+  for (const path of ['/settings/categories', '/settings/members', '/settings/people', '/settings/approvals', '/settings/access', '/settings/audit', '/settings/data', '/settings/usage', '/members']) {
     await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
     await page.waitForFunction(() => location.pathname === '/projects', { timeout: 8000 })
   }
   ok('a viewer who types an Admin address is sent back to the projects', true)
-  ok('the server refuses a viewer the member list, the audit log, system usage and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && (await fetch('/api/v1/usage')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
+  ok('the server refuses a viewer the member list, the audit log, system usage and the AI status details', await page.evaluate(async () => (await fetch('/api/v1/members')).status === 403 && (await fetch('/api/v1/audit')).status === 403 && (await fetch('/api/v1/export/workspace.zip')).status === 403 && (await fetch('/api/v1/export/audit.csv')).status === 403 && (await fetch('/api/v1/usage')).status === 403 && !('spentUsd' in (await (await fetch('/api/v1/ai/status')).json()))))
   ok('a person in another team does not see the project at all: not in their list, not found by address', await page.evaluate(async (id, name) => { const list = (await (await fetch('/api/v1/projects')).json()).data; return !list.some((p) => p.id === id) && list.length > 0 && (await fetch(`/api/v1/projects/${id}`)).status === 404 && (await fetch(`/api/v1/projects/${id}/themes`)).status === 404 }, movedId, moving))
   ok('and the first sign-in marked them as signed in', (await members()).some((m) => m.email === 'e2e.person@example.com' && m.status === 'active'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
@@ -364,6 +389,12 @@ try {
   ok('and they are locked out', true)
 } catch (e) {
   ok('auth flow completes', false, e.message)
+  console.log('  what the page showed: ' + (await page.evaluate(() => {
+    const tab = document.querySelector('[data-testid="tab-teams"]')
+    const r = tab?.getBoundingClientRect()
+    const hit = r ? document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2) : null
+    return `${location.pathname}${location.search} | scrollY=${window.scrollY} | tab-teams at ${r ? `${Math.round(r.x)},${Math.round(r.y)}` : 'missing'} selected=${tab?.getAttribute('aria-selected')} | what is at its centre: ${hit ? `${hit.tagName} ${hit.className?.toString().slice(0, 60)}` : 'nothing'} | modal=${!!document.querySelector('.cds--modal.is-visible')}`
+  }).catch(() => 'unavailable')))
   await page.screenshot({ path: new URL('./failure-auth.png', import.meta.url).pathname })
 }
 await browser.close()
