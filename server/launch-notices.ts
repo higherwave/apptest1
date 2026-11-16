@@ -18,7 +18,7 @@ import { postApprovalCards, reply, settleCards, slackLines } from './launch-slac
 import { slackText, type SlackClient } from './slack.js'
 import { T } from '../shared/terms.mjs'
 
-export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date }
+export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date; /** The Slack client of one workspace, for a sweep across all of them. */ slackFor?: (workspaceId: string) => Promise<SlackClient | undefined> }
 const slackOf = (d: Deps) => ({ db: d.db, env: d.env, slack: d.slack })
 export type Launch = LaunchDetail & { createdBy: Person | null; workspaceId: string }
 export type Outcome = 'sent' | 'held' | 'failed' | 'duplicate'
@@ -311,6 +311,6 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
 /** The hourly sweep over every launch. */
 export async function sweepLaunches(deps: Deps): Promise<SweepResult> {
   const result: SweepResult = { sent: 0, held: 0, failed: 0 }
-  for (const l of await allLaunchIds(deps.db)) await sweepLaunch(deps, l.workspaceId, l.id, result)
+  for (const l of await allLaunchIds(deps.db)) await sweepLaunch({ ...deps, slack: (await deps.slackFor?.(l.workspaceId)) ?? deps.slack }, l.workspaceId, l.id, result)
   return result
 }

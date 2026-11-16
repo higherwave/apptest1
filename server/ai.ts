@@ -67,6 +67,23 @@ export const monthlyBudgetUsd = (env: Env): number => {
   return env.AI_MONTHLY_BUDGET_USD && Number.isFinite(n) && n >= 0 ? n : 10
 }
 
+/** The platform-wide monthly AI ceiling (AI_PLATFORM_MONTHLY_USD), across every workspace, or null when none is set. */
+export const platformCeilingUsd = (env: Env): number | null => {
+  const n = Number(env.AI_PLATFORM_MONTHLY_USD)
+  return env.AI_PLATFORM_MONTHLY_USD && Number.isFinite(n) && n >= 0 ? n : null
+}
+
+/**
+ * This workspace's monthly AI cap: its own setting if it has one, else its plan's, else the deployment's (AI_MONTHLY_BUDGET_USD).
+ * One AI account serves every workspace; each is held to its own cap, and the platform ceiling sits above them all.
+ */
+export async function workspaceBudget(db: Queryable, workspaceId: string, env: Env): Promise<{ budgetUsd: number; source: 'workspace' | 'plan' | 'deployment'; plan: string | null }> {
+  const r = (await db.query(`select w.ai_monthly_usd as own, p.ai_monthly_usd as plan_usd, w.plan_key from core.workspaces w left join core.plans p on p.key = w.plan_key where w.id = $1`, [workspaceId])).rows[0]
+  if (r?.own != null) return { budgetUsd: Number(r.own), source: 'workspace', plan: r.plan_key ?? null }
+  if (r?.plan_usd != null) return { budgetUsd: Number(r.plan_usd), source: 'plan', plan: r.plan_key }
+  return { budgetUsd: monthlyBudgetUsd(env), source: 'deployment', plan: null }
+}
+
 /**
  * This month's spend by the team of the project each call was for. A call that was for no one project (matching themes across projects, for example)
  * has no team and is listed as the workspace's own. One budget still governs the whole workspace; this only shows where it went.
@@ -101,8 +118,13 @@ export const spendLevel = (spentUsd: number, budgetUsd: number): SpendLevel => {
 
 export async function assertBudget(db: Queryable, ai: Ai, workspaceId: string): Promise<void> {
   if (!ai.provider.live) return
-  if ((await spentThisMonthUsd(db, workspaceId)) >= monthlyBudgetUsd(ai.env)) {
-    throw new ApiError(503, 'ai_budget_reached', 'The monthly AI budget is used up. Raise AI_MONTHLY_BUDGET_USD or set AI_ENABLED=false to use the simulation.')
+  const { budgetUsd } = await workspaceBudget(db, workspaceId, ai.env)
+  if ((await spentThisMonthUsd(db, workspaceId)) >= budgetUsd) {
+    throw new ApiError(503, 'ai_budget_reached', 'This workspace’s monthly AI budget is used up. Until next month, or until it is raised, everything uses the simulation.')
+  }
+  const ceiling = platformCeilingUsd(ai.env)
+  if (ceiling !== null && Number((await db.query(`select core.platform_ai_spend_this_month() as total`)).rows[0].total) >= ceiling) {
+    throw new ApiError(503, 'ai_budget_reached', 'The platform’s monthly AI limit is reached. Everything uses the simulation until next month.')
   }
 }
 

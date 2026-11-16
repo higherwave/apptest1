@@ -27,7 +27,8 @@ import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
 import { AlreadySent, createTicket, listTickets, NoStory, NotTicketable, RecordFailed } from './tickets.js'
-import { jiraConfig, makeJira, NOT_CONNECTED, type JiraFetch } from './jira.js'
+import { NOT_CONNECTED, type JiraFetch } from './jira.js'
+import { makeIntegrations } from './workspace-settings.js'
 import {
   approveStep, draftWaitingStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
@@ -49,7 +50,7 @@ import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { afterRequirements, afterStoryboard } from './launch-updates.js'
 import { makePdf, PdfError, type PdfService } from './pdf.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
-import { aiMode, makeAi, recentAiProblems, monthlyBudgetUsd, spendByTeam, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
+import { aiMode, makeAi, recentAiProblems, workspaceBudget, spendByTeam, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
@@ -79,8 +80,9 @@ export function createApp(options: AppOptions = {}) {
   const slack = options.slack ?? makeSlack(env)
   const pdf = options.pdf ?? makePdf(env)
   // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
-  const jiraSettings = jiraConfig(env)
-  const jira = jiraSettings ? makeJira(jiraSettings, options.jiraFetch) : null
+  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch })
+  // This workspace's own Slack client for the request (a workspace with no connection of its own gets one that is not live).
+  const slackOf = async (c: Context) => (await integrations(c.get('ctx').workspaceId)).slack
   // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
   const capture = options.capture === null ? undefined : options.capture ?? makeCapture(env)
   const captureOn = () => !!capture && env.DESIGN_CAPTURE !== 'false'
@@ -143,7 +145,7 @@ export function createApp(options: AppOptions = {}) {
     const found = owner ? await recentAiProblems(getDb(), ctx.workspaceId).catch(() => []) : []
     const lastProblem = found.length ? { problems: found } : {}
     if (!owner || mode === 'simulated') return c.json({ mode, enabled: env.AI_ENABLED !== 'false', ...lastProblem })
-    const budgetUsd = monthlyBudgetUsd(env)
+    const { budgetUsd } = await workspaceBudget(getDb(), ctx.workspaceId, env)
     const spentUsd = await spentThisMonthUsd(getDb(), ctx.workspaceId)
     // spendLevel is what the alerts follow: half (50%), high (80%) or reached (100%) of the month's budget. month says which month it counts.
     const byTeam = await spendByTeam(getDb(), ctx.workspaceId).catch(() => [])
@@ -317,7 +319,7 @@ export function createApp(options: AppOptions = {}) {
       return launchErrors(err)
     }
     // The launch's thread opens in its team's Slack channel, if the team has one. A failed post never fails the launch.
-    await startThread({ db: getDb(), env, slack }, c.get('ctx').workspaceId, made).catch((err) => console.error('launch slack failed', err instanceof Error ? err.message : err))
+    await startThread({ db: getDb(), env, slack: await slackOf(c) }, c.get('ctx').workspaceId, made).catch((err) => console.error('launch slack failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, made), 201)
   })
@@ -340,7 +342,7 @@ export function createApp(options: AppOptions = {}) {
       return launchErrors(err)
     }
     // A change to the brief notes reopens answers: the approvers are asked to confirm now, not at the next hourly sweep.
-    if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
+    if (input.briefNotes !== undefined) await sweepLaunch({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx').workspaceId, id).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
   })
@@ -395,7 +397,7 @@ export function createApp(options: AppOptions = {}) {
     const id = launchId(c)
     const launch = await oneLaunch(c, id)
     if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can open its Slack thread.')
-    const result = await startThread({ db: getDb(), env, slack }, c.get('ctx').workspaceId, id)
+    const result = await startThread({ db: getDb(), env, slack: await slackOf(c) }, c.get('ctx').workspaceId, id)
     c.header('Cache-Control', 'no-store')
     return c.json(result)
   })
@@ -405,7 +407,7 @@ export function createApp(options: AppOptions = {}) {
     const launch = await oneLaunch(c, id)
     if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can ask for answers.')
     if (launch.stage === 'storyboard') throw new ApiError(409, 'requirements_not_published', `${T.Approvals} open once the requirements are published.`)
-    const result = await requestAnswers({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id)
+    const result = await requestAnswers({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx').workspaceId, id)
     c.header('Cache-Control', 'no-store')
     return c.json(result)
   })
@@ -419,7 +421,7 @@ export function createApp(options: AppOptions = {}) {
       return launchErrors(err)
     }
     // The owner is told (the whole launch, for the final decision). A failed email never fails the answer.
-    await noticeAnswered({ db: getDb(), env, mailer, slack }, c.get('ctx').workspaceId, id, step, c.get('ctx').userId).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
+    await noticeAnswered({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx').workspaceId, id, step, c.get('ctx').userId).catch((err) => console.error('launch notice failed', err instanceof Error ? err.message : err))
     c.header('Cache-Control', 'no-store')
     return c.json(await oneLaunch(c, id))
   })
@@ -765,7 +767,7 @@ export function createApp(options: AppOptions = {}) {
         const matched = await refreshPlatformMatches(getDb(), ai, c.get('ctx').workspaceId).catch(() => undefined)
         if (matched && 'created' in matched && matched.created) await autoMergeDuplicates(getDb(), ai, c.get('ctx')).catch(() => undefined)
         // The storyboard was written after the analysis: start the launch (the first time) and tell the active approvers, for awareness.
-        await afterStoryboard({ db: getDb(), env, mailer, slack }, c.get('ctx'), id)
+        await afterStoryboard({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx'), id)
         return result
       },
       'raw',
@@ -955,7 +957,7 @@ export function createApp(options: AppOptions = {}) {
       return specError(err)
     }
     // The approvers are told the requirements are out (and the launch is started if it was not): a failure here never undoes the publish.
-    await afterRequirements({ db: getDb(), env, mailer, slack }, c.get('ctx'), result.projectId)
+    await afterRequirements({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx'), result.projectId)
     c.header('Cache-Control', 'no-store')
     return c.json({ specId: id, ...result }, 201)
   })
@@ -1390,7 +1392,7 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     try {
       const board = await generateStoryboard(getDb(), ai, c.get('ctx'), projectId(c))
-      await afterStoryboard({ db: getDb(), env, mailer, slack }, c.get('ctx'), projectId(c))
+      await afterStoryboard({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx'), projectId(c))
       return c.json(board)
     } catch (err) {
       if (err instanceof NoStoryboardProject) throw new ApiError(404, 'not_found', 'No such project.')
@@ -1475,6 +1477,7 @@ export function createApp(options: AppOptions = {}) {
   app.get('/integrations/jira', withContext, async (c) => {
     requireEditor(c)
     c.header('Cache-Control', 'no-store')
+    const jira = (await integrations(c.get('ctx').workspaceId)).jira
     return c.json(jira ? await jira.status() : NOT_CONNECTED)
   })
 
@@ -1485,7 +1488,7 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(createTicketSchema, await readJson(c))
     c.header('Cache-Control', 'no-store')
     try {
-      return c.json(await createTicket(getDb(), c.get('ctx'), id, input, jira), 201)
+      return c.json(await createTicket(getDb(), c.get('ctx'), id, input, (await integrations(c.get('ctx').workspaceId)).jira), 201)
     } catch (err) {
       if (err instanceof NoStory) throw new ApiError(404, 'not_found', 'No such story.')
       if (err instanceof NotTicketable) throw new ApiError(422, 'not_a_requirement', 'An open question is a decision to make, not a ticket. Decide it first.')
@@ -1569,7 +1572,7 @@ export function createApp(options: AppOptions = {}) {
   // Connecting Slack: a member asks for a one-time code here and enters it in Slack as /signalflow connect <code>. That link is how a click in Slack is known to be them.
   app.get('/me/slack', withContext, async (c) => {
     c.header('Cache-Control', 'private, no-store')
-    return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && slack.live })
+    return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && (await slackOf(c)).live })
   })
   app.post('/me/slack/code', withContext, async (c) => {
     c.header('Cache-Control', 'no-store')
@@ -1578,7 +1581,7 @@ export function createApp(options: AppOptions = {}) {
   app.delete('/me/slack', withContext, async (c) => {
     await disconnectSlack(getDb(), c.get('ctx').userId)
     c.header('Cache-Control', 'no-store')
-    return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && slack.live })
+    return c.json({ ...(await slackStatus(getDb(), c.get('ctx').userId)), configured: !!env.SLACK_SIGNING_SECRET && (await slackOf(c)).live })
   })
 
   // What Slack sends when someone acts there (a click, a form, a message action, the /signalflow command). Slack signs each request: nothing is read or done
@@ -1624,7 +1627,7 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'no-store')
     const digest = await runDigest({ db: platformDb(), env, mailer })
     // The same hourly run also sends the launch messages that are due: reopened answers, requests that have waited, a step nobody covers.
-    const launches = await sweepLaunches({ db: platformDb(), env, mailer, slack })
+    const launches = await sweepLaunches({ db: platformDb(), env, mailer, slack, slackFor: async (workspaceId) => (await integrations(workspaceId)).slack })
     return c.json({ ...digest, launches })
   })
 

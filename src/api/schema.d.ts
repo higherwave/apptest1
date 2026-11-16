@@ -3762,7 +3762,7 @@ export interface components {
                 "application/json": components["schemas"]["VersionConflict"];
             };
         };
-        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error. */
+        /** @description Every failure uses this envelope. Codes so far: unauthorized, auth_not_configured, db_unavailable, workspace_not_found, unauthenticated, not_invited, email_unverified, already_member, seat_limit, last_owner, not_found, forbidden, invalid_json, validation_failed (with a field), precondition_required, version_conflict, no_transcripts, theme_superseded, spec_published, no_analysis, step_not_ready, steps_not_approved, no_board, nothing_to_undo, cannot_undo, run_in_progress, ai_budget_reached, internal_error. */
         Error: {
             headers: {
                 [name: string]: unknown;

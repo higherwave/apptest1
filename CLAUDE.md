@@ -50,7 +50,9 @@ Each customer is a workspace; nothing is shared between them. Two locks, both te
 - A new table with workspace data needs `workspace_id`, row-level security and the `workspace_isolation` policy (copy 0047's loop); a table that belongs to a person or to Slack goes in `NOT_IN_ONE_WORKSPACE` in the tenancy test with its reason. The test fails otherwise. A child table gets its workspace id from its parent with the `fill_workspace` trigger (migration 0046), so older code that omits it still works during a deploy.
 - People are global (one person, several workspaces). A workspace sees only its own members; find or create a person by email with `core.user_id_for_email(...)`, never by reading `core.users` directly.
 - Which workspace a request is for: `server/workspace-host.ts` (the subdomain under `WORKSPACE_BASE_DOMAIN`, else `WORKSPACE_SLUG`). Being signed in to one workspace never gets you into another.
-- Not yet per workspace (planned, see the pilot readiness build plan): Slack, Jira and company sign-in settings, the AI budget, and the scheduler's jobs.
+- Connections are per workspace: Slack and Jira come from `core.workspace_integrations` (token encrypted with `SETTINGS_ENCRYPTION_KEY`, set with `node db/set-integration.mjs`), read through `integrationsFor` in `server/workspace-settings.ts`. The deployment's own `SLACK_BOT_TOKEN` and `JIRA_*` belong to its home workspace only (`WORKSPACE_SLUG`); any other workspace has no connection until it has its own row. Never read `env.SLACK_*` or `env.JIRA_*` in a handler: ask `integrations(workspaceId)`.
+- Plans (`core.plans`, set with `node db/set-plan.mjs`): a workspace's AI cap is its own setting, else its plan's, else `AI_MONTHLY_BUDGET_USD` (`workspaceBudget` in `server/ai.ts`); `AI_PLATFORM_MONTHLY_USD` caps all workspaces together; a plan's `seats` limit refuses an invitation with 409 `seat_limit`. The restricted role may only read plans and workspaces.
+- Not yet per workspace: company sign-in settings (`OIDC_*`, `SSO_*`), Slack's inbound calls (one signing secret, so the home Slack app), and a master usage view across workspaces.
 
 ## Launch
 

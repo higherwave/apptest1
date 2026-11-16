@@ -80,6 +80,10 @@ The Neon integration adds the database variables (with a custom prefix; the code
 | `CHROME_PATH` | Where to find a Chrome or Chromium for thumbnails when not on Vercel (Vercel uses the Chromium inside `@sparticuz/chromium`; `vercel.json` gives that function 60 seconds and includes its files). A developer's own Chrome is fine |
 | `DESIGN_CAPTURE_ALLOW_PRIVATE` | Tests only. `true` lets thumbnails visit this machine's own pages. Never set it on a deployment: `npm run doctor` warns |
 | `WORKSPACE_SLUG` (older name `DEMO_WORKSPACE_SLUG`) | The workspace this deployment serves. Default `higherwave-demo`. Create your own with `npm run bootstrap` |
+| `WORKSPACE_BASE_DOMAIN` | Optional. With `example.org` set, a customer reaches its own workspace at `<slug>.example.org` (the address chooses the workspace; sign-in still decides who may be in it). Unset, the whole deployment is the one `WORKSPACE_SLUG` workspace. Sign-in across subdomains also needs the session cookie shared across them (not yet set up) |
+| `SETTINGS_ENCRYPTION_KEY` | 32 random bytes in base64 (`openssl rand -base64 32`). Encrypts the Slack and Jira tokens stored per workspace (`node db/set-integration.mjs`). Without it nothing can be stored or read. Never print it |
+| `AI_PLATFORM_MONTHLY_USD` | Optional ceiling on the month's AI spend across every workspace. Each workspace also has its own cap from its plan (`node db/set-plan.mjs`), else `AI_MONTHLY_BUDGET_USD`. At either limit the AI uses the simulation |
+| `DB_SCOPED_HTTP` | `false` makes workspace-scoped queries use the connection pool instead of Neon's HTTP batch (slower: three round trips instead of one). For tests and debugging |
 | `DEV_USER_EMAIL` | The identity used for the demo token and the read-only viewer. Default `david@demo.signalflow.example`; not needed when everyone signs in |
 
 ## Sign-in and roles

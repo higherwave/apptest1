@@ -120,6 +120,9 @@ export async function inviteMember(db: Db, ctx: RequestContext, input: { email: 
     const userId: string = (await tx.query(`select core.user_id_for_email($1, $2) as id`, [email, email.split('@')[0]])).rows[0].id
     const dup = await tx.query(`select id from core.memberships where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, userId])
     if (dup.rows[0]) throw new AlreadyMember()
+    // The plan's seat limit (no plan, or no limit set, means no limit).
+    const seats = (await tx.query(`select p.seats, (select count(*)::int from core.memberships m where m.workspace_id = w.id) as used from core.workspaces w join core.plans p on p.key = w.plan_key where w.id = $1`, [ctx.workspaceId])).rows[0]
+    if (seats?.seats != null && seats.used >= seats.seats) throw new ApiError(409, 'seat_limit', `This workspace’s plan includes ${seats.seats} people and all ${seats.seats} places are used.`)
     const made = await tx.query(
       `insert into core.memberships (workspace_id, user_id, role, is_external, created_by, updated_by) values ($1, $2, $3, $5, $4, $4) returning id`,
       [ctx.workspaceId, userId, input.role, ctx.userId, !!input.external],
