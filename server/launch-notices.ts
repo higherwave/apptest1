@@ -9,6 +9,7 @@
 //   launch.reopened         the brief changed after an answer: that step's approver is asked to confirm it
 //   launch.escalated        a request has waited: backups are asked to cover after 3 days, the owner is told after 6 (or 3 when there is no backup)
 //   launch.approver_missing a launch that was asked for has a step nobody covers: the owner is told, once a week
+import { baseUrlFor } from './workspace-urls.js'
 import { answerLabel } from '../shared/launch.mjs'
 import type { Db, Env } from './db.js'
 import { allLaunchIds, launchForSystem, type LaunchDetail, type LaunchStep, type Person } from './launches.js'
@@ -27,7 +28,6 @@ export const ESCALATE_ALTERNATE_DAYS = 3
 export const ESCALATE_OWNER_DAYS = 6
 
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
-const baseOf = (env: Env) => (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/$/, '')
 const first = (name: string) => name.split(' ')[0] || 'there'
 const dayText = (day: string | null) => (day ? new Date(`${day}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : null)
 
@@ -63,7 +63,7 @@ export async function tellAlternatesCover(deps: Deps, workspaceId: string, away:
       ).rows[0]
       if (!claimed) { out.push('duplicate'); continue }
       if (hold) { out.push('held'); continue }
-      const base = baseOf(deps.env)
+      const base = await baseUrlFor(deps.db, deps.env, workspaceId)
       if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
       const m = compose({
         name: alt.person.name,
@@ -104,7 +104,7 @@ export async function deliver(
   if (!claimed) return 'duplicate'
   if (hold) return 'held'
   try {
-    const base = baseOf(env)
+    const base = await baseUrlFor(db, env, launch.workspaceId)
     if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
     const step = typeof n.payload.step === 'string' ? n.payload.step : Array.isArray(n.payload.steps) ? String(n.payload.steps[0] ?? '') : ''
     await mailer.send({ to: n.to.email, ...n.build(`${base}/launches/${launch.id}${step ? `?step=${step}` : ''}`, `${base}/launches`) })

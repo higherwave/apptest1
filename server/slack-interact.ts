@@ -3,6 +3,7 @@
 // at once and the answer is recorded when the form is submitted. Who someone is comes only from a link made with a one-time code (slack-link.ts); what they may do is
 // exactly what they could do in Signal Flow: the same functions run, as the same member, so no rule is repeated here. Answers and links are recorded in Signal Flow;
 // Slack only carries the conversation.
+import { baseUrlFor } from './workspace-urls.js'
 import { answerLabel, answersFor, rationaleRequired, stepLabel } from '../shared/launch.mjs'
 import { contextForUser } from './context.js'
 import type { Db, Env } from './db.js'
@@ -17,7 +18,6 @@ import { T } from '../shared/terms.mjs'
 export type InteractDeps = { db: Db; env: Env; mailer: Mailer; slack: SlackClient }
 type Json = Record<string, any>
 
-const baseOf = (env: Env) => (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/$/, '')
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const stepName = (key: string): string => stepLabel(key) ?? key
 const TAIL_MS = 2000
@@ -73,7 +73,7 @@ async function clicked(deps: InteractDeps, payload: Json): Promise<void> {
   const answer = id.slice('answer:'.length)
   const launch = await launchRow(deps.db, launchId)
   if (!launch || !answersFor(step).some((a: { key: string }) => a.key === answer)) return void (await ephemeral(deps, payload, 'That launch is not available.'))
-  const base = baseOf(deps.env)
+  const base = await baseUrlFor(deps.db, deps.env, launch.workspaceId)
   const who = await actor(deps, payload, launch.workspaceId, base ? `${base}/launches/${launch.id}?step=${step}` : '')
   if (!who.ok) return void (await ephemeral(deps, payload, who.text))
   try {

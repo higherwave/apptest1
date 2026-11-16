@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { workspaceSlugFor } from './workspace-host.js'
+import { fallbackSlug, workspaceSlugFor } from './workspace-host.js'
 import { ApiError } from './errors.js'
 import type { AuthService, AuthUser } from './auth.js'
 import type { Db, Env } from './db.js'
@@ -131,7 +131,10 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     const slug = workspaceSlugFor(c.req.header('host') ?? new URL(c.req.url).host, env)
     const token = env.DEV_TOKEN
     const bearer = c.req.header('authorization')
-    const openEditing = env.OPEN_EDITING === 'true'
+    // Open editing and public viewing are the demo's: they belong to the deployment's own (home) workspace only. A customer's workspace is
+    // never open to someone who has not signed in, whatever these settings say (with one address, every request is the home workspace).
+    const isHome = slug === fallbackSlug(env)
+    const openEditing = env.OPEN_EDITING === 'true' && isHome
     const policy = ssoPolicy(env)
 
     // 2. A signed-in person (only when no Bearer header was sent).
@@ -151,14 +154,14 @@ export function requestContext(deps: { env: Env; getDb: () => Db; auth?: AuthSer
     } else if (openEditing) {
       via = 'open'
     } else if (auth) {
-      if (env.PUBLIC_VIEW === 'true' && access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
+      if (env.PUBLIC_VIEW === 'true' && isHome && access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
         anonymous = true
         via = 'anonymous'
       } else {
         throw new ApiError(401, 'unauthenticated', 'Sign in to continue.')
       }
     } else if (token) {
-      if (access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
+      if (isHome && access === 'read' && (c.req.method === 'GET' || c.req.method === 'HEAD')) {
         anonymous = true
         via = 'anonymous'
       } else {

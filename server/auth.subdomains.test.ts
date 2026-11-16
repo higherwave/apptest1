@@ -209,3 +209,20 @@ test('signing out on one customer address ends the session on all of them', asyn
   assert.equal((await me(b, ACME)).status, 401)
   assert.equal((await me(b, BETA)).status, 401)
 })
+
+test('the demo’s public viewing and open editing belong to the home workspace only: a customer’s workspace never opens to someone who has not signed in', async () => {
+  const b = new Browser(appWith({ PUBLIC_VIEW: 'true', OPEN_EDITING: 'false', WORKSPACE_SLUG: 'higherwave-demo' }))
+  assert.equal((await b.fetch(`${LOGIN}/api/v1/projects`)).status, 200, 'the home workspace may be viewed by anyone, as the demo is')
+  for (const host of [ACME, BETA]) {
+    const res = await b.fetch(`${host}/api/v1/projects`)
+    assert.equal(res.status, 401, `${host} must ask for sign-in`)
+    assert.equal((await res.json()).error.code, 'unauthenticated')
+    assert.equal((await b.fetch(`${host}/api/v1/me`)).status, 401)
+  }
+  // Open editing (no sign-in at all) is the same: home only.
+  const open = new Browser(appWith({ PUBLIC_VIEW: 'true', OPEN_EDITING: 'true', WORKSPACE_SLUG: 'higherwave-demo' }))
+  assert.equal((await open.fetch(`${LOGIN}/api/v1/me`)).status, 200)
+  assert.equal((await open.fetch(`${ACME}/api/v1/me`)).status, 401, 'open editing must not reach a customer’s workspace')
+  const write = await open.fetch(`${ACME}/api/v1/projects`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+  assert.equal(write.status, 401)
+})

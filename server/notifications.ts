@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from 'node:crypto'
+import { baseUrlFor } from './workspace-urls.js'
 import type { Db, Env, Queryable } from './db.js'
 import type { Mailer } from './mailer.js'
 import { listProjects, type ProjectSummary } from './projects.js'
@@ -162,7 +163,8 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
   const now = deps.now ?? new Date()
   const result: DigestResult = { sent: 0, failed: 0, nothingToSay: 0, alreadySent: 0 }
   const restrictedTo = remindersOnlyFor(env)
-  const base = (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/$/, '')
+  // Each person's links lead to their own workspace's address (the same address for everyone when there is one workspace).
+  const baseFor = (workspaceId: string) => baseUrlFor(db, env, workspaceId)
   const people = (
     await db.query(
       `select m.workspace_id, u.id as user_id, u.email, u.display_name, u.time_zone, coalesce(np.enabled, true) as enabled
@@ -201,6 +203,7 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
         ).rows[0]
         if (claimed) {
           try {
+            const base = await baseFor(who.workspace_id)
             if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
             await mailer.send({ to: who.email, ...composeRestrictionNotice({ name: who.display_name, base }) })
             await db.query(`update core.notifications set status = 'sent', sent_at = now() where id = $1`, [claimed.id])
@@ -250,6 +253,7 @@ export async function runDigest(deps: { db: Db; env: Env; mailer: Mailer; now?: 
       continue
     }
     try {
+      const base = await baseFor(who.workspace_id)
       if (!base) throw new Error('APP_URL or BETTER_AUTH_URL is needed to build the links in the email.')
       await mailer.send({ to: who.email, ...composeDigest({ name: who.display_name, items, base, settingsUrl: `${base}/settings/notifications`, unsubscribe: unsubscribeLink(env, base, who.user_id) }) })
       await db.query(`update core.notifications set status = 'sent', sent_at = now() where id = $1`, [claimed.id])

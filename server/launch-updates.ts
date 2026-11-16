@@ -4,6 +4,7 @@
 // away after sign-in), and in Slack lands in the launch's thread. Who is told is the *active* approver of each step the team uses (the primary, or the backup
 // while the primary is away). An external approver is told about the requirements only: the storyboard carries customer quotes. The launch itself starts when the
 // storyboard is first written, so there is one thread per release from the first message; approvals open only once the requirements are published.
+import { baseUrlFor } from './workspace-urls.js'
 import type { RequestContext } from './context.js'
 import type { Db, Env, Queryable } from './db.js'
 import { createLaunch, LaunchExists, launchForSystem, NoThemes, type Person } from './launches.js'
@@ -15,7 +16,6 @@ import { T } from '../shared/terms.mjs'
 
 export type UpdateDeps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient }
 
-const baseOf = (env: Env) => (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/$/, '')
 const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 const first = (name: string) => name.split(' ')[0] || 'there'
 
@@ -29,8 +29,8 @@ const STAGES: { key: Stage; label: string }[] = [
 export const stageLine = (now: Stage) => STAGES.map((s) => (s.key === now ? `${s.label} (now)` : s.label)).join(' > ')
 
 /** Where a message about a document points: the launch's Product Brief tab, whose Docs panel opens it (the app signs the person in first). */
-export const documentUrl = (env: Env, launchId: string, _kind: 'storyboard' | 'requirements') => `${baseOf(env)}/launches/${launchId}?tab=brief`
-const launchUrl = (env: Env, launchId: string) => `${baseOf(env)}/launches/${launchId}`
+export const documentUrl = (base: string, launchId: string, _kind: 'storyboard' | 'requirements') => `${base}/launches/${launchId}?tab=brief`
+const launchUrl = (base: string, launchId: string) => `${base}/launches/${launchId}`
 
 /**
  * The launch of a project, made if it has none (the storyboard was just written, so there are themes). Its thread opens in the team's Slack channel. Null when
@@ -95,7 +95,8 @@ export async function afterStoryboard(deps: UpdateDeps, ctx: RequestContext, pro
     const launch: Launch = { ...found, workspaceId: ctx.workspaceId }
     const at = new Date(written.generated_at).toISOString()
     const before = (await deps.db.query(`select 1 from core.notifications where kind = 'launch.storyboard' and payload->>'launchId' = $1 limit 1`, [launchId])).rows[0]
-    const link = documentUrl(deps.env, launchId, 'storyboard')
+    const base = await baseUrlFor(deps.db, deps.env, ctx.workspaceId)
+    const link = documentUrl(base, launchId, 'storyboard')
     const threadUrl = await threadOf(deps.db, launchId)
     const lines = [
       before ? `The storyboard for ${launch.name} was updated after the research changed.` : `The research on ${launch.name} now has a storyboard: the problem, what people said, and the directions recommended. The solutions and trade-offs are best guesses for the team to react to.`,
@@ -106,7 +107,7 @@ export async function afterStoryboard(deps: UpdateDeps, ctx: RequestContext, pro
       kind: 'launch.storyboard',
       key: `storyboard:${at}`,
       to: await recipients(deps.db, launch, true),
-      message: { subject: `Signal Flow: ${before ? 'the storyboard was updated' : 'the storyboard is ready'} for ${launch.name}`, lines, documentLabel: 'Storyboard (PDF)', documentLink: link, launchLink: launchUrl(deps.env, launchId), threadUrl },
+      message: { subject: `Signal Flow: ${before ? 'the storyboard was updated' : 'the storyboard is ready'} for ${launch.name}`, lines, documentLabel: 'Storyboard (PDF)', documentLink: link, launchLink: launchUrl(base, launchId), threadUrl },
       slack: {
         key: `storyboard:${at}`,
         text: `:newspaper: ${before ? 'The storyboard was updated' : 'The storyboard is ready'}: <${link}|Storyboard (PDF)>. For your awareness, nothing to answer yet.\nWhere this release stands: ${slackText(stageLine('storyboard'))}. ${T.Approvals} open once the requirements are published. Questions or concerns? Reply here.`,
@@ -128,7 +129,8 @@ export async function afterRequirements(deps: UpdateDeps, ctx: RequestContext, p
     if (!found) return
     const launch: Launch = { ...found, workspaceId: ctx.workspaceId }
     const at = new Date(published.published_at).toISOString()
-    const link = documentUrl(deps.env, launchId, 'requirements')
+    const base = await baseUrlFor(deps.db, deps.env, ctx.workspaceId)
+    const link = documentUrl(base, launchId, 'requirements')
     const threadUrl = await threadOf(deps.db, launchId)
     const lines = [
       `The requirements for ${launch.name} are published: the brief, and what the team will build.`,
@@ -139,7 +141,7 @@ export async function afterRequirements(deps: UpdateDeps, ctx: RequestContext, p
       kind: 'launch.requirements',
       key: `requirements:${at}`,
       to: await recipients(deps.db, launch, false),
-      message: { subject: `Signal Flow: the requirements are published for ${launch.name}`, lines, documentLabel: 'Requirements (PDF)', documentLink: link, launchLink: launchUrl(deps.env, launchId), threadUrl },
+      message: { subject: `Signal Flow: the requirements are published for ${launch.name}`, lines, documentLabel: 'Requirements (PDF)', documentLink: link, launchLink: launchUrl(base, launchId), threadUrl },
       slack: {
         key: `requirements:${at}`,
         text: `:memo: The requirements are published: <${link}|Requirements (PDF)>. For your awareness, nothing to answer yet.\nWhere this release stands: ${slackText(stageLine('requirements'))}. Questions or concerns? Reply here.`,

@@ -4,6 +4,7 @@
 // A reply goes once (its dedupe key says which event, in launch_slack_posts). A failed post never fails the action that caused it, and Slack being off
 // (no token) or a team having no channel is not an error: nothing is posted. REMINDERS_ONLY_FOR limits email to one address; it does not apply here, because a
 // channel post has no recipient, so use a channel only you are in while that limit is set.
+import { baseUrlFor } from './workspace-urls.js'
 import { answerLabel } from '../shared/launch.mjs'
 import type { Db, Env, Queryable } from './db.js'
 import { slackProblem, slackText, SlackError, type SlackBlocks, type SlackClient } from './slack.js'
@@ -13,7 +14,6 @@ import { T } from '../shared/terms.mjs'
 export type SlackDeps = { db: Db; env: Env; slack?: SlackClient }
 export type ThreadResult = { state: 'started' | 'already' | 'off' | 'no_channel' | 'failed'; url: string | null; problem: string | null }
 
-const baseOf = (env: Env) => (env.APP_URL || env.BETTER_AUTH_URL || '').replace(/\/$/, '')
 
 type Target = { name: string; targetDate: string | null; teamName: string | null; channel: string | null; channelId: string | null; ts: string | null; url: string | null; owner: string | null }
 
@@ -59,7 +59,7 @@ export async function startThread(deps: SlackDeps, workspaceId: string, launchId
   if (!id) return { state: 'already', url: t.url, problem: null }
   try {
     const channel = await slack.channelId(t.channel)
-    const base = baseOf(env)
+    const base = await baseUrlFor(db, env, workspaceId)
     const text = [
       `:rocket: *Launch: ${slackText(t.name)}*`,
       [t.teamName ? slackText(t.teamName) : null, t.targetDate ? `target ${t.targetDate}` : null, t.owner ? `owner ${slackText(t.owner)}` : null].filter(Boolean).join(' · '),

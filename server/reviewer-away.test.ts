@@ -89,7 +89,7 @@ test('an alternate who is away themselves does not count as cover', async () => 
 
 test('messages about a document link to the launch’s Product Brief tab, where the Docs panel opens it', () => {
   const env = { APP_URL: 'https://app.example.test/' } as never
-  assert.equal(documentUrl(env, 'abc', 'storyboard'), 'https://app.example.test/launches/abc?tab=brief')
-  assert.equal(documentUrl(env, 'abc', 'requirements'), 'https://app.example.test/launches/abc?tab=brief')
+  assert.equal(documentUrl('https://app.example.test', 'abc', 'storyboard'), 'https://app.example.test/launches/abc?tab=brief')
+  assert.equal(documentUrl('https://app.example.test', 'abc', 'requirements'), 'https://app.example.test/launches/abc?tab=brief')
   assert.equal(stageLine('requirements'), 'Storyboard > Requirements (now) > Ready for approval')
 })
