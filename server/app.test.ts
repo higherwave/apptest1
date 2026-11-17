@@ -790,7 +790,7 @@ test('editing a transcript makes the analysis out of date; unchanged ones are le
 })
 
 test('re-analysing keeps the old run, retires it, shows only the new themes, and flags requirements documents stale', async () => {
-  const { pglite: pg, db: d } = await createDemoDatabase()
+  const { pglite: pg, db: d } = await createDemoDatabase({ drafts: true })
   const app = createApp({ env: TOKEN, getDb: () => d })
   const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
   const v = async () => ((await pg.query<any>(`select version from core.projects where id = $1`, [p1])).rows[0] as { version: number }).version
@@ -843,7 +843,7 @@ test('speakers whose names differ only by case are one speaker; unmatched names 
 })
 
 test('a freshly seeded analysed project is not flagged out of date, and editing a transcript flags it', async () => {
-  const { pglite: pg, db: d } = await createDemoDatabase()
+  const { pglite: pg, db: d } = await createDemoDatabase({ drafts: true })
   const app = createApp({ env: TOKEN, getDb: () => d })
   const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
   const read = async () => (await app.request(`/api/v1/projects/${p1}/transcripts`)).json()
@@ -861,7 +861,7 @@ const patchTheme = (app: ReturnType<typeof createApp>, themeId: string, body: un
   app.request(`/api/v1/themes/${themeId}`, { method: 'PATCH', headers: { ...headers, ...(version === null ? {} : { 'if-match': String(version) }) }, body: JSON.stringify(body) })
 
 async function themesFixture() {
-  const { pglite: pg, db: d } = await createDemoDatabase()
+  const { pglite: pg, db: d } = await createDemoDatabase({ drafts: true })
   const app = createApp({ env: TOKEN, getDb: () => d })
   const p1 = ((await pg.query<any>(`select id from core.projects where name = 'Clinic booking, usability round 1'`)).rows[0] as { id: string }).id
   const list = async (q = '') => (await app.request(`/api/v1/projects/${p1}/themes${q}`)).json()
@@ -1247,26 +1247,32 @@ async function publishedRound2() {
   const res = await f.call('POST', `/specs/${done.id}/publish`, undefined, done.version)
   assert.equal(res.status, 201)
   const stories = async () => (await f.pg.query<any>(`select s.key, s.kind::text, s.status::text, s.sync_note, t.title from delivery.stories s left join research.themes t on t.id = s.theme_id where s.spec_id = $1 order by s.key`, [done.id])).rows as { key: string; kind: string; status: string; sync_note: string | null; title: string }[]
+  // Published requirements are locked, so the API refuses a change of themes; the board's sync is tested against the document as a changed one would leave it.
   const include = async (themeId: string, included: boolean) => {
-    const cur = await f.get(done.id)
-    const r = await f.call('PUT', `/specs/${done.id}/themes/${themeId}`, { included }, cur.version)
-    assert.equal(r.status, 200, 'inclusion on a published document')
+    await f.pg.query(`update delivery.spec_themes set included = $3 where spec_id = $1 and theme_id = $2`, [done.id, themeId, included])
   }
   const sync = async (apply: boolean) => expectSpec(await f.call('POST', `/specs/${done.id}/board-sync`, { apply }), '/specs/{id}/board-sync', 'post')
   return { ...f, id: done.id, stories, include, sync }
 }
 
-test('a published document can be reopened: edit, redo and approve work, later steps are marked behind, publishing twice is still refused', async () => {
-  const { id, get, call } = await publishedRound2()
+test('published requirements refuse edits; returned to draft, edit, redo and approve work, later steps are marked behind, and publishing twice is refused', async () => {
+  const { id, get, call, pg } = await publishedRound2()
   let spec = await get(id)
   assert.ok(spec.steps.every((s: any) => !s.behind), 'nothing is behind to begin with')
+  const locked = await call('PATCH', `/agent-steps/${spec.steps[1].id}`, { text: 'Edited users' }, spec.steps[1].version)
+  assert.equal(locked.status, 409)
+  assert.equal((await locked.json()).error.code, 'project_locked', 'published requirements are locked')
+  const themed = await call('PUT', `/specs/${id}/themes/${spec.themes[0].id}`, { included: false }, spec.version)
+  assert.equal(themed.status, 409, 'and so are their themes')
+  await pg.query(`update delivery.specs set status = 'draft', published_at = null where id = $1`, [id]) // returned to draft (the API for it is tested in project-lock.test.ts)
+  spec = await get(id)
   // Edit step 2: it goes back to review, and the steps written after it are behind.
   const edit = await call('PATCH', `/agent-steps/${spec.steps[1].id}`, { text: 'Edited users' }, spec.steps[1].version)
   assert.equal(edit.status, 200)
   spec = await expectSpec(edit, '/agent-steps/{id}', 'patch')
   assert.deepEqual(spec.steps.map((s: any) => s.status), ['approved', 'review', ...Array(6).fill('approved')])
   assert.deepEqual(spec.steps.map((s: any) => s.behind), [false, false, ...Array(6).fill(true)])
-  assert.equal(spec.status, 'published')
+  assert.equal(spec.status, 'draft')
   // Approving it again drafts nothing (the next step already exists) and keeps the others behind.
   const approved = await expectSpec(await call('POST', `/agent-steps/${spec.steps[1].id}/approve`, undefined, spec.steps[1].version), '/agent-steps/{id}/approve', 'post')
   assert.equal(approved.steps[1].status, 'approved')
@@ -1274,7 +1280,10 @@ test('a published document can be reopened: edit, redo and approve work, later s
   // Redoing step 4 brings that step up to date; steps after it stay behind, steps before it are unaffected.
   const redo = await expectSpec(await call('POST', `/agent-steps/${approved.steps[3].id}/redo`, { instructions: 'Shorter' }, approved.steps[3].version), '/agent-steps/{id}/redo', 'post')
   assert.deepEqual(redo.steps.map((s: any) => s.behind), [false, false, true, false, true, true, true, true])
-  const again = await call('POST', `/specs/${id}/publish`, undefined, redo.version)
+  assert.equal((await call('POST', `/agent-steps/${redo.steps[3].id}/approve`, undefined, redo.steps[3].version)).status, 200)
+  const published = await call('POST', `/specs/${id}/publish`, undefined, (await get(id)).version)
+  assert.equal(published.status, 201, 'published again')
+  const again = await call('POST', `/specs/${id}/publish`, undefined, (await get(id)).version)
   assert.equal(again.status, 409)
   assert.equal((await again.json()).error.code, 'spec_published')
 })
@@ -1361,9 +1370,13 @@ test('deleting a document removes its steps and stories; a stand-alone one takes
   const again = await call('DELETE', `/specs/${mine.id}`)
   assert.equal(again.status, 404)
   assert.equal((await expectSpec(again, '/specs/{id}', 'delete')).error.code, 'not_found')
-  // The seeded, published document: its stories go with it.
+  // The seeded, published document is refused; returned to draft, its stories go with it.
   const p1 = await idOf('Clinic booking, usability round 1')
   const seeded = (await (await app.request(`/api/v1/specs?projectId=${p1}`)).json()).data[0]
+  const refused = await call('DELETE', `/specs/${seeded.id}`)
+  assert.equal(refused.status, 409, 'published requirements are not discarded: returning them to draft is the way')
+  assert.equal((await refused.json()).error.code, 'project_locked')
+  await pg.query(`update delivery.specs set status = 'draft', published_at = null where id = $1`, [seeded.id])
   assert.equal((await call('DELETE', `/specs/${seeded.id}`)).status, 204)
   assert.equal((await pg.query<any>(`select count(*)::int n from delivery.stories where spec_id = $1`, [seeded.id])).rows[0].n, 0)
   assert.equal((await (await app.request(`/api/v1/projects/${p1}/stage`)).json()).tabs.stories.enabled, false, 'Stories locks again')
@@ -1621,7 +1634,7 @@ test('publishing a document puts its cards on the board: R1.. and Q1.. in To Do,
 // Platform Insights -------------------------------------------------------------------------------------------
 
 async function insightsFixture() {
-  const { pglite: pg, db: d } = await createDemoDatabase()
+  const { pglite: pg, db: d } = await createDemoDatabase({ drafts: true })
   const app = createApp({ env: TOKEN, getDb: () => d })
   const ws = ((await pg.query<any>(`select id from core.workspaces where slug = 'higherwave-demo'`)).rows[0] as { id: string }).id
   const overview = async () => (await app.request('/api/v1/insights/themes')).json()
@@ -2082,7 +2095,8 @@ test('experience categories: editors add them with a duplicate check, owners cur
 })
 
 test('experience categories on themes: the simulated analysis files themes under areas, a person can correct it, and counts and merges follow', async () => {
-  const { app: owner, alex: editor, sam: viewer, send, p1 } = await boardFixture()
+  const { app: owner, alex: editor, sam: viewer, send, p1, pg } = await boardFixture()
+  await pg.query(`update delivery.specs set status = 'draft', published_at = null`) // a published document locks its project's themes
   const make = async (name: string, definition: string) => (await send(owner, 'POST', '/areas', { name, definition })).json()
   const booking = await make('Booking form', 'The forms people fill in to book a visit')
   const prices = await make('Pricing and fees', 'What a visit costs and the fees at checkout')

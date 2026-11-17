@@ -1,6 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
-import { useMe, useProject } from '../../api/hooks'
+import { useMe, useProject, useProjectLock } from '../../api/hooks'
+import { LockNotice } from '../../components/LockNotice'
 import { PrioritiesView } from './PrioritiesView'
 import { useThemeData } from './useThemeData'
 
@@ -10,19 +11,23 @@ export function PrioritiesPage() {
   const navigate = useNavigate()
   const project = useProject(projectId)
   const me = useMe()
+  const locked = !!useProjectLock(projectId).data?.locked
   const data = useThemeData(projectId)
   const state = data.themes.isError ? 'error' : data.themes.isPending ? 'loading' : data.list.length === 0 ? 'empty' : 'ready'
   return (
-    <PrioritiesView
-      state={state}
-      project={project.data}
-      themes={data.list}
-      canEdit={me.data?.role === 'owner' || me.data?.role === 'editor'}
-      pending={data.pending}
-      errorText={data.themes.isError ? friendlyMessage(data.themes.error) : data.error}
-      onEdit={data.edit}
-      onResetAll={data.resetAll}
-      onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
-    />
+    <>
+      <LockNotice projectId={projectId} />
+      <PrioritiesView
+        state={state}
+        project={project.data}
+        themes={data.list}
+        canEdit={!locked && (me.data?.role === 'owner' || me.data?.role === 'editor')}
+        pending={data.pending}
+        errorText={data.themes.isError ? friendlyMessage(data.themes.error) : data.error}
+        onEdit={data.edit}
+        onResetAll={data.resetAll}
+        onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
+      />
+    </>
   )
 }

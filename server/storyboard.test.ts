@@ -90,7 +90,7 @@ test('the plain draft names the strongest themes and leaves the judgments to the
 })
 
 async function fixture(provider?: AiProvider, env: Record<string, string> = {}) {
-  const { pglite: pg, db } = await createDemoDatabase({ anchor: true })
+  const { pglite: pg, db } = await createDemoDatabase({ anchor: true, drafts: true })
   const app = createApp({ env: { DEV_TOKEN: TOKEN, ...env }, getDb: () => db, provider })
   const api = (path: string, method = 'GET', headers: Record<string, string> = auth) => app.request('/api/v1' + path, { method, headers })
   const projectId = ((await (await api('/projects')).json()).data as any[]).find((p) => p.name === 'Health score trust').id as string

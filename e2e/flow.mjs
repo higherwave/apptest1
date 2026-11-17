@@ -693,6 +693,8 @@ try {
   const preview = (await apiSpec(specId)).preview
   ok('and says what the board will get', (await text()).includes(`creates ${preview.requirements} requirements and ${preview.openQuestions} open questions`), JSON.stringify(preview))
   await clickText('Publish')
+  await waitText('this project is locked') // the confirmation: what publishing locks
+  await page.evaluate(() => document.querySelector('.cds--modal.is-visible .cds--modal-footer .cds--btn--primary').click())
   await page.waitForFunction(() => /\/design$/.test(location.pathname), { timeout: 15000 })
   ok('publishing opens Design, the next step', true)
   ok('the project’s Stories step is now unlocked', !(await navLocked('Stories')))
@@ -1465,7 +1467,7 @@ try {
   // Approved steps are folded to their title rows; open step 2 to reach its Edit button.
   await page.evaluate(() => document.querySelector('article[aria-label^="Step 2"] button[aria-expanded="false"]').click())
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"] button[aria-expanded="true"]') !== null)
-  ok('a published document can be edited again: Edit is offered on its steps', await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].some((b) => b.innerText.trim() === 'Edit')))
+  ok('a published document is locked: no Edit on its steps, the lock is explained, and the owner can return it to draft', await page.evaluate(() => !document.querySelector('article[aria-label^="Step 2"]') || ![...document.querySelectorAll('article[aria-label^="Step 2"] button')].some((b) => b.innerText.trim() === 'Edit')) && (await text()).includes('this project is locked') && (await text()).includes('Return to draft'))
   ok('once published, the banner stays under the title and shows View design, then View stories', await page.evaluate(() => { const b = document.querySelector('section[aria-label="Published"]'); return !!b && b.previousElementSibling?.tagName === 'HEADER' && [...b.querySelectorAll('button')].map((x) => x.innerText.trim()).filter((t) => t.startsWith('View')).join() === 'View design,View stories' && ![...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'View stories') }))
   ok('a project document has no back-to-list button', !(await text()).includes('← Requirements'))
   // The Output is two documents as tabs: the Product Brief first, then the Requirements Doc. Sections start open in full.
@@ -1482,6 +1484,15 @@ try {
   const less = await page.evaluate(() => { const b = [...document.querySelectorAll('aside[aria-label="Output"] button')].find((x) => x.offsetParent && x.innerText.trim() === 'Show less'); if (!b) return false; b.click(); return true })
   if (less) await page.waitForFunction(() => [...document.querySelectorAll('aside[aria-label="Output"] button')].some((x) => x.innerText.trim() === 'Show more'), { timeout: 5000 })
   ok(less ? 'a long section folds with Show less and offers Show more' : 'no section is long enough to fold (nothing to check)', true)
+  // The lock: the owner (or the final approver) returns the requirements to draft, with a reason, and the project opens up.
+  await page.evaluate(() => document.querySelector('[data-testid="reopen-requirements"]').click())
+  await page.waitForSelector('#reopen-reason', { visible: true })
+  await page.type('#reopen-reason', 'Adding a missed requirement')
+  await clickInOpenDialog('Return to draft')
+  for (let i = 0; i < 40 && (await apiSpec(specId)).status !== 'draft'; i++) await new Promise((r) => setTimeout(r, 250))
+  ok('Return to draft asks for a reason and puts the document back in draft', (await apiSpec(specId)).status === 'draft')
+  await waitText('Ready to publish')
+  ok('the project is open again, and the audit log recorded the reason', !(await text()).includes('this project is locked') && (await (await fetch(`${API}/api/v1/audit?group=projects`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()).data.some((e) => e.verb === 'reopened'))
   // Reopen step 2: edit it, see it go back to review and the later steps marked, approve it again.
   await page.evaluate(() => [...document.querySelectorAll('article[aria-label^="Step 2"] button')].find((b) => b.innerText.trim() === 'Edit').click())
   await page.waitForSelector('#step-text-2', { visible: true })
@@ -1491,7 +1502,7 @@ try {
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'review', { timeout: 8000 })
   await page.evaluate(() => document.querySelector('article[aria-label^="Step 3"] button[aria-expanded="false"]')?.click()) // the "behind" note sits inside the folded step
   await waitText('An earlier step changed after this one was written')
-  ok('editing a published step sends it back to review and marks the later steps as behind', (await apiSpec(specId)).status === 'published' && (await text()).includes('Redo it if it should follow the change'))
+  ok('editing a step of requirements returned to draft sends it back to review and marks the later steps as behind', (await apiSpec(specId)).status === 'draft' && (await text()).includes('Redo it if it should follow the change'))
   await waitApprove()
   await clickText('Approve')
   await page.waitForFunction(() => document.querySelector('article[aria-label^="Step 2"]')?.dataset.state === 'approved', { timeout: 10000 })
@@ -1502,28 +1513,24 @@ try {
   await page.waitForSelector('section[aria-label="Themes used"] [aria-pressed]')
   await page.waitForFunction(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].some((b) => b.getAttribute('aria-pressed') === 'true' && !b.disabled), { timeout: 15000 }) // theme buttons wait while a save is running
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
-  await waitText('The board no longer matches this document')
-  // The button can be clicked a moment before it is ready (a save is finishing): click again until the dialog is there.
-  for (let tries = 0; tries < 4; tries++) {
-    await clickText('Update board')
-    if (await page.waitForFunction(() => document.body.innerText.includes('Update the board?'), { timeout: 3000 }).then(() => true, () => false)) break
-  }
-  await waitText('Update the board?')
-  ok('Update board shows what it will change first', (await text()).includes('Stories that have been moved, edited, given criteria or sent to Jira are never removed'))
-  await clickInOpenDialog('Update board')
-  await waitText('The board matches this document.')
-  ok('confirming brings the board back in line with the document', true)
-  const oldSpec = (await apiSpecs())[0].id
-  await page.waitForFunction(() => !document.querySelector('.cds--modal.is-visible'), { timeout: 5000 }) // the Update board dialog has finished closing
-  await new Promise((r) => setTimeout(r, 600)) // a closing dialog keeps catching clicks for a moment while it fades
-  await page.evaluate(() => [...document.querySelectorAll('button')].find((x) => x.innerText.trim() === 'Start over').click())
-  await waitText('and removes the requirements and stories it created on the board')
-  await page.evaluate(() => document.querySelector('.cds--modal.is-visible button.cds--btn--danger').click())
-  await page.waitForFunction((old) => /\/requirements\/[0-9a-f-]{36}$/.test(location.pathname) && !location.pathname.includes(old), { timeout: 20000 }, oldSpec)
+  // Published again (the confirmation says what the lock means), and then returned to draft so the transcripts steps below can run.
+  await waitText('Ready to publish')
+  await clickText('Publish')
+  await waitText('this project is locked')
+  ok('Publish says the project will be locked', (await text()).includes('can no longer be changed'))
+  await page.evaluate(() => document.querySelector('.cds--modal.is-visible .cds--modal-footer .cds--btn--primary').click())
+  await page.waitForFunction(() => /\/design$/.test(location.pathname), { timeout: 15000 })
+  ok('published again: the board follows the document without duplicating stories', (await apiSpec(specId)).status === 'published' && (await apiSpec(specId)).boardChanges === 0)
+  await navTo('Requirements')
+  await waitText('Return to draft')
+  await page.evaluate(() => document.querySelector('[data-testid="reopen-requirements"]').click())
+  await page.waitForSelector('#reopen-reason', { visible: true })
+  await page.type('#reopen-reason', 'Back to draft for the next checks')
+  await clickInOpenDialog('Return to draft')
+  for (let i = 0; i < 40 && (await apiSpec(specId)).status !== 'draft'; i++) await new Promise((r) => setTimeout(r, 250))
   await waitText('Agent reasoning')
-  await page.waitForFunction(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Stories')?.getAttribute('aria-disabled') === 'true', { timeout: 8000 }).catch(() => undefined) // the stage refetches after the delete
-  const afterSpecs = await apiSpecs()
-  ok('Start over replaces the published document with a new draft and locks Stories again', afterSpecs.length === 1 && afterSpecs[0].id !== oldSpec && afterSpecs[0].status === 'draft' && await navLocked('Stories'))
+  await page.waitForFunction(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Stories')?.getAttribute('aria-disabled') === 'true', { timeout: 8000 }).catch(() => undefined) // the stage refetches after the change
+  ok('returned to draft: the document is a draft and Stories is locked again', (await apiSpec(specId)).status === 'draft' && await navLocked('Stories'))
 
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Transcripts').click())
   await page.waitForSelector('[data-testid="transcript-2"]')

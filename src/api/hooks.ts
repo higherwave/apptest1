@@ -2,7 +2,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, getProjectLaunch, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, getProjectLaunch, getProjectLock, createLaunch, getLaunch, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
@@ -75,6 +75,8 @@ export const useRemoveMember = () => usePeopleMutation((id: string) => removeMem
 
 // Teams. Every change can move people and projects between teams, so each refreshes the teams, the project list and who I am.
 // A launch (one per project). A mutation returns the launch as the caller now sees it, which replaces the cached copy.
+/** Whether the project is locked because its requirements are published, and whether the caller may return them to draft. */
+export const useProjectLock = (projectId: string | undefined) => useQuery({ queryKey: ['project-lock', projectId], queryFn: () => getProjectLock(projectId!), enabled: !!projectId })
 export const useProjectLaunch = (projectId: string | undefined) => useQuery({ queryKey: ['project-launch', projectId], queryFn: () => getProjectLaunch(projectId!), enabled: !!projectId })
 export const useLaunch = (id: string | undefined) => useQuery({ queryKey: ['launch', id], queryFn: () => getLaunch(id!), enabled: !!id, retry: false })
 export const useLaunches = (enabled = true) => useQuery({ queryKey: ['launches'], queryFn: listLaunches, enabled })

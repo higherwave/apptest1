@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage, type ThemeCategory } from '../../api/client'
-import { useMe, useProject } from '../../api/hooks'
+import { useMe, useProject, useProjectLock } from '../../api/hooks'
+import { LockNotice } from '../../components/LockNotice'
 import { ThemesView } from './ThemesView'
 import { useThemeData } from './useThemeData'
 
@@ -11,6 +12,7 @@ export function ThemesPage() {
   const navigate = useNavigate()
   const project = useProject(projectId)
   const me = useMe()
+  const locked = !!useProjectLock(projectId).data?.locked
   const data = useThemeData(projectId)
   const [category, setCategory] = useState<ThemeCategory | 'all'>('all')
   const [picked, setPicked] = useState<string | null>(null)
@@ -22,21 +24,24 @@ export function ThemesPage() {
   const state = data.themes.isError ? 'error' : data.themes.isPending ? 'loading' : data.list.length === 0 ? 'empty' : 'ready'
 
   return (
-    <ThemesView
-      state={state}
-      project={project.data}
-      themes={data.list}
-      stages={data.stages}
-      category={category}
-      selectedId={selectedId}
-      canEdit={me.data?.role === 'owner' || me.data?.role === 'editor'}
-      pending={data.pending}
-      errorText={data.themes.isError ? friendlyMessage(data.themes.error) : data.error}
-      onCategory={setCategory}
-      onSelect={setPicked}
-      onEdit={data.edit}
-      onArea={data.setArea}
-      onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
-    />
+    <>
+      <LockNotice projectId={projectId} />
+      <ThemesView
+        state={state}
+        project={project.data}
+        themes={data.list}
+        stages={data.stages}
+        category={category}
+        selectedId={selectedId}
+        canEdit={!locked && (me.data?.role === 'owner' || me.data?.role === 'editor')}
+        pending={data.pending}
+        errorText={data.themes.isError ? friendlyMessage(data.themes.error) : data.error}
+        onCategory={setCategory}
+        onSelect={setPicked}
+        onEdit={data.edit}
+        onArea={data.setArea}
+        onGoTranscripts={() => navigate(`/projects/${projectId}/transcripts`)}
+      />
+    </>
   )
 }

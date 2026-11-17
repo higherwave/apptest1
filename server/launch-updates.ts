@@ -157,3 +157,82 @@ export async function afterRequirements(deps: UpdateDeps, ctx: RequestContext, p
     console.error('launch update (requirements) failed', err instanceof Error ? err.message : err)
   }
 }
+
+const plain = (name: string, lines: string[], linkText: string, link: string) => ({
+  subject: '',
+  text: [`Hi ${first(name)},`, '', ...lines, '', `${linkText}: ${link}`].join('\n'),
+  html: [`<p>Hi ${esc(first(name))},</p>`, ...lines.map((l) => `<p>${esc(l)}</p>`), `<p><a href="${esc(link)}">${esc(linkText)}</a></p>`].join('\n'),
+})
+
+/**
+ * The requirements were returned to draft by an owner or the final approver. The launch hears it once: everyone who was asked (and the launch's owner) is emailed
+ * what happened and that they will be asked again after the republish; in Slack the requirements message is edited in place, and the status line follows. Never throws.
+ */
+export async function afterReopen(deps: UpdateDeps, ctx: RequestContext, projectId: string, reason: string): Promise<void> {
+  try {
+    const launchId = ((await deps.db.query(`select id from delivery.launches where project_id = $1`, [projectId])).rows[0]?.id as string | undefined) ?? null
+    if (!launchId) return
+    const found = await launchForSystem(deps.db, ctx.workspaceId, launchId)
+    if (!found) return
+    const launch: Launch = { ...found, workspaceId: ctx.workspaceId }
+    const asked = !!(await deps.db.query(`select 1 from delivery.launches where id = $1 and asked_at is not null`, [launchId])).rows[0]
+    const base = await baseUrlFor(deps.db, deps.env, ctx.workspaceId)
+    const link = launchUrl(base, launchId)
+    await postDocument(deps, launch, 'requirements', linkCard({ title: ':memo: Requirements reopened', line: 'Being revised. You will be asked again once they are published.', url: link, button: 'Open the launch' }))
+    await refreshStatus({ db: deps.db, env: deps.env, mailer: deps.mailer, slack: deps.slack }, ctx.workspaceId, launch)
+    if (!asked) return
+    const to = new Map<string, Person>()
+    for (const s of launch.steps.filter((x) => x.used)) for (const p of s.reviewers.active) to.set(p.userId, p)
+    if (launch.createdBy) to.set(launch.createdBy.userId, launch.createdBy)
+    const at = new Date().toISOString()
+    for (const person of to.values()) {
+      if (person.userId === ctx.userId) continue
+      await deliver(deps, launch, {
+        to: person,
+        kind: 'launch.requirements_reopened',
+        key: `reopened:${launchId}:${at}`,
+        payload: { reopenedAt: at },
+        build: () => ({
+          ...plain(person.name, [`The requirements for ${launch.name} were returned to draft by ${ctx.displayName}.`, `Why: ${reason}`, 'Nothing is needed from you yet. You will be asked again, and your earlier answer will be confirmed, once they are published again.'], 'Open the launch', link),
+          subject: `Signal Flow: the requirements for ${launch.name} were reopened`,
+        }),
+      })
+    }
+  } catch (err) {
+    console.error('launch update (reopened) failed', err instanceof Error ? err.message : err)
+  }
+}
+
+/**
+ * A Jira ticket was made. The first real one (a simulated ticket pushes nothing) locks the project's requirements for good: the launch's owner is told once, and
+ * the audit log records it. Never throws.
+ */
+export async function afterFirstTicket(deps: UpdateDeps, ctx: RequestContext, storyId: string, simulated: boolean): Promise<void> {
+  try {
+    if (simulated) return
+    const spec = (await deps.db.query(`select s.id, s.project_id from delivery.stories st join delivery.specs s on s.id = st.spec_id where st.id = $1`, [storyId])).rows[0]
+    if (!spec) return
+    const count = (await deps.db.query(`select count(*)::int n from delivery.story_tickets t join delivery.specs s on s.id = t.spec_id where s.project_id = $1 and coalesce(t.simulated, false) = false`, [spec.project_id])).rows[0].n as number
+    if (count !== 1) return
+    await deps.db.query(`insert into core.audit_log (workspace_id, actor_id, entity, entity_id, verb, after) values ($1, $2, 'delivery.specs', $3, 'locked_permanently', $4)`, [ctx.workspaceId, ctx.userId, spec.id, JSON.stringify({ reason: 'the first Jira ticket was created' })])
+    const launchId = ((await deps.db.query(`select id from delivery.launches where project_id = $1`, [spec.project_id])).rows[0]?.id as string | undefined) ?? null
+    if (!launchId) return
+    const found = await launchForSystem(deps.db, ctx.workspaceId, launchId)
+    if (!found?.createdBy || found.createdBy.userId === ctx.userId) return
+    const launch: Launch = { ...found, workspaceId: ctx.workspaceId }
+    const owner = found.createdBy
+    const base = await baseUrlFor(deps.db, deps.env, ctx.workspaceId)
+    await deliver(deps, launch, {
+      to: owner,
+      kind: 'launch.requirements_locked',
+      key: `locked:${spec.id}`,
+      payload: { specId: spec.id },
+      build: () => ({
+        ...plain(owner.name, [`The first Jira ticket for ${launch.name} was created, so its requirements are now locked for good.`, 'They can no longer be returned to draft. Changes from here happen in a new project.'], 'Open the launch', launchUrl(base, launchId)),
+        subject: `Signal Flow: the requirements for ${launch.name} are locked`,
+      }),
+    })
+  } catch (err) {
+    console.error('launch update (locked) failed', err instanceof Error ? err.message : err)
+  }
+}

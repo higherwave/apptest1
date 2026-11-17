@@ -1,5 +1,7 @@
 import { Dropdown, InlineNotification, Modal, TextArea, TextInput } from '@carbon/react'
 import { useState } from 'react'
+import { useParams } from 'react-router-dom'
+import { useProjectLock } from '../../api/hooks'
 import type { CreateTicketInput, JiraStatus, StoryDetail } from '../../api/client'
 import { ISSUE_TYPES, labelFrom, PRIORITIES, priorityLabel, SIM_ASSIGNEES, SIM_PROJECTS, ticketBody } from './jira'
 import styles from './CreateTicketModal.module.scss'
@@ -18,6 +20,10 @@ export function CreateTicketModal(props: Props) {
 
 function Form({ story, link, open, pending, errorText, jira, onClose, onCreate }: Props) {
   const live = !!jira?.connected && !jira.problem
+  // The first real ticket locks the project's requirements for good. Said before it is made, once.
+  const { projectId } = useParams()
+  const lock = useProjectLock(projectId).data
+  const firstTicket = live && lock?.permanent === false
   const types = live && jira.issueTypes.length ? jira.issueTypes : ISSUE_TYPES
   const priorities = live && jira.priorities.length ? jira.priorities : PRIORITIES
   const people = live ? [UNASSIGNED, ...jira.assignees] : SIM_ASSIGNEES.map((name) => ({ id: '', name }))
@@ -52,6 +58,15 @@ function Form({ story, link, open, pending, errorText, jira, onClose, onCreate }
           <InlineNotification kind="warning" lowContrast hideCloseButton title="Jira could not be read" subtitle={`${jira.problem} Creating a ticket may fail until that is fixed.`} />
         ) : (
           <InlineNotification kind="info" lowContrast hideCloseButton title="Simulated Jira connection" subtitle="The ticket is created and recorded here. Nothing is sent to Jira." />
+        )}
+        {firstTicket && (
+          <InlineNotification
+            kind="warning"
+            lowContrast
+            hideCloseButton
+            title="This locks the requirements"
+            subtitle="Creating the first Jira ticket locks this project's requirements for good, so nobody can return them to draft. Jira will not follow later changes made here."
+          />
         )}
         <div className={styles.pair}>
           {live ? (

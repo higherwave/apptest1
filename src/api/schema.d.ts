@@ -1449,6 +1449,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/projects/{id}/lock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the project is locked because its requirements are published, whether a real Jira ticket makes that permanent, and whether the caller may return the requirements to draft (a workspace owner or the launch's final approver, while no real ticket exists). */
+        get: operations["getProjectLock"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/specs/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Returns published requirements to draft so they can be edited and published again. A workspace owner or the launch's final approver only (403 otherwise), and never once a real Jira ticket exists (409 tickets_exist). A reason is required and is audited; approvers who were asked are told once. */
+        post: operations["reopenSpec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/specs/{id}/publish": {
         parameters: {
             query?: never;
@@ -2668,6 +2702,8 @@ export interface components {
             };
             /** @description Published documents only. How many board changes Update board would make; 0 when the board agrees with the document. */
             boardChanges: number | null;
+            /** @description A draft only. What the analysis changed after the draft was started, when the themes actually differ; null otherwise. */
+            themeChanges: components["schemas"]["ThemeChanges"] | null;
         };
         BoardChange: {
             key: string;
@@ -2690,6 +2726,29 @@ export interface components {
             clear: components["schemas"]["BoardChange"][];
             keep: number;
             applied: boolean;
+        };
+        ProjectLock: {
+            /** @description True when the project's requirements are published. Its transcripts */
+            locked: boolean;
+            /** @description True when a real Jira ticket exists */
+            permanent: boolean;
+            specId: string | null;
+            /** Format: date-time */
+            publishedAt: string | null;
+            /** @description Whether the caller may return the requirements to draft now. */
+            canReopen: boolean;
+        };
+        ReopenRequest: {
+            /** @description Why the requirements are being returned to draft. Kept in the audit log. */
+            reason: string;
+        };
+        ThemeChanges: {
+            /** @description Themes in the new analysis that the draft was not written from. */
+            added: string[];
+            /** @description Themes the draft was written from that the new analysis no longer has. */
+            removed: string[];
+            /** @description Themes that matched but moved (another category */
+            changed: string[];
         };
         PublishResult: {
             specId: string;
@@ -6213,6 +6272,7 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             422: components["responses"]["Error"];
         };
     };
@@ -6241,6 +6301,7 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
@@ -6732,6 +6793,65 @@ export interface operations {
             409: components["responses"]["Error"];
             422: components["responses"]["Error"];
             428: components["responses"]["Error"];
+        };
+    };
+    getProjectLock: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The lock. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectLock"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    reopenSpec: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["Id"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReopenRequest"];
+            };
+        };
+        responses: {
+            /** @description The document, back in draft. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SpecDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     publishSpec: {

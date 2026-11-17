@@ -25,6 +25,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'delivery.launch_links': 'Launch link',
   'insights.feature_areas': 'Experience category',
   'core.projects': 'Project',
+  'delivery.specs': 'Requirements',
   'core.workspaces': 'Workspace data',
   'core.legal_holds': 'Legal hold',
   'insights.workflows': 'Journey',

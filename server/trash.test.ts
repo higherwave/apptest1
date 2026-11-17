@@ -138,6 +138,8 @@ test('a requirements document, a stand-alone document and a journey each go to t
   const before = await f.snapshot()
   // A document of a project.
   const spec = (await f.pg.query<any>(`select s.id, s.name from delivery.specs s join core.projects p on p.id = s.project_id where p.kind = 'research' and exists (select 1 from delivery.stories st where st.spec_id = s.id) limit 1`)).rows[0]
+  assert.equal((await f.call(f.owner, 'DELETE', `/specs/${spec.id}`)).status, 409, 'published requirements are locked')
+  await f.pg.query(`update delivery.specs set status = 'draft', published_at = null where id = $1`, [spec.id]) // returned to draft
   assert.equal((await f.call(f.owner, 'DELETE', `/specs/${spec.id}`)).status, 204)
   assert.equal((await f.pg.query<any>(`select count(*)::int n from delivery.stories where spec_id = $1`, [spec.id])).rows[0].n, 0)
   let item = (await (await f.call(f.owner, 'GET', '/trash')).json()).data[0]

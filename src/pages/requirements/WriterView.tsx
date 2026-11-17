@@ -6,6 +6,7 @@ import { CATEGORY_LABEL } from '../themes/themeEdits'
 import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
 import { T } from '../../../shared/terms.mjs'
+import { lockText } from '../../components/LockNotice'
 import styles from './WriterView.module.scss'
 
 /** What the page is busy with, step by step: approving a step, then (once that has gone through) writing the next one; or a redo. */
@@ -53,6 +54,15 @@ export type WriterViewProps = {
   onConfirmBoard: () => void
   startOverOpen: boolean
   startOverError?: string
+  /** Published, non-stand-alone documents: the project's lock, and whether the caller may return the requirements to draft. */
+  lock: { locked: boolean; permanent: boolean; canReopen: boolean } | null
+  reopenOpen: boolean
+  reopenReason: string
+  reopenError?: string
+  onReopen: () => void
+  onReopenReason: (text: string) => void
+  onCancelReopen: () => void
+  onConfirmReopen: () => void
   onStartOver: () => void
   onCancelStartOver: () => void
   onConfirmStartOver: () => void
@@ -108,11 +118,6 @@ export function WriterView(p: WriterViewProps) {
           <Tag size="sm" type={published ? 'green' : 'gray'}>
             {published ? 'Published' : 'Draft'}
           </Tag>
-          {p.canEdit && !spec.standalone && (
-            <Button kind="ghost" size="sm" disabled={p.busy} onClick={p.onStartOver}>
-              Start over
-            </Button>
-          )}
         </div>
         <p className={styles.source}>
           {spec.standalone ? 'Stand-alone document, drafted from a description.' : `Built from ${spec.projectName} · ${spec.sessions} ${spec.sessions === 1 ? 'session' : 'sessions'} · ${spec.themes.length} themes`}
@@ -133,6 +138,7 @@ export function WriterView(p: WriterViewProps) {
                 </p>
               )}
               {!spec.standalone && spec.boardChanges === 0 && <p className={styles.muted}>The board matches this document.</p>}
+              {!spec.standalone && p.lock?.locked && <p className={styles.muted}>{lockText(p.lock.permanent)}</p>}
               {!spec.standalone && (
                 <div className={styles.bannerActions}>
                   <Button kind={boardWaiting ? 'secondary' : 'primary'} size="md" onClick={p.onViewDesign}>
@@ -144,6 +150,11 @@ export function WriterView(p: WriterViewProps) {
                   {boardWaiting && (
                     <Button kind="primary" size="md" disabled={p.busy} onClick={p.onUpdateBoard}>
                       Update board
+                    </Button>
+                  )}
+                  {p.lock?.canReopen && (
+                    <Button kind="tertiary" size="md" disabled={p.busy} onClick={p.onReopen} data-testid="reopen-requirements">
+                      Return to draft
                     </Button>
                   )}
                 </div>
@@ -165,8 +176,21 @@ export function WriterView(p: WriterViewProps) {
         </section>
       )}
 
-      {spec.stale && !published && (
-        <InlineNotification kind="warning" lowContrast hideCloseButton title="Themes changed" subtitle="The project was analyzed again after this document was started. The themes below may no longer match the transcripts. Use Start over to draft it again from the new themes." />
+      {!published && spec.themeChanges && !spec.standalone && (
+        <div className={styles.changed} data-testid="theme-changes">
+          <InlineNotification
+            kind="warning"
+            lowContrast
+            hideCloseButton
+            title="The research changed after this draft was started"
+            subtitle={`${changeText(spec.themeChanges)} Starting over discards this draft and drafts it again from the new themes. Nothing else is affected, because the requirements are not published.`}
+          />
+          {p.canEdit && (
+            <Button kind="tertiary" size="md" disabled={p.busy} onClick={p.onStartOver} data-testid="start-over">
+              Start over
+            </Button>
+          )}
+        </div>
       )}
       {spec.stale && published && (
         <InlineNotification kind="info" lowContrast hideCloseButton title="Themes changed" subtitle="The project was analyzed again after this was published. The stories on the board still point at the themes they were made from." />
@@ -332,14 +356,19 @@ export function WriterView(p: WriterViewProps) {
       <Modal
         open={p.publishAsk !== null}
         size="sm"
-        modalHeading="Publish and ask for answers?"
-        primaryButtonText="Publish and ask"
+        modalHeading={(p.publishAsk ?? []).length ? 'Publish and ask for answers?' : 'Publish the requirements?'}
+        primaryButtonText={(p.publishAsk ?? []).length ? 'Publish and ask' : 'Publish'}
         secondaryButtonText="Cancel"
         primaryButtonDisabled={p.busy}
         onRequestClose={p.onCancelPublish}
         onRequestSubmit={p.onConfirmPublish}
       >
-        <p className={styles.para}>Publishing makes the requirements final for the launch and emails each {T.approver} what is wanted of them. The launch&apos;s Slack thread gets one message with a link.</p>
+        <p className={styles.para}>
+          After you publish, this project is locked: its transcripts, themes and requirements can no longer be changed. Changes from here happen in a new project. A workspace owner or the final {T.approver} can return the requirements to draft until the first Jira ticket is created.
+        </p>
+        {(p.publishAsk ?? []).length > 0 && (
+          <p className={styles.para}>Publishing also emails each {T.approver} what is wanted of them, and the launch&apos;s Slack thread gets one message with a link.</p>
+        )}
         <ul className={styles.askList}>
           {(p.publishAsk ?? []).map((a) => (
             <li key={a.name}>
@@ -370,6 +399,22 @@ export function WriterView(p: WriterViewProps) {
         {p.boardError && <InlineNotification kind="error" lowContrast hideCloseButton title="Board not updated" subtitle={p.boardError} />}
       </Modal>
       <Modal
+        open={p.reopenOpen}
+        size="sm"
+        modalHeading="Return the requirements to draft?"
+        primaryButtonText="Return to draft"
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={p.busy || p.reopenReason.trim().length < 3}
+        onRequestClose={p.onCancelReopen}
+        onRequestSubmit={p.onConfirmReopen}
+      >
+        <p className={styles.para}>
+          The requirements go back to draft and the project unlocks so they can be edited. Everyone who was asked for an answer is told, and is asked again once you publish them again. The board keeps its stories. This is recorded in the audit log with your reason.
+        </p>
+        <TextArea id="reopen-reason" labelText="Why are you returning them to draft?" rows={3} value={p.reopenReason} onChange={(e) => p.onReopenReason(e.target.value)} />
+        {p.reopenError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not returned to draft" subtitle={p.reopenError} />}
+      </Modal>
+      <Modal
         open={p.startOverOpen}
         danger
         size="sm"
@@ -380,8 +425,7 @@ export function WriterView(p: WriterViewProps) {
         onRequestSubmit={p.onConfirmStartOver}
       >
         <p>
-          This discards the current document and drafts a new one from the project&apos;s current themes
-          {published ? ', and removes the requirements and stories it created on the board' : ''}. It cannot be undone.
+          This discards the current draft and drafts a new one from the project&apos;s current themes. Nothing else is affected, because the requirements are not published. The draft goes to the Trash for 90 days.
         </p>
         {p.startOverError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not started over" subtitle={p.startOverError} />}
       </Modal>
@@ -403,4 +447,14 @@ function BoardChanges({ title, items }: { title: string; items: BoardSyncPlan['a
       </ul>
     </section>
   )
+}
+
+// What the analysis changed, in a sentence: "1 new theme, 2 changed, 1 dropped."
+const changeText = (c: { added: string[]; removed: string[]; changed: string[] }) => {
+  const parts = [
+    c.added.length ? `${c.added.length} new ${c.added.length === 1 ? 'theme' : 'themes'}` : '',
+    c.changed.length ? `${c.changed.length} changed` : '',
+    c.removed.length ? `${c.removed.length} dropped` : '',
+  ].filter(Boolean)
+  return `The analysis ran again and the themes differ: ${parts.join(', ')}.`
 }

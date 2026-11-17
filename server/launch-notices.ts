@@ -42,7 +42,8 @@ export function signoffHeadline(l: LaunchDetail): string {
 }
 
 /** Where it stands, as one line for the thread's running status message. */
-function standingLine(l: LaunchDetail): string {
+function standingLine(l: LaunchDetail, reopened = false): string {
+  if (reopened) return 'Requirements reopened for changes. Answers resume when they are published again.'
   const gates = gatesOf(l)
   const answered = gates.filter((s) => DONE.includes(s.state)).length
   const final = l.summary.state
@@ -58,7 +59,8 @@ export async function refreshStatus(deps: Deps, workspaceId: string, launch: Lau
   if (!deps.slack?.live) return
   const base = await baseUrlFor(deps.db, deps.env, workspaceId)
   if (!base) return
-  const card = linkCard({ title: ':bar_chart: Where it stands', line: slackText(standingLine(launch)), url: `${base}/launches/${launch.id}`, button: 'Open the launch' })
+  const reopened = launch.stage === 'storyboard' && !!(await deps.db.query(`select 1 from delivery.launches where id = $1 and asked_at is not null`, [launch.id])).rows[0]
+  const card = linkCard({ title: ':bar_chart: Where it stands', line: slackText(standingLine(launch, reopened)), url: `${base}/launches/${launch.id}`, button: 'Open the launch' })
   await upsertMessage(slackOf(deps), workspaceId, launch.id, 'status', 'status', card)
 }
 export type Outcome = 'sent' | 'held' | 'failed' | 'duplicate'
@@ -309,6 +311,7 @@ const tally = (r: SweepResult, o: Outcome) => {
 export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: string, result: SweepResult = { sent: 0, held: 0, failed: 0 }): Promise<SweepResult> {
   const launch = await load(deps, workspaceId, launchId)
   if (!launch) return result
+  if (launch.stage === 'storyboard') return result // the requirements are not published (never, or returned to draft): nobody is asked or chased until they are
   const now = deps.now ?? new Date()
   const asked = (await deps.db.query(`select payload, created_at as at from core.notifications where kind = 'launch.requested' and payload->>'launchId' = $1`, [launch.id])).rows
   const everAsked = asked.length > 0

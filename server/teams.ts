@@ -100,7 +100,8 @@ export async function enforceProjectScope(db: Queryable, s: Scope, method: strin
   const access = await projectAccess(db, s, projectId)
   if (access === undefined) return
   if (access === null) throw new ApiError(404, 'not_found', 'No such project.')
-  const reads = method === 'GET' || method === 'HEAD'
+  // Returning published requirements to draft is open to the final approver, who may only read in the team: the handler decides who (an owner or the final approver).
+  const reads = method === 'GET' || method === 'HEAD' || (method === 'POST' && target.kind === 'spec' && /\/reopen$/.test(path))
   if (!reads && access.role === 'viewer') throw new ApiError(403, 'forbidden', 'Your role in this team cannot make changes.')
 }
 

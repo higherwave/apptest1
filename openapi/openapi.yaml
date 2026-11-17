@@ -1529,6 +1529,7 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' } # project_locked: the project's requirements are published
         '422': { $ref: '#/components/responses/Error' }
   /projects/{id}/priority-overrides:
     delete:
@@ -1551,6 +1552,7 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' } # project_locked
         '503': { $ref: '#/components/responses/Error' }
   /specs:
     get:
@@ -1901,6 +1903,50 @@ paths:
         '409': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
         '428': { $ref: '#/components/responses/Error' }
+  /projects/{id}/lock:
+    get:
+      operationId: getProjectLock
+      summary: >
+        Whether the project is locked because its requirements are published, whether a real Jira ticket makes that permanent, and whether the caller may return the
+        requirements to draft (a workspace owner or the launch's final approver, while no real ticket exists).
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      responses:
+        '200':
+          description: The lock.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ProjectLock' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+  /specs/{id}/reopen:
+    post:
+      operationId: reopenSpec
+      summary: >
+        Returns published requirements to draft so they can be edited and published again. A workspace owner or the launch's final approver only (403 otherwise),
+        and never once a real Jira ticket exists (409 tickets_exist). A reason is required and is audited; approvers who were asked are told once.
+      parameters:
+        - { $ref: '#/components/parameters/Id' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReopenRequest' }
+      responses:
+        '200':
+          description: The document, back in draft.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpecDetail' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
   /specs/{id}/publish:
     post:
       operationId: publishSpec
@@ -3343,7 +3389,7 @@ components:
           items: { $ref: '#/components/schemas/SpecSummary' }
     SpecDetail:
       type: object
-      required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, version, sessions, themes, steps, brief, document, approved, total, canPublish, preview, boardChanges]
+      required: [id, projectId, projectName, standalone, name, status, publishedAt, stale, version, sessions, themes, steps, brief, document, approved, total, canPublish, preview, boardChanges, themeChanges]
       properties:
         id: { type: string }
         projectId: { type: string }
@@ -3437,6 +3483,9 @@ components:
         boardChanges:
           type: [integer, 'null']
           description: Published documents only. How many board changes Update board would make; 0 when the board agrees with the document.
+        themeChanges:
+          oneOf: [{ $ref: '#/components/schemas/ThemeChanges' }, { type: 'null' }]
+          description: A draft only. What the analysis changed after the draft was started, when the themes actually differ; null otherwise.
     BoardChange:
       type: object
       required: [key, title, kind, reason]
@@ -3470,6 +3519,27 @@ components:
           items: { $ref: '#/components/schemas/BoardChange' }
         keep: { type: integer }
         applied: { type: boolean }
+    ProjectLock:
+      type: object
+      required: [locked, permanent, specId, publishedAt, canReopen]
+      properties:
+        locked: { type: boolean, description: True when the project's requirements are published. Its transcripts, analysis, themes and requirements then do not change. }
+        permanent: { type: boolean, description: True when a real Jira ticket exists, so the requirements can no longer be returned to draft by anyone. }
+        specId: { type: [string, 'null'] }
+        publishedAt: { type: [string, 'null'], format: date-time }
+        canReopen: { type: boolean, description: Whether the caller may return the requirements to draft now. }
+    ReopenRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 3, maxLength: 1000, description: Why the requirements are being returned to draft. Kept in the audit log. }
+    ThemeChanges:
+      type: object
+      required: [added, removed, changed]
+      properties:
+        added: { type: array, items: { type: string }, description: Themes in the new analysis that the draft was not written from. }
+        removed: { type: array, items: { type: string }, description: Themes the draft was written from that the new analysis no longer has. }
+        changed: { type: array, items: { type: string }, description: Themes that matched but moved (another category, or a different number of people). }
     PublishResult:
       type: object
       required: [specId, requirements, openQuestions, projectId]

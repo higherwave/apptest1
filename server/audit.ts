@@ -9,7 +9,7 @@ export const AUDIT_GROUPS = {
   reviewers: ['core.reviewer_assignments', 'core.team_launch_steps'],
   launches: ['delivery.launches', 'delivery.launch_answers', 'delivery.launch_links'],
   categories: ['insights.feature_areas'],
-  projects: ['core.projects'],
+  projects: ['core.projects', 'delivery.specs'],
   workflows: ['insights.workflows'],
   jira: ['delivery.story_tickets'],
   data: ['core.workspaces', 'core.legal_holds'],

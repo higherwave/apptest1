@@ -31,7 +31,8 @@ export function pgliteDb(pg: PGlite, workspaceId?: string): Db {
 
 // A migrated and seeded in-memory database, with the bookkeeping table the health check reads.
 // With { anchor: true } the Anchor CX demo story is loaded beside it (the original demo's tests count on it being absent).
-export async function createDemoDatabase(options: { anchor?: boolean } = {}): Promise<{ pglite: PGlite; db: Db }> {
+/** `drafts`: the seeded requirements documents are returned to draft, so their projects are not locked (a published document locks its project: server/lock.ts). */
+export async function createDemoDatabase(options: { anchor?: boolean; drafts?: boolean } = {}): Promise<{ pglite: PGlite; db: Db }> {
   const pglite = new PGlite()
   for (const f of migrationFiles()) await pglite.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
   await pglite.exec(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`)
@@ -39,6 +40,7 @@ export async function createDemoDatabase(options: { anchor?: boolean } = {}): Pr
   for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
   await seed(pglite)
   if (options.anchor) await loadAnchorCx(pglite, { workspaceId: uid('workspace'), userId: uid('user:david') })
+  if (options.drafts) await pglite.query(`update delivery.specs set status = 'draft', published_at = null`)
   return { pglite, db: pgliteDb(pglite) }
 }
 

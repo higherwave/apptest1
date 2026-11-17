@@ -2,6 +2,7 @@ import { callAiWithFallback, simulatedProvider, type Ai } from './ai.js'
 import { moveToTrash, RETENTION_DAYS } from './trash.js'
 import type { Db, Queryable } from './db.js'
 import { ApiError } from './errors.js'
+import { LOCK_MESSAGE } from './lock.js'
 import { currentAnalysisRun } from './transcripts.js'
 import { insertMany } from './sql.js'
 import type { Actor } from './versioning.js'
@@ -62,7 +63,10 @@ export type SpecDetail = {
   preview: { requirements: number; openQuestions: number }
   /** Published documents only: how many board changes "Update board" would make (0 when the board agrees with the document). */
   boardChanges: number | null
+  /** A draft only: what the analysis changed, when it ran again after this draft was started and the themes actually differ (otherwise null). */
+  themeChanges: ThemeChanges | null
 }
+export type ThemeChanges = { added: string[]; removed: string[]; changed: string[] }
 export type SpecSummary = { id: string; projectId: string; projectName: string; standalone: boolean; name: string; status: 'draft' | 'published'; publishedAt: string | null; stale: boolean; approved: number; total: number; createdAt: string }
 
 export class SpecNotFound extends Error {}
@@ -216,8 +220,60 @@ export async function getSpec(db: Queryable, workspaceId: string, specId: string
     total: steps.length,
     canPublish: spec.status === 'draft' && steps.length === SPEC_STEPS.length && approved === steps.length,
     preview: { requirements: scope.inScope.length, openQuestions: scope.outScope.length },
+    themeChanges: spec.status === 'draft' && spec.stale ? await themeChangesFor(db, spec.project_id as string, items) : null,
     boardChanges: spec.status === 'published' ? (() => { const p = boardPlan(items, existingStories); return p.add.length + p.remove.length + p.flag.length })() : null,
   }
+}
+
+// ---- Did the analysis change the themes this draft was written from? --------------------------------------------------------------------------------
+// Any new transcript or a re-run marks a draft stale, but that is often nothing: the research was about the same tasks and the themes come out the same. The draft is
+// only worth a warning when the themes differ. Themes are matched by their wording (a share of the same meaningful words), then compared by category and by how many
+// people raised them.
+const STOP = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'are', 'not', 'can', 'cant', 'its', 'too', 'but', 'was', 'when', 'what', 'from', 'into', 'out', 'has', 'have', 'between'])
+const tokens = (title: string) => new Set(title.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length > 2 && !STOP.has(w)))
+const similarity = (a: Set<string>, b: Set<string>) => {
+  if (!a.size || !b.size) return 0
+  let shared = 0
+  for (const w of a) if (b.has(w)) shared += 1
+  return shared / (a.size + b.size - shared)
+}
+type Compared = { title: string; category: string; ppl: number }
+
+/** Pure: which of the draft's themes are gone, which are new, and which matched but moved (a different category, or a different number of people). */
+export function compareThemes(mine: Compared[], current: Compared[]): ThemeChanges | null {
+  const pairs: { i: number; j: number; score: number }[] = []
+  mine.forEach((m, i) => current.forEach((c, j) => pairs.push({ i, j, score: similarity(tokens(m.title), tokens(c.title)) + (m.category === c.category ? 0.05 : 0) })))
+  pairs.sort((a, b) => b.score - a.score)
+  const usedMine = new Set<number>()
+  const usedCurrent = new Set<number>()
+  const changed: string[] = []
+  for (const p of pairs) {
+    if (p.score < 0.5 || usedMine.has(p.i) || usedCurrent.has(p.j)) continue
+    usedMine.add(p.i)
+    usedCurrent.add(p.j)
+    const m = mine[p.i]
+    const c = current[p.j]
+    if (m.category !== c.category || m.ppl !== c.ppl) changed.push(c.title)
+  }
+  const removed = mine.filter((_, i) => !usedMine.has(i)).map((m) => m.title)
+  const added = current.filter((_, j) => !usedCurrent.has(j)).map((c) => c.title)
+  return added.length || removed.length || changed.length ? { added, removed, changed } : null
+}
+
+async function themeChangesFor(db: Queryable, projectId: string, items: { theme: SpecTheme }[]): Promise<ThemeChanges | null> {
+  const run = await currentAnalysisRun(db, projectId)
+  if (!run) return null
+  const rows = (
+    await db.query(
+      `select t.id, coalesce(o.title, t.title) as title, t.category, st.participant_count::int as ppl
+         from research.themes t left join research.theme_overrides o on o.theme_id = t.id join research.theme_stats st on st.theme_id = t.id
+        where t.project_id = $1 and t.run_id = $2`,
+      [projectId, run.id],
+    )
+  ).rows as { id: string; title: string; category: string; ppl: number }[]
+  const currentIds = new Set(rows.map((r) => r.id))
+  if (items.length && items.every((i) => currentIds.has(i.theme.id))) return null // this draft was written from the current analysis
+  return compareThemes(items.map((i) => ({ title: i.theme.title, category: i.theme.category, ppl: i.theme.participantCount })), rows.map((r) => ({ title: r.title, category: r.category, ppl: r.ppl })))
 }
 
 export async function listSpecs(db: Queryable, workspaceId: string, filter: { projectId?: string; standalone?: boolean }, scope?: Pick<Scope, 'anonymous' | 'role' | 'teams'>): Promise<SpecSummary[]> {
@@ -369,6 +425,7 @@ async function lockStep(tx: Queryable, ctx: Actor, stepId: string, expected: num
   ).rows[0]
   if (!r) throw new SpecNotFound()
   const spec = (await specRow(tx, ctx.workspaceId, r.spec_id))!
+  if (spec.status === 'published' && spec.project_kind === 'research') throw new ApiError(409, 'project_locked', LOCK_MESSAGE) // published requirements do not change
   if (r.version !== expected) throw new StepConflict(r.version)
   return { step: r, spec }
 }
@@ -442,6 +499,7 @@ export async function setThemeIncluded(db: Db, ctx: Actor, specId: string, theme
   await db.transaction(async (tx) => {
     const spec = await specRow(tx, ctx.workspaceId, specId)
     if (!spec) throw new SpecNotFound()
+    if (spec.status === 'published' && spec.project_kind === 'research') throw new ApiError(409, 'project_locked', LOCK_MESSAGE)
     const r = await tx.query(`update delivery.specs set updated_by = $3 where id = $1 and version = $2 returning version`, [specId, expected, ctx.userId])
     if (!r.rows[0]) throw new SpecConflict(spec.version)
     const u = await tx.query(`update delivery.spec_themes set included = $3 where spec_id = $1 and theme_id = $2 returning theme_id`, [specId, themeId, included])
@@ -471,18 +529,31 @@ export async function publishSpec(db: Db, ctx: Actor, specId: string, expected: 
     const open = (await tx.query(`select count(*)::int n from core.agent_steps where run_id = $1 and status <> 'approved'`, [spec.agent_run_id])).rows[0].n as number
     if (open > 0) throw new NotAllApproved()
 
-    const { inScope, outScope } = scopeThemes(await themesForSpec(tx, specId))
     const w = ctx.workspaceId
-    const requirements = inScope.map((t, i) => ({ id: crypto.randomUUID(), t, key: `R${i + 1}` }))
-    await insertMany(tx, 'delivery.requirements', requirements.map(({ id, t }) => requirementRow(ctx, specId, id, t)))
-    const stories = [
-      ...requirements.map(({ id, t, key }, i) => storyRow(ctx, specId, key, 'requirement', t, t.opp, id, (i + 1) * 1000)),
-      ...outScope.map((t, i) => storyRow(ctx, specId, `Q${i + 1}`, 'open_question', t, `Should "${t.title}" move into scope?`, null, (requirements.length + i + 1) * 1000)),
-    ]
-    await insertMany(tx, 'delivery.stories', stories)
+    const had = (await tx.query(`select count(*)::int n from delivery.stories where spec_id = $1`, [specId])).rows[0].n as number
+    let requirementsCount: number
+    let openQuestionsCount: number
+    if (had > 0) {
+      // Published again after being returned to draft: the board already has its stories, so bring them in line with the document (work already done is kept).
+      await applyBoardSync(tx, ctx, specId, true)
+      const kinds = (await tx.query(`select kind, count(*)::int n from delivery.stories where spec_id = $1 group by kind`, [specId])).rows as { kind: string; n: number }[]
+      requirementsCount = kinds.find((k) => k.kind === 'requirement')?.n ?? 0
+      openQuestionsCount = kinds.find((k) => k.kind === 'open_question')?.n ?? 0
+    } else {
+      const { inScope, outScope } = scopeThemes(await themesForSpec(tx, specId))
+      const requirements = inScope.map((t, i) => ({ id: crypto.randomUUID(), t, key: `R${i + 1}` }))
+      await insertMany(tx, 'delivery.requirements', requirements.map(({ id, t }) => requirementRow(ctx, specId, id, t)))
+      const stories = [
+        ...requirements.map(({ id, t, key }, i) => storyRow(ctx, specId, key, 'requirement', t, t.opp, id, (i + 1) * 1000)),
+        ...outScope.map((t, i) => storyRow(ctx, specId, `Q${i + 1}`, 'open_question', t, `Should "${t.title}" move into scope?`, null, (requirements.length + i + 1) * 1000)),
+      ]
+      await insertMany(tx, 'delivery.stories', stories)
+      requirementsCount = requirements.length
+      openQuestionsCount = outScope.length
+    }
     await tx.query(`update delivery.specs set status = 'published', published_at = now(), stale = false, updated_by = $2 where id = $1`, [specId, ctx.userId])
-    await insertMany(tx, 'core.audit_log', [{ workspace_id: w, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'published', after: { requirements: requirements.length, openQuestions: outScope.length } }])
-    return { requirements: requirements.length, openQuestions: outScope.length, projectId: spec.project_id as string }
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: w, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: had > 0 ? 'published_again' : 'published', after: { requirements: requirementsCount, openQuestions: openQuestionsCount } }])
+    return { requirements: requirementsCount, openQuestions: openQuestionsCount, projectId: spec.project_id as string }
   })
 }
 
@@ -547,31 +618,55 @@ function planOps(items: Awaited<ReturnType<typeof themesForSpec>>, stories: Sync
 
 export const boardPlan = (items: Awaited<ReturnType<typeof themesForSpec>>, stories: SyncStory[]): BoardPlan => planOps(items, stories).plan
 
+/** Applies the plan for a published (or just-republished) document inside a transaction. Returns the plan and whether anything changed. */
+async function applyBoardSync(tx: Queryable, ctx: Actor, specId: string, apply: boolean): Promise<BoardPlan & { applied: boolean }> {
+  if (apply) await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [specId])
+  const ops = planOps(await themesForSpec(tx, specId), await storiesForSync(tx, specId))
+  const done = ops.plan.add.length + ops.plan.remove.length + ops.plan.flag.length + ops.plan.clear.length
+  if (!apply || !done) return { ...ops.plan, applied: false }
+  if (ops.removeIds.length) {
+    await tx.query(`delete from delivery.requirements where id in (select requirement_id from delivery.stories where id = any($1::uuid[]) and requirement_id is not null)`, [ops.removeIds])
+    await tx.query(`delete from delivery.stories where id = any($1::uuid[])`, [ops.removeIds])
+  }
+  let position = ((await tx.query(`select coalesce(max(position), 0)::float8 as p from delivery.stories where spec_id = $1 and status = 'todo'`, [specId])).rows[0].p as number)
+  for (const a of ops.addTheme) {
+    position += 1000
+    const requirementId = a.kind === 'requirement' ? crypto.randomUUID() : null
+    if (requirementId) await insertMany(tx, 'delivery.requirements', [requirementRow(ctx, specId, requirementId, a.t)])
+    await insertMany(tx, 'delivery.stories', [storyRow(ctx, specId, a.key, a.kind, a.t, a.kind === 'requirement' ? a.t.opp : `Should "${a.t.title}" move into scope?`, requirementId, position)])
+  }
+  for (const f of ops.flagNotes) await tx.query(`update delivery.stories set sync_note = $2 where id = $1`, [f.id, f.note])
+  if (ops.clearIds.length) await tx.query(`update delivery.stories set sync_note = null where id = any($1::uuid[])`, [ops.clearIds])
+  await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'board_synced', after: { added: ops.plan.add.length, removed: ops.plan.remove.length, flagged: ops.plan.flag.length, cleared: ops.plan.clear.length } }])
+  return { ...ops.plan, applied: true }
+}
+
 /** What "Update board" would change (apply = false) or the same, done. Only for a published document. */
 export async function syncBoard(db: Db, ctx: Actor, specId: string, apply: boolean): Promise<BoardPlan & { applied: boolean }> {
   return db.transaction(async (tx) => {
     const spec = await specRow(tx, ctx.workspaceId, specId)
     if (!spec) throw new SpecNotFound()
     if (spec.status !== 'published') throw new NotPublished()
-    if (apply) await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [specId])
-    const ops = planOps(await themesForSpec(tx, specId), await storiesForSync(tx, specId))
-    const done = ops.plan.add.length + ops.plan.remove.length + ops.plan.flag.length + ops.plan.clear.length
-    if (!apply || !done) return { ...ops.plan, applied: false }
-    if (ops.removeIds.length) {
-      await tx.query(`delete from delivery.requirements where id in (select requirement_id from delivery.stories where id = any($1::uuid[]) and requirement_id is not null)`, [ops.removeIds])
-      await tx.query(`delete from delivery.stories where id = any($1::uuid[])`, [ops.removeIds])
-    }
-    let position = ((await tx.query(`select coalesce(max(position), 0)::float8 as p from delivery.stories where spec_id = $1 and status = 'todo'`, [specId])).rows[0].p as number)
-    for (const a of ops.addTheme) {
-      position += 1000
-      const requirementId = a.kind === 'requirement' ? crypto.randomUUID() : null
-      if (requirementId) await insertMany(tx, 'delivery.requirements', [requirementRow(ctx, specId, requirementId, a.t)])
-      await insertMany(tx, 'delivery.stories', [storyRow(ctx, specId, a.key, a.kind, a.t, a.kind === 'requirement' ? a.t.opp : `Should "${a.t.title}" move into scope?`, requirementId, position)])
-    }
-    for (const f of ops.flagNotes) await tx.query(`update delivery.stories set sync_note = $2 where id = $1`, [f.id, f.note])
-    if (ops.clearIds.length) await tx.query(`update delivery.stories set sync_note = null where id = any($1::uuid[])`, [ops.clearIds])
-    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'board_synced', after: { added: ops.plan.add.length, removed: ops.plan.remove.length, flagged: ops.plan.flag.length, cleared: ops.plan.clear.length } }])
-    return { ...ops.plan, applied: true }
+    return applyBoardSync(tx, ctx, specId, apply)
+  })
+}
+
+export class TicketsExist extends Error {}
+
+/**
+ * Returns published requirements to draft, so they can be edited and published again. The board keeps its stories (publishing again brings them in line the way
+ * "Update board" does, and never throws away work). Refused once a real Jira ticket exists. The reason is required and goes into the audit log.
+ */
+export async function reopenSpec(db: Db, ctx: Actor, specId: string, reason: string): Promise<{ projectId: string }> {
+  return db.transaction(async (tx) => {
+    const spec = await specRow(tx, ctx.workspaceId, specId)
+    if (!spec) throw new SpecNotFound()
+    if (spec.status !== 'published') throw new NotPublished()
+    const ticketed = (await tx.query(`select 1 from delivery.story_tickets t where t.spec_id = $1 and coalesce(t.simulated, false) = false limit 1`, [specId])).rows[0]
+    if (ticketed) throw new TicketsExist()
+    await tx.query(`update delivery.specs set status = 'draft', published_at = null, version = version + 1, updated_by = $2 where id = $1`, [specId, ctx.userId])
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'delivery.specs', entity_id: specId, verb: 'reopened', before: { status: 'published' }, after: { status: 'draft', reason } }])
+    return { projectId: spec.project_id as string }
   })
 }
 

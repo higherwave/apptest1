@@ -201,3 +201,13 @@
   flex-wrap: wrap;
   gap: var(--at-space-sm);
 }
+
+// The warning that the research changed under a draft, with the one way to act on it just below.
+.changed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-sm);
+
+  :global(.cds--inline-notification) { max-inline-size: none; }
+}

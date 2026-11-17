@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -33,7 +33,7 @@ import { AlreadySent, createTicket, listTickets, NoStory, NotTicketable, RecordF
 import { NOT_CONNECTED, type JiraFetch } from './jira.js'
 import { makeIntegrations } from './workspace-settings.js'
 import {
-  approveStep, draftWaitingStep, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
+  approveStep, draftWaitingStep, reopenSpec, TicketsExist, syncBoard, createProjectSpec, createStandaloneSpec, deleteSpec, editStep, getSpec, listSpecs, NoAnalysis, NotAllApproved, publishSpec, redoStep, setThemeIncluded,
   NotPublished, SpecConflict, SpecNotFound, SpecPublished, StepConflict, StepOutOfOrder,
 } from './specs.js'
 import { listTranscripts, saveTranscripts, UnknownTranscript } from './transcripts.js'
@@ -50,7 +50,8 @@ import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, list
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
-import { afterRequirements, afterStoryboard } from './launch-updates.js'
+import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
+import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
 import { makePdf, PdfError, type PdfService } from './pdf.js'
 import { DesignChanged, DesignConflict, getDesign, getDesignImage, getDesignItem, saveCapturedImage, saveDesignItem } from './design.js'
 import { aiMode, makeAi, recentAiProblems, workspaceBudget, spendByTeam, spentThisMonthUsd, spendLevel, type AiProvider } from './ai.js'
@@ -883,13 +884,17 @@ export function createApp(options: AppOptions = {}) {
     c.header('ETag', `"${detail.version}"`)
     return c.json(await listTranscripts(getDb(), id))
   })
-  app.put('/projects/:id/transcripts', withContext, (c) => save(c, saveTranscriptsSchema, (id, v, input) => saveTranscripts(getDb(), c.get('ctx'), id, v, input), 'transcripts'))
+  app.put('/projects/:id/transcripts', withContext, (c) => save(c, saveTranscriptsSchema, async (id, v, input) => {
+    await assertUnlocked(getDb(), id) // published requirements lock the project's transcripts
+    return saveTranscripts(getDb(), c.get('ctx'), id, v, input)
+  }, 'transcripts'))
   // Phase 1 runs the simulated analysis inline and answers 201 with the finished run; a real model would answer 202 and be polled.
   app.post('/projects/:id/analysis-runs', withContext, limited('ai', 30), (c) =>
     save(
       c,
       z.object({}).passthrough(),
       async (id, v) => {
+        await assertUnlocked(getDb(), id) // and its analysis
         const result = await runAnalysis(getDb(), ai, c.get('ctx'), id, v)
         // The matcher keeps Platform Insights in step with the new themes; the analysis stands if it fails. New platform themes are where duplicates
         // start, so the clear ones are folded together right after (each recorded, so it can be undone from the Platform Themes page).
@@ -924,6 +929,8 @@ export function createApp(options: AppOptions = {}) {
     const themeId = c.req.param('id')
     if (!UUID.test(themeId)) throw new ApiError(404, 'not_found', 'No such theme.')
     const input = parseBody(themeAreaSchema, await readJson(c))
+    const themeProject = await projectOfTheme(getDb(), themeId)
+    if (themeProject) await assertUnlocked(getDb(), themeProject) // a locked project's themes do not change
     try {
       await setThemeArea(getDb(), c.get('ctx'), themeId, input.areaId)
     } catch (err) {
@@ -941,6 +948,8 @@ export function createApp(options: AppOptions = {}) {
     if (!UUID.test(themeId)) throw new ApiError(404, 'not_found', 'No such theme.')
     const expected = expectedVersion(c)
     const patch = parseBody(themePatchSchema, await readJson(c))
+    const themeProject = await projectOfTheme(getDb(), themeId)
+    if (themeProject) await assertUnlocked(getDb(), themeProject)
     try {
       await patchTheme(getDb(), c.get('ctx'), themeId, expected, patch)
     } catch (err) {
@@ -957,6 +966,7 @@ export function createApp(options: AppOptions = {}) {
     requireEditor(c)
     const id = projectId(c)
     if (!(await getProjectDetail(getDb(), c.get('ctx').workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    await assertUnlocked(getDb(), id)
     await resetPriorityOverrides(getDb(), c.get('ctx'), id)
     c.header('Cache-Control', 'no-store')
     return c.json({ data: await listThemes(getDb(), id) })
@@ -1094,6 +1104,9 @@ export function createApp(options: AppOptions = {}) {
   app.delete('/specs/:id', withContext, async (c) => {
     requireEditor(c)
     const permanent = c.req.query('permanent') === 'true'
+    // Published requirements are never discarded: that would remove the stories made from them. They are returned to draft instead (POST /specs/{id}/reopen).
+    const target = (await getDb().query(`select s.project_id, s.status, p.kind from delivery.specs s join core.projects p on p.id = s.project_id where s.id = $1`, [specId(c)])).rows[0]
+    if (target?.status === 'published' && target.kind === 'research') await assertUnlocked(getDb(), target.project_id as string)
     if (permanent) {
       requireOwner(c)
       const owner = (await getDb().query(`select project_id from delivery.specs where id = $1`, [specId(c)])).rows[0]
@@ -1102,6 +1115,33 @@ export function createApp(options: AppOptions = {}) {
     if (!(await deleteSpec(getDb(), c.get('ctx'), specId(c), { permanent }))) throw new ApiError(404, 'not_found', 'No such document.')
     c.header('Cache-Control', 'no-store')
     return c.body(null, 204)
+  })
+
+  // The lock on a project whose requirements are published, and who may lift it.
+  app.get('/projects/:id/lock', withReadContext, async (c) => {
+    const id = projectId(c)
+    if (!(await getProjectDetail(getDb(), c.get('ctx').workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
+    const lock = await projectLock(getDb(), id)
+    c.header('Cache-Control', 'no-store')
+    return c.json({ ...lock, canReopen: lock.locked && !lock.permanent && !c.get('ctx').anonymous && (await mayReopen(getDb(), c.get('ctx'), id)) })
+  })
+
+  // Returns published requirements to draft (a workspace owner, or the launch's final approver; never once a Jira ticket exists). A reason is required and is audited.
+  app.post('/specs/:id/reopen', withContext, async (c) => {
+    const id = specId(c)
+    const target = (await getDb().query(`select project_id from delivery.specs where id = $1 and workspace_id = $2`, [id, c.get('ctx').workspaceId])).rows[0]
+    if (!target) throw new ApiError(404, 'not_found', 'No such document.')
+    if (!(await mayReopen(getDb(), c.get('ctx'), target.project_id as string))) throw new ApiError(403, 'forbidden', `Only a workspace owner or the final ${T.approver} can return published requirements to draft.`)
+    const input = parseBody(reopenSchema, await readJson(c))
+    try {
+      await reopenSpec(getDb(), c.get('ctx'), id, input.reason.trim())
+    } catch (err) {
+      if (err instanceof TicketsExist) throw new ApiError(409, 'tickets_exist', PERMANENT_LOCK_MESSAGE)
+      return specError(err)
+    }
+    await afterReopen({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx'), target.project_id as string, input.reason.trim())
+    c.header('Cache-Control', 'no-store')
+    return c.json(await specDetail(c, id))
   })
 
   // The Stories board ---------------------------------------------------------------------------------------
@@ -1628,7 +1668,9 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(createTicketSchema, await readJson(c))
     c.header('Cache-Control', 'no-store')
     try {
-      return c.json(await createTicket(getDb(), c.get('ctx'), id, input, (await integrations(c.get('ctx').workspaceId)).jira), 201)
+      const ticket = await createTicket(getDb(), c.get('ctx'), id, input, (await integrations(c.get('ctx').workspaceId)).jira)
+      await afterFirstTicket({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx'), id, ticket.simulated)
+      return c.json(ticket, 201)
     } catch (err) {
       if (err instanceof NoStory) throw new ApiError(404, 'not_found', 'No such story.')
       if (err instanceof NotTicketable) throw new ApiError(422, 'not_a_requirement', 'An open question is a decision to make, not a ticket. Decide it first.')

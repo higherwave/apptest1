@@ -1,8 +1,8 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ApiRequestError, approveStep, createSpec, deleteSpec, draftWaitingStep, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
-import { useMe, useProjectLaunch, useSpec } from '../../api/hooks'
+import { ApiRequestError, approveStep, createSpec, deleteSpec, draftWaitingStep, editStep, friendlyMessage, publishSpec, redoStep, reopenSpec, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
+import { useMe, useProjectLaunch, useProjectLock, useSpec } from '../../api/hooks'
 import { WriterView, type StepWork } from './WriterView'
 
 // Container: runs the review flow. Each action is sent with the version of the step (or the document) the person is
@@ -24,6 +24,7 @@ export function WriterPage() {
   const [startOver, setStartOver] = useState<{ error?: string } | null>(null)
   const [readyCue, setReadyCue] = useState(0)
   const [confirmingPublish, setConfirmingPublish] = useState(false)
+  const [reopening, setReopening] = useState<{ reason: string; error?: string } | null>(null)
   const [work, setWork] = useState<StepWork | null>(null)
   const [stepError, setStepError] = useState<{ id: string; text: string } | null>(null)
   const [redoing, setRedoing] = useState<{ step: SpecStep; text: string } | null>(null)
@@ -81,6 +82,7 @@ export function WriterPage() {
 
   const doc = spec.data
   // Publishing the requirements also asks the approvers for their answers (the first time). Who is asked, so the owner sees it before it happens.
+  const lock = useProjectLock(doc && !doc.standalone ? doc.projectId : undefined).data ?? null
   const launch = useProjectLaunch(doc && !doc.standalone ? doc.projectId : undefined).data?.launch ?? null
   const asking: { name: string; steps: string }[] = []
   if (launch && launch.stage !== 'approval') {
@@ -152,6 +154,27 @@ export function WriterPage() {
     }
   }
 
+  // Returns the published requirements to draft (an owner or the final approver): the project unlocks and the document can be edited and published again.
+  async function confirmReopen() {
+    if (!doc || !reopening) return
+    setBusy(true)
+    try {
+      await reopenSpec(doc.id, reopening.reason.trim())
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['spec', specId] }),
+        queryClient.invalidateQueries({ queryKey: ['specs'] }),
+        queryClient.invalidateQueries({ queryKey: ['stage', doc.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project-lock', doc.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project-launch', doc.projectId] }),
+      ])
+      setReopening(null)
+    } catch (err) {
+      setReopening({ ...reopening, error: friendlyMessage(err) })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   async function publish() {
     if (!doc) return
     setBusy(true)
@@ -162,6 +185,7 @@ export function WriterPage() {
         queryClient.invalidateQueries({ queryKey: ['spec', specId] }),
         queryClient.invalidateQueries({ queryKey: ['specs'] }),
         queryClient.invalidateQueries({ queryKey: ['stage', doc.projectId] }),
+        queryClient.invalidateQueries({ queryKey: ['project-lock', doc.projectId] }),
       ])
       if (!doc.standalone) navigate(`/projects/${doc.projectId}/design`)
     } catch (err) {
@@ -176,7 +200,7 @@ export function WriterPage() {
     <WriterView
       state={spec.isError ? 'error' : spec.isPending ? 'loading' : 'ready'}
       spec={doc}
-      canEdit={canEdit}
+      canEdit={canEdit && !(doc && !doc.standalone && lock?.locked)}
       busy={busy}
       errorText={spec.isError ? friendlyMessage(spec.error) : error}
       notice={notice}
@@ -212,7 +236,15 @@ export function WriterPage() {
         setRedoing(null) // the dialog closes at once and the step shows that it is being rewritten
         if (!(await act(() => redoStep(step.id, step.version, text.trim()), true, { kind: 'redo', id: step.id, nextId: null }))) setRedoing({ step, text })
       }}
-      onPublish={() => (asking.length ? setConfirmingPublish(true) : publish())}
+      onPublish={() => (doc && !doc.standalone ? setConfirmingPublish(true) : publish())}
+      lock={lock}
+      reopenOpen={reopening !== null}
+      reopenReason={reopening?.reason ?? ''}
+      reopenError={reopening?.error}
+      onReopen={() => setReopening({ reason: '' })}
+      onReopenReason={(reason) => setReopening((r) => (r ? { ...r, reason } : r))}
+      onCancelReopen={() => setReopening(null)}
+      onConfirmReopen={confirmReopen}
       publishAsk={confirmingPublish ? asking : null}
       onCancelPublish={() => setConfirmingPublish(false)}
       onConfirmPublish={() => {

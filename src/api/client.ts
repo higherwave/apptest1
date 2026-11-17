@@ -232,6 +232,9 @@ export const approveStep = (stepId: string, version: number) => request<SpecDeta
 export const draftWaitingStep = (stepId: string, version: number) => request<SpecDetail>(`/agent-steps/${stepId}/draft`, { method: 'POST', version })
 export const redoStep = (stepId: string, version: number, instructions: string) => request<SpecDetail>(`/agent-steps/${stepId}/redo`, { method: 'POST', body: { instructions }, version })
 export const editStep = (stepId: string, version: number, text: string) => request<SpecDetail>(`/agent-steps/${stepId}`, { method: 'PATCH', body: { text }, version })
+export type ProjectLock = components['schemas']['ProjectLock']
+export const getProjectLock = (projectId: string) => request<ProjectLock>(`/projects/${projectId}/lock`)
+export const reopenSpec = (specId: string, reason: string) => request<SpecDetail>(`/specs/${specId}/reopen`, { method: 'POST', body: { reason } })
 export const publishSpec = (specId: string, version: number) => request<PublishResult>(`/specs/${specId}/publish`, { method: 'POST', version })
 export type BoardSyncPlan = components['schemas']['BoardSyncPlan']
 export const syncBoard = (specId: string, apply: boolean) => request<BoardSyncPlan>(`/specs/${specId}/board-sync`, { method: 'POST', body: { apply } })

@@ -2,7 +2,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, getTranscripts, type AnalysisRunResult } from '../../api/client'
-import { transcriptApi, useMe, useProject, useTranscripts } from '../../api/hooks'
+import { transcriptApi, useMe, useProject, useProjectLock, useTranscripts } from '../../api/hooks'
+import { LockNotice } from '../../components/LockNotice'
 import { useSaveFlow } from '../project/useSaveFlow'
 import { SAMPLE_TRANSCRIPTS } from './samples'
 import { errorFromField, fileToItem, formFromList, itemsChanged, toRequest, validateItems, type TranscriptErrors, type TranscriptItem } from './form'
@@ -22,6 +23,7 @@ export function TranscriptsPage() {
   const transcripts = useTranscripts(projectId)
   const me = useMe()
   const flow = useSaveFlow(projectId, project.data)
+  const locked = !!useProjectLock(projectId).data?.locked
   const [items, setItems] = useState<TranscriptItem[] | null>(null)
   const [errors, setErrors] = useState<TranscriptErrors>({})
   const [notice, setNotice] = useState<string | undefined>()
@@ -43,7 +45,7 @@ export function TranscriptsPage() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
-  const canEdit = me.data?.role === 'owner' || me.data?.role === 'editor'
+  const canEdit = !locked && (me.data?.role === 'owner' || me.data?.role === 'editor')
   const willAnalyze = !!items && items.length > 0
 
   const startProgress = (steps: string[]) => {
@@ -101,35 +103,38 @@ export function TranscriptsPage() {
   const state = project.isError || transcripts.isError ? 'error' : project.isPending || transcripts.isPending || items === null ? 'loading' : 'ready'
 
   return (
-    <TranscriptsView
-      state={state}
-      project={project.data}
-      items={items ?? []}
-      saved={saved}
-      errors={errors}
-      errorText={project.isError ? friendlyMessage(project.error) : transcripts.isError ? friendlyMessage(transcripts.error) : undefined}
-      notice={notice}
-      progress={progress}
-      save={{
-        dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt,
-        saveLabel: willAnalyze ? 'Save and analyze' : 'Save',
-        actionable: willAnalyze && needsAnalysis,
-        note: needsAnalysis && !dirty ? 'Analysis is out of date' : undefined,
-        onSave: () => doSave(false),
-        onOverwrite: () => doSave(true),
-        onReload: async () => {
-          const fresh = await flow.reload()
-          const list = await queryClient.fetchQuery({ queryKey: ['transcripts', projectId], queryFn: () => getTranscripts(projectId), staleTime: 0 })
-          if (fresh) setItems(formFromList(list))
-          setErrors({})
-        },
-      }}
-      onChange={setItems}
-      onAddFiles={async (files, platform, source) => {
-        const added = await Promise.all(files.map(async (f) => fileToItem(f.name, await f.text(), platform, source)))
-        setItems((cur) => [...(cur ?? []), ...added])
-      }}
-      onAddSample={(platform, source) => setItems((cur) => [...(cur ?? []), fileToItem(SAMPLE_TRANSCRIPTS[platform].name, SAMPLE_TRANSCRIPTS[platform].text, platform, source)])}
-    />
+    <>
+      <LockNotice projectId={projectId} />
+      <TranscriptsView
+        state={state}
+        project={project.data}
+        items={items ?? []}
+        saved={saved}
+        errors={errors}
+        errorText={project.isError ? friendlyMessage(project.error) : transcripts.isError ? friendlyMessage(transcripts.error) : undefined}
+        notice={notice}
+        progress={progress}
+        save={{
+          dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt,
+          saveLabel: willAnalyze ? 'Save and analyze' : 'Save',
+          actionable: willAnalyze && needsAnalysis,
+          note: needsAnalysis && !dirty ? 'Analysis is out of date' : undefined,
+          onSave: () => doSave(false),
+          onOverwrite: () => doSave(true),
+          onReload: async () => {
+            const fresh = await flow.reload()
+            const list = await queryClient.fetchQuery({ queryKey: ['transcripts', projectId], queryFn: () => getTranscripts(projectId), staleTime: 0 })
+            if (fresh) setItems(formFromList(list))
+            setErrors({})
+          },
+        }}
+        onChange={setItems}
+        onAddFiles={async (files, platform, source) => {
+          const added = await Promise.all(files.map(async (f) => fileToItem(f.name, await f.text(), platform, source)))
+          setItems((cur) => [...(cur ?? []), ...added])
+        }}
+        onAddSample={(platform, source) => setItems((cur) => [...(cur ?? []), fileToItem(SAMPLE_TRANSCRIPTS[platform].name, SAMPLE_TRANSCRIPTS[platform].text, platform, source)])}
+      />
+    </>
   )
 }
