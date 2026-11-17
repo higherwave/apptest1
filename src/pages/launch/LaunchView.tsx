@@ -1,5 +1,5 @@
 import { Close } from '@carbon/icons-react'
-import { Button, InlineNotification, Loading, Modal, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
+import { Button, InlineNotification, Loading, Modal, Popover, PopoverContent, RadioButton, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextArea, TextInput } from '@carbon/react'
 import { useEffect, useState } from 'react'
 import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchSlackResult, LaunchStep } from '../../api/client'
 import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
@@ -173,6 +173,19 @@ function Section({ step, focus, busy, reviewersHref, onAnswer, onAddLink, onRemo
   )
 }
 
+// In the read-only demo, a link that leads out of the app is shown but not live; hovering or focusing it says why.
+function DemoOnly({ label }: { label: string }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <Popover open={open} align="bottom-left" dropShadow={false} onRequestClose={() => setOpen(false)}>
+      <span className={styles.slackInactive} tabIndex={0} role="link" aria-disabled="true" data-testid="open-slack-thread-demo" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)} onFocus={() => setOpen(true)} onBlur={() => setOpen(false)}>
+        {label}
+      </span>
+      <PopoverContent className={styles.demoTip}>Not available in demo mode</PopoverContent>
+    </Popover>
+  )
+}
+
 // The launch's Slack thread, above the summary: the logo and one link, so the conversation is a click away. Before the thread exists, an editor can open it.
 function SlackCard({ launch, busy, onOpen }: { launch: LaunchDetail; busy: boolean; onOpen: () => void }) {
   const { channel, threadUrl, started } = launch.slack
@@ -180,7 +193,9 @@ function SlackCard({ launch, busy, onOpen }: { launch: LaunchDetail; busy: boole
   return (
     <div className={styles.slackCard} data-testid="launch-slack">
       <img className={styles.slackLogo} src="/platforms/slack.svg" alt="" width={32} height={32} />
-      {threadUrl ? (
+      {launch.you.kind === 'visitor' ? (
+        <DemoOnly label="Open the Slack thread" />
+      ) : threadUrl ? (
         <a className={styles.slackLink} href={threadUrl} target="_blank" rel="noreferrer" data-testid="open-slack-thread">Open the Slack thread</a>
       ) : started ? (
         <span className={styles.slackText}>The thread is in #{channel}</span>

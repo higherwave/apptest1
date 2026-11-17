@@ -75,6 +75,18 @@
   color: var(--at-ink);
 }
 
+.slackInactive {
+  @include tokens.role('title-sm');
+  color: var(--at-muted);
+  cursor: default;
+}
+
+.demoTip {
+  @include tokens.role('body-md');
+  padding: var(--at-space-xs) var(--at-space-sm);
+  white-space: nowrap;
+}
+
 .slackText {
   @include tokens.role('body-md');
   color: var(--at-body);
