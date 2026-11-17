@@ -193,12 +193,8 @@
   color: var(--at-ink);
 }
 
-// The small chart of readings, larger here than where it sits in a table row.
-.strip svg {
-  inline-size: 9rem;
-  block-size: 3rem;
-  flex: none;
-}
+// The chart of readings (64 by 64, set in Sparkline) keeps its size beside the text.
+.strip svg { flex: none; }
 
 .stripNote {
   @include tokens.role('body-md');

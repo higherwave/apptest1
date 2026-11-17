@@ -1,8 +1,7 @@
-// The line takes its colour from the trend: green rising, coral falling, quiet otherwise.
-.spark {
+// The colour comes from the trend: green growing, coral fading, quiet otherwise. A Measure card has no judgement to show, so it stays in the body colour.
+.bars,
+.area {
   display: block;
-  inline-size: 4rem;
-  block-size: 1.25rem;
   overflow: visible;
   color: var(--at-muted);
 
@@ -10,12 +9,42 @@
   &[data-trend='fading'] { color: var(--at-signature-coral); }
 }
 
+// 24 by 24: the Trend column.
+.bars {
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+}
+
+.bar { fill: color-mix(in srgb, currentColor 38%, transparent); }
+.barNow { fill: currentColor; }
+
+// 64 by 64: a Measure card.
+.area {
+  inline-size: 4rem;
+  block-size: 4rem;
+  color: var(--at-body);
+}
+
+.base {
+  stroke: var(--at-hairline);
+  stroke-width: 1;
+}
+
+.grid {
+  stroke: var(--at-hairline);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+
+.fill { fill: color-mix(in srgb, currentColor 12%, transparent); }
+
 .line {
   fill: none;
   stroke: currentColor;
-  stroke-width: 1.5;
+  stroke-width: 2;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
+.ring { fill: color-mix(in srgb, currentColor 18%, transparent); }
 .dot { fill: currentColor; }

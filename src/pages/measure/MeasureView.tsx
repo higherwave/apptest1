@@ -72,7 +72,7 @@ function Strip({ item }: { item: MeasureAcrossItem }) {
         <p className={styles.stripValue}>{reading || '–'}</p>
         {latest.note && <p className={styles.stripNote}>{latest.note}</p>}
       </div>
-      {series && <Sparkline values={series} trend="steady" label={`Readings, oldest to newest: ${series.join(', ')}`} note={`Sample readings: ${series.join(', ')}`} />}
+      {series && <Sparkline variant="area" values={series} trend="steady" label={`Readings, oldest to newest: ${series.join(', ')}`} note={`Sample readings: ${series.join(', ')}`} />}
     </div>
   )
 }

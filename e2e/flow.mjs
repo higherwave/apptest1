@@ -1217,7 +1217,7 @@ try {
   await page.click(`[data-testid="area-head-${groups[0]}"]`)
   ok('a section can be collapsed', await page.evaluate((g) => document.querySelector(`[data-testid="area-head-${g}"]`).getAttribute('aria-expanded') === 'false' && document.querySelectorAll(`[data-testid="area-group-${g}"] [data-testid^="platform-theme-"]`).length === 0, groups[0]))
   ok('the toolbar runs search, Show, Order by, Group by from left to right on one row', await page.evaluate(() => { const r = ['theme-search', 'theme-filter', 'theme-order', 'group-by'].map((id) => document.querySelector(`[data-testid="${id}"]`).getBoundingClientRect()); return r.every((x, i) => i === 0 || (Math.abs(x.bottom - r[0].bottom) < 8 && r[i - 1].right <= x.left + 1)) && r[3].right > innerWidth * 0.7 }))
-  ok('the Trend column is a small line chart with the trend as its accessible name, not a badge', await page.evaluate(() => { const row = document.querySelector('[data-testid^="platform-theme-"]'); const svg = row.querySelector('svg[role="img"][aria-label^="Trend: "]'); return !svg || (/^Trend: (Growing|Steady|Fading|New)$/.test(svg.getAttribute('aria-label')) && !!svg.querySelector('polyline') && svg.getBoundingClientRect().width < 100 && !/Steady|Fading|Growing/.test(row.innerText)) }))
+  ok('the Trend column is a small bar chart with the trend as its accessible name, not a badge', await page.evaluate(() => { const row = document.querySelector('[data-testid^="platform-theme-"]'); const svg = row.querySelector('svg[role="img"][aria-label^="Trend: "]'); return !svg || (/^Trend: (Growing|Steady|Fading|New)$/.test(svg.getAttribute('aria-label')) && svg.querySelectorAll('rect').length >= 2 && svg.getBoundingClientRect().width < 100 && !/Steady|Fading|Growing/.test(row.innerText)) }))
   // A theme with no area is filed from a panel that slides in from the right and closes when an area is chosen. Clear the areas first so there is one to file.
   {
     const auth = { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }
@@ -1515,7 +1515,11 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Themes used"] button')].find((b) => b.getAttribute('aria-pressed') === 'true').click())
   // Published again (the confirmation says what the lock means), and then returned to draft so the transcripts steps below can run.
   await waitText('Ready to publish')
-  await clickText('Publish')
+  // The button can be clicked a moment before it is ready (the theme change is still saving): click again until the confirmation is there.
+  for (let tries = 0; tries < 5; tries++) {
+    await clickText('Publish')
+    if (await page.waitForFunction(() => document.body.innerText.includes('this project is locked'), { timeout: 3000 }).then(() => true, () => false)) break
+  }
   await waitText('this project is locked')
   ok('Publish says the project will be locked', (await text()).includes('can no longer be changed'))
   await page.evaluate(() => document.querySelector('.cds--modal.is-visible .cds--modal-footer .cds--btn--primary').click())
