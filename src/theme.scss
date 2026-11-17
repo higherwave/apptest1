@@ -20,8 +20,9 @@
 
 :root {
   // -- Color ---------------------------------------------------------
-  --at-primary: #181d26;
-  --at-primary-active: #0d1218;
+  // The primary fill is the menu's gray (2026-11-17; it was the near-black #181d26, now only the text colour --at-ink). Buttons, active nav and dark surfaces share it.
+  --at-primary: #2a2d34;
+  --at-primary-active: #1f2228;
   --at-ink: #181d26;
   --at-body: #333840;
   --at-muted: #41454d;
@@ -31,8 +32,8 @@
   --at-surface-soft: #f8fafc;
   --at-surface-strong: #e0e2e6;
   --at-surface-footer: #e4e5e8; // the grey band at the foot of every screen, as on the landing page
-  --at-surface-dark: #181d26;
-  --at-surface-dark-elevated: #1d1f25;
+  --at-surface-dark: var(--at-primary);
+  --at-surface-dark-elevated: #343841;
   --at-signature-coral: #aa2d00;
   --at-signature-forest: #0a2e0e;
   --at-signature-cream: #f5e9d4;
@@ -139,6 +140,9 @@
   --at-page: #f8f9fb;
   --at-glow-violet: #7c5cd6;
   --at-glow-blue: #5096e6;
+  // How strong the header glow is (2026-11-17: lighter, the violet most of all; it was 60% violet and 40% blue). Raise to bring colour back.
+  --at-glow-violet-mix: 28%;
+  --at-glow-blue-mix: 30%;
   // Text that sits on a tint (category badges). Expectation and Delight reuse
   // --at-signature-forest and --at-ink.
   --at-on-tint-coral: #7a1f00;   // Pain point
@@ -153,8 +157,8 @@
   --at-text-disabled: var(--at-border-strong);
 
   // Left application rail (the 88px toolbar)
-  // Scheme 6a (design-handoff/styles): a dark-gray menu. To go back, restore: rail var(--at-surface-dark), active var(--at-body), text #c9ccd2.
-  --at-rail: #2a2d34;
+  // Scheme 6a (design-handoff/styles): a dark-gray menu. To go back, restore: rail #181d26, active #333840, text #c9ccd2 (and primary back to #181d26).
+  --at-rail: var(--at-primary);
   --at-rail-hover: color-mix(in srgb, var(--at-rail-active) 60%, var(--at-rail));
   --at-rail-active: #3d414b;
   --at-rail-text: #b9bdc7;

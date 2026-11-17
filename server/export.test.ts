@@ -129,7 +129,7 @@ test('the audit log and the AI usage come out as spreadsheets for that workspace
   const usage = await aiUsageCsv(f.db.inWorkspace(f.first.id), f.first.id)
   assert.match(usage, /^created_at,purpose,provider,model,input_tokens,output_tokens,cost_usd,inference_geo,run_id\r\n/)
   assert.ok(usage.includes('0.044') && usage.includes(',us,'), 'its own call, with where it ran')
-  assert.ok(!usage.includes('9.99'), 'not the other workspace’s')
+  assert.ok(!usage.includes(',9.99,'), 'not the other workspace’s')
   const audit = await auditCsv(f.db.inWorkspace(f.first.id), f.first.id)
   assert.match(audit, /^created_at,actor,actor_email,entity,entity_id,verb,before,after\r\n/)
 })

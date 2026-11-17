@@ -114,7 +114,7 @@ export function WriterView(p: WriterViewProps) {
           </Button>
         )}
         <div className={styles.titleRow}>
-          <h1 className={styles.title}>{spec.name}</h1>
+          <h1 className={styles.title}>{spec.standalone ? spec.name : 'Requirements'}</h1>
           <Tag size="sm" type={published ? 'green' : 'gray'}>
             {published ? 'Published' : 'Draft'}
           </Tag>

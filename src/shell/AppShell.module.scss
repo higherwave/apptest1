@@ -264,7 +264,7 @@ $column-width: 75rem; // every project step shares this width, centered
     inset-inline-start: 38%; // right of the back link and the project's name, so they sit on white
     inline-size: 56rem;
     max-inline-size: 80%;
-    background: radial-gradient(ellipse closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) 60%, transparent), color-mix(in srgb, var(--at-glow-blue) 40%, transparent) 55%, transparent);
+    background: radial-gradient(ellipse closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) var(--at-glow-violet-mix), transparent), color-mix(in srgb, var(--at-glow-blue) var(--at-glow-blue-mix), transparent) 55%, transparent);
     filter: blur(1rem);
     pointer-events: none;
   }

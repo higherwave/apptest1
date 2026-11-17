@@ -34,14 +34,35 @@ primary colour together, last.
 - **Why:** the panel next to the multi-coloured header graphic was too much colour; the gray tie to the menu reads calmer.
 - **Undo / adjust:** the earlier gradients are in the comment above the token. Raise the two glow percentages for more colour.
 
-## Queued (decided, to be made together with the typography work)
+### 2026-11-17: Primary colour is the menu gray
 
-- **Requirements page title** (noted 2026-11-17). Most pages title themselves with the object type (Test Plan, Participants, Storyboard).
-  The Requirements page (`src/pages/requirements/WriterView.tsx`) uses the document's own name as the h1 (for example "Health score
-  explanations"), and the same name appears again in the line under it ("Built from ..."). Change the h1 to **Requirements**, and keep the
-  line under it as the description ("Built from <project> · N sessions · N themes"). The document's name stays visible there. A stand-alone
-  document (no project) keeps its own name, since it has no object type to share. The Published / Draft tag and "Start over" stay on the
-  title row. Check the e2e tests that read this title.
-- **One page title size** (from the audit): 32px on every page, including Platform Insights (now 40px).
+- **What:** the primary fill (buttons, the active tab, dark surfaces such as slides and tooltips) is now the menu's gray, #2A2D34, instead of the near-black
+  #181d26 (hover #1F2228). The near-black stays only as the text colour (`--at-ink`). The menu uses the same token (`--at-rail` is `--at-primary`). The landing
+  and about pages' buttons follow. Switches were not black (they use the link blue) and are unchanged.
+- **Where:** `src/theme.scss` (`--at-primary`, `--at-primary-active`, `--at-surface-dark`, `--at-rail`), and the registry's hover colour in the design-system repo.
+- **Undo:** put #181d26 and #0d1218 back in those two tokens (and the registry mapping).
+
+### 2026-11-17: Header glow lighter
+
+- **What:** the soft violet and blue glow behind page titles (Platform Insights and the other hero pages, and the project header) was 60% violet and 40% blue.
+  It is now 28% violet and 30% blue, so the link to the landing page stays but is quieter. Two tokens: `--at-glow-violet-mix` and `--at-glow-blue-mix`.
+
+### 2026-11-17: Requirements page title
+
+- **What:** the h1 is **Requirements**, like the other pages (Test Plan, Participants, Storyboard), and the line under it still says "Built from <project> · N sessions · N themes". A stand-alone document, which has no project, keeps its own name. (`WriterView.tsx`.)
+
+### 2026-11-17: Typography decisions (to review live, then decide whether to make them the checked standard)
+
+- **One page title size:** every page title is `display-md`, 32px regular. Platform Insights and the other hero pages (Settings, Launches, Trash, Projects,
+  Measure) were `display-lg`, 40px; they now match the project pages. (`src/shell/PageHero.module.scss`.)
+- **Storyboard is its own context.** Its slides, which can be downloaded, edited and re-themed, keep their own type styles and are outside the app's heading
+  hierarchy. The current look stays.
+- **Kept as they are:** `label-md` (16px medium) for item names and field labels, as long as it is used the same way across the app; Carbon's button text;
+  `meta` (12px) for small supporting text.
+- **No all capitals** (see above). A later, deliberate use of capitals as an offset is possible; for now none.
+- **Still open:** the heading ladder below (section heading 20, subsection 16, group label 14 medium muted).
+
+## Queued (decided, not yet made)
+
 - **Heading ladder** (from the audit): page title 32, section heading 20, item or subsection 16, group label 14 medium muted, body 14, meta 12.
   Test page: the published Requirements page, which has all four heading levels in one view.
