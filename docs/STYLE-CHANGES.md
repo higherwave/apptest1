@@ -25,3 +25,23 @@ primary colour together, last.
   `vendor/design-rules/`.
 - **Undo:** restore the two lines (`letter-spacing: 0.06em; text-transform: uppercase;`) in the roles, and revert the registry text.
 - **Left as is:** the role names (`eyebrow`) and the heading sizes. The next step in typography is the heading ladder and one page title size.
+
+### 2026-11-17: Platform Themes highlight panel (the "Start here" panel), colours
+
+- **What:** three passes. (1) An indigo ground with a violet glow at the upper right and a teal glow at the lower left (Scheme 6a, "Aurora"). (2) The menu's
+  gray blended in: gray at the lower left fading into indigo. (3) After review: mostly the menu's gray, only a trace of indigo at the upper right and a faint
+  teal at the lower left, and the white button's text is the menu gray too. One token, `--at-panel-aurora` (and `--at-panel-ink`), in `src/theme.scss`.
+- **Why:** the panel next to the multi-coloured header graphic was too much colour; the gray tie to the menu reads calmer.
+- **Undo / adjust:** the earlier gradients are in the comment above the token. Raise the two glow percentages for more colour.
+
+## Queued (decided, to be made together with the typography work)
+
+- **Requirements page title** (noted 2026-11-17). Most pages title themselves with the object type (Test Plan, Participants, Storyboard).
+  The Requirements page (`src/pages/requirements/WriterView.tsx`) uses the document's own name as the h1 (for example "Health score
+  explanations"), and the same name appears again in the line under it ("Built from ..."). Change the h1 to **Requirements**, and keep the
+  line under it as the description ("Built from <project> · N sessions · N themes"). The document's name stays visible there. A stand-alone
+  document (no project) keeps its own name, since it has no object type to share. The Published / Draft tag and "Start over" stay on the
+  title row. Check the e2e tests that read this title.
+- **One page title size** (from the audit): 32px on every page, including Platform Insights (now 40px).
+- **Heading ladder** (from the audit): page title 32, section heading 20, item or subsection 16, group label 14 medium muted, body 14, meta 12.
+  Test page: the published Requirements page, which has all four heading levels in one view.

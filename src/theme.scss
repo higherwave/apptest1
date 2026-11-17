@@ -159,10 +159,10 @@
   --at-rail-active: #3d414b;
   --at-rail-text: #b9bdc7;
   // The "Aurora" highlight panel (Platform Themes, Start here): an indigo ground with a violet and a teal glow. Not a plain colour, so it is outside the colour registry.
-  --at-panel-ink: rgb(61 72 128); // text on the white button
-  // Experiment 2026-11-17: the Aurora blended with the menu's gray (the gray holds the lower left and fades into indigo toward the upper right, softer glows).
-  // Previous, to restore: --at-panel-aurora: radial-gradient(31rem 14rem at 85% 0%, rgb(130 110 255 / 50%), transparent 70%), radial-gradient(26rem 14rem at 10% 110%, rgb(50 190 210 / 34%), transparent 70%), #3d4880;
-  --at-panel-aurora: radial-gradient(28rem 13rem at 88% 0%, rgb(130 110 255 / 42%), transparent 70%), radial-gradient(24rem 13rem at 8% 108%, rgb(50 190 210 / 22%), transparent 70%), linear-gradient(115deg, var(--at-rail) 0%, color-mix(in srgb, var(--at-rail) 55%, #3d4880) 45%, #3d4880 100%), var(--at-rail);
+  --at-panel-ink: rgb(42 45 52); // text on the white button: the menu's gray (written as rgb so it is not a registry colour)
+  // Aurora panel, 2026-11-17 (second pass): mostly the menu's gray, with only a trace of indigo at the upper right and a faint teal at the lower left.
+  // Earlier: indigo ground with strong violet and teal glows (the first version), then the gray-to-indigo blend: both are in docs/STYLE-CHANGES.md.
+  --at-panel-aurora: radial-gradient(26rem 12rem at 92% 0%, rgb(130 110 255 / 26%), transparent 70%), radial-gradient(22rem 12rem at 6% 112%, rgb(50 190 210 / 10%), transparent 70%), linear-gradient(115deg, var(--at-rail) 0%, var(--at-rail) 40%, color-mix(in srgb, var(--at-rail) 62%, #3d4880) 100%), var(--at-rail);
 
   // A single on/off setting that takes effect at once (Carbon's Toggle): link-blue track with a white knob when on; an outlined track with a dark knob when off.
   --at-toggle-on: var(--at-link);
