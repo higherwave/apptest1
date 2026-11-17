@@ -70,9 +70,9 @@ try {
   // The button can be clicked a moment before the page is ready (a slow runner): click again until the new plan is there.
   for (let tries = 0; tries < 4; tries++) {
     await clickText('New project')
-    if (await page.waitForFunction(() => document.body.innerText.includes('New test plan'), { timeout: 3000 }).then(() => true, () => false)) break
+    if (await page.waitForFunction(() => document.body.innerText.includes('What you are testing and what you expect to learn'), { timeout: 3000 }).then(() => true, () => false)) break
   }
-  await waitText('New test plan')
+  await waitText('What you are testing and what you expect to learn')
   await page.waitForSelector('#project-description') // the form shows once the test methods have loaded
   await waitText('Test methods')
   ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Projects'))

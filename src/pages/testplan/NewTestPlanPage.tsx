@@ -54,7 +54,6 @@ export function NewTestPlanPage() {
       loadError={templates.isError ? friendlyMessage(templates.error) : undefined}
       onChange={setForm}
       onSave={save}
-      onCancel={() => navigate('/projects')}
     />
   )
 }

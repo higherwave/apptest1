@@ -7,7 +7,7 @@
   gap: var(--at-space-xl);
   padding: var(--at-space-xl);
   border-radius: var(--at-radius-lg);
-  background: var(--at-surface-dark);
+  background: var(--at-panel-aurora);
   color: var(--at-on-dark);
 
   @media (max-width: 56rem) { grid-template-columns: 1fr; }
@@ -52,7 +52,7 @@
   padding: var(--at-space-sm) var(--at-space-md);
   border-radius: var(--at-radius-md);
   background: var(--at-on-dark);
-  color: var(--at-ink);
+  color: var(--at-panel-ink);
   text-decoration: none;
 
   &:hover { background: var(--at-surface-hover-strong); }

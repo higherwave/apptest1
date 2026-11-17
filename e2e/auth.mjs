@@ -81,7 +81,7 @@ try {
   await new Promise((r) => setTimeout(r, 400))
   const menu = () => page.evaluate(() => { const a = document.querySelector('aside[aria-label="Main menu"]'); const r = a.getBoundingClientRect(); return { w: Math.round(r.width), bg: getComputedStyle(a).backgroundColor, op: getComputedStyle(a.querySelector('[class*="label"]')).opacity, pageLeft: Math.round(document.querySelector('h1').getBoundingClientRect().left) } })
   const rest = await menu()
-  ok('the app menu rests as a 68px near-black icon strip with its names hidden', rest.w === 68 && rest.bg === 'rgb(24, 29, 38)' && rest.op === '0', JSON.stringify(rest))
+  ok('the app menu rests as a 68px dark-gray icon strip with its names hidden', rest.w === 68 && rest.bg === 'rgb(42, 45, 52)' && rest.op === '0', JSON.stringify(rest))
   await page.hover('aside[aria-label="Main menu"] a')
   await new Promise((r) => setTimeout(r, 600))
   const open = await menu()

@@ -1,33 +1,6 @@
-@use '../../tokens' as tokens;
-
+// The page is laid out exactly like an existing project's Test Plan.
 .page {
   display: flex;
   flex-direction: column;
   gap: var(--at-space-lg);
-}
-
-.cancel {
-  align-self: flex-start;
-  color: var(--at-link);
-}
-
-.head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--at-space-md);
-  margin-block-end: var(--at-space-md); // a little air before the page content
-}
-
-.title {
-  @include tokens.role('display-lg');
-  margin: 0;
-  color: var(--at-ink);
-  font-weight: 400;
-}
-
-.description {
-  @include tokens.role('title-md');
-  margin: var(--at-space-xs) 0 0;
-  color: var(--at-muted);
 }

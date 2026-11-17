@@ -153,10 +153,14 @@
   --at-text-disabled: var(--at-border-strong);
 
   // Left application rail (the 88px toolbar)
-  --at-rail: var(--at-surface-dark); // the app menu is the near-black ink, as the project's dark surfaces
+  // Scheme 6a (design-handoff/styles): a dark-gray menu. To go back, restore: rail var(--at-surface-dark), active var(--at-body), text #c9ccd2.
+  --at-rail: #2a2d34;
   --at-rail-hover: color-mix(in srgb, var(--at-rail-active) 60%, var(--at-rail));
-  --at-rail-active: var(--at-body);
-  --at-rail-text: #c9ccd2;
+  --at-rail-active: #3d414b;
+  --at-rail-text: #b9bdc7;
+  // The "Aurora" highlight panel (Platform Themes, Start here): an indigo ground with a violet and a teal glow. Not a plain colour, so it is outside the colour registry.
+  --at-panel-ink: rgb(61 72 128); // text on the white button
+  --at-panel-aurora: radial-gradient(31rem 14rem at 85% 0%, rgb(130 110 255 / 50%), transparent 70%), radial-gradient(26rem 14rem at 10% 110%, rgb(50 190 210 / 34%), transparent 70%), #3d4880;
 
   // A single on/off setting that takes effect at once (Carbon's Toggle): link-blue track with a white knob when on; an outlined track with a dark knob when off.
   --at-toggle-on: var(--at-link);

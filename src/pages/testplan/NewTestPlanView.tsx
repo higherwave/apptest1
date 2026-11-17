@@ -2,6 +2,7 @@ import { Button, Dropdown, InlineNotification, Loading } from '@carbon/react'
 import type { FieldErrors, PlanForm } from './form'
 import { PlanTabs } from '../project/PlanTabs'
 import { TestPlanForm } from './TestPlanForm'
+import { ProjectHeader } from '../project/ProjectHeader'
 import styles from './NewTestPlanView.module.scss'
 
 export type NewTestPlanViewProps = {
@@ -19,25 +20,21 @@ export type NewTestPlanViewProps = {
   loadError?: string
   onChange: (next: PlanForm) => void
   onSave: () => void
-  onCancel: () => void
 }
 
 // Presentational: the new test plan, laid out like an existing project's Test Plan (its tabs, then What to test), with Save at the top.
-export function NewTestPlanView({ state, form, errors, teams, teamId, onTeam, methodOptions, saving, submitError, loadError, onChange, onSave, onCancel }: NewTestPlanViewProps) {
+export function NewTestPlanView({ state, form, errors, teams, teamId, onTeam, methodOptions, saving, submitError, loadError, onChange, onSave }: NewTestPlanViewProps) {
   return (
     <div className={styles.page}>
-      <Button className={styles.cancel} kind="ghost" size="sm" onClick={onCancel}>
-        ← Cancel
-      </Button>
-      <header className={styles.head}>
-        <div>
-          <h1 className={styles.title}>New test plan</h1>
-          <p className={styles.description}>What you are testing and what you expect to learn. Save it, then add the questions to ask and your participants.</p>
-        </div>
-        <Button kind="primary" onClick={onSave} disabled={saving || state !== 'ready'}>
-          {saving ? 'Saving…' : 'Save test plan'}
-        </Button>
-      </header>
+      <ProjectHeader
+        title="Test Plan"
+        description="What you are testing and what you expect to learn."
+        actions={
+          <Button kind="primary" onClick={onSave} disabled={saving || state !== 'ready'}>
+            {saving ? 'Saving…' : 'Save test plan'}
+          </Button>
+        }
+      />
 
       <PlanTabs active="test" />
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the test methods" />}
