@@ -46,6 +46,7 @@ const rich = async (f: Awaited<ReturnType<typeof fixture>>) => {
 
 test('a deleted project goes to the Trash, vanishes from the app, and comes back exactly as it was', async () => {
   const f = await fixture()
+  await f.pg.query(`update delivery.specs set status = 'draft', published_at = null`) // a project with published requirements is locked and cannot be deleted
   const p = await rich(f)
   const before = await f.snapshot()
   const rows = (b: Record<string, string[]>) => Object.values(b).reduce((n, r) => n + r.length, 0)
@@ -82,6 +83,7 @@ test('a deleted project goes to the Trash, vanishes from the app, and comes back
 
 test('who may delete, see, restore and remove for good', async () => {
   const f = await fixture()
+  await f.pg.query(`update delivery.specs set status = 'draft', published_at = null`) // a project with published requirements is locked and cannot be deleted
   const [a, b] = (await f.pg.query<any>(`select id, name from core.projects where kind = 'research' order by name limit 2`)).rows
   // An editor moves one to the Trash; the owner moves another.
   assert.equal((await f.call(f.editor, 'DELETE', `/projects/${a.id}`)).status, 204)
@@ -111,6 +113,7 @@ test('who may delete, see, restore and remove for good', async () => {
 
 test('restoring is refused when something with that identity is already there, and copes with links to things removed in the meantime', async () => {
   const f = await fixture()
+  await f.pg.query(`update delivery.specs set status = 'draft', published_at = null`) // a project with published requirements is locked and cannot be deleted
   const p = await rich(f)
   await f.call(f.owner, 'DELETE', `/projects/${p.id}`)
   const id = (await (await f.call(f.owner, 'GET', '/trash')).json()).data[0].id
@@ -163,6 +166,7 @@ test('a requirements document, a stand-alone document and a journey each go to t
 
 test('the Trash of one workspace is invisible to another, and the snapshot never leaves its workspace', async () => {
   const f = await fixture()
+  await f.pg.query(`update delivery.specs set status = 'draft', published_at = null`) // a project with published requirements is locked and cannot be deleted
   await initWorkspace(f.pg, { name: 'Other', slug: 'other', owners: ['owner@other.example.test'] })
   const theirs = f.as('owner@other.example.test', 'other')
   const p = await rich(f)

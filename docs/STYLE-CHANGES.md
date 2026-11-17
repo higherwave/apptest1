@@ -64,7 +64,7 @@ primary colour together, last.
 - **Kept as they are:** `label-md` (16px medium) for item names and field labels, as long as it is used the same way across the app; Carbon's button text;
   `meta` (12px) for small supporting text.
 - **No all capitals** (see above). A later, deliberate use of capitals as an offset is possible; for now none.
-- **Heading ladder:** adopted as the current guideline, as shown on the Requirements page (see Standing rules). Not enforced by the linter yet.
+- **Heading ladder:** adopted as the current guideline, as shown on the Requirements page (see Standing rules). Not enforced by the linter yet, and codifying it is on hold (2026-11-17): live with it first.
 
 ## Queued (decided, not yet made)
 

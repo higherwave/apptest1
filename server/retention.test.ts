@@ -104,6 +104,7 @@ test('legal holds: placed and released by owners only, one per scope, and on the
 
 test('a hold on the workspace stops the cleanup and every permanent deletion; releasing it lets the cleanup go on', async () => {
   const f = await fixture()
+  await f.q(`update delivery.specs set status = 'draft', published_at = null`) // a project with published requirements is locked and cannot be deleted
   const ws = f.ids['higherwave-demo']
   await f.seed(ws)
   const p = (await f.q(`select id from core.projects where kind = 'research' limit 1`))[0].id
@@ -131,6 +132,7 @@ test('a hold on the workspace stops the cleanup and every permanent deletion; re
 
 test('a hold on one project protects that project’s Trash entry and its audit trail, not the others', async () => {
   const f = await fixture()
+  await f.q(`update delivery.specs set status = 'draft', published_at = null`) // a project with published requirements is locked and cannot be deleted
   const ws = f.ids['higherwave-demo']
   await f.seed(ws)
   const [a, b] = (await f.q(`select id from core.projects where kind = 'research' order by name limit 2`)).map((x) => x.id as string)

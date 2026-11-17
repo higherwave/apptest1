@@ -20,6 +20,8 @@ export type ProjectLock = {
 
 export const LOCK_MESSAGE =
   `The requirements are published, so this project is locked. Changes from here happen in a new project. A workspace owner or the final ${T.approver} can return the requirements to draft until the first Jira ticket is created.`
+export const DELETE_MESSAGE = `This project is locked because its requirements are published, so it cannot be deleted. A workspace owner or the final ${T.approver} can return the requirements to draft until the first Jira ticket is created.`
+export const DELETE_PERMANENT_MESSAGE = 'This project is locked for good (its requirements are published and Jira tickets exist), so it cannot be deleted.'
 export const PERMANENT_LOCK_MESSAGE = 'The requirements are published and Jira tickets have been created, so this project is locked for good. Changes from here happen in a new project.'
 
 export async function projectLock(db: Queryable, projectId: string): Promise<ProjectLock> {
@@ -41,9 +43,11 @@ export async function projectLock(db: Queryable, projectId: string): Promise<Pro
 }
 
 /** Refuses (409 project_locked) when the project's requirements are published. */
-export async function assertUnlocked(db: Queryable, projectId: string): Promise<void> {
+export async function assertUnlocked(db: Queryable, projectId: string, action: 'change' | 'delete' = 'change'): Promise<void> {
   const lock = await projectLock(db, projectId)
-  if (lock.locked) throw new ApiError(409, 'project_locked', lock.permanent ? PERMANENT_LOCK_MESSAGE : LOCK_MESSAGE)
+  if (!lock.locked) return
+  if (action === 'delete') throw new ApiError(409, 'project_locked', lock.permanent ? DELETE_PERMANENT_MESSAGE : DELETE_MESSAGE)
+  throw new ApiError(409, 'project_locked', lock.permanent ? PERMANENT_LOCK_MESSAGE : LOCK_MESSAGE)
 }
 
 /** The project a theme belongs to (so a theme edit can be refused when that project is locked). */

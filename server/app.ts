@@ -806,6 +806,7 @@ export function createApp(options: AppOptions = {}) {
     requireEditor(c)
     const id = c.req.param('id')
     const permanent = c.req.query('permanent') === 'true'
+    if (UUID.test(id)) await assertUnlocked(getDb(), id, 'delete') // a project whose requirements are published is never deleted (the Trash included)
     if (permanent) {
       requireOwner(c) // deleting for good is an owner's decision; anyone who may edit can move it to the Trash
       if (UUID.test(id)) await assertNotHeld(getDb(), c.get('ctx').workspaceId, id)

@@ -63,6 +63,15 @@ test('published requirements lock the project: transcripts, analysis, theme edit
   await refuse(await f.call(f.owner, 'DELETE', `/projects/${f.project}/priority-overrides`))
   await refuse(await f.call(f.owner, 'DELETE', `/specs/${f.spec.id}`))
   await refuse(await f.call(f.owner, 'DELETE', `/specs/${f.spec.id}?permanent=true`))
+  // A locked project is never deleted: not to the Trash, not for good.
+  for (const path of [`/projects/${f.project}`, `/projects/${f.project}?permanent=true`]) {
+    const res = await f.call(f.owner, 'DELETE', path)
+    assert.equal(res.status, 409, path)
+    const body = await res.json()
+    assert.equal(body.error.code, 'project_locked')
+    assert.match(body.error.message, /cannot be deleted/)
+  }
+  assert.equal((await f.pg.query<any>(`select count(*)::int n from core.projects where id = $1`, [f.project])).rows[0].n, 1)
   // Still open: the board, the launch, reading everything.
   assert.equal((await f.call(f.owner, 'GET', `/projects/${f.project}/board`)).status, 200)
   assert.equal((await f.call(f.owner, 'GET', `/projects/${f.project}/transcripts`)).status, 200)
