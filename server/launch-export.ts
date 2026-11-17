@@ -25,7 +25,7 @@ export const STYLE = `
   h2 { font-size: 13pt; margin: 22pt 0 8pt; padding-bottom: 4pt; border-bottom: 1px solid #d6dbe0; break-after: avoid; }
   h3 { font-size: 11pt; margin: 0; }
   p { margin: 0 0 6pt; }
-  .eyebrow { font-size: 8.5pt; letter-spacing: 0.08em; text-transform: uppercase; color: #5c6773; margin: 0 0 6pt; }
+  .eyebrow { font-size: 8.5pt; color: #5c6773; margin: 0 0 6pt; }
   .meta { color: #5c6773; margin: 0 0 14pt; }
   .standing { border-radius: 8pt; padding: 12pt 14pt; background: #f1f3f5; }
   .standing.good { background: #e3f4ea; } .standing.cond { background: #e1f1f0; } .standing.bad { background: #fbe5e1; } .standing.reopened { background: #f1e8f7; }
@@ -40,7 +40,7 @@ export const STYLE = `
   ul { margin: 4pt 0; padding-left: 16pt; }
   table { width: 100%; border-collapse: collapse; font-size: 10pt; }
   th, td { text-align: left; padding: 4pt 6pt; border-bottom: 1px solid #e3e7ea; vertical-align: top; }
-  th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #5c6773; }
+  th { font-size: 8.5pt; color: #5c6773; }
   a { color: #0b5cad; text-decoration: none; }
   .small { font-size: 9pt; }
 `

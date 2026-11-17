@@ -120,7 +120,7 @@ changes, update `public/privacy.html` and the landing text in the same change.
 
 - Hidden Carbon dialogs keep their buttons in the DOM: click inside `.cds--modal.is-visible`, and wait about 300 ms after one closes.
 - The fixed header can cover a scrolled-to button. Icon-only Carbon buttons have no `aria-label` attribute: use `data-testid`.
-- Headings styled `text-transform: uppercase` read as capitals in `innerText`: match case-insensitively.
+- The app uses sentence case, no all-caps labels (2026-11-17); a label written in the markup is what `innerText` returns. Style changes are recorded in `docs/STYLE-CHANGES.md`.
 - The theme list deliberately does not repeat project names, quotes or requirement lists.
 - On CI, Chrome needs `--no-sandbox` (the tests add it when `CI` is set).
 

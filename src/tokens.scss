@@ -58,14 +58,13 @@ $weight-medium: 475;
     font: 400 0.875rem/1.55 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'eyebrow' {
-    // The small uppercase label above a group or a field. Capitals need room: tracked 0.06em.
+    // The small label above a group or a field, in sentence case (all capitals were removed 2026-11-17: docs/STYLE-CHANGES.md).
     font: #{$weight-medium} 0.875rem/1.35 var(--at-font-text);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0;
   } @else if $name == 'eyebrow-sm' {
+    // Compact group labels and stage numbers, sentence case.
     font: 400 0.75rem/1.35 var(--at-font-text);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0;
   } @else if $name == 'caption' {
     font: #{$weight-medium} 0.875rem/1.35 var(--at-font-text);
     letter-spacing: 0;
