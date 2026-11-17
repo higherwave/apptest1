@@ -12,6 +12,10 @@ primary colour together, last.
   `text-transform: uppercase | capitalize | lowercase`. Guarded by `scripts/case.test.mjs`; also a rule in the company registry
   (`vendor/design-rules/tokens.json`, `airtable.rules`). Put `case:ignore` on the same line only for stored data that must keep its case.
 
+- **Type standard, for now** (2026-11-17): the styles on the published Requirements page are the working guideline for page structure: page title `display-md`
+  (32, regular); section headings 20; item and subsection names `label-md` (16, medium); group labels 14 medium in the muted colour, sentence case; body 14;
+  `meta` 12. It is a guideline, not yet a linter rule. If the group labels get missed because they are quiet, revisit them. The storyboard slides are outside it.
+
 ## Log
 
 ### 2026-11-17: All capitals removed
@@ -60,9 +64,8 @@ primary colour together, last.
 - **Kept as they are:** `label-md` (16px medium) for item names and field labels, as long as it is used the same way across the app; Carbon's button text;
   `meta` (12px) for small supporting text.
 - **No all capitals** (see above). A later, deliberate use of capitals as an offset is possible; for now none.
-- **Still open:** the heading ladder below (section heading 20, subsection 16, group label 14 medium muted).
+- **Heading ladder:** adopted as the current guideline, as shown on the Requirements page (see Standing rules). Not enforced by the linter yet.
 
 ## Queued (decided, not yet made)
 
-- **Heading ladder** (from the audit): page title 32, section heading 20, item or subsection 16, group label 14 medium muted, body 14, meta 12.
-  Test page: the published Requirements page, which has all four heading levels in one view.
+- Nothing queued.
