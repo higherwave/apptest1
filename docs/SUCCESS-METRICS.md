@@ -13,6 +13,13 @@ Decisions so far (2026-11-17):
   3. **User feedback**: what people say (interview transcripts, surveys, in-product comments), where the research itself is the baseline.
 - Until a source is connected, a measure is read by hand (as Measure works today). A measure says which kind of signal it would come from.
 
+## Built (2026-11-17): the first version
+
+The tab "How will we know it worked?" is on the launch screen (not for an external approver; `?tab=success` opens it). It is read-only and **organised by
+requirement, not by source**, like everything else here (themes, then requirements written from them): one measure per requirement, each tagged with the kind(s)
+of signal it draws on, so a measure can later combine several signals and be judged together. Data: `GET /launches/{id}/success` (`server/launch-success.ts`),
+which reads the goals from the brief and the measures from Measure. Code: `src/pages/launch/SuccessTab.tsx`.
+
 ## What the tab shows (first version, read-only)
 
 1. **What success looks like**: the goals and success metrics from the product brief (step 3 of the requirements), as the reference statement.

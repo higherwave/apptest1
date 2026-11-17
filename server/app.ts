@@ -50,6 +50,7 @@ import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, list
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
+import { launchSuccess } from './launch-success.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
 import { makePdf, PdfError, type PdfService } from './pdf.js'
@@ -374,6 +375,16 @@ export function createApp(options: AppOptions = {}) {
   app.get('/launches/:id', withReadContext, async (c) => {
     c.header('Cache-Control', 'private, no-store')
     return c.json(await oneLaunch(c, launchId(c)))
+  })
+  // How will we know it worked: the goals, each requirement's measure with its latest reading, and when to look. Read-only; not for an external approver.
+  app.get('/launches/:id/success', withReadContext, async (c) => {
+    const id = launchId(c)
+    const launch = await oneLaunch(c, id)
+    if (launch.you.kind === 'external') throw new ApiError(404, 'not_found', 'No such launch.')
+    const data = await launchSuccess(getDb(), c.get('ctx').workspaceId, id)
+    if (!data) throw new ApiError(404, 'not_found', 'No such launch.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(data)
   })
   app.patch('/launches/:id', withContext, async (c) => {
     const id = launchId(c)

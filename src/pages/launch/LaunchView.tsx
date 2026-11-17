@@ -5,6 +5,7 @@ import type { LaunchAnswer, LaunchDetail, LaunchRequestResult, LaunchSlackResult
 import { answersFor, rationaleRequired } from '../../../shared/launch.mjs'
 import { ProjectHeader } from '../project/ProjectHeader'
 import { dayText, KIND_LABEL, momentText, reviewersLine, stateLabel, stateTag } from './launchText'
+import { SuccessTab } from './SuccessTab'
 import styles from './LaunchView.module.scss'
 import { T } from '../../../shared/terms.mjs'
 
@@ -24,7 +25,7 @@ export type LaunchViewProps = {
   onSlack: () => Promise<LaunchSlackResult | null>
   /** The step an email link pointed at (?step=): scrolled to, with what is true of it now. */
   focusStep?: string | null
-  /** Which tab to open on (?tab=brief, from a message about a document). */
+  /** Which tab to open on (?tab=brief, from a message about a document; ?tab=success). */
   tab?: string | null
   /** The address of Admin, Approvals, for an owner who finds a step with no approver. */
   reviewersHref?: string
@@ -436,10 +437,11 @@ export function LaunchView(p: LaunchViewProps) {
               data-testid="asked-result"
             />
           )}
-          <Tabs defaultSelectedIndex={p.tab === 'brief' ? 1 : 0}>
+          <Tabs defaultSelectedIndex={p.tab === 'brief' ? 1 : p.tab === 'success' && launch.you.kind !== 'external' ? 2 : 0}>
             <TabList aria-label="Launch">
               <Tab data-testid="tab-summary">Launch Summary</Tab>
               <Tab data-testid="tab-brief">Product Brief</Tab>
+              {launch.you.kind !== 'external' && <Tab data-testid="tab-success">How will we know it worked?</Tab>}
             </TabList>
             <TabPanels>
               <TabPanel className={styles.tabPanel}>
@@ -463,6 +465,11 @@ export function LaunchView(p: LaunchViewProps) {
                   <aside className={styles.aside} aria-label="Docs"><div className={styles.panel}><p className={styles.eyebrow}>Docs</p><Docs launch={launch} /></div></aside>
                 </div>
               </TabPanel>
+              {launch.you.kind !== 'external' && (
+                <TabPanel className={styles.tabPanel}>
+                  <SuccessTab launchId={launch.id} />
+                </TabPanel>
+              )}
             </TabPanels>
           </Tabs>
           <Modal

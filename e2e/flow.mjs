@@ -917,7 +917,7 @@ try {
   const pdfBytes = Buffer.from(await pdfRes.arrayBuffer())
   ok('the launch record downloads as a real PDF', pdfRes.status === 200 && pdfBytes.subarray(0, 4).toString() === '%PDF' && pdfBytes.length > 5000 && /launch-record\.pdf/.test(pdfRes.headers.get('content-disposition') ?? ''))
   ok('the summary offers the PDF download', await page.evaluate(() => /export\.pdf$/.test(document.querySelector('[data-testid="download-pdf"]')?.getAttribute('href') ?? '')))
-  ok('the launch has two tabs, Launch Summary and Product Brief, and no Follow tab', await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].map((x) => x.innerText.trim()); return t.join('|') === 'Launch Summary|Product Brief' && !document.querySelector('[data-testid="tab-follow"]') }))
+  ok('the launch has three tabs, Launch Summary, Product Brief and How will we know it worked?, and no Follow tab', await page.evaluate(() => { const t = [...document.querySelectorAll('[role="tab"]')].map((x) => x.innerText.trim()); return t.join('|') === 'Launch Summary|Product Brief|How will we know it worked?' && !document.querySelector('[data-testid="tab-follow"]') }))
   await page.evaluate(() => document.querySelector('[data-testid="tab-summary"]')?.click())
   await new Promise((r) => setTimeout(r, 300))
   await tid('answer-button-legal')
@@ -959,6 +959,14 @@ try {
   await page.goto(`${BASE}/launches/${launchId}?tab=brief`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="launch-docs"]', { timeout: 8000 })
   ok('a message link with ?tab=brief opens straight on the Product Brief tab', await page.evaluate(() => document.querySelector('[data-testid="tab-brief"]').getAttribute('aria-selected') === 'true'))
+
+  // "How will we know it worked?": a read-only third tab, by requirement.
+  await tid('tab-success')
+  await page.waitForSelector('[data-testid="success-tab"]', { timeout: 8000 })
+  ok('the launch has a How will we know it worked? tab: the goals, a measure for each requirement, where we will look and when', await page.evaluate(() => { const t = document.querySelector('[data-testid="success-tab"]'); return !!t && /What success looks like/.test(t.innerText) && t.querySelectorAll('[data-testid^="success-measure-"]').length > 0 && ['telemetry', 'support', 'feedback'].every((k) => !!t.querySelector(`[data-testid="success-source-${k}"]`)) && /Review points after launch|Set a target date/.test(t.innerText) && !t.querySelector('input, textarea, select') }))
+  await page.goto(`${BASE}/launches/${launchId}?tab=success`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="success-tab"]', { timeout: 8000 })
+  ok('a link with ?tab=success opens straight on that tab', await page.evaluate(() => document.querySelector('[data-testid="tab-success"]').getAttribute('aria-selected') === 'true'))
 
   // Measure: how each requirement will be known to have worked, then check-ins over time.
   const measureApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()

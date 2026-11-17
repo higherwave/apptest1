@@ -429,6 +429,22 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/LaunchList' }
         '401': { $ref: '#/components/responses/Error' }
+  /launches/{id}/success:
+    get:
+      operationId: getLaunchSuccess
+      summary: >
+        "How will we know it worked?" for one launch, read-only: the goals from the product brief, the measure of each requirement with its latest reading (the same
+        measures as Measure), and review points counted from the launch's target date. 404 for a launch that is not theirs and for an external approver.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The success view.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchSuccess' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /launches/{id}:
     get:
       operationId: getLaunch
@@ -3519,6 +3535,26 @@ components:
           items: { $ref: '#/components/schemas/BoardChange' }
         keep: { type: integer }
         applied: { type: boolean }
+    LaunchSuccess:
+      type: object
+      required: [published, projectId, problem, goals, measures, reviewPoints, reviewer]
+      properties:
+        published: { type: boolean, description: False until the requirements are published; there are no measures before then. }
+        projectId: { type: string }
+        problem: { type: [string, 'null'] }
+        goals: { type: [array, 'null'], items: { type: string } }
+        measures: { type: array, items: { $ref: '#/components/schemas/MeasureItem' } }
+        reviewPoints:
+          type: array
+          items:
+            type: object
+            required: [key, label, days, on]
+            properties:
+              key: { type: string }
+              label: { type: string }
+              days: { type: integer }
+              on: { type: [string, 'null'], description: The day, counted from the launch's target date; null when the launch has none. }
+        reviewer: { type: [string, 'null'], description: The launch's owner. }
     ProjectLock:
       type: object
       required: [locked, permanent, specId, publishedAt, canReopen]

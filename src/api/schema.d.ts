@@ -333,6 +333,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/launches/{id}/success": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** "How will we know it worked?" for one launch, read-only: the goals from the product brief, the measure of each requirement with its latest reading (the same measures as Measure), and review points counted from the launch's target date. 404 for a launch that is not theirs and for an external approver. */
+        get: operations["getLaunchSuccess"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/launches/{id}": {
         parameters: {
             query?: never;
@@ -2727,6 +2744,23 @@ export interface components {
             keep: number;
             applied: boolean;
         };
+        LaunchSuccess: {
+            /** @description False until the requirements are published; there are no measures before then. */
+            published: boolean;
+            projectId: string;
+            problem: string | null;
+            goals: string[] | null;
+            measures: components["schemas"]["MeasureItem"][];
+            reviewPoints: {
+                key: string;
+                label: string;
+                days: number;
+                /** @description The day */
+                on: string | null;
+            }[];
+            /** @description The launch's owner. */
+            reviewer: string | null;
+        };
         ProjectLock: {
             /** @description True when the project's requirements are published. Its transcripts */
             locked: boolean;
@@ -4668,6 +4702,30 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+        };
+    };
+    getLaunchSuccess: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The success view. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchSuccess"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     getLaunch: {
