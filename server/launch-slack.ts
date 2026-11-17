@@ -5,7 +5,6 @@
 // (no token) or a team having no channel is not an error: nothing is posted. REMINDERS_ONLY_FOR limits email to one address; it does not apply here, because a
 // channel post has no recipient, so use a channel only you are in while that limit is set.
 import { baseUrlFor } from './workspace-urls.js'
-import { answerLabel } from '../shared/launch.mjs'
 import type { Db, Env, Queryable } from './db.js'
 import { slackProblem, slackText, SlackError, type SlackBlocks, type SlackClient } from './slack.js'
 import { answersFor } from '../shared/launch.mjs'
@@ -107,12 +106,73 @@ export async function reply(deps: SlackDeps, workspaceId: string, launchId: stri
   }
 }
 
+/** A message that is one card with a link button: a title, a line, and where it leads. The text is the plain version notifications show. Callers escape title and line. */
+export type LinkCard = { text: string; blocks: SlackBlocks }
+export function linkCard(o: { title: string; line: string; url: string; button: string }): LinkCard {
+  return {
+    text: `${o.title}: ${o.line} <${o.url}|${o.button}>`,
+    blocks: [
+      { type: 'section', text: { type: 'mrkdwn', text: `*${o.title}*\n${o.line}` } },
+      { type: 'actions', block_id: 'open', elements: [{ type: 'button', action_id: 'open', style: 'primary', text: { type: 'plain_text', text: o.button }, url: o.url }] },
+    ],
+  }
+}
+
+// Slack's answers that mean the message we kept is gone (deleted, or too old to change): a new one is posted in its place. Anything else (a rate limit) leaves it alone.
+const GONE = new Set(['message_not_found', 'cant_update_message', 'edit_window_closed'])
+
+/**
+ * One message that is kept up to date instead of repeated: the storyboard, the requirements, the running status. The first call posts it in the thread; every
+ * later call edits that same message (no new notification, no pile of old links). If the message has been deleted in Slack it is posted again. Never throws.
+ */
+export async function upsertMessage(deps: SlackDeps, workspaceId: string, launchId: string, kind: string, key: string, card: LinkCard): Promise<'posted' | 'updated' | 'off' | 'failed'> {
+  const { db, slack } = deps
+  try {
+    if (!slack?.live) return 'off'
+    let t = await targetOf(db, workspaceId, launchId)
+    if (!t) return 'off'
+    if (!t.ts) {
+      await startThread(deps, workspaceId, launchId)
+      t = await targetOf(db, workspaceId, launchId)
+      if (!t?.ts) return 'off'
+    }
+    const row = (await db.query(`select id, ts, status from delivery.launch_slack_posts where launch_id = $1 and dedupe_key = $2`, [launchId, key])).rows[0]
+    let id: string | null
+    if (row?.status === 'sent' && row.ts) {
+      try {
+        await slack.updateMessage(t.channelId!, row.ts, card.text, card.blocks)
+        return 'updated'
+      } catch (err) {
+        if (!(err instanceof SlackError && GONE.has(err.code))) {
+          console.error('launch slack update failed', failure(err))
+          return 'failed'
+        }
+      }
+      await db.query(`update delivery.launch_slack_posts set status = 'pending', error = null, ts = null, created_at = now() where id = $1`, [row.id])
+      id = row.id as string
+    } else {
+      id = await claim(db, launchId, kind, key)
+    }
+    if (!id) return 'off'
+    try {
+      const posted = await slack.post(t.channelId!, card.text, t.ts!, card.blocks)
+      await db.query(`update delivery.launch_slack_posts set status = 'sent', ts = $2 where id = $1`, [id, posted.ts])
+      return 'posted'
+    } catch (err) {
+      console.error('launch slack message failed', err instanceof Error ? err.name : 'error', failure(err))
+      await db.query(`update delivery.launch_slack_posts set status = 'failed', error = $2 where id = $1`, [id, failure(err).slice(0, 500)])
+      return 'failed'
+    }
+  } catch (err) {
+    console.error('launch slack failed', failure(err))
+    return 'failed'
+  }
+}
+
 const reason = (why: string) => (why ? `\n> ${slackText(why).replace(/\n+/g, ' ')}` : '')
 
 export const slackLines = {
-  requested: (people: { name: string; steps: string[] }[]) => `:envelope: Answers asked of ${people.map((p) => `${slackText(p.name)} (${slackText(p.steps.join(', '))})`).join('; ')}. Each step has a card below to answer here.`,
-  answered: (step: string, answer: string, by: string, why: string) => `:white_check_mark: *${slackText(step)}*: ${slackText(answerLabel(answer).toLowerCase())}, by ${slackText(by)}.${reason(why)}`,
-  decided: (answer: string, by: string, why: string) => `:rocket: *Final decision: ${slackText(answerLabel(answer).toLowerCase())}*, recorded by ${slackText(by)}.${reason(why)}`,
+  decided: (headline: string, by: string, why: string, url: string | null) => `:rocket: *${slackText(headline)}*, recorded by ${slackText(by)}.${reason(why)}${url ? `\n<${url}|See the record in Signal Flow>` : ''}`,
   reopened: (step: string) => `:arrows_counterclockwise: The brief changed after *${slackText(step)}* was answered. Its ${T.approver} is asked to confirm it.`,
 }
 

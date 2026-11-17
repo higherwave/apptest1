@@ -18,6 +18,7 @@ const headers = { authorization: 'Bearer s3cret', 'content-type': 'application/j
 type Posted = { channel: string; text: string; threadTs?: string; blocks?: unknown; ts: string }
 function recordingSlack(opts: { live?: boolean } = {}) {
   const posts: Posted[] = []
+  const updates: { channel: string; ts: string; text: string; blocks?: unknown }[] = []
   const state = { failNext: 0, n: 0 }
   const slack: SlackClient = {
     live: opts.live ?? true,
@@ -34,14 +35,16 @@ function recordingSlack(opts: { live?: boolean } = {}) {
       posts.push({ channel, text, threadTs, blocks, ts })
       return { channel, ts }
     },
-    async updateMessage() {},
+    async updateMessage(channel, ts, text, blocks) {
+      updates.push({ channel, ts, text, blocks })
+    },
     async openView() {},
     async respond() {},
     async permalink(channel, ts) {
       return `https://example-workspace.slack.test/archives/${channel}/p${ts.replace('.', '')}`
     },
   }
-  return { slack, posts, state }
+  return { slack, posts, updates, state }
 }
 
 async function fixture(opts: { live?: boolean } = {}) {
@@ -102,7 +105,7 @@ test('a launch in a team with no channel posts nothing, and says so; once the te
 })
 
 test('a launch made after the team has a channel opens its thread at once; what happens next is replied in that thread, each event once, and user text is escaped', async () => {
-  const { call, alex, owner, project, posts, setChannel, reviewer } = await fixture()
+  const { call, alex, owner, project, posts, updates, setChannel, reviewer } = await fixture()
   await setChannel('anchor-cx-launches')
   await reviewer('alex', ['legal'])
   await reviewer('david', ['product_leadership', 'final_decision'])
@@ -110,19 +113,17 @@ test('a launch made after the team has a channel opens its thread at once; what 
   assert.equal(posts.length, 1, 'the thread is open as soon as the launch exists')
   const root = posts[0].ts
   await call(alex, 'POST', `/launches/${launch.id}/request`)
-  assert.match(posts[1].text, /Answers asked of/)
-  assert.equal(posts[1].threadTs, root, 'a reply, in the launch’s thread')
+  assert.match(posts[1].text, /Where it stands: 0 of \d steps answered/)
+  assert.equal(posts[1].threadTs, root, 'the running status, in the launch’s thread')
   const afterAsk = posts.length
   await call(alex, 'POST', `/launches/${launch.id}/request`)
   assert.equal(posts.length, afterAsk, 'asking again for the same brief posts nothing more')
   await call(alex, 'PUT', `/launches/${launch.id}/steps/legal`, { answer: 'changes_needed', rationale: 'Fix the <!channel> consent & wording.' })
-  const answered = posts.find((p) => /\*Legal\*: changes needed/.test(p.text) && !p.blocks)!
-  assert.equal(answered.threadTs, root)
-  assert.match(answered.text, /\*Legal\*: changes needed, by Alex Rivera\./)
-  assert.ok(answered.text.includes('Fix the &lt;!channel&gt; consent &amp; wording.'), 'a reason cannot mention anyone or add a link')
-  assert.ok(!answered.text.includes('<!channel>'))
+  assert.equal(posts.length, afterAsk, 'an answer is not a post of its own: it edits the status message')
+  assert.ok(updates.some((u) => /changes needed: Legal/.test(u.text)), 'the status says Legal wants changes')
+  assert.ok(!JSON.stringify(updates).includes('<!channel>'), 'a reason is never put in the thread')
   await call(owner, 'PUT', `/launches/${launch.id}/steps/final_decision`, { answer: 'no_go', rationale: 'Not yet.' })
-  assert.ok(posts.some((p) => /\*Final decision: no-go\*, recorded by David Garrett\./.test(p.text)))
+  assert.ok(posts.some((p) => /\*Not signed off\*, recorded by David Garrett\./.test(p.text) && p.text.includes('See the record in Signal Flow')))
   // A change to the brief reopens the answers given (Legal and the final decision): one reply each, however many times the sweep runs.
   await call(alex, 'PATCH', `/launches/${launch.id}`, { briefNotes: 'The consent flow changed.' })
   const reopened = posts.filter((p) => /brief changed/.test(p.text))

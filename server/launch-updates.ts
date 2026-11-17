@@ -8,8 +8,8 @@ import { baseUrlFor } from './workspace-urls.js'
 import type { RequestContext } from './context.js'
 import type { Db, Env, Queryable } from './db.js'
 import { createLaunch, LaunchExists, launchForSystem, NoThemes, type Person } from './launches.js'
-import { deliver, type Launch } from './launch-notices.js'
-import { reply, startThread } from './launch-slack.js'
+import { deliver, refreshStatus, requestAnswers, type Launch } from './launch-notices.js'
+import { linkCard, startThread, upsertMessage, type LinkCard } from './launch-slack.js'
 import type { Mailer } from './mailer.js'
 import { slackText, type SlackClient } from './slack.js'
 import { T } from '../shared/terms.mjs'
@@ -71,12 +71,18 @@ function compose(name: string, m: Message) {
   return { subject: m.subject, text, html }
 }
 
-async function tell(deps: UpdateDeps, launch: Launch, o: { kind: string; key: string; to: Person[]; message: Message; slack: { key: string; text: string } }): Promise<void> {
+async function tell(deps: UpdateDeps, launch: Launch, o: { kind: string; key: string; to: Person[]; message: Message; card: LinkCard }): Promise<void> {
   for (const person of o.to) {
     await deliver(deps, launch, { to: person, kind: o.kind, key: o.key, payload: { updateKey: o.key }, build: () => compose(person.name, o.message) })
   }
-  await reply({ db: deps.db, env: deps.env, slack: deps.slack }, launch.workspaceId, launch.id, o.kind.replace('launch.', ''), o.slack.key, o.slack.text)
+  await postDocument(deps, launch, o.kind.replace('launch.', ''), o.card)
 }
+
+/** The document's one message in the thread: posted the first time, then edited in place (a rewritten storyboard does not add a message or a notification). */
+const postDocument = (deps: UpdateDeps, launch: Launch, kind: 'storyboard' | 'requirements' | string, card: LinkCard) =>
+  upsertMessage({ db: deps.db, env: deps.env, slack: deps.slack }, launch.workspaceId, launch.id, `doc:${kind}`, `doc:${kind}`, card)
+
+const dateText = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
 
 const threadOf = async (db: Queryable, launchId: string) => ((await db.query(`select slack_permalink from delivery.launches where id = $1`, [launchId])).rows[0]?.slack_permalink as string | null) ?? null
 
@@ -98,6 +104,8 @@ export async function afterStoryboard(deps: UpdateDeps, ctx: RequestContext, pro
     const base = await baseUrlFor(deps.db, deps.env, ctx.workspaceId)
     const link = documentUrl(base, launchId, 'storyboard')
     const threadUrl = await threadOf(deps.db, launchId)
+    const count = ((await deps.db.query(`select count(*)::int n from research.transcripts where project_id = $1`, [projectId])).rows[0]?.n as number) ?? 0
+    const sources = count > 0 ? `${count} ${count === 1 ? 'transcript' : 'transcripts'}` : ''
     const lines = [
       before ? `The storyboard for ${launch.name} was updated after the research changed.` : `The research on ${launch.name} now has a storyboard: the problem, what people said, and the directions recommended. The solutions and trade-offs are best guesses for the team to react to.`,
       'For your awareness: there is nothing to answer yet.',
@@ -108,17 +116,23 @@ export async function afterStoryboard(deps: UpdateDeps, ctx: RequestContext, pro
       key: `storyboard:${at}`,
       to: await recipients(deps.db, launch, true),
       message: { subject: `Signal Flow: ${before ? 'the storyboard was updated' : 'the storyboard is ready'} for ${launch.name}`, lines, documentLabel: 'Storyboard (PDF)', documentLink: link, launchLink: launchUrl(base, launchId), threadUrl },
-      slack: {
-        key: `storyboard:${at}`,
-        text: `:newspaper: ${before ? 'The storyboard was updated' : 'The storyboard is ready'}: <${link}|Storyboard (PDF)>. For your awareness, nothing to answer yet.\nWhere this release stands: ${slackText(stageLine('storyboard'))}. ${T.Approvals} open once the requirements are published. Questions or concerns? Reply here.`,
-      },
+      card: linkCard({
+        title: ':newspaper: Storyboard',
+        line: before ? `Updated ${dateText(at)}${sources ? `, from ${sources}` : ''}. Nothing to answer yet.` : `What the research found and the directions recommended${sources ? `, from ${sources}` : ''}. Nothing to answer yet.`,
+        url: link,
+        button: 'Open the storyboard',
+      }),
     })
   } catch (err) {
     console.error('launch update (storyboard) failed', err instanceof Error ? err.message : err)
   }
 }
 
-/** The requirements were published. Tells every active approver (external approvers too: the requirements are theirs to read). Never throws. */
+/**
+ * The requirements were published. Their one message in the Slack thread is posted (or edited, when they were published again), and the first time they are
+ * published the answers are asked for, so nobody has to press Ask: each approver is emailed what is wanted of them and the thread's status message starts.
+ * A later publish only edits the message; answers the new brief reopens are asked again by the sweep. Never throws.
+ */
 export async function afterRequirements(deps: UpdateDeps, ctx: RequestContext, projectId: string): Promise<void> {
   try {
     const published = (await deps.db.query(`select published_at from delivery.specs where project_id = $1 and status = 'published' order by published_at desc limit 1`, [projectId])).rows[0]
@@ -128,25 +142,17 @@ export async function afterRequirements(deps: UpdateDeps, ctx: RequestContext, p
     const found = await launchForSystem(deps.db, ctx.workspaceId, launchId)
     if (!found) return
     const launch: Launch = { ...found, workspaceId: ctx.workspaceId }
-    const at = new Date(published.published_at).toISOString()
     const base = await baseUrlFor(deps.db, deps.env, ctx.workspaceId)
     const link = documentUrl(base, launchId, 'requirements')
-    const threadUrl = await threadOf(deps.db, launchId)
-    const lines = [
-      `The requirements for ${launch.name} are published: the brief, and what the team will build.`,
-      'For your awareness: there is nothing to answer yet. When the launch is ready for approval, you will be asked for your answer.',
-      `Where this release stands: ${stageLine('requirements')}.`,
-    ]
-    await tell(deps, launch, {
-      kind: 'launch.requirements',
-      key: `requirements:${at}`,
-      to: await recipients(deps.db, launch, false),
-      message: { subject: `Signal Flow: the requirements are published for ${launch.name}`, lines, documentLabel: 'Requirements (PDF)', documentLink: link, launchLink: launchUrl(base, launchId), threadUrl },
-      slack: {
-        key: `requirements:${at}`,
-        text: `:memo: The requirements are published: <${link}|Requirements (PDF)>. For your awareness, nothing to answer yet.\nWhere this release stands: ${slackText(stageLine('requirements'))}. Questions or concerns? Reply here.`,
-      },
-    })
+    const wanted = launch.steps.filter((s) => s.used && (s.state === 'waiting' || s.state === 'reopened') && s.reviewers.active.length > 0).map((s) => s.label)
+    await postDocument(deps, launch, 'requirements', linkCard({
+      title: ':memo: Requirements published',
+      line: launch.stage === 'approval' ? `Updated ${dateText(new Date(published.published_at).toISOString())}.` : wanted.length ? `Needs an answer from: ${slackText(wanted.join(', '))}.` : 'Nothing to answer yet.',
+      url: link,
+      button: 'Open the requirements',
+    }))
+    if (launch.stage !== 'approval') await requestAnswers({ db: deps.db, env: deps.env, mailer: deps.mailer, slack: deps.slack }, ctx.workspaceId, launchId)
+    else await refreshStatus({ db: deps.db, env: deps.env, mailer: deps.mailer, slack: deps.slack }, ctx.workspaceId, launch)
   } catch (err) {
     console.error('launch update (requirements) failed', err instanceof Error ? err.message : err)
   }

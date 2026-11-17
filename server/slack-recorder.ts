@@ -10,7 +10,7 @@ export type Recorded = {
 
 export function recordingSlack(opts: { live?: boolean } = {}) {
   const rec: Recorded = { posts: [], updates: [], views: [], responses: [] }
-  const state = { failNext: 0, n: 0, failViews: false }
+  const state = { failNext: 0, n: 0, failViews: false, updateError: null as string | null }
   const slack: SlackClient = {
     live: opts.live ?? true,
     async channelId(name) {
@@ -27,6 +27,7 @@ export function recordingSlack(opts: { live?: boolean } = {}) {
       return { channel, ts }
     },
     async updateMessage(channel, ts, text, blocks) {
+      if (state.updateError) throw new SlackError(state.updateError)
       rec.updates.push({ channel, ts, text, blocks })
     },
     async openView(triggerId, view) {

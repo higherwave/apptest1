@@ -81,9 +81,12 @@ test('an answer is told to the launch owner; the final decision to the owner and
   assert.match(mailer.sent[0].text, /Why: The press page is not ready\./)
   mailer.sent.length = 0
   await call(david, 'PUT', `/launches/${launch.id}/steps/final_decision`, { answer: 'go_with_conditions', rationale: 'Marketing follows.' })
-  assert.deepEqual(mailer.sent.map((m) => m.to).sort(), ['alex@acme-research.com', 'sam@acme-research.com'])
-  assert.ok(mailer.sent.every((m) => m.subject === 'Signal Flow: Spring release is go with conditions'))
-  assert.match(mailer.sent[0].text, /recorded by David Garrett/)
+  const told = mailer.sent.map((m) => m.to)
+  assert.ok(told.includes('alex@acme-research.com') && told.includes('sam@acme-research.com'), 'the owner and the team')
+  assert.ok(!told.includes('david@acme-research.com'), 'not the person who decided')
+  assert.ok(mailer.sent.every((m) => m.subject === 'Signal Flow: Spring release: signed off with 1 condition'), 'says Signed off with N conditions, nothing more')
+  assert.match(mailer.sent[0].text, /Recorded by David Garrett/)
+  assert.ok(mailer.sent[0].text.includes(`/launches/${launch.id}`), 'a link back to the launch for the record')
 })
 
 test('a change to the brief notes asks the reviewers to confirm at once, once', async () => {

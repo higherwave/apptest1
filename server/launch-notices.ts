@@ -15,13 +15,52 @@ import type { Db, Env } from './db.js'
 import { allLaunchIds, launchForSystem, type LaunchDetail, type LaunchStep, type Person } from './launches.js'
 import type { Mailer } from './mailer.js'
 import { remindersOnlyFor } from './notifications.js'
-import { postApprovalCards, reply, settleCards, slackLines } from './launch-slack.js'
+import { linkCard, reply, settleCards, slackLines, upsertMessage } from './launch-slack.js'
 import { slackText, type SlackClient } from './slack.js'
 import { T } from '../shared/terms.mjs'
 
 export type Deps = { db: Db; env: Env; mailer: Mailer; slack?: SlackClient; now?: Date; /** The Slack client of one workspace, for a sweep across all of them. */ slackFor?: (workspaceId: string) => Promise<SlackClient | undefined> }
 const slackOf = (d: Deps) => ({ db: d.db, env: d.env, slack: d.slack })
 export type Launch = LaunchDetail & { createdBy: Person | null; workspaceId: string }
+
+const DONE = ['ready', 'ready_with_conditions', 'not_applicable']
+/** The steps before the final decision that the team uses. */
+const gatesOf = (l: LaunchDetail) => l.steps.filter((s) => s.used && s.step !== 'final_decision')
+/** Every step before the final decision is answered with a go, and the final decision is still open: the moment for sign-off. */
+export const readyForSignoff = (l: LaunchDetail) => {
+  const final = l.steps.find((s) => s.step === 'final_decision')
+  return !!final?.used && (final.state === 'waiting' || final.state === 'reopened') && gatesOf(l).every((s) => DONE.includes(s.state))
+}
+/** How many conditions come with a sign-off: each step answered "ready with conditions", plus the final decision's own when it is "go with conditions". */
+export const conditionsOf = (l: LaunchDetail) => gatesOf(l).filter((s) => s.state === 'ready_with_conditions').length + (l.summary.state === 'go_with_conditions' ? 1 : 0)
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+/** The headline of the final decision, in words: Signed off, Signed off with 2 conditions, or Not signed off. */
+export function signoffHeadline(l: LaunchDetail): string {
+  if (l.summary.state === 'no_go') return 'Not signed off'
+  const n = conditionsOf(l)
+  return n > 0 ? `Signed off with ${plural(n, 'condition', 'conditions')}` : 'Signed off'
+}
+
+/** Where it stands, as one line for the thread's running status message. */
+function standingLine(l: LaunchDetail): string {
+  const gates = gatesOf(l)
+  const answered = gates.filter((s) => DONE.includes(s.state)).length
+  const final = l.summary.state
+  if (final === 'go' || final === 'go_with_conditions' || final === 'no_go') return signoffHeadline(l)
+  if (readyForSignoff(l)) return `All ${gates.length} steps are answered. Ready for the final decision.`
+  const waiting = gates.filter((s) => ['waiting', 'reopened', 'missing'].includes(s.state)).map((s) => s.label)
+  const changes = gates.filter((s) => s.state === 'changes_needed').map((s) => s.label)
+  return [`${answered} of ${gates.length} steps answered`, waiting.length ? `waiting on ${waiting.join(', ')}` : '', changes.length ? `changes needed: ${changes.join(', ')}` : ''].filter(Boolean).join(' · ')
+}
+
+/** The one running status message in the launch's thread, edited as answers come in. Never throws. */
+export async function refreshStatus(deps: Deps, workspaceId: string, launch: Launch): Promise<void> {
+  if (!deps.slack?.live) return
+  const base = await baseUrlFor(deps.db, deps.env, workspaceId)
+  if (!base) return
+  const card = linkCard({ title: ':bar_chart: Where it stands', line: slackText(standingLine(launch)), url: `${base}/launches/${launch.id}`, button: 'Open the launch' })
+  await upsertMessage(slackOf(deps), workspaceId, launch.id, 'status', 'status', card)
+}
 export type Outcome = 'sent' | 'held' | 'failed' | 'duplicate'
 
 export const ESCALATE_ALTERNATE_DAYS = 3
@@ -164,10 +203,9 @@ export async function requestAnswers(deps: Deps, workspaceId: string, launchId: 
     else if (outcome === 'held') result.held.push(entry)
     else if (outcome === 'sent') result.asked.push(entry)
   }
-  const told = [...result.asked, ...result.held]
-  if (told.length) await reply(slackOf(deps), workspaceId, launchId, 'requested', `requested:${launch.briefAt}:${told.flatMap((t) => t.steps).sort().join('+')}`, slackLines.requested(told))
-  // The same ask, as a card with buttons in the Slack thread, for every step that is waiting and has someone to answer it (once per step and brief version).
-  await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, wanted.filter((s) => s.reviewers.active.length > 0).map((s) => ({ step: s.step, label: s.label, waitingFor: s.reviewers.active.map((p) => p.name) })))
+  // In Slack the ask is the running status message (one message, edited), not a post per person and a card per step.
+  const fresh = await load(deps, workspaceId, launchId)
+  if (fresh) await refreshStatus(deps, workspaceId, fresh)
   return result
 }
 
@@ -177,15 +215,21 @@ export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: 
   const answered = launch?.steps.find((s) => s.step === step)
   if (!launch || !answered?.answer) return
   const answer = answered.answer
-  await settleCards(slackOf(deps), launchId, step, `:white_check_mark: *${answered.label}*: ${answerLabel(answer.answer).toLowerCase()}, by ${slackText(answer.by?.name ?? 'someone')}.`)
-  await reply(
-    slackOf(deps), workspaceId, launchId, step === 'final_decision' ? 'decided' : 'answered', `answered:${answer.id}`,
-    step === 'final_decision' ? slackLines.decided(answer.answer, answer.by?.name ?? 'someone', answer.rationale) : slackLines.answered(answered.label, answer.answer, answer.by?.name ?? 'someone', answer.rationale),
-  )
+  await settleCards(slackOf(deps), launchId, step, `:white_check_mark: *${answered.label}*: ${answerLabel(answer.answer).toLowerCase()}, by ${slackText(answer.by?.name ?? 'someone')}.`) // cards posted before answers moved to the app
+  const base = await baseUrlFor(deps.db, deps.env, workspaceId)
+  const record = base ? `${base}/launches/${launchId}` : null
+  if (step === 'final_decision') await reply(slackOf(deps), workspaceId, launchId, 'decided', `answered:${answer.id}`, slackLines.decided(signoffHeadline(launch), answer.by?.name ?? 'someone', answer.rationale, record))
+  await refreshStatus(deps, workspaceId, launch)
   if (step === 'final_decision') {
+    // The sign-off is told to the whole team (not only the approvers), with a link back to the launch for the record.
     const people = new Map<string, Person>()
     for (const s of launch.steps.filter((x) => x.used && x.step !== 'final_decision')) for (const p of s.reviewers.active) people.set(p.userId, p)
     if (launch.createdBy) people.set(launch.createdBy.userId, launch.createdBy)
+    if (launch.teamId) {
+      const team = await deps.db.query(`select u.id, u.display_name, u.email from core.team_memberships tm join core.users u on u.id = tm.user_id where tm.team_id = $1`, [launch.teamId])
+      for (const r of team.rows) people.set(r.id as string, { userId: r.id as string, name: r.display_name as string, email: r.email as string })
+    }
+    const headline = signoffHeadline(launch)
     for (const p of people.values()) {
       if (p.userId === byUserId) continue
       await deliver(deps, launch, {
@@ -196,8 +240,8 @@ export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: 
         build: (link, allReviews) =>
           compose({
             name: p.name,
-            subject: `Signal Flow: ${launch.name} is ${answerLabel(answer.answer).toLowerCase()}`,
-            lines: [`The final decision on ${launch.name} is ${answerLabel(answer.answer).toLowerCase()}, recorded by ${answer.by?.name ?? 'someone'}.`, ...(answer.rationale ? [`Why: ${answer.rationale}`] : [])],
+            subject: `Signal Flow: ${launch.name}: ${headline.toLowerCase()}`,
+            lines: [`${headline}: ${launch.name}.`, `Recorded by ${answer.by?.name ?? 'someone'}.`, ...(answer.rationale ? [`Why: ${answer.rationale}`] : [])],
             link,
             linkText: 'See the record',
             allReviews,
@@ -205,6 +249,27 @@ export async function noticeAnswered(deps: Deps, workspaceId: string, launchId: 
       })
     }
     return
+  }
+  // Every step before the final decision is answered with a go: the final approver is told it is theirs, once for this version of the brief.
+  if (readyForSignoff(launch)) {
+    const final = launch.steps.find((x) => x.step === 'final_decision')!
+    for (const p of final.reviewers.active) {
+      await deliver(deps, launch, {
+        to: p,
+        kind: 'launch.ready_for_signoff',
+        key: `signoff:${launch.id}:${launch.briefAt}`,
+        payload: { step: 'final_decision', briefAt: launch.briefAt },
+        build: (link, allReviews) =>
+          compose({
+            name: p.name,
+            subject: `Signal Flow: ${launch.name} is ready for your sign-off`,
+            lines: [`Every step on ${launch.name} has been answered${conditionsOf(launch) > 0 ? `, with ${plural(conditionsOf(launch), 'condition', 'conditions')}` : ''}. The final decision is yours.`],
+            link,
+            linkText: 'Open the launch',
+            allReviews,
+          }),
+      })
+    }
   }
   if (launch.createdBy && launch.createdBy.userId !== byUserId) {
     await deliver(deps, launch, {
@@ -254,7 +319,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
   for (const s of launch.steps.filter((x) => x.used)) {
     if (s.state === 'reopened') {
       await reply(slackOf(deps), workspaceId, launchId, 'reopened', `reopened:${s.step}:${launch.briefAt}`, slackLines.reopened(s.label))
-      if (s.reviewers.active.length) await postApprovalCards(slackOf(deps), workspaceId, launchId, launch.briefAt, [{ step: s.step, label: s.label, waitingFor: s.reviewers.active.map((p) => p.name) }])
+      await refreshStatus(deps, workspaceId, launch)
       for (const p of s.reviewers.active) {
         tally(result, await deliver(deps, launch, {
           to: p,

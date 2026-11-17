@@ -7,6 +7,7 @@ import { createApp } from './app.js'
 import { recordingMailer } from './mailer.js'
 import { recordingSlack } from './slack-recorder.js'
 import { createDemoDatabase, setApprovers } from './test-utils.js'
+import { postApprovalCards } from './launch-slack.js'
 import { T } from '../shared/terms.mjs'
 
 declare global {
@@ -107,23 +108,27 @@ test('connecting: a one-time code from Signal Flow, entered in Slack, links that
   assert.ok(rows.every((r) => !made.code.includes(r.code_hash) && r.code_hash.length === 64))
 })
 
-test('asking for answers posts a card with a button for each answer under the launch’s thread, for each waiting step that has a reviewer', async () => {
+test('asking for answers posts one running status message in the thread, edited as answers come in, and no card or post per step', async () => {
   const f = await fixture()
   await f.call(f.alex, 'POST', `/launches/${f.launch.id}/request`)
-  const cards = f.rec.posts.filter((p) => p.blocks)
-  assert.deepEqual(cards.map((c) => c.blocks![1].block_id).sort(), ['card:final_decision', 'card:legal', 'card:marketing', 'card:product_leadership'])
-  const legal = cards.find((c) => c.blocks![1].block_id === 'card:legal')!
-  assert.ok(legal.threadTs, 'in the thread')
-  assert.match(legal.text, /\*Legal\* is waiting for Alex Rivera/)
-  const buttons = (legal.blocks![1].elements as any[]).map((e) => [e.action_id, e.text.text])
-  assert.deepEqual(buttons, [['answer:ready', 'Ready'], ['answer:ready_with_conditions', 'Ready with conditions'], ['answer:changes_needed', 'Changes needed'], ['answer:not_applicable', 'Not applicable']])
-  assert.equal((legal.blocks![1].elements as any[])[0].value, `${f.launch.id}|legal`)
-  const final = cards.find((c) => c.blocks![1].block_id === 'card:final_decision')!
-  assert.deepEqual((final.blocks![1].elements as any[]).map((e) => e.action_id), ['answer:go', 'answer:go_with_conditions', 'answer:no_go'])
+  const posted = f.rec.posts.filter((p) => p.threadTs)
+  assert.equal(posted.length, 1, 'one message in the thread')
+  assert.match(posted[0].text, /Where it stands: 0 of \d steps answered/)
+  assert.ok(JSON.stringify(posted[0].blocks).includes('"url"'), 'a link button to the launch')
+  assert.ok(!JSON.stringify(posted[0].blocks).includes('answer:'), 'no answer buttons: answers are given in Signal Flow')
   const before = f.rec.posts.length
   await f.call(f.alex, 'POST', `/launches/${f.launch.id}/request`)
-  assert.equal(f.rec.posts.length, before, 'asking again for the same brief posts nothing more')
+  assert.equal(f.rec.posts.length, before, 'asking again posts nothing more')
+  await f.call(f.alex, 'PUT', `/launches/${f.launch.id}/steps/legal`, { answer: 'ready' })
+  assert.equal(f.rec.posts.length, before, 'an answer edits the status instead of posting')
+  assert.ok(f.rec.updates.some((u) => /1 of \d steps answered/.test(u.text)))
 })
+
+// Cards posted before answers moved to the app still work: the click, the form and settling the card.
+const oldCards = async (f: Awaited<ReturnType<typeof fixture>>) => {
+  const workspaceId = ((await f.pg.query<any>(`select workspace_id from delivery.launches where id = $1`, [f.launch.id])).rows[0] as { workspace_id: string }).workspace_id
+  await postApprovalCards({ db: f.db, env: f.env, slack: f.rec.slack }, workspaceId, f.launch.id, new Date().toISOString(), [{ step: 'marketing', label: 'Marketing', waitingFor: ['Sam Patel'] }])
+}
 
 test('a click: someone not connected is told how, a connected non-reviewer is refused politely naming who can, the reviewer gets the form', async () => {
   const f = await fixture()
@@ -154,9 +159,10 @@ test('a click: someone not connected is told how, a connected non-reviewer is re
   assert.equal(f.rec.views[1].view.blocks[1].optional, true, 'a plain ready does not')
 })
 
-test('submitting the form records the answer as the member, needs a reason where the answer does, updates the card, tells the thread and emails the owner', async () => {
+test('submitting the form records the answer as the member, needs a reason where the answer does, updates the card, the status and emails the owner', async () => {
   const f = await fixture()
   await f.call(f.alex, 'POST', `/launches/${f.launch.id}/request`)
+  await oldCards(f)
   await f.connect('sam', 'U_SAM')
   const submit = (user: string, step: string, answer: string, why: string) =>
     f.interact({ type: 'view_submission', user: { id: user, team_id: TEAM }, team: { id: TEAM }, view: { callback_id: 'answer', private_metadata: JSON.stringify({ launchId: f.launch.id, step, answer }), state: { values: { why: { why: { value: why } } } } } })
@@ -173,7 +179,7 @@ test('submitting the form records the answer as the member, needs a reason where
   assert.equal(m.answer.by.name, 'Sam Patel')
   assert.equal(m.answer.rationale, 'The press page is not ready.')
   assert.ok(f.rec.updates.some((u) => /\*Marketing\*: changes needed, by Sam Patel\./.test(u.text) && !JSON.stringify(u.blocks).includes('"actions"')), 'the card stops offering buttons')
-  assert.ok(f.rec.posts.some((p) => /\*Marketing\*: changes needed, by Sam Patel\./.test(p.text) && p.threadTs && !p.blocks), 'and the thread hears it')
+  assert.ok(f.rec.updates.some((u) => /Where it stands/.test(u.text) && /changes needed: Marketing/.test(u.text)), 'and the thread’s status message says it')
   assert.ok(f.mailer.sent.some((m) => m.to === 'alex@acme-research.com' && /Marketing/.test(m.subject)), 'the owner is emailed, as for an answer given in Signal Flow')
   // Someone who may not answer cannot, even with a form in hand.
   const bad = await submit('U_SAM', 'legal', 'ready', '')

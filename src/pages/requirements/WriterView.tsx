@@ -5,6 +5,7 @@ import type { BoardSyncPlan, SpecDetail, SpecStep } from '../../api/client'
 import { CATEGORY_LABEL } from '../themes/themeEdits'
 import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
+import { T } from '../../../shared/terms.mjs'
 import styles from './WriterView.module.scss'
 
 /** What the page is busy with, step by step: approving a step, then (once that has gone through) writing the next one; or a redo. */
@@ -38,6 +39,10 @@ export type WriterViewProps = {
   onSubmitRedo: () => void
   onCancelRedo: () => void
   onPublish: () => void
+  /** Set while the owner is asked to confirm: who will be asked for an answer when the requirements are published. Null when the question is not showing. */
+  publishAsk: { name: string; steps: string }[] | null
+  onCancelPublish: () => void
+  onConfirmPublish: () => void
   onViewStories: () => void
   onViewDesign: () => void
   onBack: () => void
@@ -323,6 +328,25 @@ export function WriterView(p: WriterViewProps) {
       >
         <p className={styles.para}>Tell the agent what to change about this step.</p>
         <TextArea id="redo-instructions" labelText="Instructions" rows={4} placeholder="e.g. Focus on the new-patient flow" value={p.redoText} onChange={(e) => p.onRedoText(e.target.value)} />
+      </Modal>
+      <Modal
+        open={p.publishAsk !== null}
+        size="sm"
+        modalHeading="Publish and ask for answers?"
+        primaryButtonText="Publish and ask"
+        secondaryButtonText="Cancel"
+        primaryButtonDisabled={p.busy}
+        onRequestClose={p.onCancelPublish}
+        onRequestSubmit={p.onConfirmPublish}
+      >
+        <p className={styles.para}>Publishing makes the requirements final for the launch and emails each {T.approver} what is wanted of them. The launch&apos;s Slack thread gets one message with a link.</p>
+        <ul className={styles.askList}>
+          {(p.publishAsk ?? []).map((a) => (
+            <li key={a.name}>
+              <strong>{a.name}</strong>: {a.steps}
+            </li>
+          ))}
+        </ul>
       </Modal>
       <Modal
         open={p.boardPlan !== null}

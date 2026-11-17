@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, approveStep, createSpec, deleteSpec, draftWaitingStep, editStep, friendlyMessage, publishSpec, redoStep, setSpecTheme, syncBoard, type BoardSyncPlan, type SpecDetail, type SpecStep } from '../../api/client'
-import { useMe, useSpec } from '../../api/hooks'
+import { useMe, useProjectLaunch, useSpec } from '../../api/hooks'
 import { WriterView, type StepWork } from './WriterView'
 
 // Container: runs the review flow. Each action is sent with the version of the step (or the document) the person is
@@ -23,6 +23,7 @@ export function WriterPage() {
   const [board, setBoard] = useState<{ plan: BoardSyncPlan; error?: string } | null>(null)
   const [startOver, setStartOver] = useState<{ error?: string } | null>(null)
   const [readyCue, setReadyCue] = useState(0)
+  const [confirmingPublish, setConfirmingPublish] = useState(false)
   const [work, setWork] = useState<StepWork | null>(null)
   const [stepError, setStepError] = useState<{ id: string; text: string } | null>(null)
   const [redoing, setRedoing] = useState<{ step: SpecStep; text: string } | null>(null)
@@ -79,6 +80,16 @@ export function WriterPage() {
   }
 
   const doc = spec.data
+  // Publishing the requirements also asks the approvers for their answers (the first time). Who is asked, so the owner sees it before it happens.
+  const launch = useProjectLaunch(doc && !doc.standalone ? doc.projectId : undefined).data?.launch ?? null
+  const asking: { name: string; steps: string }[] = []
+  if (launch && launch.stage !== 'approval') {
+    const byPerson = new Map<string, { name: string; steps: string[] }>()
+    for (const st of launch.steps.filter((x) => x.used && (x.state === 'waiting' || x.state === 'reopened'))) {
+      for (const person of st.reviewers.active) byPerson.set(person.userId, { name: person.name, steps: [...(byPerson.get(person.userId)?.steps ?? []), st.label] })
+    }
+    for (const entry of byPerson.values()) asking.push({ name: entry.name, steps: entry.steps.join(', ') })
+  }
   // A stand-alone document has no project of its own to go back to, so it returns to wherever the person came from.
   const back = () => navigate(-1)
 
@@ -201,7 +212,13 @@ export function WriterPage() {
         setRedoing(null) // the dialog closes at once and the step shows that it is being rewritten
         if (!(await act(() => redoStep(step.id, step.version, text.trim()), true, { kind: 'redo', id: step.id, nextId: null }))) setRedoing({ step, text })
       }}
-      onPublish={publish}
+      onPublish={() => (asking.length ? setConfirmingPublish(true) : publish())}
+      publishAsk={confirmingPublish ? asking : null}
+      onCancelPublish={() => setConfirmingPublish(false)}
+      onConfirmPublish={() => {
+        setConfirmingPublish(false)
+        void publish()
+      }}
       onViewDesign={() => doc && navigate(`/projects/${doc.projectId}/design`)}
       onViewStories={() => doc && navigate(`/projects/${doc.projectId}/stories`)}
       onBack={back}
