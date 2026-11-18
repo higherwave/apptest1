@@ -61,14 +61,14 @@ test('a category is done when its checks pass; a later one stays locked; only an
   }
   assert.equal((await put('approvals', 'done')).status, 200)
 
-  // Categories: three, each defined.
-  await f.pg.query(`update insights.feature_areas set definition = 'x' where coalesce(definition, '') = ''`)
+  // Categories: one is needed; a definition is good to have but never holds it back (the quick add and the suggestions make categories without one).
+  const ws = ((await f.pg.query<any>(`select id from core.workspaces limit 1`)).rows[0] as { id: string }).id
+  await f.pg.query(`update insights.feature_areas set definition = null`)
+  assert.equal((await (await f.call(f.owner, 'GET', '/setup')).json()).categories[2].checks[0].ok, (await f.pg.query<any>(`select count(*)::int n from insights.feature_areas`)).rows[0].n >= 1)
+  await f.pg.query(`insert into insights.feature_areas (workspace_id, name) values ($1, 'Booking and scheduling') on conflict do nothing`, [ws])
   const cats = (await (await f.call(f.owner, 'GET', '/setup')).json()).categories[2]
-  if (!cats.checks[0].ok) {
-    const ws = ((await f.pg.query<any>(`select id from core.workspaces limit 1`)).rows[0] as { id: string }).id
-    for (const n of ['One', 'Two', 'Three']) await f.pg.query(`insert into insights.feature_areas (workspace_id, name, definition) values ($1, $2, 'A part of the product')`, [ws, `Setup ${n}`])
-  }
-  assert.equal((await put('categories', 'done')).status, 200)
+  assert.deepEqual(cats.checks.map((c: any) => [c.ok, c.required]), [[true, true], [false, false]], JSON.stringify(cats.checks))
+  assert.equal((await put('categories', 'done')).status, 200, 'categories without definitions do not hold it back')
 
   // Connections are optional: skipped, even with nothing connected. The last is read and confirmed.
   // terms:ignore (the category keys are identifiers)

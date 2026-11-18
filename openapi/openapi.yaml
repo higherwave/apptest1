@@ -3595,10 +3595,11 @@ components:
                 type: array
                 items:
                   type: object
-                  required: [label, ok]
+                  required: [label, ok, required]
                   properties:
                     label: { type: string }
                     ok: { type: boolean }
+                    required: { type: boolean, description: False for a check that is shown but never holds the category back. }
         done: { type: integer }
         total: { type: integer }
         complete: { type: boolean }

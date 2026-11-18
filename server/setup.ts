@@ -15,7 +15,8 @@ export const SETUP_STEPS = [
   { key: 'guard', optional: false },
 ] as const
 export type SetupKey = (typeof SETUP_STEPS)[number]['key']
-export type SetupCheck = { label: string; ok: boolean }
+/** `required: false` is shown but never holds the category back: it is good to have, not needed to carry on. */
+export type SetupCheck = { label: string; ok: boolean; required: boolean }
 export type SetupCategory = { key: SetupKey; optional: boolean; status: 'locked' | 'current' | 'done' | 'skipped'; checks: SetupCheck[] }
 export type Setup = { categories: SetupCategory[]; done: number; total: number; complete: boolean }
 
@@ -36,27 +37,27 @@ async function checksFor(db: Queryable, workspaceId: string, key: SetupKey, jira
         [workspaceId],
       )
       return [
-        { label: 'Someone besides you has been invited or has joined', ok: people > 1 },
-        { label: 'Every team has at least one person who can edit', ok: noEditor === 0 },
+        { label: 'Someone besides you has been invited or has joined', ok: people > 1, required: true },
+        { label: 'Every team has at least one person who can edit', ok: noEditor === 0, required: true },
       ]
     }
     case 'approvals': {
       const o = await approvalsOverview(db, workspaceId)
-      return [{ label: `Every launch step in use has ${T.a('approver')}`, ok: o.gaps === 0 }]
+      return [{ label: `Every launch step in use has ${T.a('approver')}`, ok: o.gaps === 0, required: true }]
     }
     case 'categories': {
       const total = await count(db, `select count(*)::int n from insights.feature_areas where workspace_id = $1 and retired_at is null`, [workspaceId])
       const bare = await count(db, `select count(*)::int n from insights.feature_areas where workspace_id = $1 and retired_at is null and coalesce(btrim(definition), '') = ''`, [workspaceId])
       return [
-        { label: 'At least three experience categories', ok: total >= 3 },
-        { label: 'Each has a one-line definition', ok: total > 0 && bare === 0 },
+        { label: 'At least one experience category', ok: total >= 1, required: true },
+        { label: 'Each has a one-line definition, so people file things the same way', ok: total > 0 && bare === 0, required: false },
       ]
     }
     case 'connections': {
       const noChannel = await count(db, `select count(*)::int n from core.teams where workspace_id = $1 and coalesce(btrim(slack_channel), '') = ''`, [workspaceId])
       return [
-        { label: 'Each team has a Slack channel for launch threads', ok: noChannel === 0 },
-        { label: 'Jira is connected', ok: jiraConnected },
+        { label: 'Each team has a Slack channel for launch threads', ok: noChannel === 0, required: false },
+        { label: 'Jira is connected', ok: jiraConnected, required: false },
       ]
     }
     case 'guard':
@@ -87,7 +88,7 @@ export async function markSetup(db: Db, ctx: RequestContext, step: string, statu
   const now = await getSetup(db, ctx.workspaceId, jiraConnected)
   const cat = now.categories.find((c) => c.key === step)!
   if (cat.status === 'locked') throw new SetupLocked()
-  if (status === 'done' && !def.optional && !cat.checks.every((c) => c.ok)) throw new SetupNotReady()
+  if (status === 'done' && !cat.checks.every((c) => c.ok || !c.required)) throw new SetupNotReady()
   await db.transaction(async (tx) => {
     await tx.query(
       `insert into core.workspace_setup (workspace_id, step, status, updated_by) values ($1, $2, $3, $4)

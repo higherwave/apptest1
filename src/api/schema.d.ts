@@ -2788,6 +2788,8 @@ export interface components {
                 checks: {
                     label: string;
                     ok: boolean;
+                    /** @description False for a check that is shown but never holds the category back. */
+                    required: boolean;
                 }[];
             }[];
             done: number;

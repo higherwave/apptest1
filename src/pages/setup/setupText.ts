@@ -20,7 +20,7 @@ export const SETUP: Record<SetupKey, { title: string; desc: string; who: string;
     title: 'Experience categories',
     desc: 'Name the parts of your product so research findings land in the right place.',
     who: 'Owner or editor · about 5 minutes',
-    welcome: ['Categories are one shared set of words for what research is about.', 'Accept the suggestions you recognise, rename them, or add your own.', 'Give each a one-line definition so people file things the same way.'],
+    welcome: ['Categories are one shared set of words for what research is about.', 'Accept the suggestions you recognise, rename them, or add your own.', 'Give each a one-line definition when you can, so people file things the same way. It is not required to carry on.'],
   },
   connections: {
     title: 'Connections',

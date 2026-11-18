@@ -32,8 +32,8 @@ export function SetupView(p: SetupViewProps) {
   const s = p.setup
   const cat = p.open ? s.categories.find((c) => c.key === p.open) : undefined
   const meta = p.open ? SETUP[p.open] : undefined
-  const checks = cat ? (cat.key === 'guard' ? p.confirmed.map((ok, i) => ({ label: ['I have read how long things are kept', 'I know where the AI limit is', 'I understand the project lock'][i], ok })) : cat.checks) : []
-  const blocking = !!cat && !cat.optional && checks.some((c) => !c.ok)
+  const checks = cat ? (cat.key === 'guard' ? p.confirmed.map((ok, i) => ({ label: ['I have read how long things are kept', 'I know where the AI limit is', 'I understand the project lock'][i], ok, required: true })) : cat.checks) : []
+  const blocking = !!cat && checks.some((c) => c.required && !c.ok)
   const finished = cat?.status === 'done' || cat?.status === 'skipped'
   const last = p.open === ORDER[ORDER.length - 1]
 
@@ -90,7 +90,7 @@ export function SetupView(p: SetupViewProps) {
                   <>
                     <p className={styles.lead}>{cat.key === 'guard' ? 'What you have confirmed' : 'What we found in your workspace'}</p>
                     <ul className={styles.checks} data-testid="setup-checks">
-                      {checks.map((c) => <li key={c.label} data-ok={c.ok}><span>{c.label}</span><span>{c.ok ? '✓ Done' : cat.optional ? 'Not yet (optional)' : 'Not yet'}</span></li>)}
+                      {checks.map((c) => <li key={c.label} data-ok={c.ok}><span>{c.label}</span><span>{c.ok ? '✓ Done' : c.required ? 'Not yet' : 'Not yet (optional)'}</span></li>)}
                     </ul>
                     {blocking && <p className={styles.meta}>Go back to Set up and finish the items that say Not yet. This page checks again each time you open it.</p>}
                   </>
