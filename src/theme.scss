@@ -115,6 +115,43 @@
   --cds-button-tertiary-active: var(--at-surface-strong);
   --cds-button-secondary-hover: var(--at-surface-soft);
   --cds-button-secondary-active: var(--at-surface-strong);
+
+  // Tags (badges): soft tints with dark text instead of Carbon's bright fills (2026-11-18). Green is for done and worked, red for needs attention, gray for neutral,
+  // warm gray for needs and cautions, and the cool colours for kinds of thing (a source, a type). Every pair is at least 6.4:1. Text colours that are not in the
+  // palette are written as rgb() so they are not registry colours.
+  --at-tag-purple-text: rgb(75 58 143);
+  --at-tag-teal-text: rgb(19 85 89);
+  --at-tag-magenta-text: rgb(122 31 66);
+  --cds-tag-background-green: var(--at-tint-mint);
+  --cds-tag-color-green: var(--at-success);
+  --cds-tag-hover-green: var(--at-tint-mint);
+  --cds-tag-background-red: var(--at-tint-coral);
+  --cds-tag-color-red: var(--at-on-tint-coral);
+  --cds-tag-hover-red: var(--at-tint-coral);
+  --cds-tag-background-gray: var(--at-surface-strong);
+  --cds-tag-color-gray: var(--at-body);
+  --cds-tag-hover-gray: var(--at-surface-strong);
+  --cds-tag-background-cool-gray: var(--at-surface-strong);
+  --cds-tag-color-cool-gray: var(--at-body);
+  --cds-tag-hover-cool-gray: var(--at-surface-strong);
+  --cds-tag-background-warm-gray: var(--at-tint-sand);
+  --cds-tag-color-warm-gray: var(--at-on-tint-cream);
+  --cds-tag-hover-warm-gray: var(--at-tint-sand);
+  --cds-tag-background-purple: var(--at-tint-lavender);
+  --cds-tag-color-purple: var(--at-tag-purple-text);
+  --cds-tag-hover-purple: var(--at-tint-lavender);
+  --cds-tag-background-teal: var(--at-tint-sky);
+  --cds-tag-color-teal: var(--at-tag-teal-text);
+  --cds-tag-hover-teal: var(--at-tint-sky);
+  --cds-tag-background-blue: var(--at-tint-blue);
+  --cds-tag-color-blue: var(--at-info);
+  --cds-tag-hover-blue: var(--at-tint-blue);
+  --cds-tag-background-cyan: var(--at-tint-sky);
+  --cds-tag-color-cyan: var(--at-info);
+  --cds-tag-hover-cyan: var(--at-tint-sky);
+  --cds-tag-background-magenta: var(--at-tint-rose);
+  --cds-tag-color-magenta: var(--at-tag-magenta-text);
+  --cds-tag-hover-magenta: var(--at-tint-rose);
 }
 
 // -- Signal Flow additions -------------------------------------------------
@@ -256,8 +293,12 @@
 // -- Tags → badges: rounded.sm chips in the 12px meta role ---------------
 // DESIGN.md: "Don't use rounded.pill outside the pricing surface." At
 // badge height rounded.md still reads as a pill, so badges use sm.
+.cds--tag--outline:not(.cds--tag--operational):not(span):not([disabled]) {
+  box-shadow: inset 0 0 0 1px var(--at-border-strong); // the outline tag's edge: a quiet gray, not the primary colour
+}
+
 .cds--tag {
-  border-radius: var(--at-radius-sm);
+  border-radius: var(--at-radius-full); // pills, as in the success view and the Measure design
   @include tokens.role('meta');
   font-weight: 500;
 }

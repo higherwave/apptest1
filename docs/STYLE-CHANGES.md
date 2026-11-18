@@ -70,8 +70,15 @@ primary colour together, last.
 
 - Nothing queued.
 
+### 2026-11-18: Tags (badges) are soft tints
+
+- **What:** Carbon's bright tag fills are replaced by soft tints with dark text, in one place (the Carbon tag variables in `src/theme.scss`). Green (done, worked) is a mint tint with
+  dark green text, red (needs attention) a coral tint, gray a light gray, warm gray a sand tint, and the cool colours (purple, teal, blue) pale tints with dark text of the same hue.
+  Every pair is at least 6.4:1. The outline tag keeps a quiet gray edge. Tags are pills (`--at-radius-full`), matching the success view and the Measure design; the registry rule now says so.
+- **Why:** Carbon's tags were too bright and distracting; the soft palette was already used in the success view and the Measure design.
+- **Undo / adjust:** delete the `--cds-tag-*` block, or change a pair there. To go back to the small corner, set the radius in the `.cds--tag` rule to `--at-radius-sm` (and the registry rule).
+
 ## Ideas to discuss
 
-- **Badge (tag) colours** (2026-11-17): Carbon's tag colours are too bright. The soft palette used on the success view and the Measure design (blue, green, cream, coral tints with darker text) is preferred. Override the tags in one place, then check every tag in the app.
 - **Dark mode that follows the system** (2026-11-17): feasible because every colour is a token; needs the token and contrast checks to understand dark values, a Carbon audit, new primary and menu values, dark soft colours, and a screenshot pass. Suggested: a spike on a few screens first (a dark palette, following the system, about six key screens, judged visually before committing to the full pass), and no manual toggle in the first version. Rough estimate: about a day for the spike, a few days for the full pass with the tooling. **Parked for December (decided 2026-11-17).**
   What the full pass involves: the token check and contrast check (design-system repo) must accept scoped dark values and check dark pairs; audit Carbon's own variables (fields, layers, focus) in dark; new dark values for the primary and the menu (the primary is now the menu gray, so buttons and the active tab need a light fill in dark); dark versions of the status tints, tags, charts, Aurora panel and header glow; exports, PDFs, the public landing, about and privacy pages and the storyboard slides stay light unless decided otherwise; a screenshot pass of every main screen in both themes and a dark browser-test run; and from then on every new component is designed and checked in both.
