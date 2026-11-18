@@ -30,6 +30,7 @@
 }
 
 .num {
+  // not-a-heading: a large count
   @include tokens.role('title-lg');
   color: var(--at-ink);
   font-weight: 300;

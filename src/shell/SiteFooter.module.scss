@@ -30,6 +30,7 @@
 }
 
 .brand {
+  // not-a-heading: the brand name
   @include tokens.role('title-md');
   display: flex;
   align-items: center;

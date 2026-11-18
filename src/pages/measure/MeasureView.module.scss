@@ -188,6 +188,7 @@
 }
 
 .stripValue {
+  // not-a-heading: a reading
   @include tokens.role('title-md');
   margin: 0;
   color: var(--at-ink);

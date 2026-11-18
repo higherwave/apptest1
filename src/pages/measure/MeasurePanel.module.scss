@@ -81,6 +81,7 @@
 }
 
 .big {
+  // not-a-heading: a large reading
   @include tokens.role('display-sm');
   margin: 0;
   color: var(--at-ink);

@@ -17,7 +17,7 @@ primary colour together, last.
   `heading-3` a card title (h3), 16px medium; `heading-4` a smaller heading (h4), 16px in the medium weight (the paragraph size, a little heavier);
   `page-description` the line under a page title, 16px regular. Other roles: `reading-md` 14px for paragraphs; `meta` 12px; `button` 14px; `caption` 12px medium
   (kept free for the prototype screenshot); `label-md` and `body-md` unchanged; `eyebrow` (14px medium, sentence case) is the group label above a section.
-  Storyboard slides are outside it. Not yet enforced by the linter. The roles are in the registry (design-system repo), so the linter knows them.
+  Storyboard slides are outside it. Enforced by the linter (rule `heading-roles`, 2026-11-18): a heading takes `heading-1` to `heading-4`; `display-*`, `title-*` and `panel-title` are only for what is not a heading (a large number, a brand name) and need a `// not-a-heading: why` comment on or above the line, or `// not-a-heading-file: why` at the top of a file (storyboard slides). The roles are in the registry (design-system repo), so the linter knows them.
 
 ## Log
 
@@ -100,9 +100,14 @@ primary colour together, last.
 - **What:** the title region of every page (PageHero, and the bar behind the project's name) was white with a violet/blue glow and a bottom border. It is now `--at-title-wash`:
   a top-to-bottom gradient from pale slate blue (rgb 235 240 247) into the page colour, with no border, so it bleeds into the page. The glow tokens (`--at-glow-*`) are no longer used by any page.
 - **Why:** quieter than the glow, and it matches the gray primary; the header no longer reads as a separate white strip. The section switch on Insights stays white, as in the mock.
-- **To revisit:** the wash colour is not in the colour registry (written as rgb()); add it there if it stays.
+- **Registry:** the wash colour is `--at-title-wash-top` (#ebf0f7), in the colour registry (added 2026-11-18, at David's go-ahead).
 
 ## 2026-11-18: In a project, the step rail runs up flush under the app bar
 - **What:** on wide windows (1024px and up) the project's step rail starts directly under the app bar. The project bar (All projects | name | status, with the slate blue wash) stays
   at the top of the page but starts to the right of the rail instead of spanning the full width. Narrower windows keep the full-width bar and the steps strip.
 - **Why:** the rail now meets the app bar cleanly and the title region runs up against the rail.
+
+## 2026-11-18: The heading ladder is a linter rule
+- **What:** rule `heading-roles` in the design-system repo. Using a sized role (`display-*`, `title-*`, `panel-title`) in a stylesheet fails the check unless the line says `// not-a-heading: why`. Headings use `heading-1` to `heading-4`.
+- **Limit:** it cannot tell that a `label-md` is really a heading (that role is also for labels), and it checks styles, not which HTML element the class lands on. Reviewing a new heading is still on a person.
+- **Setup page title** moved from `display-md` to `heading-1` (same look).

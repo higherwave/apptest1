@@ -71,11 +71,13 @@
 .slackLogo { flex-shrink: 0; display: block; }
 
 .slackLink {
+  // not-a-heading: a link
   @include tokens.role('title-sm');
   color: var(--at-ink);
 }
 
 .slackInactive {
+  // not-a-heading: a link
   @include tokens.role('title-sm');
   color: var(--at-muted);
   cursor: default;
@@ -280,6 +282,7 @@
 }
 
 .big {
+  // not-a-heading: a large reading
   @include tokens.role('display-sm');
   margin: 0;
   color: var(--at-ink);

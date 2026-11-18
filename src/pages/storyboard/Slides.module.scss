@@ -1,3 +1,4 @@
+// not-a-heading-file: the slides can be downloaded, edited and re-themed, so they keep their own type styles outside the app's heading ladder.
 @use '../../tokens' as tokens;
 
 // The deck's slides. Each is drawn on a fixed 16:9 canvas of 60 by 33.75 rem; ScaledSlide fits that canvas to whatever width it is shown at, and the

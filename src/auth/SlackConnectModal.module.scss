@@ -20,6 +20,7 @@
 }
 
 .code {
+  // not-a-heading: a code to copy
   @include tokens.role('title-sm');
   margin: 0;
   padding: var(--at-space-md);

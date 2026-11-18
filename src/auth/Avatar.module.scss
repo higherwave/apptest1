@@ -20,6 +20,7 @@
 .large {
   inline-size: 6rem;
   block-size: 6rem;
+  // not-a-heading: initials in a circle
   @include tokens.role('title-sm');
 }
 
