@@ -136,7 +136,26 @@
 .brief { background: var(--at-tint-cream); }
 .brief[hidden],
 .document[hidden] { display: none; } // the tab that is not open
-.document { border: 1px solid var(--at-hairline); }
+.document { gap: var(--at-space-md); border: 1px solid var(--at-hairline); background: var(--at-canvas); } // the same surface as the Stories view: white, with the sections as gray blocks
+
+// A section of the document: the same block as on the Stories view.
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-surface-soft);
+}
+
+.blockHead {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.block .para { @include tokens.role('body-md'); } // the Stories view's text size
 .ready {
   background: var(--at-tint-mint);
   align-items: flex-start;
@@ -146,6 +165,12 @@
 
 .blockTitle {
   @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.sectionHeading {
+  @include tokens.role('heading-2');
   margin: 0;
   color: var(--at-ink);
 }

@@ -111,3 +111,6 @@ primary colour together, last.
 - **What:** rule `heading-roles` in the design-system repo. Using a sized role (`display-*`, `title-*`, `panel-title`) in a stylesheet fails the check unless the line says `// not-a-heading: why`. Headings use `heading-1` to `heading-4`.
 - **Limit:** it cannot tell that a `label-md` is really a heading (that role is also for labels), and it checks styles, not which HTML element the class lands on. Reviewing a new heading is still on a person.
 - **Setup page title** moved from `display-md` to `heading-1` (same look).
+
+## 2026-11-18: Requirements document looks like the Stories view
+- **What:** the "Product brief" and "Requirements document" headings on the Requirements page are h2 (heading-2). The document panel is white with each section a gray block (the Stories view's `.block` and `.blockHead` styles, copied), with body-md text.

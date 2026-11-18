@@ -282,7 +282,7 @@ export function WriterView(p: WriterViewProps) {
             </div>
           </div>
           <div id="output-panel-brief" role="tabpanel" aria-labelledby="output-tab-brief" hidden={output !== 'brief'} className={styles.brief}>
-            <h3 className={styles.blockTitle}>Product brief</h3>
+            <h2 className={styles.sectionHeading}>Product brief</h2>
             {!spec.brief.problem && <p className={styles.muted}>The brief builds as steps 1 to 3 are approved.</p>}
             {spec.brief.problem && (
               <>
@@ -320,11 +320,11 @@ export function WriterView(p: WriterViewProps) {
           </div>
 
           <div id="output-panel-document" role="tabpanel" aria-labelledby="output-tab-document" hidden={output !== 'document'} className={styles.document}>
-            <h3 className={styles.blockTitle}>Requirements document</h3>
+            <h2 className={styles.sectionHeading}>Requirements document</h2>
             {spec.document.length === 0 && <p className={styles.muted}>The requirements document builds as the steps after the brief are approved.</p>}
             {spec.document.map((b) => (
-              <div key={b.heading}>
-                <h4 className={styles.small}>{b.heading}</h4>
+              <section key={b.heading} className={styles.block} aria-label={b.heading}>
+                <h3 className={styles.blockHead}>{b.heading}</h3>
                 <ClampedBlock label={b.heading.toLowerCase()}>
                   {b.lines.map((l) => (
                     <p key={l} className={styles.para}>
@@ -332,7 +332,7 @@ export function WriterView(p: WriterViewProps) {
                     </p>
                   ))}
                 </ClampedBlock>
-              </div>
+              </section>
             ))}
           </div>
 
