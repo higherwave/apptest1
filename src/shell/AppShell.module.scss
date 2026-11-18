@@ -36,6 +36,11 @@ $column-width: 75rem; // every project step shares this width, centered
     margin-block-start: calc(#{$header-height} + #{$context-height} + var(--at-banner, 0rem));
   }
 
+  // Wide: the step rail runs up flush under the app bar and carries the project's name, so there is no project bar.
+  &[data-project='true'][data-rail='true'] {
+    margin-block-start: calc(#{$header-height} + var(--at-banner, 0rem));
+  }
+
   // Wide: the steps stand as a rail beside the page.
   &[data-rail='true'] { flex-direction: row; }
   background: var(--at-page);
@@ -309,6 +314,27 @@ $column-width: 75rem; // every project step shares this width, centered
   inline-size: 100%;
   max-inline-size: $column-width;
   margin-inline: auto;
+}
+
+// The way back and the project's name at the top of the step rail (wide windows).
+.projectHead {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-xs) var(--at-space-sm) var(--at-space-md);
+  border-block-end: 1px solid var(--at-hairline);
+
+  .back { @include tokens.role('body-md'); margin: 0; padding: 0; border-inline-end: 0; }
+
+  .projectName {
+    @include tokens.role('heading-3');
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }
 
 // The project-name bar's contents start at its left edge, over the step rail.

@@ -92,6 +92,20 @@ export function AppShell() {
   // The decision guides are another place outside the app, set the same way and shown under the gallery.
   const decisionGuides = brand.decisionGuidesUrl as string | undefined
 
+  // Wide windows: the project's name and the way back stand at the top of the step rail, which runs up flush under the app bar. Narrow ones keep the project bar.
+  const projectHead = (
+    <div className={styles.projectHead} data-context>
+      <a href="/projects" data-label="All projects" className={styles.back} onClick={go('/projects')}>
+        <ChevronLeft size={16} aria-hidden />
+        All projects
+      </a>
+      <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
+      {projectDetail.data && !creating && (
+        <StatusTag status={projectDetail.data.status} />
+      )}
+    </div>
+  )
+
   return (
     <div className={styles.shell} ref={shell}>
       <SpendBanner onHeight={onBanner} />
@@ -165,7 +179,7 @@ export function AppShell() {
         </div>
       </header>
 
-      {hasPanel && (
+      {hasPanel && !railWide && (
         <div className={styles.context} data-context>
           <div className={styles.contextInner}>
             <a href="/projects" data-label="All projects" className={styles.back} onClick={go('/projects')}>
@@ -181,7 +195,7 @@ export function AppShell() {
       )}
 
       <div className={styles.stage} data-project={hasPanel} data-rail={hasPanel && railWide}>
-        {hasPanel && <StepNav items={stepItems} onGo={navigate} />}
+        {hasPanel && <StepNav items={stepItems} onGo={navigate} head={projectHead} />}
         <main className={styles.content}>
           {hasPanel ? (
             <div className={styles.column} data-testid="page-column">

@@ -101,3 +101,8 @@ primary colour together, last.
   a top-to-bottom gradient from pale slate blue (rgb 235 240 247) into the page colour, with no border, so it bleeds into the page. The glow tokens (`--at-glow-*`) are no longer used by any page.
 - **Why:** quieter than the glow, and it matches the gray primary; the header no longer reads as a separate white strip. The section switch on Insights stays white, as in the mock.
 - **To revisit:** the wash colour is not in the colour registry (written as rgb()); add it there if it stays.
+
+## 2026-11-18: In a project, the step rail runs up flush under the app bar
+- **What:** on wide windows (1024px and up) the project's step rail now starts directly under the app bar and carries the way back ("All projects") and the project's name
+  at its top; the separate project bar is gone, so a page's title region runs up against the app bar and the rail. Narrower windows keep the project bar and the steps strip.
+- **Why:** the title region used to sit under a second bar and beside the menu; now it meets the rail and the app bar cleanly.

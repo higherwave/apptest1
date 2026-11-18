@@ -1,7 +1,7 @@
 @use '../tokens' as tokens;
 
-// The app bar (4rem) and the project bar (2.75rem) above the page, which the rail sticks below. Kept in step with AppShell.module.scss.
-$chrome-top: 6.75rem;
+// The app bar (4rem) above the page, which the rail sticks flush below (the project's name is at the top of the rail). Kept in step with AppShell.module.scss.
+$chrome-top: 4rem;
 
 // The project's steps: on a narrow window a strip under the project bar (below), on a wide one a rail beside the page (.rail).
 .strip {

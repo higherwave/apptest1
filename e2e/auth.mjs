@@ -90,7 +90,7 @@ try {
   await page.mouse.move(900, 500)
   await new Promise((r) => setTimeout(r, 600))
   ok('moving away closes it again', (await menu()).w === 68)
-  const states = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a')].map((a) => a.dataset.state))
+  const states = await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Project steps"] a:not([href="/projects"])')].map((a) => a.dataset.state))
   ok('the steps are a vertical rail of ten, and with every step open they all read neutral', states.length === 10 && (states.every((x) => x === 'done') || states.includes('locked')), states.join())
 
   // /sign-in sends someone who is already signed in straight to the projects.
