@@ -1,6 +1,6 @@
 import { Button } from '@carbon/react'
 import { Locked } from '@carbon/icons-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import { STEP_GROUPS, STEP_NOTES, type StepGroup, type StepState } from './nav'
 import styles from './StepNav.module.scss'
 
@@ -38,7 +38,7 @@ export function useRailWide() {
 
 // The project's steps. Wide windows show a vertical rail beside the page, the four groups stacked with their steps (the name and one
 // line on what it is); narrow ones show a row of group buttons and only the steps of the group being viewed, which starts as the group of the open step.
-export function StepNav({ items, onGo, head }: { items: StepItem[]; onGo: (to: string) => void; head?: ReactNode }) {
+export function StepNav({ items, onGo }: { items: StepItem[]; onGo: (to: string) => void }) {
   const wide = useRailWide()
   const activeGroup = items.find((i) => i.active)?.group ?? STEP_GROUPS[0]
   // A group picked by hand holds only while the open step stays in the same group.
@@ -95,7 +95,6 @@ export function StepNav({ items, onGo, head }: { items: StepItem[]; onGo: (to: s
     <nav className={cx(styles.strip, wide && styles.rail)} aria-label="Project steps" data-nav>
       {wide ? (
         <div className={styles.railInner}>
-          {head}
           {STEP_GROUPS.map((group) => {
             const its = items.filter((i) => i.group === group)
             return (

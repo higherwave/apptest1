@@ -103,6 +103,6 @@ primary colour together, last.
 - **To revisit:** the wash colour is not in the colour registry (written as rgb()); add it there if it stays.
 
 ## 2026-11-18: In a project, the step rail runs up flush under the app bar
-- **What:** on wide windows (1024px and up) the project's step rail now starts directly under the app bar and carries the way back ("All projects") and the project's name
-  at its top; the separate project bar is gone, so a page's title region runs up against the app bar and the rail. Narrower windows keep the project bar and the steps strip.
-- **Why:** the title region used to sit under a second bar and beside the menu; now it meets the rail and the app bar cleanly.
+- **What:** on wide windows (1024px and up) the project's step rail starts directly under the app bar. The project bar (All projects | name | status, with the slate blue wash) stays
+  at the top of the page but starts to the right of the rail instead of spanning the full width. Narrower windows keep the full-width bar and the steps strip.
+- **Why:** the rail now meets the app bar cleanly and the title region runs up against the rail.
