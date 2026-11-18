@@ -69,3 +69,8 @@ primary colour together, last.
 ## Queued (decided, not yet made)
 
 - Nothing queued.
+
+## Ideas to discuss
+
+- **Badge (tag) colours** (2026-11-17): Carbon's tag colours are too bright. The soft palette used on the success view and the Measure design (blue, green, cream, coral tints with darker text) is preferred. Override the tags in one place, then check every tag in the app.
+- **Dark mode that follows the system** (2026-11-17): feasible because every colour is a token; needs the token and contrast checks to understand dark values, a Carbon audit, new primary and menu values, dark soft colours, and a screenshot pass. Suggested: a spike on a few screens first. Not started.

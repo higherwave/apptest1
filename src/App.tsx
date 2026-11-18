@@ -11,6 +11,7 @@ import { DataPage } from './pages/settings/DataPage'
 import { TrashPage } from './pages/trash/TrashPage'
 import { NotificationsPage } from './pages/settings/NotificationsPage'
 import { UsageAndCostsPage } from './pages/settings/UsageAndCostsPage'
+import { SetupPage } from './pages/setup/SetupPage'
 import { SettingsGate } from './pages/settings/SettingsGate'
 import { CustomersPage } from './pages/insights/CustomersPage'
 import { CaseStudiesPage } from './pages/insights/CaseStudiesPage'
@@ -84,6 +85,7 @@ export function App() {
         <Route path="insights/case-studies" element={<CaseStudiesPage />} />
         <Route path="insights/journey" element={<PlatformJourneyPage />} />
         <Route path="insights/areas" element={<Navigate to="/settings/categories" replace />} />
+        <Route path="setup" element={<SetupPage />} />
         <Route path="settings" element={<SettingsGate />}>
           <Route index element={<Navigate to="/settings/categories" replace />} />
           <Route path="areas" element={<Navigate to="/settings/categories" replace />} />

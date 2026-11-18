@@ -1937,6 +1937,49 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /setup:
+    get:
+      operationId: getSetup
+      summary: >
+        Workspace setup (the guided onboarding), owners only: five categories in order (people, approvals, categories, connections, guard), each with its status
+        (locked, current, done, skipped) and the live checks read from the workspace.
+      responses:
+        '200':
+          description: The setup.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Setup' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /setup/{step}:
+    put:
+      operationId: markSetup
+      summary: >
+        An owner marks a category done (every check must pass, unless it is optional) or skips it (optional ones only). Earlier categories must be finished (409 setup_locked);
+        409 setup_not_ready when a check fails. Recorded in the audit log.
+      parameters:
+        - { name: step, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { type: string, enum: [done, skipped] }
+      responses:
+        '200':
+          description: The setup after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Setup' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /specs/{id}/reopen:
     post:
       operationId: reopenSpec
@@ -3535,6 +3578,30 @@ components:
           items: { $ref: '#/components/schemas/BoardChange' }
         keep: { type: integer }
         applied: { type: boolean }
+    Setup:
+      type: object
+      required: [categories, done, total, complete]
+      properties:
+        categories:
+          type: array
+          items:
+            type: object
+            required: [key, optional, status, checks]
+            properties:
+              key: { type: string, enum: [people, approvals, categories, connections, guard] }
+              optional: { type: boolean }
+              status: { type: string, enum: [locked, current, done, skipped] }
+              checks:
+                type: array
+                items:
+                  type: object
+                  required: [label, ok]
+                  properties:
+                    label: { type: string }
+                    ok: { type: boolean }
+        done: { type: integer }
+        total: { type: integer }
+        complete: { type: boolean }
     LaunchSuccess:
       type: object
       required: [published, projectId, problem, goals, measures, reviewPoints, reviewer]

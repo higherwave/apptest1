@@ -28,6 +28,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'delivery.specs': 'Requirements',
   'core.workspaces': 'Workspace data',
   'core.legal_holds': 'Legal hold',
+  'core.workspace_setup': 'Workspace setup',
   'insights.workflows': 'Journey',
   'delivery.story_tickets': 'Jira ticket',
 }

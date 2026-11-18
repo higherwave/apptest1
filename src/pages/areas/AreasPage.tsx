@@ -20,7 +20,7 @@ const used = (a: Area) => {
 
 // The shared list of experience categories. Everyone who can open Settings reads it, an editor adds one (the duplicate check is in the dialog) and
 // edits one, and only an owner merges and retires (those change a lot of existing work at once). Connected: it owns the dialogs' state.
-export function AreasPage() {
+export function AreasPage({ embedded = false }: { /** Inside the workspace setup: no Admin header, the setup has its own. */ embedded?: boolean } = {}) {
   const areas = useAreas()
   const me = useMe()
   const update = useUpdateArea()
@@ -83,7 +83,7 @@ export function AreasPage() {
 
   return (
     <div className={styles.page}>
-      <SettingsHeader />
+      {!embedded && <SettingsHeader />}
       <p className={styles.intro}>What research is about, in one shared set of words. A question to ask or a task to observe names its category, so what people say is described the same way across studies and duplicates are caught early. A category is a label, never a requirement.</p>
       <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setTab(selectedIndex)}>
         <TabList aria-label="Experience categories views">

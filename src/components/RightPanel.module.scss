@@ -38,3 +38,9 @@
 
 // The heading keeps its full height: in a column that fits the screen the header would otherwise shrink and clip the title.
 .panel :global(.cds--modal-header) { flex: none; }
+
+// Wide: room for a table or a form. Once open it has no transform left, so a panel opened from inside it (a team, a person) is placed against the screen, not against this one.
+.wide {
+  :global(.cds--modal-container) { inline-size: min(68rem, 100vw); }
+  &:global(.is-visible) :global(.cds--modal-container) { transform: none; }
+}

@@ -1483,6 +1483,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Workspace setup (the guided onboarding), owners only: five categories in order (people, approvals, categories, connections, guard), each with its status (locked, current, done, skipped) and the live checks read from the workspace. */
+        get: operations["getSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/setup/{step}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** An owner marks a category done (every check must pass, unless it is optional) or skips it (optional ones only). Earlier categories must be finished (409 setup_locked); 409 setup_not_ready when a check fails. Recorded in the audit log. */
+        put: operations["markSetup"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/specs/{id}/reopen": {
         parameters: {
             query?: never;
@@ -2743,6 +2777,22 @@ export interface components {
             clear: components["schemas"]["BoardChange"][];
             keep: number;
             applied: boolean;
+        };
+        Setup: {
+            categories: {
+                /** @enum {string} */
+                key: "people" | "approvals" | "categories" | "connections" | "guard";
+                optional: boolean;
+                /** @enum {string} */
+                status: "locked" | "current" | "done" | "skipped";
+                checks: {
+                    label: string;
+                    ok: boolean;
+                }[];
+            }[];
+            done: number;
+            total: number;
+            complete: boolean;
         };
         LaunchSuccess: {
             /** @description False until the requirements are published; there are no measures before then. */
@@ -6877,6 +6927,63 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The setup. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    markSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                step: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "done" | "skipped";
+                };
+            };
+        };
+        responses: {
+            /** @description The setup after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     reopenSpec: {

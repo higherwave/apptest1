@@ -1,0 +1,198 @@
+@use '../../tokens' as tokens;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  max-inline-size: 62rem;
+}
+
+.head { display: flex; flex-direction: column; gap: var(--at-space-xs); }
+
+.group {
+  @include tokens.role('caption');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.title {
+  @include tokens.role('display-md');
+  margin: 0;
+  color: var(--at-ink);
+  font-weight: 400;
+}
+
+.lead {
+  @include tokens.role('reading-lg');
+  margin: 0;
+  color: var(--at-body);
+  max-inline-size: 60ch;
+}
+
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-md);
+  max-inline-size: 28rem;
+  margin-block-start: var(--at-space-sm);
+  color: var(--at-muted);
+  @include tokens.role('meta');
+
+  > :first-child { flex: 1; }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: var(--at-space-md);
+}
+
+// Level one: a card for each category. The one in progress is filled with the primary colour; the ones ahead are quiet and cannot be opened.
+.card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--at-space-lg);
+  min-block-size: 12.5rem;
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  color: var(--at-body);
+  text-align: start;
+  cursor: pointer;
+
+  &:focus-visible { outline: 0.125rem solid var(--at-ink); outline-offset: 0.125rem; }
+
+  &[data-status='current'] { background: var(--at-primary); border-color: var(--at-primary); color: var(--at-on-primary); }
+  &[data-status='locked'] { background: var(--at-surface-soft); cursor: not-allowed; }
+  &[data-status='locked'] .name { color: var(--at-muted); }
+}
+
+.top { display: flex; align-items: flex-start; justify-content: space-between; }
+
+.num {
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  @include tokens.role('meta');
+}
+
+.card[data-status='done'] .num,
+.card[data-status='skipped'] .num { background: var(--at-tint-mint); border-color: var(--at-signature-forest); color: var(--at-signature-forest); }
+
+.status { @include tokens.role('meta'); }
+.card[data-status='locked'] .status { color: var(--at-muted); }
+
+.text { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
+.name { @include tokens.role('title-md'); color: var(--at-ink); }
+.card[data-status='current'] .name { color: var(--at-on-primary); }
+.desc { @include tokens.role('body-md'); }
+.card[data-status='locked'] .desc { color: var(--at-muted); }
+.who { @include tokens.role('meta'); margin-block-start: var(--at-space-xs); }
+.card[data-status='locked'] .who { color: var(--at-muted); }
+
+// Level two: the panel. A rail of the category's steps on the left, the step in the middle, and the buttons always in view.
+.drawer {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr);
+  flex: 1 1 auto;
+  min-block-size: 0;
+
+  @media (max-width: 40rem) { grid-template-columns: 1fr; }
+}
+
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  padding: var(--at-space-lg) var(--at-space-md);
+  border-inline-end: 1px solid var(--at-hairline);
+  background: var(--at-surface-soft);
+
+  @media (max-width: 40rem) { flex-direction: row; flex-wrap: wrap; border-inline-end: 0; border-block-end: 1px solid var(--at-hairline); }
+}
+
+.st {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  color: var(--at-muted);
+  @include tokens.role('body-md');
+
+  b {
+    display: grid;
+    place-items: center;
+    inline-size: 1.75rem;
+    block-size: 1.75rem;
+    border-radius: 50%;
+    background: var(--at-surface-strong);
+    @include tokens.role('meta');
+  }
+
+  &[data-state='current'] { color: var(--at-ink); }
+  &[data-state='current'] b { background: var(--at-primary); color: var(--at-on-primary); }
+  &[data-state='done'] b { background: var(--at-tint-mint); color: var(--at-signature-forest); }
+}
+
+.main { display: flex; flex-direction: column; min-inline-size: 0; min-block-size: 0; }
+
+.body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  min-block-size: 0;
+  padding: var(--at-space-lg);
+  overflow: auto;
+}
+
+.welcome {
+  @include tokens.role('reading-lg');
+  margin: 0;
+  padding-inline-start: var(--at-space-lg);
+  color: var(--at-body);
+  max-inline-size: 60ch;
+}
+
+.meta {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.checks {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+
+  li {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--at-space-md);
+    padding: var(--at-space-sm) var(--at-space-md);
+    border-block-start: 1px solid var(--at-hairline);
+    @include tokens.role('body-md');
+
+    &:first-child { border-block-start: 0; }
+    &[data-ok='true'] span:last-child { color: var(--at-signature-forest); }
+    &[data-ok='false'] span:last-child { color: var(--at-signature-coral); }
+  }
+}
+
+.foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-block-start: 1px solid var(--at-hairline);
+  background: var(--at-canvas);
+}

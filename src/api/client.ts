@@ -150,6 +150,9 @@ export const addLaunchLink = (id: string, step: string, body: { title?: string; 
 export type LaunchRequestResult = components['schemas']['LaunchRequestResult']
 export const requestLaunchAnswers = (id: string) => request<LaunchRequestResult>(`/launches/${id}/request`, { method: 'POST' })
 export type LaunchSlackResult = components['schemas']['LaunchSlackResult']
+export type Setup = components['schemas']['Setup']
+export const getSetup = () => request<Setup>('/setup')
+export const markSetup = (step: string, status: 'done' | 'skipped') => request<Setup>(`/setup/${step}`, { method: 'PUT', body: { status } })
 export type LaunchSuccess = components['schemas']['LaunchSuccess']
 export const getLaunchSuccess = (id: string) => request<LaunchSuccess>(`/launches/${id}/success`)
 export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })

@@ -42,7 +42,7 @@ test('the success view gathers the goals, each requirement’s measure and the r
   assert.deepEqual([draft.published, draft.measures.length], [false, 0])
 })
 
-test('the success view is for people who can see the launch, never an external approver', async () => {
+test('the success view is for people who can see the launch, never an external person', async () => {
   const f = await fixture()
   const launch = await (await f.call(f.alex, 'POST', `/projects/${f.project}/launch`, { name: 'Spring release' })).json()
   assert.equal((await f.call(f.owner, 'GET', `/launches/00000000-0000-4000-8000-000000000000/success`)).status, 404)

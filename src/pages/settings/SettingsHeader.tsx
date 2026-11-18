@@ -1,6 +1,6 @@
 import { Button } from '@carbon/react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { useMe } from '../../api/hooks'
+import { useMe, useSetup } from '../../api/hooks'
 import { SETTINGS_SECTIONS } from '../../shell/nav'
 import { PageHero } from '../../shell/PageHero'
 import styles from '../insights/InsightsHeader.module.scss'
@@ -11,6 +11,7 @@ export function SettingsHeader() {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const me = useMe()
+  const setup = useSetup(me.data?.role === 'owner')
   const sections = SETTINGS_SECTIONS.filter((s) => s.key === 'categories' || s.key === 'notifications' || me.data?.role === 'owner')
   const current = sections.findIndex((s) => pathname === `/settings/${s.key}`)
   return (
@@ -22,6 +23,11 @@ export function SettingsHeader() {
           </Button>
         ))}
       </nav>
+      {me.data?.role === 'owner' && setup.data && !setup.data.complete && (
+        <Button kind="tertiary" size="sm" onClick={() => navigate('/setup')} data-testid="open-setup">
+          Set up your workspace · {setup.data.done} of {setup.data.total}
+        </Button>
+      )}
     </PageHero>
   )
 }

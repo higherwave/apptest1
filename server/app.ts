@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -51,6 +51,7 @@ import { CaptureError, capturePreflight, makeCapture, type CaptureService } from
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
+import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
 import { makePdf, PdfError, type PdfService } from './pdf.js'
@@ -1154,6 +1155,29 @@ export function createApp(options: AppOptions = {}) {
     await afterReopen({ db: getDb(), env, mailer, slack: await slackOf(c) }, c.get('ctx'), target.project_id as string, input.reason.trim())
     c.header('Cache-Control', 'no-store')
     return c.json(await specDetail(c, id))
+  })
+
+  // Workspace setup, the guided onboarding for workspace owners: five categories in order, each read from the workspace and marked done (or skipped, if optional) by an owner.
+  const jiraConnected = async (workspaceId: string) => !!(await integrations(workspaceId)).jira
+  app.get('/setup', withContext, async (c) => {
+    requireOwner(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await getSetup(getDb(), c.get('ctx').workspaceId, await jiraConnected(c.get('ctx').workspaceId)))
+  })
+  app.put('/setup/:step', withContext, async (c) => {
+    requireOwner(c)
+    const input = parseBody(setupSchema, await readJson(c))
+    const ws = c.get('ctx').workspaceId
+    try {
+      c.header('Cache-Control', 'private, no-store')
+      return c.json(await markSetup(getDb(), c.get('ctx'), c.req.param('step') ?? '', input.status, await jiraConnected(ws)))
+    } catch (err) {
+      if (err instanceof BadSetupStep) throw new ApiError(404, 'not_found', 'No such setup step.')
+      if (err instanceof NotOptional) throw new ApiError(422, 'validation_failed', 'Only an optional step can be skipped.', 'status')
+      if (err instanceof SetupLocked) throw new ApiError(409, 'setup_locked', 'Finish the earlier steps first.')
+      if (err instanceof SetupNotReady) throw new ApiError(409, 'setup_not_ready', 'Something in this step is not done yet.')
+      throw err
+    }
   })
 
   // The Stories board ---------------------------------------------------------------------------------------
