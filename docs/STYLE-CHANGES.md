@@ -12,9 +12,12 @@ primary colour together, last.
   `text-transform: uppercase | capitalize | lowercase`. Guarded by `scripts/case.test.mjs`; also a rule in the company registry
   (`vendor/design-rules/tokens.json`, `airtable.rules`). Put `case:ignore` on the same line only for stored data that must keep its case.
 
-- **Type standard, for now** (2026-11-17): the styles on the published Requirements page are the working guideline for page structure: page title `display-md`
-  (32, regular); section headings 20; item and subsection names `label-md` (16, medium); group labels 14 medium in the muted colour, sentence case; body 14;
-  `meta` 12. It is a guideline, not yet a linter rule. If the group labels get missed because they are quiet, revisit them. The storyboard slides are outside it.
+- **Heading ladder** (decided 2026-11-18, taken from the Themes page; it replaces the Requirements-page guideline): each level is one type role in `src/tokens.scss`,
+  so a change to a level reaches every heading of that level. `heading-1` the page title (h1), 32px regular; `heading-2` a detail pane's heading (h2), 22px medium;
+  `heading-3` a card title (h3), 16px medium; `heading-4` a smaller heading (h4), 16px in the medium weight (the paragraph size, a little heavier);
+  `page-description` the line under a page title, 16px regular. Other roles: `reading-md` 14px for paragraphs; `meta` 12px; `button` 14px; `caption` 12px medium
+  (kept free for the prototype screenshot); `label-md` and `body-md` unchanged; `eyebrow` (14px medium, sentence case) is the group label above a section.
+  Storyboard slides are outside it. Not yet enforced by the linter. The roles are in the registry (design-system repo), so the linter knows them.
 
 ## Log
 
@@ -77,6 +80,13 @@ primary colour together, last.
   Every pair is at least 6.4:1. The outline tag keeps a quiet gray edge. Tags are pills (`--at-radius-full`), matching the success view and the Measure design; the registry rule now says so.
 - **Why:** Carbon's tags were too bright and distracting; the soft palette was already used in the success view and the Measure design.
 - **Undo / adjust:** delete the `--cds-tag-*` block, or change a pair there. To go back to the small corner, set the radius in the `.cds--tag` rule to `--at-radius-sm` (and the registry rule).
+
+### 2026-11-18: Heading roles
+
+- **What:** `heading-1` to `heading-4` and `page-description` added (see Standing rules). Applied so far: every page title (h1), the line under it, and the Themes page's
+  detail heading and card title. `button` is now 14px, `caption` 12px; the five places that used `caption` for a group label now use `eyebrow` (same look as before).
+- **Not yet done:** the other headings in the app (the small section labels, item names, panel titles) still use their own roles. They move to the ladder in a sweep, after
+  the levels are agreed. The Themes page's heading-3 and heading-4 are the same size and weight today (16px, 475); only their use differs.
 
 ## Ideas to discuss
 

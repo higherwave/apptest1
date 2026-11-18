@@ -16,17 +16,16 @@
 }
 
 .title {
-  @include tokens.role('display-md');
+  @include tokens.role('heading-1');
   margin: 0;
   color: var(--at-ink);
   font-weight: 400;
 }
 
 .description {
-  @include tokens.role('label-md');
+  @include tokens.role('page-description');
   margin: 0;
   color: var(--at-muted);
-  font-weight: 400;
 }
 
 .actions {

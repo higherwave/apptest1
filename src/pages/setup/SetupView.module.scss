@@ -10,7 +10,7 @@
 .head { display: flex; flex-direction: column; gap: var(--at-space-xs); }
 
 .group {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   margin: 0;
   color: var(--at-muted);
 }

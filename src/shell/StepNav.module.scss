@@ -152,7 +152,7 @@ $chrome-top: 6.75rem;
 }
 
 .rowTitle {
-  @include tokens.role('caption');
+  @include tokens.role('eyebrow');
   color: var(--at-body);
 
   // While the project is being set up: the step to work on is bold, any other open step is full ink.

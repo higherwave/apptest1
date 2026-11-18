@@ -37,16 +37,15 @@
 }
 
 .title {
-  @include tokens.role('display-md'); // one page title size: the same 32px as the project pages (was display-lg, 40px)
+  @include tokens.role('heading-1');
   margin: 0 0 var(--at-space-xs);
   color: var(--at-ink);
   font-weight: 400;
 }
 
 .description {
-  @include tokens.role('label-md');
+  @include tokens.role('page-description');
   max-inline-size: 36rem; // Inter runs a little wider than the face this was sized for
   margin: 0;
   color: var(--at-body);
-  font-weight: 400;
 }

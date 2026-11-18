@@ -10,7 +10,21 @@
 $weight-medium: 475;
 
 @mixin role($name) {
-  @if $name == 'display-xl' {
+  // The heading ladder (decided 2026-11-18, taken from the Themes page): each level is one place to change, and a change reaches every heading of that level.
+  //   heading-1 the page title (h1)        heading-2 a detail pane's heading (h2): 22px     heading-3 a card title (h3)
+  //   heading-4 a smaller heading (h4): the paragraph size in the medium weight      page-description the line under a page title
+  @if $name == 'heading-1' {
+    @include role('display-md');
+  } @else if $name == 'heading-2' {
+    @include role('panel-title');
+  } @else if $name == 'heading-3' {
+    @include role('label-md');
+  } @else if $name == 'heading-4' {
+    @include role('label-md');
+  } @else if $name == 'page-description' {
+    @include role('label-md');
+    font-weight: 400;
+  } @else if $name == 'display-xl' {
     font: #{$weight-medium} 3rem/1.05 var(--at-font-display);
     letter-spacing: 0;
   } @else if $name == 'display-lg' {
@@ -40,7 +54,8 @@ $weight-medium: 475;
     font: #{$weight-medium} 1rem/1.4 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'button' {
-    font: #{$weight-medium} 1rem/1.4 var(--at-font-text);
+    // 14px, the same as button-sm (Carbon sets the text of its own buttons).
+    font: #{$weight-medium} 0.875rem/1.25 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'button-sm' {
     // App-density addition: DESIGN.md's button role is sized for marketing
@@ -66,7 +81,8 @@ $weight-medium: 475;
     font: 400 0.75rem/1.35 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'caption' {
-    font: #{$weight-medium} 0.875rem/1.35 var(--at-font-text);
+    // 12px medium: a short caption. (The group label above a section is `eyebrow`.)
+    font: #{$weight-medium} 0.75rem/1.35 var(--at-font-text);
     letter-spacing: 0;
   } @else if $name == 'meta' {
     // App-density addition: 12px meta line (stage status, table headers,
