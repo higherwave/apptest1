@@ -7,7 +7,7 @@
 }
 
 .launchName {
-  @include tokens.role('title-md');
+  @include tokens.role('heading-2');
   margin: 0;
   color: var(--at-ink);
 }
@@ -121,11 +121,11 @@
   &[data-reached='false'] { opacity: 0.7; }
 }
 .stageHead { display: flex; align-items: center; justify-content: space-between; gap: var(--at-space-sm); }
-.stageTitle { @include tokens.role('title-md'); margin: 0; color: var(--at-ink); }
+.stageTitle { @include tokens.role('heading-3'); margin: 0; color: var(--at-ink); }
 
 .docs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--at-space-md); }
 .doc { display: flex; flex-direction: column; gap: var(--at-space-xs); padding-block-end: var(--at-space-md); border-block-end: 1px solid var(--at-hairline); &:last-child { border-block-end: none; padding-block-end: 0; } &[data-available='false'] { opacity: 0.75; } }
-.docTitle { @include tokens.role('title-md'); margin: 0; color: var(--at-ink); }
+.docTitle { @include tokens.role('heading-3'); margin: 0; color: var(--at-ink); }
 
 // One step: independent of the others.
 .section {
@@ -149,7 +149,7 @@
 }
 
 .sectionTitle {
-  @include tokens.role('label-md');
+  @include tokens.role('heading-3');
   flex: 1;
   margin: 0;
   color: var(--at-ink);

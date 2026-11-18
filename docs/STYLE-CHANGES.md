@@ -85,8 +85,11 @@ primary colour together, last.
 
 - **What:** `heading-1` to `heading-4` and `page-description` added (see Standing rules). Applied so far: every page title (h1), the line under it, and the Themes page's
   detail heading and card title. `button` is now 14px, `caption` 12px; the five places that used `caption` for a group label now use `eyebrow` (same look as before).
-- **Not yet done:** the other headings in the app (the small section labels, item names, panel titles) still use their own roles. They move to the ladder in a sweep, after
-  the levels are agreed. The Themes page's heading-3 and heading-4 are the same size and weight today (16px, 475); only their use differs.
+- **Sweep (2026-11-18):** the rest of the app's headings now use the ladder, so a future change to a level is global. `heading-2` (22px medium): launch name, Measure panel title,
+  launch success heading, Stories title, resume panel project, project card name (were `title-md`, 20px regular). `heading-3` (16px medium): launch stage and document titles,
+  setup step names, account name, tour and welcome titles, case study / customer / journey stage names, empty-state titles (were `title-md` or `title-sm`), plus the
+  panel, section, requirement and item titles that already looked like it (were `label-md`). Left alone: big numbers, the app name, footer brand, avatar, and the storyboard slides.
+  Row names (people, trash, areas, launches list) are still `label-md`.
 
 ## Ideas to discuss
 

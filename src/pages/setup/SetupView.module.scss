@@ -88,7 +88,7 @@
 .card[data-status='locked'] .status { color: var(--at-muted); }
 
 .text { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
-.name { @include tokens.role('title-md'); color: var(--at-ink); }
+.name { @include tokens.role('heading-3'); color: var(--at-ink); }
 .card[data-status='current'] .name { color: var(--at-on-primary); }
 .desc { @include tokens.role('body-md'); }
 .card[data-status='locked'] .desc { color: var(--at-muted); }

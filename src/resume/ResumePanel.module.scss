@@ -32,7 +32,7 @@
 }
 
 .project {
-  @include tokens.role('title-md');
+  @include tokens.role('heading-2');
   margin: var(--at-space-xs) 0 0;
 }
 

@@ -40,7 +40,7 @@
 }
 
 .title {
-  @include tokens.role('label-md');
+  @include tokens.role('heading-3');
   flex: 1;
   margin: 0;
   color: var(--at-ink);

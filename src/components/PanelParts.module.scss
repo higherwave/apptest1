@@ -29,7 +29,7 @@
   }
 }
 
-.heading { @include tokens.role('label-md'); margin: 0; color: var(--at-ink); }
+.heading { @include tokens.role('heading-3'); margin: 0; color: var(--at-ink); }
 .help { @include tokens.role('meta'); margin: 0; color: var(--at-muted); }
 .lead { @include tokens.role('meta'); margin: 0 0 var(--at-space-lg); color: var(--at-muted); overflow-wrap: anywhere; }
 .small { @include tokens.role('meta'); margin: 0; color: var(--at-muted); overflow-wrap: anywhere; }
@@ -55,7 +55,7 @@
 
 }
 .itemField { grid-column: 1 / -1; }
-.itemName { @include tokens.role('label-md'); display: block; color: var(--at-ink); overflow-wrap: anywhere; }
+.itemName { @include tokens.role('heading-3'); display: block; color: var(--at-ink); overflow-wrap: anywhere; }
 .itemSub { @include tokens.role('meta'); display: block; color: var(--at-muted); overflow-wrap: anywhere; }
 
 .confirmBox { display: flex; flex-direction: column; gap: var(--at-space-sm); }

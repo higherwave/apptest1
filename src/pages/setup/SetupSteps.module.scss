@@ -7,7 +7,7 @@
 }
 
 .heading {
-  @include tokens.role('label-md');
+  @include tokens.role('heading-3');
   margin: 0 0 var(--at-space-sm);
   color: var(--at-ink);
 }

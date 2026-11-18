@@ -137,7 +137,7 @@
 }
 
 .reqTitle {
-  @include tokens.role('label-md');
+  @include tokens.role('heading-3');
   color: var(--at-ink);
 }
 

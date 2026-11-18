@@ -100,7 +100,7 @@
 }
 
 .recTitle {
-  @include tokens.role('label-md');
+  @include tokens.role('heading-3');
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2; // two lines, then an ellipsis; the whole title is in the card's accessible name

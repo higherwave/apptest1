@@ -27,7 +27,7 @@
 }
 
 .name {
-  @include tokens.role('title-sm');
+  @include tokens.role('heading-3');
   display: flex;
   align-items: center;
   gap: var(--at-space-xs);

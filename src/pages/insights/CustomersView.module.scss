@@ -64,7 +64,7 @@
 }
 
 .name {
-  @include tokens.role('title-sm');
+  @include tokens.role('heading-3');
   color: var(--at-ink);
 }
 
