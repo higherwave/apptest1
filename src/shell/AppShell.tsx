@@ -1,4 +1,4 @@
-import { Analytics, ChartLineData, ChevronDown, ChevronLeft, Filter, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
+import { Analytics, ChartLineData, ChevronDown, ChevronLeft, Filter, Help, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button } from '@carbon/react'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -9,6 +9,7 @@ import type { StepKey } from '../api/client'
 import { STEPS, stepStates } from './nav'
 import { StepNav, useRailWide, type StepItem } from './StepNav'
 import { Logo } from './Logo'
+import { DecisionGuideIcon, PrototypeIcon } from './NavIcons'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
 import { StatusTag } from './StatusTag'
@@ -109,14 +110,14 @@ export function AppShell() {
           ))}
           {gallery && (
             <a href={gallery} data-label="Prototype gallery" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
-              <Launch size={20} aria-hidden />
+              <PrototypeIcon />
               <span className={styles.label}>Prototype gallery</span>
               <span className={styles.srOnly}> (opens in a new tab)</span>
             </a>
           )}
           {decisionGuides && (
             <a href={decisionGuides} data-label="Decision Guides" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
-              <Launch size={20} aria-hidden />
+              <DecisionGuideIcon />
               <span className={styles.label}>Decision Guides</span>
               <span className={styles.srOnly}> (opens in a new tab)</span>
             </a>
