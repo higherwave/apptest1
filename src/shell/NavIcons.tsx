@@ -4,7 +4,7 @@ type IconProps = { size?: number }
 
 const line = { fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' } as const
 
-/** The prototype gallery: a page in a window, with a play button over its corner. */
+/** The prototype gallery: a bare browser window with a play button over its corner. */
 export function PrototypeIcon({ size = 20 }: IconProps) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden focusable="false">
@@ -13,9 +13,6 @@ export function PrototypeIcon({ size = 20 }: IconProps) {
       <circle cx="7" cy="8" r="1" fill="currentColor" />
       <circle cx="10.5" cy="8" r="1" fill="currentColor" />
       <circle cx="14" cy="8" r="1" fill="currentColor" />
-      <rect {...line} x="6.5" y="14.5" width="8.5" height="6.5" rx="1" />
-      <path {...line} d="M6.5 14.5l8.5 6.5m0-6.5l-8.5 6.5" />
-      <path {...line} d="M18.5 14.5h5.5m-5.5 3h1.5" />
       <circle {...line} cx="24" cy="24" r="5.5" />
       <path d="M22.4 21.6l4.4 2.4-4.4 2.4z" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" />
     </svg>
