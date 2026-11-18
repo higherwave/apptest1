@@ -1170,7 +1170,7 @@ export function createApp(options: AppOptions = {}) {
     const ws = c.get('ctx').workspaceId
     try {
       c.header('Cache-Control', 'private, no-store')
-      return c.json(await markSetup(getDb(), c.get('ctx'), c.req.param('step') ?? '', input.status, await jiraConnected(ws)))
+      return c.json(await markSetup(getDb(), c.get('ctx'), c.req.param('step') ?? '', input.status, await jiraConnected(ws), input.acknowledged))
     } catch (err) {
       if (err instanceof BadSetupStep) throw new ApiError(404, 'not_found', 'No such setup step.')
       if (err instanceof NotOptional) throw new ApiError(422, 'validation_failed', 'Only an optional step can be skipped.', 'status')

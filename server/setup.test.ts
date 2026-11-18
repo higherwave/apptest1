@@ -59,6 +59,9 @@ test('a category is done when its checks pass; a later one stays locked; only an
     await f.reviewer('alex', ['legal', 'sales', 'documentation', 'marketing'])
     await f.reviewer('david', ['product_leadership', 'final_decision'])
   }
+  // The final decision also needs a backup.
+  assert.equal((await put('approvals', 'done')).status, 409, 'the final decision has nobody to cover it yet')
+  await setApprovers((m, p, b) => f.call(f.owner, m, p, b), 'sam', ['final_decision'], 'alternate')
   assert.equal((await put('approvals', 'done')).status, 200)
 
   // Categories: one is needed; a definition is good to have but never holds it back (the quick add and the suggestions make categories without one).
@@ -73,7 +76,10 @@ test('a category is done when its checks pass; a later one stays locked; only an
   // Connections are optional: skipped, even with nothing connected. The last is read and confirmed.
   // terms:ignore (the category keys are identifiers)
   assert.equal(statuses(await (await put('connections', 'skipped')).json()), 'people:done approvals:done categories:done connections:skipped guard:current')
-  const end = await (await put('guard', 'done')).json()
+  const guard = (acknowledged?: boolean[]) => f.call(f.owner, 'PUT', '/setup/guard', { status: 'done', ...(acknowledged ? { acknowledged } : {}) })
+  assert.equal((await guard()).status, 409, 'nothing confirmed')
+  assert.equal((await guard([true, false, true])).status, 409, 'one not confirmed')
+  const end = await (await guard([true, true, true])).json()
   assert.deepEqual([end.done, end.complete], [5, true])
   const log = (await f.pg.query<any>(`select verb, after from core.audit_log where entity = 'core.workspace_setup' order by created_at`)).rows as { verb: string; after: { step: string } }[]
   assert.deepEqual(log.map((l) => `${l.verb}:${l.after.step}`), ['completed:people', 'completed:approvals', 'completed:categories', 'skipped:connections', 'completed:guard'])

@@ -1968,6 +1968,7 @@ paths:
               required: [status]
               properties:
                 status: { type: string, enum: [done, skipped] }
+                acknowledged: { type: array, items: { type: boolean }, description: "The last category only, whether each of its three items was confirmed. Marking it done needs all three." }
       responses:
         '200':
           description: The setup after the change.

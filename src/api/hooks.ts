@@ -80,7 +80,7 @@ export const useRemoveMember = () => usePeopleMutation((id: string) => removeMem
 export const useSetup = (enabled = true) => useQuery({ queryKey: ['setup'], queryFn: getSetup, enabled })
 export const useMarkSetup = () => {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: ({ step, status }: { step: string; status: 'done' | 'skipped' }) => markSetup(step, status), onSuccess: (data) => queryClient.setQueryData(['setup'], data) })
+  return useMutation({ mutationFn: ({ step, status, acknowledged }: { step: string; status: 'done' | 'skipped'; acknowledged?: boolean[] }) => markSetup(step, status, acknowledged), onSuccess: (data) => queryClient.setQueryData(['setup'], data) })
 }
 /** The launch's "How will we know it worked?" view (read-only). */
 export const useLaunchSuccess = (launchId: string | undefined) => useQuery({ queryKey: ['launch-success', launchId], queryFn: () => getLaunchSuccess(launchId!), enabled: !!launchId })

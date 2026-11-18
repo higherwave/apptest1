@@ -215,7 +215,7 @@ test('team administration: leaders create, rename, fill, move projects into and 
   assert.equal((await call(f.david, 'DELETE', `/teams/${billing}/members/${alexMember}`)).status, 204)
   assert.equal((await call(f.david, 'DELETE', `/teams/${billing}`)).status, 204)
   const list = (await (await call(f.david, 'GET', '/teams')).json()).data
-  assert.deepEqual(list.map((t: any) => t.name), ['General', 'Support'])
+  assert.deepEqual(list.map((t: any) => t.name), ['Platform', 'Support'])
   // Every change is in the audit log, under its own group.
   const audit = (await (await call(f.david, 'GET', '/audit?group=teams')).json()).data.map((e: any) => `${e.entity}:${e.verb}`)
   for (const want of ['core.teams:created', 'core.teams:renamed', 'core.team_memberships:added', 'core.team_memberships:role_changed', 'core.teams:project_moved', 'core.team_memberships:removed', 'core.teams:deleted']) assert.ok(audit.includes(want), `the audit log has ${want}`)
@@ -309,9 +309,9 @@ test('with team groups on, signing in puts a person in the teams their groups na
   const mine = (m: { teams: { name: string; role: string }[] }) => Object.fromEntries(m.teams.map((t) => [t.name, t.role]))
   const first = await me(['SignalFlow-Support-Editors', 'signalflow-nowhere-viewers', 'signalflow-general-owners'])
   assert.equal(first.teamsManagedBySso, true)
-  assert.deepEqual(mine(first), { General: 'editor', Support: 'editor' }, 'Support from the group; the default team is not managed by groups; a group for a team that does not exist is ignored')
-  assert.deepEqual(mine(await me(['signalflow-support-viewers'])), { General: 'editor', Support: 'viewer' }, 'a changed group changes the role')
-  assert.deepEqual(mine(await me([])), { General: 'editor' }, 'no group, no place in the team')
+  assert.deepEqual(mine(first), { Platform: 'editor', Support: 'editor' }, 'Support from the group; the default team is not managed by groups; a group for a team that does not exist is ignored')
+  assert.deepEqual(mine(await me(['signalflow-support-viewers'])), { Platform: 'editor', Support: 'viewer' }, 'a changed group changes the role')
+  assert.deepEqual(mine(await me([])), { Platform: 'editor' }, 'no group, no place in the team')
   const verbs = (await f.q(`select verb from core.audit_log where entity = 'core.team_memberships' and verb like '%sign-in groups' order by created_at, id`)).map((r) => r.verb)
   assert.deepEqual(verbs, ['added by sign-in groups', 'role set by sign-in groups', 'removed by sign-in groups'])
   // The Teams page may not edit those teams' people (they would be undone at the next sign-in), but still manages the default team's.

@@ -31,7 +31,7 @@ export function SetupPage() {
     setOpen(key)
     setStep(cat.status === 'done' || cat.status === 'skipped' ? 3 : 0)
   }
-  const finish = (status: 'done' | 'skipped') => open && mark.mutate({ step: open, status }, { onSuccess: () => setStep(3) })
+  const finish = (status: 'done' | 'skipped') => open && mark.mutate({ step: open, status, ...(open === 'guard' ? { acknowledged: confirmed } : {}) }, { onSuccess: () => setStep(3) })
   const next = () => {
     const i = open ? ORDER.indexOf(open) : -1
     const following = ORDER[i + 1]

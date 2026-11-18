@@ -50,7 +50,7 @@ test('a launch starts once the project has themes, one per project, by an editor
   const made = await call(alex, 'POST', `/projects/${project}/launch`, { name: 'Spring release', targetDate: '2026-12-01' })
   assert.equal(made.status, 201)
   const launch = await made.json()
-  assert.deepEqual([launch.name, launch.targetDate, launch.projectName, launch.teamName, launch.you.kind, launch.you.canSetUp], ['Spring release', '2026-12-01', 'Clinic booking, usability round 1', 'General', 'team', true])
+  assert.deepEqual([launch.name, launch.targetDate, launch.projectName, launch.teamName, launch.you.kind, launch.you.canSetUp], ['Spring release', '2026-12-01', 'Clinic booking, usability round 1', 'Platform', 'team', true])
   assert.deepEqual(launch.steps.map((s: any) => s.step), ['product_leadership', 'sales', 'legal', 'documentation', 'marketing', 'final_decision'])
   assert.equal((await call(alex, 'POST', `/projects/${project}/launch`, {})).status, 409, 'one per project')
   assert.equal((await call(alex, 'POST', `/projects/${project}/launch`, { targetDate: 'tomorrow' })).status, 422, 'a date has to be a date')

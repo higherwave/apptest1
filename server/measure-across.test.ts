@@ -37,7 +37,7 @@ test('Measure lists every requirement of every project with a published document
   assert.ok(health.length >= 5)
   assert.deepEqual(health.map((i: any) => i.key), [...health.map((i: any) => i.key)].sort((a: string, b: string) => Number(a.slice(1)) - Number(b.slice(1))), 'requirements in order')
   const r1 = health.find((i: any) => i.key === 'R1')
-  assert.deepEqual([r1.metricKind, r1.result, r1.teamName], ['tickets', 'worked', 'General'])
+  assert.deepEqual([r1.metricKind, r1.result, r1.teamName], ['tickets', 'worked', 'Platform'])
   assert.deepEqual(r1.trend, [48, 44, 40, 29, 22, 11])
   assert.ok(body.items.every((i: any) => typeof i.projectId === 'string' && 'canEdit' in i))
   // The response matches the written API.

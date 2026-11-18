@@ -65,7 +65,7 @@ test('a refused save changes nothing: a taken name, a bad channel, a project of 
   const { call, member, teams, general, project } = await fixture()
   const growth = (await (await call('POST', '/teams', { name: 'Growth' })).json()).id as string
   const snapshot = JSON.stringify(await teams())
-  assert.equal((await call('PATCH', `/teams/${growth}`, { name: 'General', members: { [member('alex')]: 'editor' } })).status, 409)
+  assert.equal((await call('PATCH', `/teams/${growth}`, { name: 'Platform', members: { [member('alex')]: 'editor' } })).status, 409)
   assert.equal((await call('PATCH', `/teams/${growth}`, { name: 'Growth 2', slackChannel: 'No Good!' })).status, 422)
   assert.equal((await call('PATCH', `/teams/${growth}`, { name: 'Growth 2', moveProjects: { [project]: general } })).status, 404, 'the project is not this team’s')
   assert.equal((await call('PATCH', `/teams/${growth}`, { name: 'Growth 2', members: { '00000000-0000-4000-8000-000000000000': 'viewer' } })).status, 404)

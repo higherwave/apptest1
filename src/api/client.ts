@@ -152,7 +152,7 @@ export const requestLaunchAnswers = (id: string) => request<LaunchRequestResult>
 export type LaunchSlackResult = components['schemas']['LaunchSlackResult']
 export type Setup = components['schemas']['Setup']
 export const getSetup = () => request<Setup>('/setup')
-export const markSetup = (step: string, status: 'done' | 'skipped') => request<Setup>(`/setup/${step}`, { method: 'PUT', body: { status } })
+export const markSetup = (step: string, status: 'done' | 'skipped', acknowledged?: boolean[]) => request<Setup>(`/setup/${step}`, { method: 'PUT', body: { status, ...(acknowledged ? { acknowledged } : {}) } })
 export type LaunchSuccess = components['schemas']['LaunchSuccess']
 export const getLaunchSuccess = (id: string) => request<LaunchSuccess>(`/launches/${id}/success`)
 export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })

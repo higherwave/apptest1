@@ -14,6 +14,17 @@ Decisions so far (2026-11-17). Scope: **set-up and orientation for workspace own
   was skipped (optional ones only).
 - **Concept:** the "Workspace setup concept" page (Artifact) in the 2026-11-17 session.
 
+## Required checks (decided 2026-11-18)
+
+- **Teams and people:** someone besides the owner **who can edit** has been invited or has joined; every team has at least one person who can edit.
+- **Approvals:** every launch step in use has an approver; the **final decision has a backup** (other backups are good to have, not required).
+- **Experience categories:** at least one; a definition is optional (the quick add never asks for one).
+- **Connections:** nothing required (Slack channel per team and Jira are optional).
+- **Data and AI:** all three items confirmed; the server checks and records it (`acknowledged` on `PUT /setup/guard`).
+- **The embedded screens are the real Admin screens**, so their own required fields (a team's name, an invite's email and role, an approver) hold in the setup exactly as in Admin;
+  afterwards the Admin screens are simply the continuation of the setup. The setup's extra gates only decide when a category can be marked done.
+- **The starter team is called Platform** (it was General): a nudge to use it for people who normally have access to everything. Not enforced; an owner can rename it.
+
 ## Flagged for December
 
 - **Save halfway and come back**, with **reminders** (alerts after a set time) for owners who have not finished. Not built in the first version.

@@ -20,6 +20,9 @@ export type SetupCheck = { label: string; ok: boolean; required: boolean }
 export type SetupCategory = { key: SetupKey; optional: boolean; status: 'locked' | 'current' | 'done' | 'skipped'; checks: SetupCheck[] }
 export type Setup = { categories: SetupCategory[]; done: number; total: number; complete: boolean }
 
+/** How many things the last category asks an owner to read and confirm (the screen lists them). */
+export const GUARD_ITEMS = 3
+
 export class BadSetupStep extends Error {}
 export class SetupLocked extends Error {}
 export class SetupNotReady extends Error {}
@@ -30,20 +33,27 @@ const count = async (db: Queryable, sql: string, params: unknown[]) => (await db
 async function checksFor(db: Queryable, workspaceId: string, key: SetupKey, jiraConnected: boolean): Promise<SetupCheck[]> {
   switch (key) {
     case 'people': {
-      const people = await count(db, `select count(*)::int n from core.memberships where workspace_id = $1`, [workspaceId])
+      // Someone besides the owner who can edit: the point of inviting people is that they can work in Signal Flow.
+      const editors = await count(db, `select count(*)::int n from core.memberships where workspace_id = $1 and role <> 'viewer' and not coalesce(is_external, false)`, [workspaceId])
       const noEditor = await count(
         db,
         `select count(*)::int n from core.teams t where t.workspace_id = $1 and not exists (select 1 from core.team_memberships tm where tm.team_id = t.id and tm.role <> 'viewer')`,
         [workspaceId],
       )
       return [
-        { label: 'Someone besides you has been invited or has joined', ok: people > 1, required: true },
+        { label: 'Someone besides you who can edit has been invited or has joined', ok: editors > 1, required: true },
         { label: 'Every team has at least one person who can edit', ok: noEditor === 0, required: true },
       ]
     }
     case 'approvals': {
       const o = await approvalsOverview(db, workspaceId)
-      return [{ label: `Every launch step in use has ${T.a('approver')}`, ok: o.gaps === 0, required: true }]
+      // The final decision needs a backup: if its approver is away, a launch would otherwise wait. (Other steps' backups are good to have, not required.)
+      const final = o.steps.find((s) => s.key === 'final_decision')
+      const noBackup = (final?.teams ?? []).filter((c) => c.state !== 'not_used' && !(c.mode === 'custom' ? c.backup : final?.backup)).length
+      return [
+        { label: `Every launch step in use has ${T.a('approver')}`, ok: o.gaps === 0, required: true },
+        { label: `The final decision has ${T.a('backup')}`, ok: !!final && noBackup === 0, required: true },
+      ]
     }
     case 'categories': {
       const total = await count(db, `select count(*)::int n from insights.feature_areas where workspace_id = $1 and retired_at is null`, [workspaceId])
@@ -81,7 +91,7 @@ export async function getSetup(db: Queryable, workspaceId: string, jiraConnected
 }
 
 /** An owner marks the current category done (every check passing, unless it is optional) or skips it (optional ones only). Earlier categories must be finished. */
-export async function markSetup(db: Db, ctx: RequestContext, step: string, status: 'done' | 'skipped', jiraConnected: boolean): Promise<Setup> {
+export async function markSetup(db: Db, ctx: RequestContext, step: string, status: 'done' | 'skipped', jiraConnected: boolean, acknowledged: boolean[] = []): Promise<Setup> {
   const def = SETUP_STEPS.find((s) => s.key === step)
   if (!def) throw new BadSetupStep()
   if (status === 'skipped' && !def.optional) throw new NotOptional()
@@ -89,13 +99,15 @@ export async function markSetup(db: Db, ctx: RequestContext, step: string, statu
   const cat = now.categories.find((c) => c.key === step)!
   if (cat.status === 'locked') throw new SetupLocked()
   if (status === 'done' && !cat.checks.every((c) => c.ok || !c.required)) throw new SetupNotReady()
+  // The last category is read and confirmed: each of its items has to be confirmed, and that is recorded.
+  if (status === 'done' && step === 'guard' && (acknowledged.length !== GUARD_ITEMS || !acknowledged.every(Boolean))) throw new SetupNotReady()
   await db.transaction(async (tx) => {
     await tx.query(
       `insert into core.workspace_setup (workspace_id, step, status, updated_by) values ($1, $2, $3, $4)
        on conflict (workspace_id, step) do update set status = excluded.status, updated_by = excluded.updated_by, updated_at = now()`,
       [ctx.workspaceId, step, status, ctx.userId],
     )
-    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.workspace_setup', entity_id: null, verb: status === 'done' ? 'completed' : 'skipped', after: { step } }])
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.workspace_setup', entity_id: null, verb: status === 'done' ? 'completed' : 'skipped', after: { step, ...(step === 'guard' && status === 'done' ? { confirmed: acknowledged } : {}) } }])
   })
   return getSetup(db, ctx.workspaceId, jiraConnected)
 }

@@ -40,8 +40,8 @@ test(`owners set up ${T.approvers} once: the grid shows covered, gap and not use
   assert.equal((await apply('alex', ['legal'])).status, 200)
   let o = await grid()
   assert.deepEqual(o.steps.map((s: any) => s.key), ['product_leadership', 'sales', 'legal', 'documentation', 'marketing', 'final_decision'])
-  assert.deepEqual(o.teams.map((t: any) => t.name).sort(), ['General', 'Payments'])
-  assert.equal(cell(o, 'General', 'legal').state, 'covered')
+  assert.deepEqual(o.teams.map((t: any) => t.name).sort(), ['Payments', 'Platform'])
+  assert.equal(cell(o, 'Platform', 'legal').state, 'covered')
   assert.equal(cell(o, 'Payments', 'legal').state, 'covered', `the workspace ${T.approver} covers a team made before or after`)
   assert.equal(cell(o, 'Payments', 'sales').state, 'gap', 'a step nobody approves is a gap, never hidden')
   assert.equal(o.gaps, 10, 'five steps in each of the two teams still have nobody')
@@ -50,13 +50,13 @@ test(`owners set up ${T.approvers} once: the grid shows covered, gap and not use
   assert.equal((await apply('sam', ['marketing'], 'primary', [payments])).status, 200)
   o = await grid()
   assert.deepEqual([cell(o, 'Payments', 'marketing').state, cell(o, 'Payments', 'marketing').mode], ['covered', 'custom'])
-  assert.equal(cell(o, 'General', 'marketing').state, 'gap', 'the other teams are not covered')
+  assert.equal(cell(o, 'Platform', 'marketing').state, 'gap', 'the other teams are not covered')
 
   // A team that does not use a step: not used, and the other team stays a gap.
   assert.equal((await save('sales', { approver: null, backup: null, teams: { [payments]: { mode: 'off' } } })).status, 200)
   o = await grid()
   assert.deepEqual([cell(o, 'Payments', 'sales').state, cell(o, 'Payments', 'sales').mode], ['not_used', 'off'])
-  assert.equal(cell(o, 'General', 'sales').state, 'gap')
+  assert.equal(cell(o, 'Platform', 'sales').state, 'gap')
   const finalOff = await save('final_decision', { approver: null, backup: null, teams: { [payments]: { mode: 'off' } } })
   assert.equal(finalOff.status, 422, 'the final decision is always used')
   assert.equal((await finalOff.json()).error.code, 'bad_step')
@@ -68,7 +68,7 @@ test(`owners set up ${T.approvers} once: the grid shows covered, gap and not use
   await apply('sam', ['legal'], 'primary', [payments])
   o = await grid()
   assert.equal(cell(o, 'Payments', 'legal').effective.email.split('@')[0], 'sam')
-  assert.equal(cell(o, 'General', 'legal').effective.email.split('@')[0], 'alex')
+  assert.equal(cell(o, 'Platform', 'legal').effective.email.split('@')[0], 'alex')
   void owner; void call; void person
 })
 
@@ -175,11 +175,11 @@ test('an external person is a viewer, can approve for a team only, and is refuse
 test('removing a member ends their assignments, so the step shows as a gap', async () => {
   const { call, owner, member, apply, grid, cell } = await fixture()
   await apply('alex', ['legal', 'marketing'])
-  assert.equal(cell(await grid(), 'General', 'legal').state, 'covered')
+  assert.equal(cell(await grid(), 'Platform', 'legal').state, 'covered')
   assert.equal((await call(owner, 'DELETE', `/members/${member('alex')}`)).status, 204)
   const o = await grid()
   assert.equal(o.steps.find((s: any) => s.key === 'legal').approver, null)
-  assert.equal(cell(o, 'General', 'legal').state, 'gap')
+  assert.equal(cell(o, 'Platform', 'legal').state, 'gap')
 })
 
 test('every change is in the audit log, under its own filter, as one entry per save', async () => {

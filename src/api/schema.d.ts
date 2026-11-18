@@ -6967,6 +6967,8 @@ export interface operations {
                 "application/json": {
                     /** @enum {string} */
                     status: "done" | "skipped";
+                    /** @description The last category only, whether each of its three items was confirmed. Marking it done needs all three. */
+                    acknowledged?: boolean[];
                 };
             };
         };
