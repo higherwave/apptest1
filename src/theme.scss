@@ -175,6 +175,8 @@
   --at-analyzed: #9bd5b9;
   // The page behind white surfaces (the app bar, hero, cards), and the soft glow behind a page's title.
   --at-page: #f8f9fb;
+  // The title region (2026-11-18, "slate blue wash"): a pale slate blue at the top fading into the page colour, no bottom border, so it bleeds into the page. Replaced the violet/blue glow.
+  --at-title-wash: linear-gradient(180deg, rgb(235 240 247) 0%, var(--at-page) 100%);
   --at-glow-violet: #7c5cd6;
   --at-glow-blue: #5096e6;
   // How strong the header glow is (2026-11-17: lighter, the violet most of all; it was 60% violet and 40% blue). Raise to bring colour back.

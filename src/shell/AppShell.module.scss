@@ -252,22 +252,8 @@ $column-width: 75rem; // every project step shares this width, centered
   gap: var(--at-space-sm);
   block-size: $context-height;
   padding-inline: var(--at-space-xl);
-  background: var(--at-canvas);
-  border-block-end: 1px solid var(--at-hairline);
+  background: var(--at-title-wash);
   overflow: hidden;
-
-  // The soft violet-and-blue glow of the page titles, so this bar reads apart from the white bars above and below it.
-  &::before {
-    content: '';
-    position: absolute;
-    inset-block: -1.5rem;
-    inset-inline-start: 38%; // right of the back link and the project's name, so they sit on white
-    inline-size: 56rem;
-    max-inline-size: 80%;
-    background: radial-gradient(ellipse closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) var(--at-glow-violet-mix), transparent), color-mix(in srgb, var(--at-glow-blue) var(--at-glow-blue-mix), transparent) 55%, transparent);
-    filter: blur(1rem);
-    pointer-events: none;
-  }
 
   > * { position: relative; }
 

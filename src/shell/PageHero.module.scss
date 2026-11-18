@@ -1,28 +1,11 @@
 @use '../tokens' as tokens;
 
-// White, reaching out to the edges of the content area (the padding around it is the page's), with a soft glow behind it.
+// The title region: a slate blue wash fading into the page, reaching out to the edges of the content area (the padding around it is the page's). No border, so it bleeds in.
 .hero {
   position: relative;
-  overflow: hidden;
   margin: calc(-1 * var(--at-space-xl)) calc(-1 * var(--at-space-xl)) 0;
   padding: var(--at-space-xl);
-  background: var(--at-canvas);
-  border-block-end: 1px solid var(--at-hairline);
-
-  &::before {
-    content: '';
-    position: absolute;
-    inset-block-start: -4rem;
-    inline-size: 38rem;
-    block-size: 21rem;
-    max-inline-size: 100%;
-    background: radial-gradient(closest-side at 40% 50%, color-mix(in srgb, var(--at-glow-violet) var(--at-glow-violet-mix), transparent), color-mix(in srgb, var(--at-glow-blue) var(--at-glow-blue-mix), transparent) 55%, transparent);
-    filter: blur(2.75rem);
-    pointer-events: none;
-  }
-
-  &[data-glow='right']::before { inset-inline-end: -4rem; }
-  &[data-glow='left']::before { inset-inline-start: 25%; }
+  background: var(--at-title-wash);
 }
 
 .inner {
