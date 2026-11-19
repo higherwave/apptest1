@@ -114,3 +114,11 @@ primary colour together, last.
 
 ## 2026-11-18: Requirements document looks like the Stories view
 - **What:** the "Product brief" and "Requirements document" headings on the Requirements page are h2 (heading-2). The document panel is white with each section a gray block (the Stories view's `.block` and `.blockHead` styles, copied), with body-md text.
+
+### 2026-11-19: Highlight panel background (Platform Insights "Start here" panel)
+
+The panel's background is now the LinkedIn banner's ribbons (blue, violet, teal, mint, with no lines or dots) at 55% opacity, fading into the
+original dark gray (the menu rail colour) at the left so the text there sits on plain gray. It replaces the purple and teal glows.
+Lives in `--at-panel-aurora` in `src/theme.scss` (an inline SVG, so no image file). Why: David's choice after trying a lighter gray, a slate blue
+base and a slate-blue highlight. Legibility checked by eye on the task list (the ribbons are the weakest spot; the first try at 75% was too bright).
+To undo: restore the previous `--at-panel-aurora` (two radial glows over a 115deg gradient from the rail colour) from git.
