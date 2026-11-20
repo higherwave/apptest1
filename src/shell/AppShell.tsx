@@ -168,9 +168,8 @@ export function AppShell() {
       {hasPanel && (
         <div className={styles.context} data-context data-rail={railWide}>
           <div className={styles.contextInner}>
-            <a href="/projects" data-label="All projects" className={styles.back} onClick={go('/projects')}>
-              <ChevronLeft size={16} aria-hidden />
-              All projects
+            <a href="/projects" data-label="All projects" aria-label="All projects" title="All projects" className={styles.back} onClick={go('/projects')}>
+              <ChevronLeft size={20} aria-hidden />
             </a>
             <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
             {projectDetail.data && !creating && (
