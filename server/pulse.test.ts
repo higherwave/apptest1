@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { createApp } from './app.js'
 import { createDemoDatabase } from './test-utils.js'
 import { splitNotes } from './pulse.js'
+import { fillDemoSignals, SAMPLES } from '../scripts/demo-pulse-signals.js'
 
 declare global {
   interface Response {
@@ -90,4 +91,18 @@ test('notes are split by paragraph, or by line when there are no blank lines, an
   assert.deepEqual(splitNotes('1. One thing customers asked for.\n2) Another thing customers asked for.'), ['One thing customers asked for.', 'Another thing customers asked for.'])
   assert.deepEqual(splitNotes('   \n  '), [])
   assert.deepEqual(splitNotes('short'), [])
+})
+
+test('the sample-signals script fills Pulse with the Anchor CX story, and is safe to repeat', async () => {
+  const { pglite: pg, db } = await createDemoDatabase()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  const dry = await fillDemoSignals(db, slug, false)
+  assert.equal(dry.added, 0)
+  assert.equal(((await pg.query<any>('select count(*)::int as n from core.pulse_signals')).rows[0] as { n: number }).n, 0, 'a dry run writes nothing')
+  const run = await fillDemoSignals(db, slug, true)
+  assert.equal(run.added, SAMPLES.length)
+  const by = (await pg.query<any>(`select source, status, count(*)::int as n from core.pulse_signals group by 1, 2 order by 1, 2`)).rows
+  assert.ok(by.some((r: any) => r.source === 'slack' && r.status === 'new'), 'some Slack signals wait for review')
+  assert.ok(by.some((r: any) => r.source === 'notes' && r.status === 'kept'))
+  assert.equal((await fillDemoSignals(db, slug, true)).added, 0, 'a second run adds nothing')
 })
