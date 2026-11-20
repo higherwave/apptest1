@@ -112,7 +112,7 @@ try {
     await new Promise((r) => setTimeout(r, 400))
     ok(`${label}: finishing the first tour brings the welcome back, with the second tour to start`, (await text(page)).includes('Welcome to Signal Flow') && !!(await page.$('[data-testid="start-project"]')))
     ok(`${label}: a finished tour is marked on the welcome screen`, await page.evaluate(() => !!document.querySelector('.cds--modal.is-visible [aria-label="Finished"]')))
-    await walk(page, label, 'project', 9)
+    await walk(page, label, 'project', 10)
 
     await new Promise((r) => setTimeout(r, 500))
     ok(`${label}: once both tours are finished, the welcome stays closed`, !(await page.$('.cds--modal.is-visible')))

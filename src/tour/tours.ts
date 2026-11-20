@@ -1,3 +1,5 @@
+import { T } from '../../shared/terms.mjs'
+
 // The guided tours. Written as a story: Anchor CX makes software for customer-success teams, and its product leaders have asked why
 // customers stopped trusting the account health score. Each step points at a real part of the screen (a CSS selector) on a real page
 // (a route); where a step has no target, or the target is not on the page, the card simply sits in the middle of the screen.
@@ -80,7 +82,7 @@ export const TOURS: Tour[] = [
   {
     id: 'project',
     title: 'From conversation to Jira ticket',
-    summary: 'Follow one Anchor CX research project from customer conversations to tickets ready for Jira.',
+    summary: 'Follow one Anchor CX research project from customer conversations to tickets ready for Jira, and on to the launch decision.',
     minutes: 3,
     steps: [
       {
@@ -132,9 +134,15 @@ export const TOURS: Tour[] = [
         target: '[data-testid^="story-"]',
       },
       {
+        title: 'Launch: the go signals',
+        body: `Before anything ships, each function that has a stake, such as support, legal or sales, gives its own go or no-go, with the evidence behind it. Everyone sees every section, and each ${T.approver} answers only their own. A step nobody covers shows as a gap, never hidden, and the final ${T.approver} signs off once the answers are in.`,
+        route: '/projects/:project/launch',
+        target: '[data-testid="launch-summary"], [data-testid="launch-start"], main h1',
+      },
+      {
         title: 'That is the whole path',
-        body: 'From a customer\'s own words to a ticket, with the evidence kept at every step. Back on Platform Insights, the same project rolls up with all the others.',
-        route: '/projects/:project/stories',
+        body: 'From a customer\'s own words to a launch decision, with the evidence kept at every step. Back on Platform Insights, the same project rolls up with all the others.',
+        route: '/projects/:project/launch',
       },
     ],
   },
