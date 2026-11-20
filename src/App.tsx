@@ -19,6 +19,8 @@ import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { PlatformJourneyPage } from './pages/insights/PlatformJourneyPage'
 import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
+import { PulsePage } from './pages/pulse/PulsePage'
+import { PreviewsPage } from './pages/settings/PreviewsPage'
 import { LaunchPage } from './pages/launch/LaunchPage'
 import { LaunchByIdPage } from './pages/launch/LaunchByIdPage'
 import { LaunchesPage } from './pages/launch/LaunchesPage'
@@ -77,6 +79,7 @@ export function App() {
         <Route path="launches/:launchId" element={<LaunchByIdPage />} />
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
+        <Route path="pulse" element={<PulsePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<Navigate to="/settings/access?tab=people" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
@@ -91,6 +94,7 @@ export function App() {
           <Route path="areas" element={<Navigate to="/settings/categories" replace />} />
           <Route path="categories" element={<AreasPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="preview" element={<PreviewsPage />} />
           <Route path="usage" element={<UsageAndCostsPage />} />
           <Route path="status" element={<Navigate to="/settings/usage?tab=ai" replace />} />
           <Route path="teams" element={<Navigate to="/settings/access?tab=teams" replace />} />

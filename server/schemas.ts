@@ -100,6 +100,26 @@ export const boardSyncSchema = z.object({ apply: z.boolean().optional() })
 export const includeThemeSchema = z.object({ included: z.boolean() })
 export const reopenSchema = z.object({ reason: text(1000).min(3, 'Say why the requirements are being returned to draft.') })
 export const setupSchema = z.object({ status: z.enum(['done', 'skipped']), acknowledged: z.array(z.boolean()).max(10).optional() })
+// Pulse
+export const pulsePreviewSchema = z.object({ enabled: z.boolean() })
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-11-20.').refine((d) => !Number.isNaN(Date.parse(d)), 'That is not a date.')
+const signalKind = z.enum(['complaint', 'request', 'praise', 'question', 'other'])
+export const addSignalSchema = z.object({
+  body: z.string().trim().min(1, 'Write what was said.').max(4000, 'That is too long for one signal.'),
+  kind: signalKind.optional(),
+  sourceLabel: optionalText(200),
+  sourceUrl: optionalText(1000).refine((u) => u === null || /^https?:\/\//i.test(u), 'A link must start with http:// or https://.'),
+  saidBy: optionalText(200),
+  account: optionalText(200),
+  occurredOn: isoDate.nullish().transform((v) => v ?? null),
+})
+export const importNotesSchema = z.object({
+  text: z.string().trim().min(1, 'Paste some notes first.').max(200_000, 'That is too much to import at once.'),
+  sourceLabel: optionalText(200),
+  account: optionalText(200),
+  occurredOn: isoDate.nullish().transform((v) => v ?? null),
+})
+export const updateSignalSchema = z.object({ status: z.enum(['new', 'kept', 'dismissed']).optional(), kind: signalKind.optional() }).refine((v) => v.status !== undefined || v.kind !== undefined, 'Say what to change.')
 export const holdSchema = z.object({ projectId: z.string().nullish(), reason: text(1000).min(3, 'Say why the hold is being placed.') })
 export const redoSchema = z.object({ instructions: text(500).min(1, 'Tell the agent what to change.') })
 export const editStepSchema = z.object({ text: z.string().trim().min(1, 'The text cannot be empty.').max(5000, 'The text is too long.') })

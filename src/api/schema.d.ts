@@ -1483,6 +1483,76 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pulse/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the Pulse preview is switched on for this workspace. Owners only (403 otherwise). */
+        get: operations["getPulsePreview"];
+        /** An owner switches the Pulse preview on or off for the workspace. Recorded in the audit log. */
+        put: operations["setPulsePreview"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The workspace's customer signals, newest first, with how many are new, kept and dismissed. Owners only, and only while the preview is on; everyone else gets 404, as for a page that does not exist. */
+        get: operations["listPulseSignals"];
+        put?: never;
+        /** Adds one signal typed in by the caller. It starts kept, because a person has already judged it. 404 unless the preview is on for an owner. */
+        post: operations["addPulseSignal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/signals/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Splits pasted or uploaded notes into signals, one per paragraph (or per line when there are no blank lines), at most 200 at a time. They start new, waiting for a person to keep or dismiss them. 404 unless the preview is on for an owner. */
+        post: operations["importPulseNotes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/signals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Keeps, dismisses or restores a signal (`status`), or says what kind it is (`kind`). 404 unless the preview is on for an owner. */
+        patch: operations["updatePulseSignal"];
+        trace?: never;
+    };
     "/setup": {
         parameters: {
             query?: never;
@@ -2778,6 +2848,49 @@ export interface components {
             keep: number;
             applied: boolean;
         };
+        PulsePreview: {
+            enabled: boolean;
+        };
+        PulseSignal: {
+            id: string;
+            body: string;
+            /** @enum {string} */
+            kind: "complaint" | "request" | "praise" | "question" | "other";
+            /**
+             * @description Typed in, split out of notes, or read from a connected channel.
+             * @enum {string}
+             */
+            source: "manual" | "notes" | "slack";
+            sourceLabel: string | null;
+            sourceUrl: string | null;
+            saidBy: string | null;
+            account: string | null;
+            /** @description YYYY-MM-DD */
+            occurredOn: string | null;
+            /** @enum {string} */
+            status: "new" | "kept" | "dismissed";
+            createdAt: string;
+        };
+        NewPulseSignal: {
+            body: string;
+            /** @enum {string} */
+            kind?: "complaint" | "request" | "praise" | "question" | "other";
+            sourceLabel?: string | null;
+            /** @description Must start with http:// or https://. */
+            sourceUrl?: string | null;
+            saidBy?: string | null;
+            account?: string | null;
+            /** @description YYYY-MM-DD */
+            occurredOn?: string | null;
+        };
+        PulseSignalList: {
+            signals: components["schemas"]["PulseSignal"][];
+            counts: {
+                new: number;
+                kept: number;
+                dismissed: number;
+            };
+        };
         Setup: {
             categories: {
                 /** @enum {string} */
@@ -3355,6 +3468,10 @@ export interface components {
             rolesManagedBySso: boolean;
             /** @description True when SSO_TEAM_GROUP_PREFIX is set: people's places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`. */
             teamsManagedBySso: boolean;
+            /** @description Preview features this caller may see. Pulse is true only for a signed-in owner of a workspace where an owner has switched the preview on; it decides whether the menu shows it. */
+            features: {
+                pulse: boolean;
+            };
             /** @description The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team's projects whether or not they belong to it. */
             teams: {
                 id: string;
@@ -6929,6 +7046,182 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getPulsePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The switch. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulsePreview"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    setPulsePreview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PulsePreview"];
+            };
+        };
+        responses: {
+            /** @description The switch after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulsePreview"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    listPulseSignals: {
+        parameters: {
+            query?: {
+                status?: "new" | "kept" | "dismissed";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The signals. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSignalList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    addPulseSignal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPulseSignal"];
+            };
+        };
+        responses: {
+            /** @description The new signal. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSignal"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    importPulseNotes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                    /** @description What the notes are, for example "Renewal call with Northwind". */
+                    sourceLabel?: string | null;
+                    account?: string | null;
+                    /** @description YYYY-MM-DD */
+                    occurredOn?: string | null;
+                };
+            };
+        };
+        responses: {
+            /** @description How many signals were made, and how many paragraphs were left out over the limit. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        created: number;
+                        skipped: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+        };
+    };
+    updatePulseSignal: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status?: "new" | "kept" | "dismissed";
+                    /** @enum {string} */
+                    kind?: "complaint" | "request" | "praise" | "question" | "other";
+                };
+            };
+        };
+        responses: {
+            /** @description The signal after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSignal"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     getSetup: {

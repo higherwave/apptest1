@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -51,6 +51,7 @@ import { CaptureError, capturePreflight, makeCapture, type CaptureService } from
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
+import { addSignal, importNotes, listSignals, pulseEnabled, pulseOn, setPulsePreview, SignalNotFound, updateSignal } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
@@ -215,6 +216,7 @@ export function createApp(options: AppOptions = {}) {
       rolesManagedBySso: ssoPolicy(env).managedByGroups,
       teamsManagedBySso: !!ssoPolicy(env).teamGroupPrefix,
       teams,
+      features: { pulse: await pulseOn(getDb(), ctx) },
     })
   })
 
@@ -1176,6 +1178,57 @@ export function createApp(options: AppOptions = {}) {
       if (err instanceof NotOptional) throw new ApiError(422, 'validation_failed', 'Only an optional step can be skipped.', 'status')
       if (err instanceof SetupLocked) throw new ApiError(409, 'setup_locked', 'Finish the earlier steps first.')
       if (err instanceof SetupNotReady) throw new ApiError(409, 'setup_not_ready', 'Something in this step is not done yet.')
+      throw err
+    }
+  })
+
+  // Pulse (preview): customer signals for early problem framing. For owners only, and only while an owner has switched the preview on (pulse.ts, `pulseOn`). Anyone
+  // else gets the answer a page that does not exist would give, so a viewer cannot tell it is there. The switch itself is an owner's setting in Admin.
+  const pulseOnly = async (c: Context) => {
+    if (!(await pulseOn(getDb(), c.get('ctx')))) throw new ApiError(404, 'not_found', 'Not found.')
+  }
+  const signalId = (c: Context) => {
+    const id = c.req.param('id') ?? ''
+    if (!UUID.test(id)) throw new ApiError(404, 'not_found', 'Not found.')
+    return id
+  }
+  app.get('/pulse/preview', withContext, async (c) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change previews.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ enabled: await pulseEnabled(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.put('/pulse/preview', withContext, async (c) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change previews.')
+    const input = parseBody(pulsePreviewSchema, await readJson(c))
+    await setPulsePreview(getDb(), c.get('ctx'), input.enabled)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ enabled: input.enabled })
+  })
+  app.get('/pulse/signals', withReadContext, async (c) => {
+    await pulseOnly(c)
+    const status = c.req.query('status')
+    if (status !== undefined && !['new', 'kept', 'dismissed'].includes(status)) throw new ApiError(422, 'validation_failed', 'Status must be new, kept or dismissed.', 'status')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await listSignals(getDb(), c.get('ctx'), status as 'new' | 'kept' | 'dismissed' | undefined))
+  })
+  app.post('/pulse/signals', withContext, async (c) => {
+    await pulseOnly(c)
+    const input = parseBody(addSignalSchema, await readJson(c))
+    return c.json(await addSignal(getDb(), c.get('ctx'), input), 201)
+  })
+  app.post('/pulse/signals/import', withContext, limited('pulse_import', 20), async (c) => {
+    await pulseOnly(c)
+    const input = parseBody(importNotesSchema, await readJson(c))
+    return c.json(await importNotes(getDb(), c.get('ctx'), input), 201)
+  })
+  app.patch('/pulse/signals/:id', withContext, async (c) => {
+    await pulseOnly(c)
+    const id = signalId(c)
+    const input = parseBody(updateSignalSchema, await readJson(c))
+    try {
+      return c.json(await updateSignal(getDb(), c.get('ctx'), id, input))
+    } catch (err) {
+      if (err instanceof SignalNotFound) throw new ApiError(404, 'not_found', 'Not found.')
       throw err
     }
   })

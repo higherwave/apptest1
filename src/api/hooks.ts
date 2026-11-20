@@ -7,6 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -371,4 +372,25 @@ export const usePlaceHold = () => {
 export const useReleaseHold = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (id: string) => releaseHold(id), onSuccess: () => Promise.all(['holds', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
+}
+
+/** Pulse (preview, owners only). The switch is read in Admin; the signals only load where the menu already showed Pulse. */
+export const usePulsePreview = (enabled = true) => useQuery({ queryKey: ['pulse', 'preview'], queryFn: getPulsePreview, enabled })
+export const useSetPulsePreview = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (enabled: boolean) => setPulsePreview(enabled), onSuccess: () => queryClient.invalidateQueries() })
+}
+export const usePulseSignals = (status?: PulseStatus) => useQuery({ queryKey: ['pulse', 'signals', status ?? 'all'], queryFn: () => listPulseSignals(status), retry: false })
+const refreshPulse = (queryClient: ReturnType<typeof useQueryClient>) => queryClient.invalidateQueries({ queryKey: ['pulse', 'signals'] })
+export const useAddPulseSignal = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (body: NewPulseSignal) => addPulseSignal(body), onSuccess: () => refreshPulse(queryClient) })
+}
+export const useImportPulseNotes = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (body: Parameters<typeof importPulseNotes>[0]) => importPulseNotes(body), onSuccess: () => refreshPulse(queryClient) })
+}
+export const useUpdatePulseSignal = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { id: string; status?: PulseStatus; kind?: PulseSignal['kind'] }) => updatePulseSignal(v.id, { status: v.status, kind: v.kind }), onSuccess: () => refreshPulse(queryClient) })
 }

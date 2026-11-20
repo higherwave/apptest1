@@ -1937,6 +1937,129 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /pulse/preview:
+    get:
+      operationId: getPulsePreview
+      summary: Whether the Pulse preview is switched on for this workspace. Owners only (403 otherwise).
+      responses:
+        '200':
+          description: The switch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulsePreview' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: setPulsePreview
+      summary: An owner switches the Pulse preview on or off for the workspace. Recorded in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PulsePreview' }
+      responses:
+        '200':
+          description: The switch after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulsePreview' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /pulse/signals:
+    get:
+      operationId: listPulseSignals
+      summary: >
+        The workspace's customer signals, newest first, with how many are new, kept and dismissed. Owners only, and only while the preview is on; everyone else gets 404, as for
+        a page that does not exist.
+      parameters:
+        - { name: status, in: query, required: false, schema: { type: string, enum: [new, kept, dismissed] } }
+      responses:
+        '200':
+          description: The signals.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSignalList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: addPulseSignal
+      summary: Adds one signal typed in by the caller. It starts kept, because a person has already judged it. 404 unless the preview is on for an owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewPulseSignal' }
+      responses:
+        '201':
+          description: The new signal.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSignal' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/signals/import:
+    post:
+      operationId: importPulseNotes
+      summary: >
+        Splits pasted or uploaded notes into signals, one per paragraph (or per line when there are no blank lines), at most 200 at a time. They start new, waiting for a person
+        to keep or dismiss them. 404 unless the preview is on for an owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text]
+              properties:
+                text: { type: string }
+                sourceLabel: { type: [string, 'null'], description: 'What the notes are, for example "Renewal call with Northwind".' }
+                account: { type: [string, 'null'] }
+                occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
+      responses:
+        '201':
+          description: How many signals were made, and how many paragraphs were left out over the limit.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [created, skipped]
+                properties:
+                  created: { type: integer }
+                  skipped: { type: integer }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /pulse/signals/{id}:
+    patch:
+      operationId: updatePulseSignal
+      summary: Keeps, dismisses or restores a signal (`status`), or says what kind it is (`kind`). 404 unless the preview is on for an owner.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                status: { type: string, enum: [new, kept, dismissed] }
+                kind: { type: string, enum: [complaint, request, praise, question, other] }
+      responses:
+        '200':
+          description: The signal after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSignal' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /setup:
     get:
       operationId: getSetup
@@ -3579,6 +3702,49 @@ components:
           items: { $ref: '#/components/schemas/BoardChange' }
         keep: { type: integer }
         applied: { type: boolean }
+    PulsePreview:
+      type: object
+      required: [enabled]
+      properties:
+        enabled: { type: boolean }
+    PulseSignal:
+      type: object
+      required: [id, body, kind, source, sourceLabel, sourceUrl, saidBy, account, occurredOn, status, createdAt]
+      properties:
+        id: { type: string }
+        body: { type: string }
+        kind: { type: string, enum: [complaint, request, praise, question, other] }
+        source: { type: string, enum: [manual, notes, slack], description: 'Typed in, split out of notes, or read from a connected channel.' }
+        sourceLabel: { type: [string, 'null'] }
+        sourceUrl: { type: [string, 'null'] }
+        saidBy: { type: [string, 'null'] }
+        account: { type: [string, 'null'] }
+        occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
+        status: { type: string, enum: [new, kept, dismissed] }
+        createdAt: { type: string }
+    NewPulseSignal:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string }
+        kind: { type: string, enum: [complaint, request, praise, question, other] }
+        sourceLabel: { type: [string, 'null'] }
+        sourceUrl: { type: [string, 'null'], description: 'Must start with http:// or https://.' }
+        saidBy: { type: [string, 'null'] }
+        account: { type: [string, 'null'] }
+        occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
+    PulseSignalList:
+      type: object
+      required: [signals, counts]
+      properties:
+        signals: { type: array, items: { $ref: '#/components/schemas/PulseSignal' } }
+        counts:
+          type: object
+          required: [new, kept, dismissed]
+          properties:
+            new: { type: integer }
+            kept: { type: integer }
+            dismissed: { type: integer }
     Setup:
       type: object
       required: [categories, done, total, complete]
@@ -4193,7 +4359,7 @@ components:
         mailConfigured: { type: boolean, description: 'False when this deployment has no email sender set up.' }
     Me:
       type: object
-      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, external, signInAvailable, rolesManagedBySso, teamsManagedBySso, teams]
+      required: [userId, email, displayName, avatarUrl, workspaceId, workspaceName, role, via, external, signInAvailable, rolesManagedBySso, teamsManagedBySso, teams, features]
       properties:
         userId: { type: string }
         email: { type: string }
@@ -4207,6 +4373,12 @@ components:
         signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
         rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
         teamsManagedBySso: { type: boolean, description: 'True when SSO_TEAM_GROUP_PREFIX is set: people''s places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`.' }
+        features:
+          type: object
+          required: [pulse]
+          description: 'Preview features this caller may see. Pulse is true only for a signed-in owner of a workspace where an owner has switched the preview on; it decides whether the menu shows it.'
+          properties:
+            pulse: { type: boolean }
         teams:
           type: array
           description: 'The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team''s projects whether or not they belong to it.'

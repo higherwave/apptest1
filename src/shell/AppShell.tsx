@@ -1,4 +1,4 @@
-import { Analytics, ChartLineData, ChevronDown, ChevronLeft, Filter, Help, Settings as SettingsIcon } from '@carbon/icons-react'
+import { Activity, Analytics, ChartLineData, ChevronDown, ChevronLeft, Filter, Help, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button } from '@carbon/react'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
@@ -47,6 +47,7 @@ export function AppShell() {
   const insights = pathname.startsWith('/insights')
   const settings = pathname.startsWith('/settings')
   const measureArea = pathname === '/measure'
+  const pulseArea = pathname === '/pulse'
   // Creating a project shows the same steps, with only Test Plan open: the others need a saved project.
   const creating = pathname === '/projects/new'
   // The server says which steps are open; until it answers, none are shown as locked.
@@ -82,8 +83,10 @@ export function AppShell() {
   const canSettings = me.data?.role === 'owner' || me.data?.role === 'editor'
   const areas = [
     { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
-    { to: '/projects', label: 'Projects', active: !insights && !settings && !measureArea, icon: Filter },
+    { to: '/projects', label: 'Projects', active: !insights && !settings && !measureArea && !pulseArea, icon: Filter },
     { to: '/measure', label: 'Measure', active: measureArea, icon: ChartLineData },
+    // Pulse is a preview: the server says whether this person may see it (an owner, with the preview switched on); no one else gets even a menu item.
+    ...(me.data?.features.pulse ? [{ to: '/pulse', label: 'Pulse', active: pulseArea, icon: Activity }] : []),
     ...(canSettings ? [{ to: '/settings/categories', label: 'Admin', active: settings, icon: SettingsIcon }] : []),
   ]
   const current = areas.find((a) => a.active) ?? areas[0]

@@ -30,6 +30,7 @@ export const SETTINGS_SECTIONS = [
   { key: 'access', label: 'User Access' },
   { key: 'data', label: 'Data' },
   { key: 'audit', label: 'Audit log' },
+  { key: 'preview', label: 'Previews' },
 ]
 
 export const SECTION_TITLES: Record<string, string> = Object.fromEntries([
