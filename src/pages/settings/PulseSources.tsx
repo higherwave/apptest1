@@ -35,7 +35,7 @@ export function PulseSources() {
     setNote(null)
     try {
       const r = await check.mutateAsync(s.id)
-      setNote({ id: s.id, error: !!r.error, text: r.error ?? (r.added ? `${r.added} new ${r.added === 1 ? 'message' : 'messages'} read.` : 'Nothing new.') })
+      setNote({ id: s.id, error: !!r.error, text: r.error ?? `${r.added ? `${r.added} new ${r.added === 1 ? 'message' : 'messages'} read.` : 'Nothing new.'}${r.duplicates ? ` ${r.duplicates} repeated ${r.duplicates === 1 ? 'one was' : 'ones were'} left out.` : ''}` })
     } catch (err) {
       setNote({ id: s.id, error: true, text: friendlyMessage(err) })
     }

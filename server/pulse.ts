@@ -8,6 +8,7 @@ import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import type { SlackClient } from './slack.js'
 import { checkAllSources } from './pulse-sources.js'
+import { isRepeat, loadSeen } from './pulse-clean.js'
 import { linksFor } from './pulse-links.js'
 import { arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
 import type { SalesforceClient } from './salesforce.js'
@@ -171,10 +172,14 @@ export function splitNotes(text: string): string[] {
 export const MAX_IMPORT = 200
 
 /** Splits notes into signals that wait for review (status new). Returns how many were made, and how many paragraphs were left out when over the cap. */
-export async function importNotes(db: Db, ctx: RequestContext, input: { text: string; channel?: Channel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }): Promise<{ created: number; skipped: number }> {
+export async function importNotes(db: Db, ctx: RequestContext, input: { text: string; channel?: Channel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }): Promise<{ created: number; skipped: number; duplicates: number }> {
   const all = splitNotes(input.text)
-  const parts = all.slice(0, MAX_IMPORT)
-  if (!parts.length) return { created: 0, skipped: 0 }
+  const seen = await loadSeen(db, ctx.workspaceId)
+  const capped = all.slice(0, MAX_IMPORT)
+  // Paragraphs that repeat one already saved (or one earlier in the same paste) are left out.
+  const parts = capped.filter((body) => !isRepeat(body, seen))
+  const duplicates = capped.length - parts.length
+  if (!parts.length) return { created: 0, skipped: all.length - capped.length, duplicates }
   await db.transaction(async (tx) => {
     await insertMany(
       tx,
@@ -182,7 +187,7 @@ export async function importNotes(db: Db, ctx: RequestContext, input: { text: st
       parts.map((body) => ({ workspace_id: ctx.workspaceId, body, kind: 'other', channel: input.channel ?? 'call_notes', source: 'notes', source_label: clean(input.sourceLabel), account: clean(input.account), occurred_on: input.occurredOn ?? null, status: 'new', created_by: ctx.userId })),
     )
   })
-  return { created: parts.length, skipped: all.length - parts.length }
+  return { created: parts.length, skipped: all.length - capped.length, duplicates }
 }
 
 /** Keep, dismiss or put back a signal, and optionally say what kind it is. */

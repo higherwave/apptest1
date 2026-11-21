@@ -75,12 +75,12 @@ test('reading a channel: review mode waits, keep mode counts, a second read adds
   ]
   const review = await (await call(owner, 'POST', '/pulse/sources', { name: 'customer-feedback' })).json()
   let res = await (await call(owner, 'POST', `/pulse/sources/${review.id}/check`)).json()
-  assert.deepEqual(res, { added: 2, error: null })
+  assert.deepEqual(res, { added: 2, error: null, duplicates: 0 })
   let rows = (await pg.query<any>(`select status, source, source_label, channel from core.pulse_signals where source = 'slack'`)).rows
   assert.equal(rows.length, 2)
   assert.ok(rows.every((r: any) => r.status === 'new' && r.source_label === '#customer-feedback' && r.channel === 'slack'))
 
-  assert.deepEqual(await (await call(owner, 'POST', `/pulse/sources/${review.id}/check`)).json(), { added: 0, error: null }, 'the same messages are never read twice')
+  assert.deepEqual(await (await call(owner, 'POST', `/pulse/sources/${review.id}/check`)).json(), { added: 0, error: null, duplicates: 0 }, 'the same messages are never read twice')
   rec.feeds['C_customer-feedback'].push(msg(5, 'Support says the handoff notes get lost between teams'))
   assert.equal((await (await call(owner, 'POST', `/pulse/sources/${review.id}/check`)).json()).added, 1, 'only the new message')
 
@@ -114,7 +114,7 @@ test('without a Slack connection a channel is saved and says so when checked', a
   assert.equal((await (await call(owner, 'GET', '/pulse/sources')).json()).slackConnected, false)
   const src = await (await call(owner, 'POST', '/pulse/sources', { name: 'customer-feedback' })).json()
   const res = await (await call(owner, 'POST', `/pulse/sources/${src.id}/check`)).json()
-  assert.deepEqual(res, { added: 0, error: 'Slack is not connected yet.' })
+  assert.deepEqual(res, { added: 0, error: 'Slack is not connected yet.', duplicates: 0 })
 })
 
 test('the hourly job reads enabled sources before grouping, and skips a switched-off one', async () => {

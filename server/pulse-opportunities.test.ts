@@ -96,7 +96,7 @@ test('the opportunity source: owners only, validated, one per workspace, audited
   assert.deepEqual([src.kind, src.channel, src.mode, src.config], ['salesforce_opportunity', 'salesforce', 'review', { fields: ['NextStep', 'Description'], scope: 'both', amountField: 'Amount' }])
   assert.equal((await call(owner, 'POST', '/pulse/sources/opportunities', { fields: ['NextStep'] })).status, 422, 'one per workspace')
   const res = await (await call(owner, 'POST', `/pulse/sources/${src.id}/check`)).json()
-  assert.deepEqual(res, { added: 0, error: 'Salesforce is not connected yet.' })
+  assert.deepEqual(res, { added: 0, error: 'Salesforce is not connected yet.', duplicates: 0 })
   assert.deepEqual((await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_sources'`)).rows.map((r: any) => r.verb), ['added'])
 })
 
@@ -113,11 +113,11 @@ test('reading opportunity notes: signals with the deal behind them, once; topics
   ]
   const src = await (await call(owner, 'POST', '/pulse/sources/opportunities', { fields: ['NextStep', 'Description'], mode: 'keep' })).json()
   const res = await (await call(owner, 'POST', `/pulse/sources/${src.id}/check`)).json()
-  assert.deepEqual(res, { added: 5, error: null }, 'five notes from four deals with words')
+  assert.deepEqual(res, { added: 5, error: null, duplicates: 0 }, 'five notes from four deals with words')
   const sigs = (await pg.query<any>(`select source, channel, status, account, account_sf_id, opp_id, opp_state, opp_amount::float8 as amount, external_id from core.pulse_signals where source = 'salesforce' order by external_id`)).rows
   assert.ok(sigs.every((s: any) => s.channel === 'salesforce' && s.status === 'kept'))
   assert.equal(sigs.filter((s: any) => s.opp_id === state.opps[0].Id).length, 2)
-  assert.deepEqual((await (await call(owner, 'POST', `/pulse/sources/${src.id}/check`)).json()), { added: 0, error: null }, 'never read twice')
+  assert.deepEqual((await (await call(owner, 'POST', `/pulse/sources/${src.id}/check`)).json()), { added: 0, error: null, duplicates: 0 }, 'never read twice')
   assert.match(f.queries.filter((q) => /FROM Opportunity WHERE LastModifiedDate/.test(q)).at(-1)!, /LastModifiedDate > \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z/, 'the next read starts after the newest change')
 
   const list = await (await call(owner, 'POST', '/pulse/topics/update', { mode: 'regroup' })).json()

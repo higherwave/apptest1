@@ -7702,6 +7702,8 @@ export interface operations {
                     "application/json": {
                         created: number;
                         skipped: number;
+                        /** @description Paragraphs left out because they repeat a signal already saved (or one earlier in the paste). */
+                        duplicates: number;
                     };
                 };
             };
@@ -8327,6 +8329,8 @@ export interface operations {
                     "application/json": {
                         added: number;
                         error: string | null;
+                        /** @description Messages left out because they repeat a signal already saved. */
+                        duplicates: number;
                     };
                 };
             };

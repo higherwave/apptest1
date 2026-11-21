@@ -174,7 +174,7 @@ function ImportNotes({ onDone }: { onDone: () => void }) {
   const [label, setLabel] = useState('')
   const [channel, setChannel] = useState<PulseSignal['channel']>('call_notes')
   const [account, setAccount] = useState('')
-  const [result, setResult] = useState<{ created: number; skipped: number } | null>(null)
+  const [result, setResult] = useState<{ created: number; skipped: number; duplicates: number } | null>(null)
   const run = async () => {
     setResult(null)
     try {
@@ -207,7 +207,7 @@ function ImportNotes({ onDone }: { onDone: () => void }) {
           lowContrast
           kind={result.created ? 'success' : 'info'}
           title={result.created ? `${result.created} ${result.created === 1 ? 'signal' : 'signals'} added for review` : 'No signals found'}
-          subtitle={result.skipped ? `${result.skipped} more were left out: at most 200 are added at a time.` : result.created ? 'They are under To review.' : 'Very short lines are left out.'}
+          subtitle={[result.skipped ? `${result.skipped} more were left out: at most 200 are added at a time.` : result.created ? 'They are under To review.' : 'Very short lines are left out.', result.duplicates ? `${result.duplicates} repeated ${result.duplicates === 1 ? 'one was' : 'ones were'} left out.` : ''].filter(Boolean).join(' ')}
           data-testid="notes-result"
         />
       )}

@@ -2027,10 +2027,11 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [created, skipped]
+                required: [created, skipped, duplicates]
                 properties:
                   created: { type: integer }
                   skipped: { type: integer }
+                  duplicates: { type: integer, description: 'Paragraphs left out because they repeat a signal already saved (or one earlier in the paste).' }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
@@ -2467,10 +2468,11 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [added, error]
+                required: [added, error, duplicates]
                 properties:
                   added: { type: integer }
                   error: { type: [string, 'null'] }
+                  duplicates: { type: integer, description: 'Messages left out because they repeat a signal already saved.' }
         '401': { $ref: '#/components/responses/Error' }
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }

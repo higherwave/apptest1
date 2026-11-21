@@ -93,7 +93,7 @@ test('signals: typed in (kept), split out of notes (new), then kept or dismissed
 
   const imported = await call(owner, 'POST', '/pulse/signals/import', { text: '- Reports take too long to build by hand.\n- Handoffs to support lose context.\n- ok', sourceLabel: 'Call notes', account: 'Contoso' })
   assert.equal(imported.status, 201)
-  assert.deepEqual(await imported.json(), { created: 2, skipped: 0 }, 'bullets are dropped, and a fragment too short to be a signal is left out')
+  assert.deepEqual(await imported.json(), { created: 2, skipped: 0, duplicates: 0 }, 'bullets are dropped, and a fragment too short to be a signal is left out')
   const list = await (await call(owner, 'GET', '/pulse/signals')).json()
   assert.deepEqual(list.counts, { new: 2, kept: 1, dismissed: 0 })
   const fromNotes = list.signals.filter((s: any) => s.source === 'notes')

@@ -8,6 +8,7 @@ import { insertMany } from './sql.js'
 import { cleanChannel, SlackError, type SlackClient, type SlackMessage } from './slack.js'
 import { isFieldName, MAX_NOTE_FIELDS, SalesforceError, type OpportunityScope, type SalesforceClient } from './salesforce.js'
 import { type Channel } from './pulse-topics.js'
+import { isRepeat, loadKnownIds, loadSeen } from './pulse-clean.js'
 
 export type SourceMode = 'keep' | 'review'
 export type Source = {
@@ -138,8 +139,11 @@ type Who = { workspaceId: string; userId: string | null }
 /** The connections a read may use; a missing one makes that kind of source say it is not connected. */
 export type Clients = { slack?: SlackClient | null; salesforce?: SalesforceClient | null }
 
-async function readSlack(db: Db, who: Who, slack: SlackClient, src: Row, now: Date): Promise<{ added: number; error: string | null }> {
+async function readSlack(db: Db, who: Who, slack: SlackClient, src: Row, now: Date): Promise<{ added: number; error: string | null; duplicates: number }> {
   let added = 0
+  let duplicates = 0
+  const seen = await loadSeen(db, who.workspaceId)
+  const known = await loadKnownIds(db, who.workspaceId, 'slack')
   let error: string | null = null
   let cursor = src.cursor_ts
   let ref = src.ref
@@ -152,7 +156,11 @@ async function readSlack(db: Db, who: Who, slack: SlackClient, src: Row, now: Da
       if (!messages.length) break
       const rows = messages.flatMap((m) => {
         const body = usableMessage(m)
-        if (!body) return []
+        if (!body || known.has(`${ref}:${m.ts}`)) return []
+        if (isRepeat(body, seen)) {
+          duplicates++
+          return []
+        }
         const kept = src.mode === 'keep'
         return [{ workspace_id: who.workspaceId, body, kind: 'other', channel: src.channel, source: 'slack', source_label: `#${src.name}`, occurred_on: new Date(Number(m.ts) * 1000).toISOString().slice(0, 10), status: kept ? 'kept' : 'new', kept_at: kept ? now.toISOString() : null, external_id: `${ref}:${m.ts}` }]
       })
@@ -174,7 +182,7 @@ async function readSlack(db: Db, who: Who, slack: SlackClient, src: Row, now: Da
     if (!(err instanceof SlackError)) console.error('pulse source read failed', err instanceof Error ? err.name : 'error')
   }
   await db.query(`update core.pulse_sources set ref = $2, cursor_ts = $3, last_checked_at = now(), last_added = $4, last_error = $5 where id = $1`, [src.id, ref, cursor, error ? null : added, error])
-  return { added, error }
+  return { added, error, duplicates }
 }
 
 // Salesforce times come as "2026-11-20T10:00:00.000+0000"; SOQL wants "2026-11-20T10:00:00Z".
@@ -192,8 +200,11 @@ async function updateOpportunityFacts(db: Db, workspaceId: string, opps: { id: s
   )
 }
 
-async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null | undefined, src: Row, now: Date): Promise<{ added: number; error: string | null }> {
+async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null | undefined, src: Row, now: Date): Promise<{ added: number; error: string | null; duplicates: number }> {
   let added = 0
+  let duplicates = 0
+  const seen = await loadSeen(db, who.workspaceId)
+  const known = await loadKnownIds(db, who.workspaceId, 'salesforce')
   let error: string | null = null
   let cursor = src.cursor_ts
   try {
@@ -206,7 +217,12 @@ async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null |
     const rows = opps.flatMap((o) =>
       cfg.fields.flatMap((f) => {
         const body = plainSlackText(o.notes[f] ?? '').slice(0, 4000)
-        if (body.length < MIN_LENGTH) return []
+        if (body.length < MIN_LENGTH || known.has(`${o.id}:${f}`)) return []
+        // The same words on the same deal read again (a note copied into two fields) are one signal.
+        if (isRepeat(body, seen)) {
+          duplicates++
+          return []
+        }
         return [
           { workspace_id: who.workspaceId, body, kind: 'other', channel: src.channel, source: 'salesforce', source_label: `${o.name || 'Opportunity'} · ${f}`, account: o.accountName, account_sf_id: o.accountId, occurred_on: sfDate(o.modified).toISOString().slice(0, 10), status: kept ? 'kept' : 'new', kept_at: kept ? now.toISOString() : null, external_id: `${o.id}:${f}`, opp_id: o.id, opp_name: o.name, opp_amount: o.amount, opp_stage: o.stage, opp_close_date: o.closeDate ?? '', opp_state: o.state },
         ]
@@ -232,14 +248,14 @@ async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null |
     if (!(err instanceof SalesforceError)) console.error('pulse opportunity read failed', err instanceof Error ? err.name : 'error')
   }
   await db.query(`update core.pulse_sources set cursor_ts = $2, last_checked_at = now(), last_added = $3, last_error = $4 where id = $1`, [src.id, cursor, error ? null : added, error])
-  return { added, error }
+  return { added, error, duplicates }
 }
 
-async function readSource(db: Db, who: Who, clients: Clients, src: Row, now: Date): Promise<{ added: number; error: string | null }> {
+async function readSource(db: Db, who: Who, clients: Clients, src: Row, now: Date): Promise<{ added: number; error: string | null; duplicates: number }> {
   if (src.kind === 'salesforce_opportunity') return readOpportunities(db, who, clients.salesforce, src, now)
   if (!clients.slack) {
     await db.query(`update core.pulse_sources set last_checked_at = now(), last_added = null, last_error = 'Slack is not connected yet.' where id = $1`, [src.id])
-    return { added: 0, error: 'Slack is not connected yet.' }
+    return { added: 0, error: 'Slack is not connected yet.', duplicates: 0 }
   }
   return readSlack(db, who, clients.slack, src, now)
 }
@@ -247,7 +263,7 @@ async function readSource(db: Db, who: Who, clients: Clients, src: Row, now: Dat
 const ROW = `select id, kind, name, ref, channel, mode, cursor_ts, config from core.pulse_sources`
 
 /** Reads one source now. Returns what was added and any problem, never throws for a Slack or Salesforce problem. */
-export async function checkSource(db: Db, who: Who, clients: Clients, id: string, now: Date = new Date()): Promise<{ added: number; error: string | null }> {
+export async function checkSource(db: Db, who: Who, clients: Clients, id: string, now: Date = new Date()): Promise<{ added: number; error: string | null; duplicates: number }> {
   const src = (await db.query(`${ROW} where id = $1 and workspace_id = $2`, [id, who.workspaceId])).rows[0] as Row | undefined
   if (!src) throw new SourceNotFound()
   return readSource(db, who, clients, src, now)
