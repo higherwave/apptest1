@@ -191,6 +191,13 @@
   gap: var(--at-space-sm);
 }
 
+.rankBy {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  flex-wrap: wrap;
+}
+
 .mapSwitch {
   max-inline-size: 16rem;
 }

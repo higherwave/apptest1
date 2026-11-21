@@ -11,14 +11,19 @@ import { checkAllSources } from './pulse-sources.js'
 import { linksFor } from './pulse-links.js'
 import { arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
 import type { SalesforceClient } from './salesforce.js'
-import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, topicStats, type Channel, type TopicStats } from './pulse-topics.js'
+import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, playStats, topicStats, type Channel, type InPlay, type TopicStats } from './pulse-topics.js'
 
 export { CHANNELS, isChannel, type Channel }
 
 export const SIGNAL_KINDS = ['complaint', 'request', 'praise', 'question', 'other'] as const
 export type SignalKind = (typeof SIGNAL_KINDS)[number]
 export type SignalStatus = 'new' | 'kept' | 'dismissed'
-export type SignalSource = 'manual' | 'notes' | 'slack'
+export type SignalSource = 'manual' | 'notes' | 'slack' | 'salesforce'
+
+/** The Salesforce opportunity a signal came from, when it did. */
+export type Opportunity = { id: string; name: string; amount: number | null; stage: string | null; closeDate: string | null; state: 'open' | 'lost' | 'won' }
+export const opportunityOf = (r: Record<string, any>): Opportunity | null =>
+  r.opp_id ? { id: r.opp_id, name: r.opp_name ?? '', amount: r.opp_amount === null || r.opp_amount === undefined ? null : Number(r.opp_amount), stage: r.opp_stage ?? null, closeDate: r.opp_close_date ?? null, state: r.opp_state ?? 'open' } : null
 
 export type Signal = {
   id: string
@@ -33,6 +38,7 @@ export type Signal = {
   occurredOn: string | null
   status: SignalStatus
   createdAt: string
+  opportunity: Opportunity | null
 }
 export type SignalList = { signals: Signal[]; counts: Record<SignalStatus, number> }
 
@@ -78,9 +84,10 @@ const toSignal = (r: Record<string, any>): Signal => ({
   occurredOn: r.occurred_on ?? null,
   status: r.status,
   createdAt: new Date(r.created_at).toISOString(),
+  opportunity: opportunityOf(r),
 })
 
-const SELECT = `select id, body, kind, channel, source, source_label, source_url, said_by, account, to_char(occurred_on, 'YYYY-MM-DD') as occurred_on, status, created_at from core.pulse_signals`
+const SELECT = `select id, body, kind, channel, source, source_label, source_url, said_by, account, to_char(occurred_on, 'YYYY-MM-DD') as occurred_on, status, created_at, opp_id, opp_name, opp_amount, opp_stage, to_char(opp_close_date, 'YYYY-MM-DD') as opp_close_date, opp_state from core.pulse_signals`
 
 export async function listSignals(db: Queryable, ctx: RequestContext, status?: SignalStatus): Promise<SignalList> {
   const rows = (await db.query(`${SELECT} where workspace_id = $1 and ($2::text is null or status = $2) order by coalesce(occurred_on, created_at::date) desc, created_at desc limit 500`, [ctx.workspaceId, status ?? null])).rows
@@ -186,6 +193,8 @@ export type Topic = TopicStats & {
   arrMatched: number
   arrUnmatched: number
   /** Links to Signal Flow: projects started from this topic, and Platform Insights themes that already cover it. */
+  /** What is at stake from Salesforce opportunity notes behind the topic; null when none. */
+  inPlay: InPlay | null
   projects: { id: string; name: string }[]
   researched: { id: string; title: string }[]
 }
@@ -255,7 +264,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
   const topicRows = (await db.query(`select id, title, edited from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows
   const sigRows = (
     await db.query(
-      `select ts.topic_id, s.body, s.channel, s.account, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
+      `select ts.topic_id, s.body, s.channel, s.account, s.account_sf_id, s.opp_id, s.opp_amount, s.opp_state, to_char(s.opp_close_date, 'YYYY-MM-DD') as opp_close_date, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
          from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and s.status = 'kept'`,
       [ws],
     )
@@ -266,7 +275,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
   const topics = topicRows
     .map((t) => {
       const rows = by.get(t.id) ?? []
-      const money = arrFor(rows.map((r) => r.account), known)
+      const money = arrFor(rows.map((r) => ({ name: r.account as string | null, sfId: (r.account_sf_id as string | null) ?? null })), known)
       return {
         id: t.id as string,
         title: t.title as string,
@@ -275,6 +284,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
         arr: known.size ? money.arr : null,
         arrMatched: money.matched,
         arrUnmatched: money.unmatched,
+        inPlay: playStats(rows.map((r) => ({ oppId: r.opp_id ?? null, amount: r.opp_amount === null || r.opp_amount === undefined ? null : Number(r.opp_amount), state: r.opp_state ?? null, closeDate: r.opp_close_date ?? null })), today),
         projects: [] as Topic['projects'],
         researched: [] as Topic['researched'],
         bodies: rows.map((r) => r.body as string),
@@ -346,7 +356,7 @@ export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: s
         }
       }
       // Designated feedback channels are read first, so what they add is grouped in the same run.
-      if (slackFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, await slackFor(workspace_id))).added
+      if (slackFor || salesforceFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, { slack: slackFor ? await slackFor(workspace_id) : null, salesforce: salesforceFor ? await salesforceFor(workspace_id) : null })).added
       const state = (await db.query(`select last_regroup_at from core.pulse_state where workspace_id = $1`, [workspace_id])).rows[0]
       const due = !state?.last_regroup_at || Date.now() - new Date(state.last_regroup_at).getTime() > 20 * 3600_000
       await updateTopics(db, { workspaceId: workspace_id, userId: null }, due ? 'regroup' : 'attach')

@@ -6,6 +6,7 @@ import { PageHero } from '../../shell/PageHero'
 import { CHANNEL_LABEL, CHANNELS } from './channels'
 import { PulseNotFound } from './PulseNotFound'
 import switchStyles from '../insights/InsightsHeader.module.scss'
+import { oppLine } from './money'
 import styles from './PulsePage.module.scss'
 
 const KINDS: { key: PulseSignal['kind']; label: string }[] = [
@@ -64,6 +65,7 @@ export function PulsePage() {
                   {KINDS.find((k) => k.key === s.kind)?.label}
                 </Tag>
                 <span>{[CHANNEL_LABEL[s.channel], s.sourceLabel, s.saidBy, s.account, s.occurredOn].filter(Boolean).join(' · ')}</span>
+                {s.opportunity && <span data-testid="signal-opportunity">{oppLine(s.opportunity)}</span>}
                 {s.sourceUrl && (
                   <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer">
                     Open the source<span className={styles.srOnly}> (opens in a new tab)</span>

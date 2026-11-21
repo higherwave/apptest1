@@ -2,7 +2,7 @@
 // Test Plan filled in. Owners only while Pulse is a preview (pulse.ts, `pulseOn`); every route asks that first.
 import type { RequestContext } from './context.js'
 import type { Db, Queryable } from './db.js'
-import { getWeights, listTopics, type Topic } from './pulse.js'
+import { getWeights, listTopics, opportunityOf, type Opportunity, type Topic } from './pulse.js'
 import { suggestQuestions, type Channel, type Suggested } from './pulse-topics.js'
 import { createProjectIn } from './projects.js'
 import { insertMany } from './sql.js'
@@ -10,18 +10,19 @@ import { arrByName, normalizeAccount } from './pulse-accounts.js'
 
 export class UnknownTopic extends Error {}
 
-export type Quote = { id: string; body: string; kind: string; channel: Channel; sourceLabel: string | null; sourceUrl: string | null; saidBy: string | null; account: string | null; occurredOn: string | null }
+export type Quote = { id: string; body: string; kind: string; channel: Channel; sourceLabel: string | null; sourceUrl: string | null; saidBy: string | null; account: string | null; occurredOn: string | null; opportunity: Opportunity | null }
 export type TopicDetail = Topic & {
   quotes: Quote[]
   accounts: { name: string; signals: number; arr: number | null }[]
   people: { name: string; signals: number }[]
 }
 
-const QUOTES = `select s.id, s.body, s.kind, s.channel, s.source_label, s.source_url, s.said_by, s.account, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
+const QUOTES = `select s.id, s.body, s.kind, s.channel, s.source_label, s.source_url, s.said_by, s.account, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at,
+  s.opp_id, s.opp_name, s.opp_amount, s.opp_stage, to_char(s.opp_close_date, 'YYYY-MM-DD') as opp_close_date, s.opp_state
   from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and ts.topic_id = any($2::uuid[]) and s.status = 'kept'
   order by coalesce(s.occurred_on, s.created_at::date) desc, s.created_at desc, s.id`
 
-const toQuote = (r: Record<string, any>): Quote => ({ id: r.id, body: r.body, kind: r.kind, channel: r.channel, sourceLabel: r.source_label ?? null, sourceUrl: r.source_url ?? null, saidBy: r.said_by ?? null, account: r.account ?? null, occurredOn: r.occurred_on ?? null })
+const toQuote = (r: Record<string, any>): Quote => ({ id: r.id, body: r.body, kind: r.kind, channel: r.channel, sourceLabel: r.source_label ?? null, sourceUrl: r.source_url ?? null, saidBy: r.said_by ?? null, account: r.account ?? null, occurredOn: r.occurred_on ?? null, opportunity: opportunityOf(r) })
 
 const tally = (names: (string | null)[]) => {
   const m = new Map<string, { name: string; signals: number }>()

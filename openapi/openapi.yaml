@@ -2016,7 +2016,7 @@ paths:
               required: [text]
               properties:
                 text: { type: string }
-                channel: { type: string, enum: [slack, call_notes], description: 'Defaults to call_notes.' }
+                channel: { type: string, enum: [slack, call_notes, salesforce], description: 'Defaults to call_notes.' }
                 sourceLabel: { type: [string, 'null'], description: 'What the notes are, for example "Renewal call with Northwind".' }
                 account: { type: [string, 'null'] }
                 occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
@@ -2051,7 +2051,7 @@ paths:
               properties:
                 status: { type: string, enum: [new, kept, dismissed] }
                 kind: { type: string, enum: [complaint, request, praise, question, other] }
-                channel: { type: string, enum: [slack, call_notes] }
+                channel: { type: string, enum: [slack, call_notes, salesforce] }
       responses:
         '200':
           description: The signal after the change.
@@ -2352,6 +2352,26 @@ paths:
         content:
           application/json:
             schema: { $ref: '#/components/schemas/NewPulseSource' }
+      responses:
+        '201':
+          description: The source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSource' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/sources/opportunities:
+    post:
+      operationId: addPulseOpportunitySource
+      summary: An owner designates the notes on Salesforce opportunities as a source (one per workspace). Read only; saved even before Salesforce is connected. Recorded in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewPulseOpportunitySource' }
       responses:
         '201':
           description: The source.
@@ -4065,13 +4085,13 @@ components:
         enabled: { type: boolean }
     PulseSignal:
       type: object
-      required: [id, body, kind, channel, source, sourceLabel, sourceUrl, saidBy, account, occurredOn, status, createdAt]
+      required: [id, body, kind, channel, source, sourceLabel, sourceUrl, saidBy, account, occurredOn, status, createdAt, opportunity]
       properties:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
-        source: { type: string, enum: [manual, notes, slack], description: 'Typed in, split out of notes, or read from a connected channel.' }
+        channel: { type: string, enum: [slack, call_notes, salesforce], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
+        source: { type: string, enum: [manual, notes, slack, salesforce], description: 'Typed in, split out of notes, or read from a connected channel or Salesforce.' }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
         saidBy: { type: [string, 'null'] }
@@ -4079,13 +4099,17 @@ components:
         occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
         status: { type: string, enum: [new, kept, dismissed] }
         createdAt: { type: string }
+        opportunity:
+          oneOf:
+            - type: 'null'
+            - { $ref: '#/components/schemas/PulseOpportunity' }
     NewPulseSignal:
       type: object
       required: [body]
       properties:
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes] }
+        channel: { type: string, enum: [slack, call_notes, salesforce] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'], description: 'Must start with http:// or https://.' }
         saidBy: { type: [string, 'null'] }
@@ -4113,12 +4137,22 @@ components:
         error: { type: [string, 'null'], description: 'Why the last copy failed, if it did.' }
     PulseSource:
       type: object
-      required: [id, kind, name, channel, mode, enabled, lastCheckedAt, lastAdded, lastError]
+      required: [id, kind, name, channel, mode, enabled, lastCheckedAt, lastAdded, lastError, config]
       properties:
         id: { type: string, format: uuid }
-        kind: { type: string, enum: [slack] }
+        kind: { type: string, enum: [slack, salesforce_opportunity] }
         name: { type: string }
-        channel: { type: string, enum: [slack, call_notes] }
+        config:
+          description: 'For opportunity notes: the fields read, which opportunities, and the amount field. Null for a Slack channel.'
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [fields, scope, amountField]
+              properties:
+                fields: { type: array, items: { type: string } }
+                scope: { type: string, enum: [open, lost, both] }
+                amountField: { type: string }
+        channel: { type: string, enum: [slack, call_notes, salesforce] }
         mode: { type: string, enum: [keep, review], description: 'keep: messages count at once. review: they wait for a person.' }
         enabled: { type: boolean }
         lastCheckedAt: { type: [string, 'null'], format: date-time }
@@ -4130,17 +4164,25 @@ components:
       properties:
         sources: { type: array, items: { $ref: '#/components/schemas/PulseSource' } }
         slackConnected: { type: boolean }
+    NewPulseOpportunitySource:
+      type: object
+      required: [fields]
+      properties:
+        fields: { type: array, minItems: 1, maxItems: 5, items: { type: string }, description: 'Opportunity fields to read, by API name (NextStep, Description, Loss_Reason__c).' }
+        scope: { type: string, enum: [open, lost, both], description: 'Open opportunities, those closed without a win in the last 90 days, or both (the default).' }
+        amountField: { type: string, description: 'The opportunity amount field. Defaults to Amount.' }
+        mode: { type: string, enum: [keep, review] }
     NewPulseSource:
       type: object
       required: [name]
       properties:
         name: { type: string, description: 'The Slack channel name, with or without #.' }
-        channel: { type: string, enum: [slack, call_notes] }
+        channel: { type: string, enum: [slack, call_notes, salesforce] }
         mode: { type: string, enum: [keep, review] }
     UpdatePulseSource:
       type: object
       properties:
-        channel: { type: string, enum: [slack, call_notes] }
+        channel: { type: string, enum: [slack, call_notes, salesforce] }
         mode: { type: string, enum: [keep, review] }
         enabled: { type: boolean }
     PulseWeights:
@@ -4149,13 +4191,14 @@ components:
       properties:
         weights:
           type: object
-          required: [slack, call_notes]
+          required: [slack, call_notes, salesforce]
           properties:
             slack: { type: number }
             call_notes: { type: number }
+            salesforce: { type: number }
     PulseTopic:
       type: object
-      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, projects, researched]
+      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, inPlay, projects, researched]
       properties:
         id: { type: string }
         title: { type: string }
@@ -4168,6 +4211,7 @@ components:
           properties:
             slack: { type: integer }
             call_notes: { type: integer }
+            salesforce: { type: integer }
         channelCount: { type: integer }
         reach: { type: integer, description: 'Distinct accounts behind the signals, or people where no account is named.' }
         score: { type: number, description: 'The weighted sum of signals per channel, which `breakdown` shows in full.' }
@@ -4177,7 +4221,7 @@ components:
             type: object
             required: [channel, count, weight, subtotal]
             properties:
-              channel: { type: string, enum: [slack, call_notes] }
+              channel: { type: string, enum: [slack, call_notes, salesforce] }
               count: { type: integer }
               weight: { type: number }
               subtotal: { type: number }
@@ -4185,6 +4229,26 @@ components:
         arr: { type: [number, 'null'], description: 'Annual recurring revenue of the distinct accounts behind the signals that were found in Salesforce. Null when no accounts have been copied from Salesforce.' }
         arrMatched: { type: integer, description: 'How many of the named accounts were found in Salesforce.' }
         arrUnmatched: { type: integer, description: 'How many were not found (so the ARR is a floor, not the whole).' }
+        inPlay:
+          description: 'What is at stake from Salesforce opportunity notes behind the topic, each opportunity counted once. Null when no opportunity is behind it.'
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [open, lost]
+              properties:
+                open:
+                  type: object
+                  required: [count, amount, closingSoon]
+                  properties:
+                    count: { type: integer }
+                    amount: { type: number, description: 'Opportunity amounts added up (the amount field is often a deal value, not annual revenue).' }
+                    closingSoon: { type: integer, description: 'How many close within 90 days.' }
+                lost:
+                  type: object
+                  required: [count, amount]
+                  properties:
+                    count: { type: integer }
+                    amount: { type: number }
         projects:
           type: array
           description: 'Signal Flow projects started from this topic.'
@@ -4203,19 +4267,33 @@ components:
             properties:
               id: { type: string, format: uuid }
               title: { type: string }
+    PulseOpportunity:
+      type: object
+      required: [id, name, amount, stage, closeDate, state]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        amount: { type: [number, 'null'] }
+        stage: { type: [string, 'null'] }
+        closeDate: { type: [string, 'null'], format: date }
+        state: { type: string, enum: [open, lost, won] }
     PulseQuote:
       type: object
-      required: [id, body, kind, channel, sourceLabel, sourceUrl, saidBy, account, occurredOn]
+      required: [id, body, kind, channel, sourceLabel, sourceUrl, saidBy, account, occurredOn, opportunity]
       properties:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes] }
+        channel: { type: string, enum: [slack, call_notes, salesforce] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
         saidBy: { type: [string, 'null'] }
         account: { type: [string, 'null'] }
         occurredOn: { type: [string, 'null'] }
+        opportunity:
+          oneOf:
+            - type: 'null'
+            - { $ref: '#/components/schemas/PulseOpportunity' }
     PulseTopicDetail:
       allOf:
         - { $ref: '#/components/schemas/PulseTopic' }
@@ -4254,7 +4332,7 @@ components:
             signalId: { type: string }
             quote: { type: string }
             saidBy: { type: [string, 'null'] }
-            channel: { type: string, enum: [slack, call_notes] }
+            channel: { type: string, enum: [slack, call_notes, salesforce] }
     PulseOrigin:
       type: object
       required: [topics, signals]

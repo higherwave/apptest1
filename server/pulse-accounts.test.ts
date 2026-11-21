@@ -147,7 +147,7 @@ test('a Salesforce problem keeps the last copy and says why; the hourly job sync
   // The job: not due right after a try, due after a day.
   const tokenCalls = () => sf.calls.filter((c) => c.url.endsWith('/oauth2/token')).length
   const before = tokenCalls()
-  const dbSf = { fetchAccounts: async () => [{ id: '1', name: 'Contoso Health', arr: 1 }] }
+  const dbSf = { fetchAccounts: async () => [{ id: '1', name: 'Contoso Health', arr: 1 }], fetchOpportunities: async () => [], refreshOpportunities: async () => [] }
   await runPulseUpdates(db, undefined, async () => dbSf)
   assert.equal(Number((await pg.query<any>(`select arr from core.pulse_accounts where name_key = 'contoso health'`)).rows[0].arr), 240000, 'not due yet: untouched')
   await pg.query(`update core.pulse_account_sync set tried_at = now() - interval '25 hours'`)

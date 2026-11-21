@@ -46,7 +46,18 @@ if (process.env.SALESFORCE_DEMO === 'true') {
     { Id: '001D3', Name: 'Northwind Logistics LLC', ARR__c: 310000 },
     { Id: '001D4', Name: 'Tailspin Travel', ARR__c: 95000 },
   ]
-  salesforceFetch = async (url) => new Response(JSON.stringify(url.endsWith('/oauth2/token') ? { access_token: 'demo' } : { done: true, records: accounts }))
+  const day = (n: number) => new Date(Date.now() + n * 86_400_000).toISOString().slice(0, 10)
+  const modified = (hoursAgo: number) => new Date(Date.now() - hoursAgo * 3_600_000).toISOString().replace('Z', '+0000')
+  const opportunities = [
+    { Id: '006D00000000001AAA', Name: 'Contoso Health: renewal FY27', AccountId: '001D1', Account: { Name: 'Contoso Health, Inc.' }, Amount: 420000, StageName: 'Negotiation', CloseDate: day(30), IsClosed: false, IsWon: false, LastModifiedDate: modified(6), NextStep: 'Waiting on a clear explanation of how the health score is worked out before they sign.', Description: 'The exec team stopped trusting the score after it showed green on an account that churned.' },
+    { Id: '006D00000000002AAA', Name: 'Northwind Logistics: expansion', AccountId: '001D3', Account: { Name: 'Northwind Logistics LLC' }, Amount: 310000, StageName: 'Proposal', CloseDate: day(60), IsClosed: false, IsWon: false, LastModifiedDate: modified(5), NextStep: 'They want a weekly digest of the accounts that changed before expanding. Reporting is all manual today.', Description: '' },
+    { Id: '006D00000000003AAA', Name: 'Fabrikam Retail: renewal FY26', AccountId: '001D2', Account: { Name: 'Fabrikam Retail' }, Amount: 180000, StageName: 'Closed Lost', CloseDate: day(-20), IsClosed: true, IsWon: false, LastModifiedDate: modified(4), NextStep: '', Description: 'Lost: when a case moved from support to success the history was lost and the customer had to start over.' },
+  ]
+  salesforceFetch = async (url) => {
+    if (url.endsWith('/oauth2/token')) return new Response(JSON.stringify({ access_token: 'demo' }))
+    const soql = decodeURIComponent(url.replace(/\+/g, ' '))
+    return new Response(JSON.stringify({ done: true, records: /FROM Opportunity/.test(soql) ? opportunities : accounts }))
+  }
 }
 const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack, salesforceFetch })
 const root = new Hono()

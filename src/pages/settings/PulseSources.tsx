@@ -55,7 +55,12 @@ export function PulseSources() {
       {sources.map((s) => (
         <div key={s.id} className={styles.source} data-testid={`source-${s.name}`}>
           <div className={styles.top}>
-            <span className={styles.name}>#{s.name}</span>
+            <span className={styles.name}>{s.kind === 'salesforce_opportunity' ? 'Salesforce opportunity notes' : `#${s.name}`}</span>
+            {s.config && (
+              <span className={styles.detail}>
+                {s.config.fields.join(', ')} · {s.config.scope === 'open' ? 'open' : s.config.scope === 'lost' ? 'lost' : 'open and lost'} opportunities
+              </span>
+            )}
             {!s.enabled && <Tag size="sm" type="gray">Off</Tag>}
             <span className={styles.detail}>
               Checked {when(s.lastCheckedAt)}

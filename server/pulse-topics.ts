@@ -5,12 +5,12 @@
 // every signal), weighted by how rare the word is. When the model is switched on, a provider-seam version replaces `groupSignals` and keeps the
 // same shape: topics are only ever sets of signal ids, and every count and score below is computed from those ids, never written by a model.
 
-// The channels a signal can be heard in: customer-meeting transcripts and Slack (2026-11-21; support systems come later, with Resonance). The database still allows the older values.
-export const CHANNELS = ['call_notes', 'slack'] as const
+// The channels a signal can be heard in: customer-meeting transcripts, Slack and Salesforce opportunity notes (2026-11-21; support systems come later, with Resonance). The database still allows the older values.
+export const CHANNELS = ['call_notes', 'slack', 'salesforce'] as const
 export type Channel = (typeof CHANNELS)[number]
-export const CHANNEL_LABEL: Record<Channel, string> = { slack: 'Slack', call_notes: 'Call notes' }
+export const CHANNEL_LABEL: Record<Channel, string> = { slack: 'Slack', call_notes: 'Call notes', salesforce: 'Salesforce' }
 /** What a signal from each channel counts for, until an owner changes it. Direct customer words weigh most. */
-export const DEFAULT_WEIGHTS: Record<Channel, number> = { call_notes: 1, slack: 0.5 }
+export const DEFAULT_WEIGHTS: Record<Channel, number> = { call_notes: 1, salesforce: 0.8, slack: 0.5 }
 export const isChannel = (c: string): c is Channel => (CHANNELS as readonly string[]).includes(c)
 
 export type GroupInput = { id: string; body: string }
@@ -193,6 +193,39 @@ export function topicStats(signals: RankSignal[], weights: Record<Channel, numbe
   const older = signals.length - recent - before
   const trend: TopicStats['trend'] = older === 0 && before === 0 && recent > 0 ? 'new' : recent > before ? 'rising' : recent < before ? 'fading' : 'steady'
   return { signals: signals.length, channels, channelCount: Object.keys(channels).length, reach: who.size, score: round2(breakdown.reduce((a, b) => a + b.subtotal, 0)), breakdown, trend }
+}
+
+// What is at stake ---------------------------------------------------------------------------------------------------------------
+
+export type OppRow = { oppId: string | null; amount: number | null; state: 'open' | 'lost' | 'won' | null; closeDate: string | null }
+export type InPlay = {
+  /** Open opportunities whose notes are among the topic's signals, each counted once, with their amounts added up. */
+  open: { count: number; amount: number; closingSoon: number }
+  /** Opportunities closed without a win in the last 90 days that the topic's signals mention. */
+  lost: { count: number; amount: number }
+}
+const SOON_DAYS = 90
+
+/** The money riding on a topic from opportunity notes: each opportunity once, however many of its fields or notes were kept. Null when no opportunity is behind the topic. */
+export function playStats(rows: OppRow[], today: Date = new Date()): InPlay | null {
+  const seen = new Map<string, OppRow>()
+  for (const r of rows) if (r.oppId && !seen.has(r.oppId)) seen.set(r.oppId, r)
+  if (!seen.size) return null
+  const play: InPlay = { open: { count: 0, amount: 0, closingSoon: 0 }, lost: { count: 0, amount: 0 } }
+  for (const r of seen.values()) {
+    const amount = r.amount ?? 0
+    if (r.state === 'open') {
+      play.open.count++
+      play.open.amount += amount
+      if (r.closeDate && Date.parse(r.closeDate) - today.getTime() <= SOON_DAYS * 86_400_000) play.open.closingSoon++
+    } else if (r.state === 'lost') {
+      play.lost.count++
+      play.lost.amount += amount
+    }
+  }
+  play.open.amount = round2(play.open.amount)
+  play.lost.amount = round2(play.lost.amount)
+  return play
 }
 
 // Questions ---------------------------------------------------------------------------------------------------------------------

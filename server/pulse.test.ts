@@ -129,7 +129,7 @@ test('topics: updating groups the kept signals, ranks them by weighted score, an
   assert.ok(trust.channelCount === 2 && trust.reach >= 3, 'heard in both channels')
 
   // Weights: boosting Slack changes every score at once, with no update, and the list stays in score order.
-  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, slack: 0.5 })
+  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, salesforce: 0.8, slack: 0.5 })
   const put = await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 5 } })
   assert.equal(put.status, 200)
   const reranked = await (await call(owner, 'GET', '/pulse/topics')).json()

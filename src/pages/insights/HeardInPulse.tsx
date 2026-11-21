@@ -26,6 +26,7 @@ export function HeardInPulse({ topics }: { topics: PulseTopic[] }) {
             <span className={styles.meta}>
               {t.signals} {t.signals === 1 ? 'signal' : 'signals'}, {t.reach} {t.reach === 1 ? 'account' : 'accounts'}
               {t.arr !== null ? `, ${money(t.arr)} ARR` : ''}
+              {t.inPlay && t.inPlay.open.count > 0 ? `, ${money(t.inPlay.open.amount)} in play` : ''}
             </span>
             {t.researched.length > 0 ? (
               <Tag type="teal" size="sm">

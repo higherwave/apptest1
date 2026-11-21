@@ -8,7 +8,7 @@ import { PageHero } from '../../shell/PageHero'
 import { CHANNEL_LABEL, CHANNELS } from './channels'
 import { CreateProjectPanel } from './CreateProjectPanel'
 import { PulseNotFound } from './PulseNotFound'
-import { moneyFull } from './money'
+import { moneyFull, oppLine } from './money'
 import { useTopicSelection } from './selection'
 import styles from './TopicDetailPage.module.scss'
 
@@ -62,6 +62,19 @@ export function TopicDetailPage() {
               </Button>
             )}
           </div>
+
+          {t.inPlay && (
+            <section className={styles.card} aria-label="What is at stake" data-testid="topic-in-play">
+              <h2 className={styles.head}>What is at stake</h2>
+              <p className={styles.note}>
+                {t.inPlay.open.count > 0
+                  ? `Mentioned in ${t.inPlay.open.count} open ${t.inPlay.open.count === 1 ? 'opportunity' : 'opportunities'} worth ${moneyFull(t.inPlay.open.amount)}${t.inPlay.open.closingSoon ? `, ${t.inPlay.open.closingSoon} closing within 90 days` : ''}.`
+                  : 'Not mentioned in any open opportunity.'}
+                {t.inPlay.lost.count > 0 && ` Also in ${t.inPlay.lost.count} ${t.inPlay.lost.count === 1 ? 'opportunity' : 'opportunities'} lost in the last 90 days, worth ${moneyFull(t.inPlay.lost.amount)}.`}
+              </p>
+              <p className={styles.note}>An estimate of what is riding on it, from the amounts on the opportunities whose notes raised it. It is not a forecast: a deal amount is not always annual revenue.</p>
+            </section>
+          )}
 
           <section className={styles.card} aria-label="In Signal Flow" data-testid="topic-links">
             <h2 className={styles.head}>In Signal Flow</h2>
@@ -168,6 +181,7 @@ export function TopicDetailPage() {
                   <p className={styles.words}>“{q.body}”</p>
                   <p className={styles.meta}>
                     {[CHANNEL_LABEL[q.channel], q.sourceLabel, q.saidBy, q.account, q.occurredOn].filter(Boolean).join(' · ')}
+                    {q.opportunity && <span data-testid="quote-opportunity"> · {oppLine(q.opportunity)}</span>}
                     {q.sourceUrl && (
                       <>
                         {' · '}

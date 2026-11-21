@@ -67,23 +67,34 @@ export async function syncAccounts(db: Db, who: { workspaceId: string }, sf: Sal
 
 /** The copied ARR by normalized name, or an empty map when nothing was copied (then topics show no ARR at all). */
 export async function arrByName(db: Queryable, workspaceId: string): Promise<Map<string, { name: string; arr: number }>> {
-  const rows = (await db.query(`select name, name_key, arr from core.pulse_accounts where workspace_id = $1`, [workspaceId])).rows
-  return new Map(rows.map((r: any) => [r.name_key as string, { name: r.name as string, arr: Number(r.arr) }]))
+  const rows = (await db.query(`select name, name_key, arr, sf_id from core.pulse_accounts where workspace_id = $1`, [workspaceId])).rows
+  const out = new Map<string, { name: string; arr: number }>()
+  for (const r of rows) {
+    const hit = { name: r.name as string, arr: Number(r.arr) }
+    out.set(r.name_key as string, hit)
+    // An account Salesforce itself named (an opportunity's account) is found by its id, with no name matching.
+    out.set(`sf:${r.sf_id}`, hit)
+  }
+  return out
 }
 
 /** ARR behind a set of signal account names: each distinct matched account once; the names that matched nothing are counted so the screen can say so. */
-export function arrFor(names: (string | null)[], known: Map<string, { name: string; arr: number }>): { arr: number; matched: number; unmatched: number } {
+export type AccountRef = string | null | { name: string | null; sfId: string | null }
+export function arrFor(names: AccountRef[], known: Map<string, { name: string; arr: number }>): { arr: number; matched: number; unmatched: number } {
   const seen = new Set<string>()
   let arr = 0
   let matched = 0
   let unmatched = 0
-  for (const n of names) {
-    const raw = n?.trim()
-    if (!raw || /^unknown$/i.test(raw)) continue
-    const key = normalizeAccount(raw)
+  for (const ref of names) {
+    const name = typeof ref === 'object' && ref !== null ? ref.name : ref
+    const sfId = typeof ref === 'object' && ref !== null ? ref.sfId : null
+    const raw = name?.trim()
+    const byId = sfId ? known.get(`sf:${sfId}`) : undefined
+    if (!byId && (!raw || /^unknown$/i.test(raw))) continue
+    const key = byId ? normalizeAccount(byId.name) : normalizeAccount(raw!)
     if (!key || seen.has(key)) continue
     seen.add(key)
-    const hit = known.get(key)
+    const hit = byId ?? known.get(key)
     if (hit) {
       arr += hit.arr
       matched++

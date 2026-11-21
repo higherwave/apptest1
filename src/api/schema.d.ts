@@ -1760,6 +1760,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pulse/sources/opportunities": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** An owner designates the notes on Salesforce opportunities as a source (one per workspace). Read only; saved even before Salesforce is connected. Recorded in the audit log. */
+        post: operations["addPulseOpportunitySource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pulse/sources/{id}": {
         parameters: {
             query?: never;
@@ -3102,12 +3119,12 @@ export interface components {
              * @description Where it was heard, from a fixed list; the ranking weights are set per channel.
              * @enum {string}
              */
-            channel: "slack" | "call_notes";
+            channel: "slack" | "call_notes" | "salesforce";
             /**
-             * @description Typed in, split out of notes, or read from a connected channel.
+             * @description Typed in, split out of notes, or read from a connected channel or Salesforce.
              * @enum {string}
              */
-            source: "manual" | "notes" | "slack";
+            source: "manual" | "notes" | "slack" | "salesforce";
             sourceLabel: string | null;
             sourceUrl: string | null;
             saidBy: string | null;
@@ -3117,13 +3134,14 @@ export interface components {
             /** @enum {string} */
             status: "new" | "kept" | "dismissed";
             createdAt: string;
+            opportunity: null | components["schemas"]["PulseOpportunity"];
         };
         NewPulseSignal: {
             body: string;
             /** @enum {string} */
             kind?: "complaint" | "request" | "praise" | "question" | "other";
             /** @enum {string} */
-            channel?: "slack" | "call_notes";
+            channel?: "slack" | "call_notes" | "salesforce";
             sourceLabel?: string | null;
             /** @description Must start with http:// or https://. */
             sourceUrl?: string | null;
@@ -3153,10 +3171,17 @@ export interface components {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "slack";
+            kind: "slack" | "salesforce_opportunity";
             name: string;
+            /** @description For opportunity notes: the fields read, which opportunities, and the amount field. Null for a Slack channel. */
+            config: null | {
+                fields: string[];
+                /** @enum {string} */
+                scope: "open" | "lost" | "both";
+                amountField: string;
+            };
             /** @enum {string} */
-            channel: "slack" | "call_notes";
+            channel: "slack" | "call_notes" | "salesforce";
             /**
              * @description keep: messages count at once. review: they wait for a person.
              * @enum {string}
@@ -3172,17 +3197,30 @@ export interface components {
             sources: components["schemas"]["PulseSource"][];
             slackConnected: boolean;
         };
+        NewPulseOpportunitySource: {
+            /** @description Opportunity fields to read, by API name (NextStep, Description, Loss_Reason__c). */
+            fields: string[];
+            /**
+             * @description Open opportunities, those closed without a win in the last 90 days, or both (the default).
+             * @enum {string}
+             */
+            scope?: "open" | "lost" | "both";
+            /** @description The opportunity amount field. Defaults to Amount. */
+            amountField?: string;
+            /** @enum {string} */
+            mode?: "keep" | "review";
+        };
         NewPulseSource: {
             /** @description The Slack channel name, with or without #. */
             name: string;
             /** @enum {string} */
-            channel?: "slack" | "call_notes";
+            channel?: "slack" | "call_notes" | "salesforce";
             /** @enum {string} */
             mode?: "keep" | "review";
         };
         UpdatePulseSource: {
             /** @enum {string} */
-            channel?: "slack" | "call_notes";
+            channel?: "slack" | "call_notes" | "salesforce";
             /** @enum {string} */
             mode?: "keep" | "review";
             enabled?: boolean;
@@ -3191,6 +3229,7 @@ export interface components {
             weights: {
                 slack: number;
                 call_notes: number;
+                salesforce: number;
             };
         };
         PulseTopic: {
@@ -3205,6 +3244,7 @@ export interface components {
             channels: {
                 slack?: number;
                 call_notes?: number;
+                salesforce?: number;
             };
             channelCount: number;
             /** @description Distinct accounts behind the signals, or people where no account is named. */
@@ -3213,7 +3253,7 @@ export interface components {
             score: number;
             breakdown: {
                 /** @enum {string} */
-                channel: "slack" | "call_notes";
+                channel: "slack" | "call_notes" | "salesforce";
                 count: number;
                 weight: number;
                 subtotal: number;
@@ -3226,6 +3266,20 @@ export interface components {
             arrMatched: number;
             /** @description How many were not found (so the ARR is a floor, not the whole). */
             arrUnmatched: number;
+            /** @description What is at stake from Salesforce opportunity notes behind the topic, each opportunity counted once. Null when no opportunity is behind it. */
+            inPlay: null | {
+                open: {
+                    count: number;
+                    /** @description Opportunity amounts added up (the amount field is often a deal value, not annual revenue). */
+                    amount: number;
+                    /** @description How many close within 90 days. */
+                    closingSoon: number;
+                };
+                lost: {
+                    count: number;
+                    amount: number;
+                };
+            };
             /** @description Signal Flow projects started from this topic. */
             projects: {
                 /** Format: uuid */
@@ -3239,18 +3293,29 @@ export interface components {
                 title: string;
             }[];
         };
+        PulseOpportunity: {
+            id: string;
+            name: string;
+            amount: number | null;
+            stage: string | null;
+            /** Format: date */
+            closeDate: string | null;
+            /** @enum {string} */
+            state: "open" | "lost" | "won";
+        };
         PulseQuote: {
             id: string;
             body: string;
             /** @enum {string} */
             kind: "complaint" | "request" | "praise" | "question" | "other";
             /** @enum {string} */
-            channel: "slack" | "call_notes";
+            channel: "slack" | "call_notes" | "salesforce";
             sourceLabel: string | null;
             sourceUrl: string | null;
             saidBy: string | null;
             account: string | null;
             occurredOn: string | null;
+            opportunity: null | components["schemas"]["PulseOpportunity"];
         };
         PulseTopicDetail: components["schemas"]["PulseTopic"] & {
             quotes: components["schemas"]["PulseQuote"][];
@@ -3274,7 +3339,7 @@ export interface components {
                 quote: string;
                 saidBy: string | null;
                 /** @enum {string} */
-                channel: "slack" | "call_notes";
+                channel: "slack" | "call_notes" | "salesforce";
             } | null;
         };
         PulseOrigin: {
@@ -7571,7 +7636,7 @@ export interface operations {
                      * @description Defaults to call_notes.
                      * @enum {string}
                      */
-                    channel?: "slack" | "call_notes";
+                    channel?: "slack" | "call_notes" | "salesforce";
                     /** @description What the notes are, for example "Renewal call with Northwind". */
                     sourceLabel?: string | null;
                     account?: string | null;
@@ -7617,7 +7682,7 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "complaint" | "request" | "praise" | "question" | "other";
                     /** @enum {string} */
-                    channel?: "slack" | "call_notes";
+                    channel?: "slack" | "call_notes" | "salesforce";
                 };
             };
         };
@@ -8037,6 +8102,35 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["NewPulseSource"];
+            };
+        };
+        responses: {
+            /** @description The source. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    addPulseOpportunitySource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPulseOpportunitySource"];
             };
         };
         responses: {

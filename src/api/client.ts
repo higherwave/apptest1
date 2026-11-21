@@ -187,6 +187,7 @@ export type PulseSource = components['schemas']['PulseSource']
 export type PulseSourceList = components['schemas']['PulseSourceList']
 export const listPulseSources = () => request<PulseSourceList>('/pulse/sources')
 export const addPulseSource = (body: components['schemas']['NewPulseSource']) => request<PulseSource>('/pulse/sources', { method: 'POST', body })
+export const addPulseOpportunitySource = (body: components['schemas']['NewPulseOpportunitySource']) => request<PulseSource>('/pulse/sources/opportunities', { method: 'POST', body })
 export const updatePulseSource = (id: string, body: components['schemas']['UpdatePulseSource']) => request<PulseSource>(`/pulse/sources/${id}`, { method: 'PATCH', body })
 export const removePulseSource = (id: string) => request<null>(`/pulse/sources/${id}`, { method: 'DELETE' })
 export const checkPulseSource = (id: string) => request<{ added: number; error: string | null }>(`/pulse/sources/${id}/check`, { method: 'POST' })

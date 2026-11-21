@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, newSourceSchema, updateSourceSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, newSourceSchema, newOpportunitySourceSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -54,7 +54,7 @@ import { launchSuccess } from './launch-success.js'
 import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import type { SalesforceFetch } from './salesforce.js'
-import { addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
+import { addOpportunitySource, addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
 import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, mergeTopic, pulseEnabled, pulseOn, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
@@ -1361,6 +1361,12 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(newSourceSchema, await readJson(c))
     return c.json(await addSource(getDb(), c.get('ctx'), await slackOf(c), input).catch(sourceError), 201)
   })
+  app.post('/pulse/sources/opportunities', withContext, async (c) => {
+    await pulseOnly(c)
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can designate a source.')
+    const input = parseBody(newOpportunitySourceSchema, await readJson(c))
+    return c.json(await addOpportunitySource(getDb(), c.get('ctx'), input).catch(sourceError), 201)
+  })
   app.patch('/pulse/sources/:id', withContext, async (c) => {
     await pulseOnly(c)
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change a source.')
@@ -1377,7 +1383,7 @@ export function createApp(options: AppOptions = {}) {
     await pulseOnly(c)
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can read a source.')
     const ctx = c.get('ctx')
-    const result = await checkSource(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, await slackOf(c), signalId(c)).catch(sourceError)
+    const result = await checkSource(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, { slack: await slackOf(c), salesforce: (await integrations(ctx.workspaceId)).salesforce }, signalId(c)).catch(sourceError)
     c.header('Cache-Control', 'private, no-store')
     return c.json(result)
   })

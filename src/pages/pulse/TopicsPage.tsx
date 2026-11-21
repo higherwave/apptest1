@@ -35,6 +35,7 @@ export function TopicsPage() {
   const [merging, setMerging] = useState<PulseTopic | null>(null)
   const [creating, setCreating] = useState(false)
   const [by, setBy] = useState<MapBy>('accounts')
+  const [rankBy, setRankBy] = useState<'score' | 'arr' | 'play'>('score')
   const { selected, toggle, clear, keepOnly } = useTopicSelection()
   // A topic that was merged away or regrouped can no longer be picked.
   const validIds = topics.data?.topics.map((t) => t.id)
@@ -50,6 +51,16 @@ export function TopicsPage() {
   // ARR shows only once accounts have been copied from Salesforce (the server sends null otherwise).
   const hasArr = !!list?.topics.some((t) => t.arr !== null)
   const mapBy: MapBy = hasArr ? by : 'accounts'
+  // Opportunity notes put a figure on what is in play; "Rank by" orders the list by it. The score order stays the default, and the score is always shown.
+  const hasPlay = !!list?.topics.some((t) => t.inPlay)
+  const playOf = (t: PulseTopic) => t.inPlay?.open.amount ?? 0
+  const rankOptions = [{ key: 'score', label: 'Signal score' }, ...(hasArr ? [{ key: 'arr', label: 'ARR' }] : []), ...(hasPlay ? [{ key: 'play', label: 'In play' }] : [])]
+  const orderedTopics = list
+    ? [...list.topics].sort((a, b) => {
+        const by = rankBy === 'arr' && hasArr ? (b.arr ?? 0) - (a.arr ?? 0) : rankBy === 'play' && hasPlay ? playOf(b) - playOf(a) : 0
+        return by || a.rank - b.rank
+      })
+    : []
   const canStart = me.data.role === 'owner' || me.data.role === 'editor'
   const picked = list?.topics.filter((t) => selected.includes(t.id)) ?? []
   const pickedSignals = picked.reduce((a, t) => a + t.signals, 0)
@@ -122,6 +133,17 @@ export function TopicsPage() {
         </section>
       )}
 
+      {list && list.topics.length > 0 && (hasArr || hasPlay) && (
+        <div className={styles.rankBy} data-testid="rank-by">
+          <span className={styles.statusText}>Rank by</span>
+          <ContentSwitcher size="sm" selectedIndex={Math.max(0, rankOptions.findIndex((o) => o.key === rankBy))} onChange={(e) => setRankBy(e.name as 'score' | 'arr' | 'play')}>
+            {rankOptions.map((o) => (
+              <Switch key={o.key} name={o.key} text={o.label} data-testid={`rank-${o.key}`} />
+            ))}
+          </ContentSwitcher>
+        </div>
+      )}
+
       {list && list.topics.length > 0 && (
         <TableContainer title="Where topics were heard" description="Signals per channel. Darker means more. Open “Why it ranks here” to see the weights behind the score." className={styles.table}>
           <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
@@ -139,6 +161,7 @@ export function TopicsPage() {
                 ))}
                 <TableHeader className={styles.numCol}>Heard in</TableHeader>
                 {hasArr && <TableHeader className={styles.numCol}>ARR</TableHeader>}
+                {hasPlay && <TableHeader className={styles.numCol}>In play</TableHeader>}
                 <TableHeader className={styles.numCol}>Score</TableHeader>
                 <TableHeader className={styles.menuCol}>
                   <span className={styles.srOnly}>Actions</span>
@@ -146,13 +169,13 @@ export function TopicsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {list.topics.map((t) => (
+              {orderedTopics.map((t, position) => (
                 <Fragment key={t.id}>
                   <TableRow data-testid={`topic-${t.id}`} data-rank={t.rank}>
                     <TableCell className={styles.checkCol}>
                       <Checkbox id={`pick-${t.id}`} data-testid={`pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
                     </TableCell>
-                    <TableCell className={styles.rankCol}>{t.rank}</TableCell>
+                    <TableCell className={styles.rankCol}>{position + 1}</TableCell>
                     <TableCell>
                       <div className={styles.topic}>
                         <Link to={`/pulse/topics/${t.id}`} className={styles.title} data-testid="topic-title">
@@ -198,6 +221,13 @@ export function TopicsPage() {
                         {t.arrUnmatched > 0 && <span className={styles.srOnly}>, {t.arrUnmatched} accounts not found in Salesforce</span>}
                       </TableCell>
                     )}
+                    {hasPlay && (
+                      <TableCell className={styles.numCol} data-testid={`topic-play-${t.id}`}>
+                        {t.inPlay && t.inPlay.open.count > 0 ? money(t.inPlay.open.amount) : '–'}
+                        {t.inPlay && t.inPlay.open.count > 0 && <span className={styles.srOnly}>, {t.inPlay.open.count} open opportunities</span>}
+                        {t.inPlay && t.inPlay.lost.count > 0 && <span className={styles.meta}> · lost {money(t.inPlay.lost.amount)}</span>}
+                      </TableCell>
+                    )}
                     <TableCell className={styles.numCol} data-testid="topic-score">
                       {t.score}
                     </TableCell>
@@ -210,7 +240,7 @@ export function TopicsPage() {
                   </TableRow>
                   {open === t.id && (
                     <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                      <TableCell colSpan={CHANNELS.length + 6 + (hasArr ? 1 : 0)}>
+                      <TableCell colSpan={CHANNELS.length + 6 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
                         <Why topic={t} isOwner={isOwner} onEdit={() => navigate('/settings/pulse')} />
                       </TableCell>
                     </TableRow>

@@ -104,7 +104,7 @@ export const setupSchema = z.object({ status: z.enum(['done', 'skipped']), ackno
 export const pulsePreviewSchema = z.object({ enabled: z.boolean() })
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-11-20.').refine((d) => !Number.isNaN(Date.parse(d)), 'That is not a date.')
 const signalKind = z.enum(['complaint', 'request', 'praise', 'question', 'other'])
-const channel = z.enum(['slack', 'call_notes'])
+const channel = z.enum(['slack', 'call_notes', 'salesforce'])
 export const addSignalSchema = z.object({
   body: z.string().trim().min(1, 'Write what was said.').max(4000, 'That is too long for one signal.'),
   kind: signalKind.optional(),
@@ -123,14 +123,20 @@ export const importNotesSchema = z.object({
   occurredOn: isoDate.nullish().transform((v) => v ?? null),
 })
 export const updateSignalSchema = z.object({ status: z.enum(['new', 'kept', 'dismissed']).optional(), kind: signalKind.optional(), channel: channel.optional() }).refine((v) => v.status !== undefined || v.kind !== undefined || v.channel !== undefined, 'Say what to change.')
-const CHANNEL_KEYS = ['slack', 'call_notes']
+const CHANNEL_KEYS = ['slack', 'call_notes', 'salesforce']
 export const pulseWeightsSchema = z.object({
   weights: z
     .record(z.string(), z.number().min(0, 'A weight cannot be negative.').max(5, 'A weight is at most 5.'))
     .refine((w) => Object.keys(w).length > 0, 'Give at least one weight.')
-    .refine((w) => Object.keys(w).every((k) => CHANNEL_KEYS.includes(k)), 'Weights are set per channel: slack or call_notes.'),
+    .refine((w) => Object.keys(w).every((k) => CHANNEL_KEYS.includes(k)), 'Weights are set per channel: slack, call_notes or salesforce.'),
 })
 export const newSourceSchema = z.object({ name: text(80).min(1, 'Enter a Slack channel name.'), channel: channel.optional(), mode: z.enum(['keep', 'review']).optional() })
+export const newOpportunitySourceSchema = z.object({
+  fields: z.array(z.string().trim().regex(/^[A-Za-z][A-Za-z0-9_]{0,60}$/, 'A field name is its API name, such as NextStep or Loss_Reason__c.')).min(1, 'Name at least one field.').max(5, 'Up to five fields.'),
+  scope: z.enum(['open', 'lost', 'both']).default('both'),
+  amountField: z.string().trim().regex(/^[A-Za-z][A-Za-z0-9_]{0,60}$/, 'The amount field is an API name, such as Amount.').default('Amount'),
+  mode: z.enum(['keep', 'review']).optional(),
+})
 export const updateSourceSchema = z
   .object({ channel: channel.optional(), mode: z.enum(['keep', 'review']).optional(), enabled: z.boolean().optional() })
   .refine((v) => v.channel !== undefined || v.mode !== undefined || v.enabled !== undefined, 'Say what to change.')
