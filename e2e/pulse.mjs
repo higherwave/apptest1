@@ -239,6 +239,10 @@ try {
   await page.evaluate(() => document.querySelector('[data-testid="topic-title"]').click())
   await page.waitForSelector('[data-testid="topic-accounts"]', { timeout: 8000 })
   ok("a topic's page shows each account's ARR, and says which were not found", await page.evaluate(() => /ARR · /.test(document.querySelector('[data-testid="topic-accounts"]').innerText) && /ARR/.test(document.querySelector('h1').closest('div').parentElement.innerText)))
+  ok("a topic's page says what Signal Flow already knows: themes that cover it, or that it is not researched yet", await page.evaluate(() => /Already researched|Not researched yet/.test(document.querySelector('[data-testid="topic-links"]')?.innerText ?? '')))
+  await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="heard-in-pulse"]', { timeout: 8000 })
+  ok('Platform Insights opens with what is heard in Pulse, each topic linking to it', await page.evaluate(() => document.querySelectorAll('[data-testid="heard-topic"]').length >= 1 && /Researched|Not researched yet/.test(document.querySelector('[data-testid="heard-in-pulse"]').innerText)))
 
   // A read-only visitor never sees it.
   const visitor = await open(null, '/projects')

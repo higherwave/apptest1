@@ -4158,7 +4158,7 @@ components:
             other: { type: number }
     PulseTopic:
       type: object
-      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched]
+      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, projects, researched]
       properties:
         id: { type: string }
         title: { type: string }
@@ -4191,6 +4191,24 @@ components:
         arr: { type: [number, 'null'], description: 'Annual recurring revenue of the distinct accounts behind the signals that were found in Salesforce. Null when no accounts have been copied from Salesforce.' }
         arrMatched: { type: integer, description: 'How many of the named accounts were found in Salesforce.' }
         arrUnmatched: { type: integer, description: 'How many were not found (so the ARR is a floor, not the whole).' }
+        projects:
+          type: array
+          description: 'Signal Flow projects started from this topic.'
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+        researched:
+          type: array
+          description: 'Platform Insights themes that already cover what the topic is about (at most two).'
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id: { type: string, format: uuid }
+              title: { type: string }
     PulseQuote:
       type: object
       required: [id, body, kind, channel, sourceLabel, sourceUrl, saidBy, account, occurredOn]

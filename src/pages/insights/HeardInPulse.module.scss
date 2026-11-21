@@ -1,0 +1,72 @@
+@use '../../tokens' as tokens;
+
+.strip {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+  margin-block-end: var(--at-space-md);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.label {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+  font-weight: 400;
+}
+
+.more {
+  @include tokens.role('meta');
+  color: var(--at-link);
+
+  &:hover {
+    color: var(--at-link-active);
+    text-decoration: underline;
+  }
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs) var(--at-space-md);
+  padding: var(--at-space-sm) var(--at-space-md);
+
+  & + & {
+    border-block-start: 1px solid var(--at-hairline);
+  }
+}
+
+.title {
+  @include tokens.role('label-md');
+  color: var(--at-link);
+
+  &:hover {
+    color: var(--at-link-active);
+    text-decoration: underline;
+  }
+}
+
+.meta {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+  margin-inline-end: auto;
+}

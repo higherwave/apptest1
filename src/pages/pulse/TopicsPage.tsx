@@ -163,6 +163,16 @@ export function TopicsPage() {
                           <Tag type={TREND[t.trend].type} size="sm">
                             {TREND[t.trend].label}
                           </Tag>
+                          {t.researched.length > 0 && (
+                            <Tag type="teal" size="sm" data-testid={`researched-${t.id}`}>
+                              Researched
+                            </Tag>
+                          )}
+                          {t.projects.length > 0 && (
+                            <Tag type="cyan" size="sm" data-testid={`in-project-${t.id}`}>
+                              {plural(t.projects.length, 'project')}
+                            </Tag>
+                          )}
                         </span>
                         <Button kind="ghost" size="sm" className={styles.why} renderIcon={open === t.id ? ChevronUp : ChevronDown} aria-expanded={open === t.id} data-testid={`why-${t.id}`} onClick={() => setOpen(open === t.id ? null : t.id)}>
                           Why it ranks here

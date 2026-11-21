@@ -396,7 +396,7 @@ export const useUpdatePulseSignal = () => {
 }
 
 /** Pulse topics: ranked, with every number computed on the server from the kept signals and the channel weights. */
-export const usePulseTopics = () => useQuery({ queryKey: ['pulse', 'topics'], queryFn: listPulseTopics, retry: false })
+export const usePulseTopics = (enabled = true) => useQuery({ queryKey: ['pulse', 'topics'], queryFn: listPulseTopics, enabled, retry: false })
 const setTopics = (queryClient: ReturnType<typeof useQueryClient>) => (data: Awaited<ReturnType<typeof listPulseTopics>>) => {
   queryClient.setQueryData(['pulse', 'topics'], data)
   void queryClient.invalidateQueries({ queryKey: ['pulse', 'signals'] })

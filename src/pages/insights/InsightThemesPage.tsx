@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
-import { useInsightsThemes, useMarkThemeReviewed, useMe, useMerges, useThemeCuration } from '../../api/hooks'
+import { useInsightsThemes, useMarkThemeReviewed, useMe, useMerges, usePulseTopics, useThemeCuration } from '../../api/hooks'
 import { InsightThemesView } from './InsightThemesView'
 
 // Container: the cross-project themes. The open row lives in the address (?theme=), so a case study can link to one; with none asked for, the first is open.
@@ -12,6 +12,8 @@ export function InsightThemesPage() {
   const me = useMe()
   const reviewed = useMarkThemeReviewed()
   const merges = useMerges()
+  // Pulse's topics, for an owner who has it on (anyone else gets nothing and the page is as it was).
+  const pulse = usePulseTopics(!!me.data?.features.pulse)
   const tidy = useThemeCuration()
   const actions = Object.values(tidy)
   const failed = actions.find((m) => m.isError)
@@ -30,6 +32,7 @@ export function InsightThemesPage() {
     <InsightThemesView
       state={state}
       overview={overview.data}
+      pulseTopics={me.data?.features.pulse ? pulse.data?.topics : undefined}
       openId={openId}
       groupBy={params.get('group') === 'area' ? 'area' : 'none'}
       onGroupBy={(g) => {

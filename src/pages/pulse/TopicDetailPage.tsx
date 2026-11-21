@@ -63,6 +63,40 @@ export function TopicDetailPage() {
             )}
           </div>
 
+          <section className={styles.card} aria-label="In Signal Flow" data-testid="topic-links">
+            <h2 className={styles.head}>In Signal Flow</h2>
+            {t.researched.length > 0 ? (
+              <p className={styles.note}>
+                Already researched:{' '}
+                {t.researched.map((r, i) => (
+                  <span key={r.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/insights/themes?theme=${r.id}`} data-testid="researched-link">
+                      {r.title}
+                    </Link>
+                  </span>
+                ))}
+                . Check what was learned before asking again.
+              </p>
+            ) : (
+              <p className={styles.note}>Not researched yet: no theme in Platform Insights covers this.</p>
+            )}
+            {t.projects.length > 0 && (
+              <p className={styles.note}>
+                Projects started from it:{' '}
+                {t.projects.map((p, i) => (
+                  <span key={p.id}>
+                    {i > 0 && ', '}
+                    <Link to={`/projects/${p.id}/plan/ask`} data-testid="project-link">
+                      {p.name}
+                    </Link>
+                  </span>
+                ))}
+                .
+              </p>
+            )}
+          </section>
+
           <section className={styles.cols}>
             <div className={styles.card} data-testid="topic-accounts">
               <h2 className={styles.head}>Accounts</h2>

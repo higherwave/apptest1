@@ -3232,6 +3232,18 @@ export interface components {
             arrMatched: number;
             /** @description How many were not found (so the ARR is a floor, not the whole). */
             arrUnmatched: number;
+            /** @description Signal Flow projects started from this topic. */
+            projects: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+            /** @description Platform Insights themes that already cover what the topic is about (at most two). */
+            researched: {
+                /** Format: uuid */
+                id: string;
+                title: string;
+            }[];
         };
         PulseQuote: {
             id: string;

@@ -1,12 +1,14 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, Dropdown, InlineNotification, Loading, ProgressBar, Search, Tag } from '@carbon/react'
 import { useState } from 'react'
-import type { InsightsThemes } from '../../api/client'
+import { Link } from 'react-router-dom'
+import type { InsightsThemes, PulseTopic } from '../../api/client'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
 import { ResumePanel } from '../../resume/ResumePanel'
 import { Sparkline } from './Sparkline'
+import { HeardInPulse } from './HeardInPulse'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
 import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
@@ -29,6 +31,8 @@ export type InsightThemesViewProps = {
   /** How the table is divided: one list, or a section for each experience category. */
   groupBy?: 'none' | 'area'
   onGroupBy?: (g: 'none' | 'area') => void
+  /** Pulse topics, only for an owner who has Pulse on: the Heard strip at the top, and "Also heard in Pulse" on a theme the topic is already covered by. */
+  pulseTopics?: PulseTopic[]
 }
 
 type Row = InsightsThemes['themes'][number]
@@ -81,7 +85,7 @@ const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? o
 
 // Presentational: what the team should do (recommendations), then every theme seen across projects as a row that opens to say where it
 // comes from, what it means and what to do about it. Scanning the rows is the point; the evidence lives in each project.
-export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed, curation, groupBy = 'none', onGroupBy }: InsightThemesViewProps) {
+export function InsightThemesView({ state, overview, openId, errorText, onToggle, canReview, reviewing, onReviewed, curation, groupBy = 'none', onGroupBy, pulseTopics }: InsightThemesViewProps) {
   const [filter, setFilter] = useState<Filter>('all')
   // A recommendation picked on the strip narrows the table to the themes it covers.
   const [recId, setRecId] = useState<string | null>(null)
@@ -205,6 +209,22 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                           <h3 className={styles.label}>Theme summary</h3>
                           <p className={styles.text}>{t.summary ?? 'No summary yet.'}</p>
                         </section>
+                        {(() => {
+                          const heard = (pulseTopics ?? []).filter((p) => p.researched.some((r) => r.id === t.id))
+                          return heard.length ? (
+                            <section aria-label="Also heard in Pulse" data-testid={`heard-${t.id}`}>
+                              <h3 className={styles.label}>Also heard in Pulse</h3>
+                              <p className={styles.text}>
+                                {heard.map((p, i) => (
+                                  <span key={p.id}>
+                                    {i > 0 && ', '}
+                                    <Link to={`/pulse/topics/${p.id}`}>{p.title}</Link> ({p.signals} {p.signals === 1 ? 'signal' : 'signals'})
+                                  </span>
+                                ))}
+                              </p>
+                            </section>
+                          ) : null
+                        })()}
                       </div>
                     )}
                   </li>
@@ -214,6 +234,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
       <ResumePanel />
+      {pulseTopics && pulseTopics.length > 0 && <HeardInPulse topics={pulseTopics} />}
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}

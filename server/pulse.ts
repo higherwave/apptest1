@@ -8,6 +8,7 @@ import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import type { SlackClient } from './slack.js'
 import { checkAllSources } from './pulse-sources.js'
+import { linksFor } from './pulse-links.js'
 import { arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
 import type { SalesforceClient } from './salesforce.js'
 import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, topicStats, type Channel, type TopicStats } from './pulse-topics.js'
@@ -184,6 +185,9 @@ export type Topic = TopicStats & {
   /** How many of those accounts were found in Salesforce, and how many were not (so the number is never mistaken for the whole). */
   arrMatched: number
   arrUnmatched: number
+  /** Links to Signal Flow: projects started from this topic, and Platform Insights themes that already cover it. */
+  projects: { id: string; name: string }[]
+  researched: { id: string; title: string }[]
 }
 export type TopicList = {
   topics: Topic[]
@@ -251,7 +255,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
   const topicRows = (await db.query(`select id, title, edited from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows
   const sigRows = (
     await db.query(
-      `select ts.topic_id, s.channel, s.account, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
+      `select ts.topic_id, s.body, s.channel, s.account, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
          from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and s.status = 'kept'`,
       [ws],
     )
@@ -271,11 +275,15 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
         arr: known.size ? money.arr : null,
         arrMatched: money.matched,
         arrUnmatched: money.unmatched,
+        projects: [] as Topic['projects'],
+        researched: [] as Topic['researched'],
+        bodies: rows.map((r) => r.body as string),
       }
     })
     .filter((t) => t.signals > 0)
     .sort((a, b) => b.score - a.score || b.signals - a.signals || a.title.localeCompare(b.title))
-    .map((t, i) => ({ ...t, rank: i + 1 }))
+  const links = await linksFor(db, ws, topics)
+  const ranked: Topic[] = topics.map(({ bodies: _bodies, ...t }, i) => ({ ...t, rank: i + 1, projects: links.get(t.id)?.projects ?? [], researched: links.get(t.id)?.researched ?? [] }))
   const state = (await db.query(`select updated_at from core.pulse_state where workspace_id = $1`, [ws])).rows[0]
   const counts = (
     await db.query(
@@ -286,7 +294,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
       [ws, state ? new Date(state.updated_at).toISOString() : null],
     )
   ).rows[0]
-  return { topics, weights, updatedAt: state ? new Date(state.updated_at).toISOString() : null, unsorted: counts.unsorted, toReview: counts.to_review, sinceUpdate: counts.since }
+  return { topics: ranked, weights, updatedAt: state ? new Date(state.updated_at).toISOString() : null, unsorted: counts.unsorted, toReview: counts.to_review, sinceUpdate: counts.since }
 }
 
 export async function renameTopic(db: Queryable, ctx: RequestContext, id: string, title: string): Promise<void> {
