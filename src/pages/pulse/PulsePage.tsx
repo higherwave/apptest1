@@ -145,7 +145,7 @@ function AddSignal() {
       <div className={styles.row}>
         <TextInput id="signal-said-by" labelText="Who said it" value={saidBy} onChange={(e) => setSaidBy(e.target.value)} />
         <TextInput id="signal-account" labelText="Account" value={account} onChange={(e) => setAccount(e.target.value)} />
-        <TextInput id="signal-source" labelText="Where it came from" placeholder="Renewal call, support ticket, conference" value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} />
+        <TextInput id="signal-source" labelText="Where it came from" placeholder="Renewal call, customer meeting" value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} />
       </div>
       <TextInput id="signal-url" labelText="Link to the source" placeholder="https://" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
       {add.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(add.error)} />}

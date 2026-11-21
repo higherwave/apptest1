@@ -92,7 +92,7 @@ try {
   for (const [body, channel, account] of [
     ['I do not trust the score, it was wrong on a renewal last quarter.', 'call_notes', 'Contoso Health'],
     ['Can the score explain which factors moved it? I cannot trust what I cannot explain.', 'slack', 'Fabrikam Retail'],
-    ['When a hard case moves to my queue I redo the whole investigation, the handoff loses the history.', 'support_tickets', 'Northwind Logistics'],
+    ['When a hard case moves to my queue I redo the whole investigation, the handoff loses the history.', 'call_notes', 'Northwind Logistics'],
     ['We need the context carried over with every handoff to success.', 'slack', 'Tailspin Travel'],
   ]) await api('POST', '/pulse/signals', { body, channel, account })
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
@@ -105,7 +105,7 @@ try {
   await click(page, `why-${first.id}`)
   await waitText(page, 'Edit weights')
   ok('"Why it ranks here" shows signals times weight for each channel, adding up to the score shown', await page.evaluate((score) => { const box = document.querySelector('[data-testid^="why-row-"]').innerText; return /×/.test(box) && box.includes('Score') && box.replace(/\s+/g, ' ').includes(score) }, first.score))
-  ok('and the grid says who is behind it: accounts, and how many channels it was heard in', /accounts?/.test(grid) && /\d of 5/.test(grid))
+  ok('and the grid says who is behind it: accounts, and how many channels it was heard in', /accounts?/.test(grid) && /\d of 2/.test(grid))
 
   // The impact map and picking topics: a circle for each topic; picked ones show on the map, in the grid and in a bar at the foot of the page.
   const topicIds = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="topic-"][data-rank]')].map((r) => r.dataset.testid.slice(6)))
@@ -187,7 +187,7 @@ try {
   // Weights live in Admin, Pulse (owners): a change re-ranks at once.
   await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('#weight-call_notes', { timeout: 8000 })
-  ok('Admin has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'support_tickets', 'slack', 'conference', 'other'].every((k) => !!document.querySelector(`#weight-${k}`))))
+  ok('Admin has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'slack'].every((k) => !!document.querySelector(`#weight-${k}`))))
   await page.$eval('#weight-slack', (el) => el.select())
   await page.keyboard.type('5')
   await click(page, 'weights-save')

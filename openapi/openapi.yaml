@@ -2016,7 +2016,7 @@ paths:
               required: [text]
               properties:
                 text: { type: string }
-                channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other], description: 'Defaults to call_notes.' }
+                channel: { type: string, enum: [slack, call_notes], description: 'Defaults to call_notes.' }
                 sourceLabel: { type: [string, 'null'], description: 'What the notes are, for example "Renewal call with Northwind".' }
                 account: { type: [string, 'null'] }
                 occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
@@ -2051,7 +2051,7 @@ paths:
               properties:
                 status: { type: string, enum: [new, kept, dismissed] }
                 kind: { type: string, enum: [complaint, request, praise, question, other] }
-                channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+                channel: { type: string, enum: [slack, call_notes] }
       responses:
         '200':
           description: The signal after the change.
@@ -4070,7 +4070,7 @@ components:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
+        channel: { type: string, enum: [slack, call_notes], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
         source: { type: string, enum: [manual, notes, slack], description: 'Typed in, split out of notes, or read from a connected channel.' }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
@@ -4085,7 +4085,7 @@ components:
       properties:
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        channel: { type: string, enum: [slack, call_notes] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'], description: 'Must start with http:// or https://.' }
         saidBy: { type: [string, 'null'] }
@@ -4118,7 +4118,7 @@ components:
         id: { type: string, format: uuid }
         kind: { type: string, enum: [slack] }
         name: { type: string }
-        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        channel: { type: string, enum: [slack, call_notes] }
         mode: { type: string, enum: [keep, review], description: 'keep: messages count at once. review: they wait for a person.' }
         enabled: { type: boolean }
         lastCheckedAt: { type: [string, 'null'], format: date-time }
@@ -4135,12 +4135,12 @@ components:
       required: [name]
       properties:
         name: { type: string, description: 'The Slack channel name, with or without #.' }
-        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        channel: { type: string, enum: [slack, call_notes] }
         mode: { type: string, enum: [keep, review] }
     UpdatePulseSource:
       type: object
       properties:
-        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        channel: { type: string, enum: [slack, call_notes] }
         mode: { type: string, enum: [keep, review] }
         enabled: { type: boolean }
     PulseWeights:
@@ -4149,13 +4149,10 @@ components:
       properties:
         weights:
           type: object
-          required: [slack, call_notes, support_tickets, conference, other]
+          required: [slack, call_notes]
           properties:
             slack: { type: number }
             call_notes: { type: number }
-            support_tickets: { type: number }
-            conference: { type: number }
-            other: { type: number }
     PulseTopic:
       type: object
       required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, projects, researched]
@@ -4171,9 +4168,6 @@ components:
           properties:
             slack: { type: integer }
             call_notes: { type: integer }
-            support_tickets: { type: integer }
-            conference: { type: integer }
-            other: { type: integer }
         channelCount: { type: integer }
         reach: { type: integer, description: 'Distinct accounts behind the signals, or people where no account is named.' }
         score: { type: number, description: 'The weighted sum of signals per channel, which `breakdown` shows in full.' }
@@ -4183,7 +4177,7 @@ components:
             type: object
             required: [channel, count, weight, subtotal]
             properties:
-              channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+              channel: { type: string, enum: [slack, call_notes] }
               count: { type: integer }
               weight: { type: number }
               subtotal: { type: number }
@@ -4216,7 +4210,7 @@ components:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        channel: { type: string, enum: [slack, call_notes] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
         saidBy: { type: [string, 'null'] }
@@ -4260,7 +4254,7 @@ components:
             signalId: { type: string }
             quote: { type: string }
             saidBy: { type: [string, 'null'] }
-            channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+            channel: { type: string, enum: [slack, call_notes] }
     PulseOrigin:
       type: object
       required: [topics, signals]

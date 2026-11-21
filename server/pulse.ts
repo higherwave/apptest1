@@ -98,7 +98,7 @@ export async function addSignal(db: Queryable, ctx: RequestContext, input: NewSi
     await db.query(
       `insert into core.pulse_signals (workspace_id, body, kind, channel, source, source_label, source_url, said_by, account, occurred_on, status, kept_at, created_by)
        values ($1, $2, $3, $4, 'manual', $5, $6, $7, $8, $9, 'kept', now(), $10) returning id`,
-      [ctx.workspaceId, input.body.trim(), input.kind ?? 'other', input.channel ?? 'other', clean(input.sourceLabel), clean(input.sourceUrl), clean(input.saidBy), clean(input.account), input.occurredOn ?? null, ctx.userId],
+      [ctx.workspaceId, input.body.trim(), input.kind ?? 'other', input.channel ?? 'call_notes', clean(input.sourceLabel), clean(input.sourceUrl), clean(input.saidBy), clean(input.account), input.occurredOn ?? null, ctx.userId],
     )
   ).rows[0]
   return toSignal((await db.query(`${SELECT} where id = $1`, [row.id])).rows[0])

@@ -126,15 +126,15 @@ test('topics: updating groups the kept signals, ranks them by weighted score, an
   assert.equal(trust.rank, 1)
   assert.equal(trust.score, Math.round(trust.breakdown.reduce((a: number, b: any) => a + b.subtotal, 0) * 100) / 100, 'the score is the breakdown summed')
   assert.ok(trust.breakdown.every((b: any) => b.subtotal === Math.round(b.count * b.weight * 100) / 100))
-  assert.ok(trust.channelCount >= 3 && trust.reach >= 3)
+  assert.ok(trust.channelCount === 2 && trust.reach >= 3, 'heard in both channels')
 
-  // Weights: silencing Slack and boosting conferences changes the order, at once, with no update.
-  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, support_tickets: 0.8, conference: 0.6, slack: 0.5, other: 0.3 })
-  const put = await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 0, call_notes: 0.1, conference: 5 } })
+  // Weights: boosting Slack changes every score at once, with no update, and the list stays in score order.
+  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, slack: 0.5 })
+  const put = await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 5 } })
   assert.equal(put.status, 200)
   const reranked = await (await call(owner, 'GET', '/pulse/topics')).json()
-  assert.notDeepEqual(reranked.topics.map((t: any) => t.title), list.topics.map((t: any) => t.title), 'the order moved')
-  assert.equal(reranked.topics[0].title, 'Handoffs and lost context', 'it has the conference signal')
+  assert.deepEqual(reranked.topics.map((t: any) => [t.title, t.score]), [['Trust and accuracy', 13], ['Reporting and digests', 8], ['Handoffs and lost context', 7], ['Renewal preparation', 6]], 'three call notes at 1 plus two Slack signals at 5, and so on')
+  assert.ok(reranked.topics.every((t: any, i: number, all: any[]) => i === 0 || all[i - 1].score >= t.score))
   assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 9 } })).status, 422, 'a weight is at most 5')
   assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: { email: 1 } })).status, 422, 'only the known channels')
   assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: {} })).status, 422)
@@ -189,8 +189,8 @@ test('topics: a signal that is no longer kept leaves its topic, and a new one jo
   // Keep a waiting signal about the score, and dismiss a kept one: nothing moves until the next update.
   const waiting = (await (await call(owner, 'GET', '/pulse/signals?status=new')).json()).signals.find((s: any) => /score/.test(s.body))
   await call(owner, 'PATCH', `/pulse/signals/${waiting.id}`, { status: 'kept' })
-  const added = await (await call(owner, 'POST', '/pulse/signals', { body: 'Nobody can explain why the score keeps changing.', channel: 'support_tickets', saidBy: 'Pat', account: 'Initech' })).json()
-  assert.equal(added.channel, 'support_tickets')
+  const added = await (await call(owner, 'POST', '/pulse/signals', { body: 'Nobody can explain why the score keeps changing.', channel: 'call_notes', saidBy: 'Pat', account: 'Initech' })).json()
+  assert.equal(added.channel, 'call_notes')
   list = await (await call(owner, 'GET', '/pulse/topics')).json()
   assert.equal(list.topics.find((t: any) => t.title === 'Trust and accuracy').signals, trustCount, 'rankings do not shift while a page is read')
   assert.equal(list.sinceUpdate, 2)
@@ -259,7 +259,7 @@ test('topic details, suggested questions, and starting a Signal Flow project fro
   const origin = await (await call(owner, 'GET', `/pulse/origin/${projectId}`)).json()
   assert.deepEqual(origin.topics.map((t: any) => t.title).sort(), ['Reporting and digests', 'Trust and accuracy'])
   assert.equal(origin.signals, trust.signals + reporting.signals)
-  assert.equal((await call(owner, 'GET', `/pulse/origin/${(project.id as string).replace(/.$/, '0')}`)).status, 404, 'a project not started from Pulse has no origin')
+  assert.equal((await call(owner, 'GET', `/pulse/origin/00000000-0000-4000-8000-000000000000`)).status, 404, 'a project not started from Pulse has no origin')
   assert.equal((await call(alex, 'GET', `/pulse/origin/${projectId}`)).status, 404, 'and an editor never sees where it came from')
   const audit = (await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_project_links'`)).rows
   assert.equal(audit.length, 1)

@@ -3102,7 +3102,7 @@ export interface components {
              * @description Where it was heard, from a fixed list; the ranking weights are set per channel.
              * @enum {string}
              */
-            channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            channel: "slack" | "call_notes";
             /**
              * @description Typed in, split out of notes, or read from a connected channel.
              * @enum {string}
@@ -3123,7 +3123,7 @@ export interface components {
             /** @enum {string} */
             kind?: "complaint" | "request" | "praise" | "question" | "other";
             /** @enum {string} */
-            channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            channel?: "slack" | "call_notes";
             sourceLabel?: string | null;
             /** @description Must start with http:// or https://. */
             sourceUrl?: string | null;
@@ -3156,7 +3156,7 @@ export interface components {
             kind: "slack";
             name: string;
             /** @enum {string} */
-            channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            channel: "slack" | "call_notes";
             /**
              * @description keep: messages count at once. review: they wait for a person.
              * @enum {string}
@@ -3176,13 +3176,13 @@ export interface components {
             /** @description The Slack channel name, with or without #. */
             name: string;
             /** @enum {string} */
-            channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            channel?: "slack" | "call_notes";
             /** @enum {string} */
             mode?: "keep" | "review";
         };
         UpdatePulseSource: {
             /** @enum {string} */
-            channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            channel?: "slack" | "call_notes";
             /** @enum {string} */
             mode?: "keep" | "review";
             enabled?: boolean;
@@ -3191,9 +3191,6 @@ export interface components {
             weights: {
                 slack: number;
                 call_notes: number;
-                support_tickets: number;
-                conference: number;
-                other: number;
             };
         };
         PulseTopic: {
@@ -3208,9 +3205,6 @@ export interface components {
             channels: {
                 slack?: number;
                 call_notes?: number;
-                support_tickets?: number;
-                conference?: number;
-                other?: number;
             };
             channelCount: number;
             /** @description Distinct accounts behind the signals, or people where no account is named. */
@@ -3219,7 +3213,7 @@ export interface components {
             score: number;
             breakdown: {
                 /** @enum {string} */
-                channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+                channel: "slack" | "call_notes";
                 count: number;
                 weight: number;
                 subtotal: number;
@@ -3251,7 +3245,7 @@ export interface components {
             /** @enum {string} */
             kind: "complaint" | "request" | "praise" | "question" | "other";
             /** @enum {string} */
-            channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            channel: "slack" | "call_notes";
             sourceLabel: string | null;
             sourceUrl: string | null;
             saidBy: string | null;
@@ -3280,7 +3274,7 @@ export interface components {
                 quote: string;
                 saidBy: string | null;
                 /** @enum {string} */
-                channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+                channel: "slack" | "call_notes";
             } | null;
         };
         PulseOrigin: {
@@ -7577,7 +7571,7 @@ export interface operations {
                      * @description Defaults to call_notes.
                      * @enum {string}
                      */
-                    channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+                    channel?: "slack" | "call_notes";
                     /** @description What the notes are, for example "Renewal call with Northwind". */
                     sourceLabel?: string | null;
                     account?: string | null;
@@ -7623,7 +7617,7 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "complaint" | "request" | "praise" | "question" | "other";
                     /** @enum {string} */
-                    channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+                    channel?: "slack" | "call_notes";
                 };
             };
         };

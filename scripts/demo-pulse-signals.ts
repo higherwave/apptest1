@@ -1,5 +1,5 @@
 // Fills Pulse with the Anchor CX story, so the preview has something to show: customers talking about the health score, handoffs between support and success,
-// manual reporting and renewal prep, across a Slack channel, call notes, support tickets and a conference.
+// manual reporting and renewal prep, across a Slack channel and customer-meeting call notes.
 //
 //   npx tsx scripts/demo-pulse-signals.ts            dry run: reads only, says what it would add
 //   npx tsx scripts/demo-pulse-signals.ts --yes      adds them
@@ -17,16 +17,16 @@ export const SAMPLES: Sample[] = [
   { body: 'The health score dropped 18 points overnight and nobody on my team could tell me why. I ended up ignoring it for the renewal call.', kind: 'complaint', source: 'slack', label: '#cs-feedback', by: 'Marcus Bell', account: 'Northwind Logistics', daysAgo: 2 },
   { body: 'I do not trust the score anymore. Last quarter it said green on an account that churned three weeks later.', kind: 'complaint', source: 'notes', label: 'Renewal call with Contoso', by: 'Priya Raman', account: 'Contoso Health', daysAgo: 5 },
   { body: 'Can the score show which factors moved it? Even a short list would help me explain it to my director.', kind: 'request', source: 'slack', label: '#cs-feedback', by: 'Jordan Alvarez', account: 'Fabrikam Retail', daysAgo: 6 },
-  { body: 'Customers ask why their health went amber and I have to say I am not sure. That is a bad moment on a call.', kind: 'complaint', source: 'manual', label: 'Support ticket #4821', by: 'Lucia Ferreira', account: 'Tailspin Travel', daysAgo: 9 },
+  { body: 'Customers ask why their health went amber and I have to say I am not sure. That is a bad moment on a call.', kind: 'complaint', source: 'notes', label: 'Customer call, Tailspin Travel', by: 'Lucia Ferreira', account: 'Tailspin Travel', daysAgo: 9 },
   { body: 'Our execs stopped looking at the score in the weekly review. They ask for the spreadsheet instead.', kind: 'complaint', source: 'notes', label: 'QBR notes, Adventure Works', by: 'Tom Okafor', account: 'Adventure Works', daysAgo: 12 },
   // Handoffs between support and success
   { body: 'When a hard case moves from support to my queue, I get a ticket link and nothing else. I redo the investigation from scratch.', kind: 'complaint', source: 'slack', label: '#cs-feedback', by: 'Samir Qureshi', account: 'Wide World Importers', daysAgo: 3 },
   { body: 'We need a way to hand an account to success with the history attached, not a Slack message that says "please take this one".', kind: 'request', source: 'notes', label: 'Support and success sync', by: 'Marcus Bell', account: 'Northwind Logistics', daysAgo: 8 },
-  { body: 'Two different teams called the same customer in the same week without knowing it. They were not happy.', kind: 'complaint', source: 'manual', label: 'Conference booth, CX Summit', by: 'A customer success director', account: 'Unknown', daysAgo: 15 },
+  { body: 'Two different teams called the same customer in the same week without knowing it. They were not happy.', kind: 'complaint', source: 'notes', label: 'Customer meeting, CX Summit follow-up', by: 'A customer success director', account: 'Unknown', daysAgo: 15 },
   // Manual reporting
   { body: 'I spend the first Monday of every month building the portfolio report by hand from three exports. It takes about four hours.', kind: 'complaint', source: 'notes', label: 'Discovery call, Fabrikam', by: 'Derek Hollis', account: 'Fabrikam Retail', daysAgo: 4 },
   { body: 'A weekly digest of accounts that changed would save me the Monday scramble. I would read it every time.', kind: 'request', source: 'slack', label: '#cs-feedback', by: 'Ben Nakamura', account: 'Contoso Health', daysAgo: 7 },
-  { body: 'Our board wants a one-page view of renewals at risk. Today it is a slide I rebuild each quarter.', kind: 'request', source: 'manual', label: 'Executive briefing', by: 'Tom Okafor', account: 'Adventure Works', daysAgo: 13 },
+  { body: 'Our board wants a one-page view of renewals at risk. Today it is a slide I rebuild each quarter.', kind: 'request', source: 'notes', label: 'Executive briefing call', by: 'Tom Okafor', account: 'Adventure Works', daysAgo: 13 },
   // Renewal prep
   { body: 'Preparing a renewal means opening five tabs. The context I need is all there, just not on one page.', kind: 'complaint', source: 'notes', label: 'Renewal prep shadowing', by: 'Jordan Alvarez', account: 'Fabrikam Retail', daysAgo: 10 },
   { body: 'The renewal playbook is great for mid-market, but my enterprise accounts need different steps and I cannot change it.', kind: 'request', source: 'slack', label: '#cs-feedback', by: 'Priya Raman', account: 'Contoso Health', daysAgo: 11 },
@@ -39,7 +39,7 @@ export const SAMPLES: Sample[] = [
 ]
 
 /** Where each sample was heard, from the fixed channel list. */
-const channelOf = (s: Sample) => (s.source === 'slack' ? 'slack' : s.source === 'notes' ? 'call_notes' : /support ticket/i.test(s.label) ? 'support_tickets' : /conference/i.test(s.label) ? 'conference' : 'other')
+const channelOf = (s: Sample) => (s.source === 'slack' ? 'slack' : 'call_notes')
 
 export type Report = { lines: string[]; added: number }
 

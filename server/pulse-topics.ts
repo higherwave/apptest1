@@ -5,11 +5,12 @@
 // every signal), weighted by how rare the word is. When the model is switched on, a provider-seam version replaces `groupSignals` and keeps the
 // same shape: topics are only ever sets of signal ids, and every count and score below is computed from those ids, never written by a model.
 
-export const CHANNELS = ['slack', 'call_notes', 'support_tickets', 'conference', 'other'] as const
+// The channels a signal can be heard in: customer-meeting transcripts and Slack (2026-11-21; support systems come later, with Resonance). The database still allows the older values.
+export const CHANNELS = ['call_notes', 'slack'] as const
 export type Channel = (typeof CHANNELS)[number]
-export const CHANNEL_LABEL: Record<Channel, string> = { slack: 'Slack', call_notes: 'Call notes', support_tickets: 'Support tickets', conference: 'Conference', other: 'Other' }
+export const CHANNEL_LABEL: Record<Channel, string> = { slack: 'Slack', call_notes: 'Call notes' }
 /** What a signal from each channel counts for, until an owner changes it. Direct customer words weigh most. */
-export const DEFAULT_WEIGHTS: Record<Channel, number> = { call_notes: 1, support_tickets: 0.8, conference: 0.6, slack: 0.5, other: 0.3 }
+export const DEFAULT_WEIGHTS: Record<Channel, number> = { call_notes: 1, slack: 0.5 }
 export const isChannel = (c: string): c is Channel => (CHANNELS as readonly string[]).includes(c)
 
 export type GroupInput = { id: string; body: string }
