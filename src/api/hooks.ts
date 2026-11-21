@@ -7,7 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
-  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
+  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -424,3 +424,12 @@ export const useSetPulseWeights = () => {
     },
   })
 }
+
+export const usePulseTopic = (id: string | undefined) => useQuery({ queryKey: ['pulse', 'topic', id], queryFn: () => getPulseTopic(id!), enabled: !!id, retry: false })
+export const useSuggestPulseQuestions = () => useMutation({ mutationFn: (v: { topicIds: string[]; method: string }) => suggestPulseQuestions(v.topicIds, v.method) })
+export const useCreatePulseProject = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (body: Parameters<typeof createPulseProject>[0]) => createPulseProject(body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['projects'] }) })
+}
+/** Where a project came from, when it was started from Pulse topics (only asked for people who can see Pulse). */
+export const usePulseOrigin = (projectId: string | undefined, enabled: boolean) => useQuery({ queryKey: ['pulse', 'origin', projectId], queryFn: () => getPulseOrigin(projectId!), enabled: enabled && !!projectId, retry: false })

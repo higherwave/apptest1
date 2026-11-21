@@ -1594,7 +1594,8 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /** One topic with the signals behind it (quotes with channel, who, account and date), the accounts and people raising it, and every number the list shows. 404 unless the preview is on for an owner, or the topic does not exist. */
+        get: operations["getPulseTopic"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1632,6 +1633,57 @@ export interface paths {
         put?: never;
         /** Moves the chosen signals of a topic into a new topic with the given title. At least one signal has to stay behind (422 otherwise). Returns the topics. */
         post: operations["splitPulseTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Suggested research questions for the chosen topics and method (default User Discussions), grouped under their topic, about one session's worth, each with the signal that prompted it (a verbatim quote). The wording is simulated until the model is switched on. 404 unless the preview is on for an owner, or a topic does not exist. */
+        post: operations["suggestPulseQuestions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Starts a Signal Flow project from the chosen topics: the description goes under "What to test", the methods are set, and the questions are the Test Plan's "What to ask or observe". The project records which topics it came from. Participants are not added. Owners and editors; 404 unless the preview is on for an owner. */
+        post: operations["createPulseProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/origin/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The Pulse topics a project was started from, for the note on its Test Plan. 404 when it was not started from Pulse, or Pulse is not for the caller. */
+        get: operations["getPulseOrigin"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -3040,6 +3092,50 @@ export interface components {
             }[];
             /** @enum {string} */
             trend: "new" | "rising" | "steady" | "fading";
+        };
+        PulseQuote: {
+            id: string;
+            body: string;
+            /** @enum {string} */
+            kind: "complaint" | "request" | "praise" | "question" | "other";
+            /** @enum {string} */
+            channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            sourceLabel: string | null;
+            sourceUrl: string | null;
+            saidBy: string | null;
+            account: string | null;
+            occurredOn: string | null;
+        };
+        PulseTopicDetail: components["schemas"]["PulseTopic"] & {
+            quotes: components["schemas"]["PulseQuote"][];
+            accounts: {
+                name: string;
+                signals: number;
+            }[];
+            people: {
+                name: string;
+                signals: number;
+            }[];
+        };
+        PulseQuestion: {
+            topicId: string;
+            topicTitle: string;
+            prompt: string;
+            evidence: {
+                signalId: string;
+                quote: string;
+                saidBy: string | null;
+                /** @enum {string} */
+                channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            } | null;
+        };
+        PulseOrigin: {
+            topics: {
+                /** @description Null once the topic no longer exists (it was merged away or regrouped); the title is as it was. */
+                id: string | null;
+                title: string;
+            }[];
+            signals: number;
         };
         PulseTopicList: {
             topics: components["schemas"]["PulseTopic"][];
@@ -7445,6 +7541,30 @@ export interface operations {
             429: components["responses"]["Error"];
         };
     };
+    getPulseTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The topic. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     renamePulseTopic: {
         parameters: {
             query?: never;
@@ -7537,6 +7657,103 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    suggestPulseQuestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    topicIds: string[];
+                    /** @enum {string} */
+                    method?: "Contextual (walk-through)" | "User Discussions" | "Usability Test" | "Support or CSM channels" | "Survey";
+                };
+            };
+        };
+        responses: {
+            /** @description The questions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        questions: components["schemas"]["PulseQuestion"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    createPulseProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string | null;
+                    methods?: string[];
+                    topicIds: string[];
+                    questions: {
+                        prompt: string;
+                        topicId?: string | null;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description The new project. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        projectId: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getPulseOrigin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where it came from. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseOrigin"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     getPulseWeights: {

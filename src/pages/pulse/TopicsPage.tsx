@@ -1,12 +1,15 @@
-import { Fragment, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
-import { useNavigate } from 'react-router-dom'
+import { Button, Checkbox, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
+import { Link, useNavigate } from 'react-router-dom'
 import { friendlyMessage, type PulseTopic } from '../../api/client'
 import { useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
 import { CHANNEL_LABEL, CHANNELS } from './channels'
+import { CreateProjectPanel } from './CreateProjectPanel'
+import { ImpactMap } from './ImpactMap'
 import { PulseNotFound } from './PulseNotFound'
+import { useTopicSelection } from './selection'
 import styles from './TopicsPage.module.scss'
 
 const TREND: Record<PulseTopic['trend'], { label: string; type: 'red' | 'blue' | 'gray' | 'green' }> = {
@@ -29,6 +32,11 @@ export function TopicsPage() {
   const [open, setOpen] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<PulseTopic | null>(null)
   const [merging, setMerging] = useState<PulseTopic | null>(null)
+  const [creating, setCreating] = useState(false)
+  const { selected, toggle, clear, keepOnly } = useTopicSelection()
+  // A topic that was merged away or regrouped can no longer be picked.
+  const validIds = topics.data?.topics.map((t) => t.id)
+  useEffect(() => { if (validIds) keepOnly(validIds) }, [validIds?.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!me.data) return null
   if (!me.data.features.pulse) return <PulseNotFound />
@@ -37,6 +45,9 @@ export function TopicsPage() {
   const max = Math.max(1, ...(list?.topics.flatMap((t) => CHANNELS.map((c) => t.channels[c.key] ?? 0)) ?? [1]))
   const level = (n: number) => (n === 0 ? 0 : Math.min(4, 1 + Math.floor((n / max) * 3.999)))
   const isOwner = me.data.role === 'owner'
+  const canStart = me.data.role === 'owner' || me.data.role === 'editor'
+  const picked = list?.topics.filter((t) => selected.includes(t.id)) ?? []
+  const pickedSignals = picked.reduce((a, t) => a + t.signals, 0)
 
   return (
     <div className={styles.page}>
@@ -92,10 +103,21 @@ export function TopicsPage() {
       )}
 
       {list && list.topics.length > 0 && (
+        <section className={styles.mapSection} aria-label="Impact map">
+          <h2 className={styles.mapHead}>Impact map</h2>
+          <p className={styles.text}>Topics heard in more channels by more accounts sit higher and further right; a bigger circle is more signals. Choose circles (or rows below) to start a project from them.</p>
+          <ImpactMap topics={list.topics} selected={selected} onToggle={toggle} />
+        </section>
+      )}
+
+      {list && list.topics.length > 0 && (
         <TableContainer title="Where topics were heard" description="Signals per channel. Darker means more. Open “Why it ranks here” to see the weights behind the score." className={styles.table}>
           <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
             <TableHead>
               <TableRow>
+                <TableHeader className={styles.checkCol}>
+                  <span className={styles.srOnly}>Select</span>
+                </TableHeader>
                 <TableHeader className={styles.rankCol}>#</TableHeader>
                 <TableHeader>Topic</TableHeader>
                 {CHANNELS.map((c) => (
@@ -114,12 +136,15 @@ export function TopicsPage() {
               {list.topics.map((t) => (
                 <Fragment key={t.id}>
                   <TableRow data-testid={`topic-${t.id}`} data-rank={t.rank}>
+                    <TableCell className={styles.checkCol}>
+                      <Checkbox id={`pick-${t.id}`} data-testid={`pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
+                    </TableCell>
                     <TableCell className={styles.rankCol}>{t.rank}</TableCell>
                     <TableCell>
                       <div className={styles.topic}>
-                        <span className={styles.title} data-testid="topic-title">
+                        <Link to={`/pulse/topics/${t.id}`} className={styles.title} data-testid="topic-title">
                           {t.title}
-                        </span>
+                        </Link>
                         <span className={styles.meta}>
                           {plural(t.signals, 'signal')} · {plural(t.reach, 'account')}
                           <Tag type={TREND[t.trend].type} size="sm">
@@ -156,7 +181,7 @@ export function TopicsPage() {
                   </TableRow>
                   {open === t.id && (
                     <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                      <TableCell colSpan={CHANNELS.length + 5}>
+                      <TableCell colSpan={CHANNELS.length + 6}>
                         <Why topic={t} isOwner={isOwner} onEdit={() => navigate('/settings/pulse')} />
                       </TableCell>
                     </TableRow>
@@ -174,6 +199,21 @@ export function TopicsPage() {
         </p>
       )}
 
+      {picked.length > 0 && (
+        <div className={styles.pickBar} role="region" aria-label="Selected topics" data-testid="pick-bar">
+          <p className={styles.pickText}>
+            {plural(picked.length, 'topic')} selected · {plural(pickedSignals, 'signal')}
+          </p>
+          <Button kind="ghost" size="sm" onClick={clear}>
+            Clear
+          </Button>
+          <Button kind="primary" size="md" data-testid="create-project" disabled={!canStart} onClick={() => setCreating(true)}>
+            Create Signal Flow project
+          </Button>
+        </div>
+      )}
+
+      <CreateProjectPanel topics={picked} open={creating && picked.length > 0} onClose={() => setCreating(false)} />
       <RenameModal topic={renaming} onClose={() => setRenaming(null)} />
       <MergeModal topic={merging} others={list?.topics.filter((t) => t.id !== merging?.id) ?? []} onClose={() => setMerging(null)} />
     </div>

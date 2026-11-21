@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
-import { useMe, useProject, useSaveStudy, useSaveTasks, useTemplates } from '../../api/hooks'
+import { useMe, useProject, usePulseOrigin, useSaveStudy, useSaveTasks, useTemplates } from '../../api/hooks'
 import { formFromProject, planChanged, taskFormFromProject, tasksChanged, toPlanRequest, toTasksRequest, validate, type FieldErrors, type PlanForm, type TaskForm } from '../testplan/form'
 import { TestPlanTabsView } from './TestPlanTabsView'
 import { useSaveFlow } from './useSaveFlow'
@@ -18,6 +18,8 @@ export function TestPlanTabsPage() {
   const project = useProject(projectId)
   const templates = useTemplates() // only for the list of test methods
   const me = useMe()
+  // When the project was started from Pulse topics (asked only for people who can see Pulse): a note under the title.
+  const origin = usePulseOrigin(projectId, !!me.data?.features.pulse)
   const saveStudy = useSaveStudy(projectId)
   const saveTasks = useSaveTasks(projectId)
   const flow = useSaveFlow(projectId, project.data)
@@ -73,6 +75,7 @@ export function TestPlanTabsPage() {
       tasks={tasks ?? []}
       errors={errors}
       methodOptions={templates.data?.methodOptions ?? []}
+      fromPulse={origin.data ? { ...origin.data, onOpenTopic: (id) => navigate(`/pulse/topics/${id}`) } : undefined}
       errorText={project.isError ? friendlyMessage(project.error) : undefined}
       save={{
         dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: 'Save test plan',

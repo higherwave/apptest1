@@ -193,3 +193,40 @@ export function topicStats(signals: RankSignal[], weights: Record<Channel, numbe
   const trend: TopicStats['trend'] = older === 0 && before === 0 && recent > 0 ? 'new' : recent > before ? 'rising' : recent < before ? 'fading' : 'steady'
   return { signals: signals.length, channels, channelCount: Object.keys(channels).length, reach: who.size, score: round2(breakdown.reduce((a, b) => a + b.subtotal, 0)), breakdown, trend }
 }
+
+// Questions ---------------------------------------------------------------------------------------------------------------------
+
+export type QuoteInput = { id: string; body: string; saidBy: string | null; channel: Channel; at: string }
+export type Suggested = { topicId: string; topicTitle: string; prompt: string; evidence: { signalId: string; quote: string; saidBy: string | null; channel: Channel } | null }
+
+// The simulated provider's wording, by research method: two open questions each. A model replaces this behind the same shape; the evidence stays a verbatim signal.
+const ASK: Record<string, [(t: string) => string, (t: string) => string]> = {
+  'Contextual (walk-through)': [(t) => `Walk me through the last time ${t} came up for you.`, () => 'What did you do next, and what got in your way?'],
+  'User Discussions': [(t) => `How does ${t} show up in your week?`, (t) => `If ${t} were fixed tomorrow, what would change for you?`],
+  'Usability Test': [(t) => `Show me how you handle ${t} today. Where do you hesitate?`, () => 'What did you expect to happen next?'],
+  'Support or CSM channels': [(t) => `What do you hear from customers about ${t}?`, () => 'Where does that conversation get stuck?'],
+  Survey: [(t) => `How often does ${t} get in the way of your work? (1 to 5)`, (t) => `How important is it to improve ${t}? (1 to 5)`],
+}
+export const FALLBACK_METHOD = 'User Discussions'
+/** About one session's worth of questions. */
+export const MAX_QUESTIONS = 6
+
+const phrase = (title: string) => title.charAt(0).toLowerCase() + title.slice(1)
+
+/**
+ * Questions for a research session on these topics, grouped under their topic and each with the evidence that prompted it. One open question per topic first, then a question
+ * built on the strongest customer quote of each topic ("a customer told us: ..."), then the follow-up questions, never more than MAX_QUESTIONS. The quote is the signal's own words.
+ */
+export function suggestQuestions(topics: { id: string; title: string; quotes: QuoteInput[] }[], method: string, weights: Record<Channel, number> = DEFAULT_WEIGHTS): Suggested[] {
+  const [open, follow] = ASK[method] ?? ASK[FALLBACK_METHOD]
+  const best = (t: { quotes: QuoteInput[] }) => [...t.quotes].sort((a, b) => weights[b.channel] - weights[a.channel] || b.at.localeCompare(a.at) || a.id.localeCompare(b.id))[0]
+  const ev = (q: QuoteInput | undefined) => (q ? { signalId: q.id, quote: q.body, saidBy: q.saidBy, channel: q.channel } : null)
+  const out: Suggested[] = []
+  for (const t of topics) out.push({ topicId: t.id, topicTitle: t.title, prompt: open(phrase(t.title)), evidence: ev(best(t)) })
+  for (const t of topics) {
+    const q = best(t)
+    if (q) out.push({ topicId: t.id, topicTitle: t.title, prompt: `A customer told us: “${q.body.length > 220 ? q.body.slice(0, 217).trimEnd() + '…' : q.body}” What was behind that for you?`, evidence: ev(q) })
+  }
+  for (const t of topics) out.push({ topicId: t.id, topicTitle: t.title, prompt: follow(phrase(t.title)), evidence: null })
+  return out.slice(0, MAX_QUESTIONS)
+}

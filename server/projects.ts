@@ -120,7 +120,12 @@ export class TemplateMissing extends Error {}
 // Creates the project, its test plan, journey stages, participants and the template's starter tasks in
 // one transaction, and records it in the audit log.
 export async function createProject(db: Db, ctx: { workspaceId: string; userId: string; teamId?: string }, input: CreateProjectInput): Promise<string> {
-  return db.transaction(async (tx) => {
+  return db.transaction((tx) => createProjectIn(tx, ctx, input))
+}
+
+/** The same, inside a transaction the caller already has open, so a caller can add to the new project and have all of it succeed or none of it. */
+export async function createProjectIn(tx: Queryable, ctx: { workspaceId: string; userId: string; teamId?: string }, input: CreateProjectInput): Promise<string> {
+  {
     const tpl = (await tx.query(`select id, body from core.templates where workspace_id = $1 and kind = 'study' and key = $2`, [ctx.workspaceId, input.templateKey])).rows[0]
     if (!tpl) throw new TemplateMissing(input.templateKey)
 
@@ -152,7 +157,7 @@ export async function createProject(db: Db, ctx: { workspaceId: string; userId: 
 
     await insertMany(tx, 'core.audit_log', [{ workspace_id: w, actor_id: ctx.userId, entity: 'core.projects', entity_id: projectId, verb: 'created', after: { name: input.name, template: input.templateKey } }])
     return projectId
-  })
+  }
 }
 
 // Deleting moves the project, with everything under it, to the Trash for 90 days (server/trash.ts); `permanent` deletes it for good. Either way the audit

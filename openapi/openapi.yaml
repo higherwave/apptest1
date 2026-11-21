@@ -2100,6 +2100,21 @@ paths:
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
   /pulse/topics/{id}:
+    get:
+      operationId: getPulseTopic
+      summary: >
+        One topic with the signals behind it (quotes with channel, who, account and date), the accounts and people raising it, and every number the list shows. 404 unless the preview is on
+        for an owner, or the topic does not exist.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The topic.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicDetail' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
     patch:
       operationId: renamePulseTopic
       summary: Renames a topic. A topic a person has renamed is left alone by the daily regrouping. Returns the topics.
@@ -2172,6 +2187,90 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /pulse/questions:
+    post:
+      operationId: suggestPulseQuestions
+      summary: >
+        Suggested research questions for the chosen topics and method (default User Discussions), grouped under their topic, about one session's worth, each with the signal that prompted it
+        (a verbatim quote). The wording is simulated until the model is switched on. 404 unless the preview is on for an owner, or a topic does not exist.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [topicIds]
+              properties:
+                topicIds: { type: array, items: { type: string } }
+                method: { type: string, enum: [Contextual (walk-through), User Discussions, Usability Test, Support or CSM channels, Survey] }
+      responses:
+        '200':
+          description: The questions.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [questions]
+                properties:
+                  questions: { type: array, items: { $ref: '#/components/schemas/PulseQuestion' } }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/projects:
+    post:
+      operationId: createPulseProject
+      summary: >
+        Starts a Signal Flow project from the chosen topics: the description goes under "What to test", the methods are set, and the questions are the Test Plan's "What to ask or observe". The
+        project records which topics it came from. Participants are not added. Owners and editors; 404 unless the preview is on for an owner.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, topicIds, questions]
+              properties:
+                name: { type: string }
+                description: { type: [string, 'null'] }
+                methods: { type: array, items: { type: string } }
+                topicIds: { type: array, items: { type: string } }
+                questions:
+                  type: array
+                  items:
+                    type: object
+                    required: [prompt]
+                    properties:
+                      prompt: { type: string }
+                      topicId: { type: [string, 'null'] }
+      responses:
+        '201':
+          description: The new project.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [projectId]
+                properties:
+                  projectId: { type: string }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/origin/{id}:
+    get:
+      operationId: getPulseOrigin
+      summary: The Pulse topics a project was started from, for the note on its Test Plan. 404 when it was not started from Pulse, or Pulse is not for the caller.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Where it came from.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseOrigin' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /pulse/weights:
     get:
       operationId: getPulseWeights
@@ -3939,6 +4038,70 @@ components:
               weight: { type: number }
               subtotal: { type: number }
         trend: { type: string, enum: [new, rising, steady, fading] }
+    PulseQuote:
+      type: object
+      required: [id, body, kind, channel, sourceLabel, sourceUrl, saidBy, account, occurredOn]
+      properties:
+        id: { type: string }
+        body: { type: string }
+        kind: { type: string, enum: [complaint, request, praise, question, other] }
+        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        sourceLabel: { type: [string, 'null'] }
+        sourceUrl: { type: [string, 'null'] }
+        saidBy: { type: [string, 'null'] }
+        account: { type: [string, 'null'] }
+        occurredOn: { type: [string, 'null'] }
+    PulseTopicDetail:
+      allOf:
+        - { $ref: '#/components/schemas/PulseTopic' }
+        - type: object
+          required: [quotes, accounts, people]
+          properties:
+            quotes: { type: array, items: { $ref: '#/components/schemas/PulseQuote' } }
+            accounts:
+              type: array
+              items:
+                type: object
+                required: [name, signals]
+                properties:
+                  name: { type: string }
+                  signals: { type: integer }
+            people:
+              type: array
+              items:
+                type: object
+                required: [name, signals]
+                properties:
+                  name: { type: string }
+                  signals: { type: integer }
+    PulseQuestion:
+      type: object
+      required: [topicId, topicTitle, prompt, evidence]
+      properties:
+        topicId: { type: string }
+        topicTitle: { type: string }
+        prompt: { type: string }
+        evidence:
+          type: [object, 'null']
+          required: [signalId, quote, saidBy, channel]
+          properties:
+            signalId: { type: string }
+            quote: { type: string }
+            saidBy: { type: [string, 'null'] }
+            channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+    PulseOrigin:
+      type: object
+      required: [topics, signals]
+      properties:
+        topics:
+          type: array
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id: { type: [string, 'null'], description: 'Null once the topic no longer exists (it was merged away or regrouped); the title is as it was.' }
+              title: { type: string }
+        signals: { type: integer }
     PulseTopicList:
       type: object
       required: [topics, weights, updatedAt, unsorted, toReview, sinceUpdate]

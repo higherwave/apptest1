@@ -3,3 +3,15 @@
   flex-direction: column;
   gap: var(--at-space-lg);
 }
+
+// A note under the title of a project that was started from Pulse topics.
+.fromPulse {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-xs) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  background: var(--at-surface-slate);
+  color: var(--at-body);
+}

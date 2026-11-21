@@ -130,6 +130,14 @@ export const pulseWeightsSchema = z.object({
     .refine((w) => Object.keys(w).length > 0, 'Give at least one weight.')
     .refine((w) => Object.keys(w).every((k) => CHANNEL_KEYS.includes(k)), 'Weights are set per channel: slack, call_notes, support_tickets, conference or other.'),
 })
+export const pulseQuestionsSchema = z.object({ topicIds: z.array(z.string().uuid()).min(1, 'Choose at least one topic.').max(10, 'Choose up to ten topics.'), method: z.enum(METHOD_OPTIONS).default('User Discussions') })
+export const pulseProjectSchema = z.object({
+  name: text(120).min(1, 'Enter a project name.'),
+  description: projectDescription,
+  methods: z.array(z.enum(METHOD_OPTIONS)).default([]),
+  topicIds: z.array(z.string().uuid()).min(1, 'Choose at least one topic.').max(10, 'Choose up to ten topics.'),
+  questions: z.array(z.object({ prompt: text(500).min(1, 'A question cannot be empty.'), topicId: z.string().uuid().nullish().transform((v) => v ?? null) })).max(50),
+})
 export const updateTopicsSchema = z.object({ mode: z.enum(['attach', 'regroup']).default('attach') })
 export const renameTopicSchema = z.object({ title: z.string().trim().min(1, 'A topic needs a name.').max(200, 'That name is too long.') })
 export const mergeTopicSchema = z.object({ intoId: z.string().uuid('Choose a topic to merge into.') })

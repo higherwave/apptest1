@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CHANNELS as UI_CHANNELS, CHANNEL_LABEL as UI_LABEL } from '../src/pages/pulse/channels.js'
-import { bestTopic, CHANNELS, CHANNEL_LABEL, DEFAULT_WEIGHTS, groupSignals, terms, topicStats } from './pulse-topics.js'
+import { bestTopic, CHANNELS, MAX_QUESTIONS, suggestQuestions, CHANNEL_LABEL, DEFAULT_WEIGHTS, groupSignals, terms, topicStats } from './pulse-topics.js'
 
 const sig = (id: string, body: string) => ({ id, body })
 
@@ -70,4 +70,24 @@ test('a topic score is the weighted sum of its signals per channel, shown in ful
 test('the screens list the same channels, with the same names, as the server', () => {
   assert.deepEqual([...UI_CHANNELS.map((c) => c.key)].sort(), [...CHANNELS].sort())
   for (const c of CHANNELS) assert.equal(UI_LABEL[c], CHANNEL_LABEL[c])
+})
+
+test('suggested questions: one open question per topic, then one built on its strongest quote, then follow-ups, about one session in all', () => {
+  const quote = (id: string, body: string, channel: 'slack' | 'call_notes', at: string) => ({ id, body, saidBy: 'Marcus', channel, at })
+  const topics = [
+    { id: 't1', title: 'Trust and accuracy', quotes: [quote('a', 'Slack says it is wrong.', 'slack', '2026-11-19'), quote('b', 'I do not trust the score.', 'call_notes', '2026-11-01')] },
+    { id: 't2', title: 'Reporting and digests', quotes: [quote('c', 'I build the report by hand.', 'slack', '2026-11-10')] },
+    { id: 't3', title: 'Renewal preparation', quotes: [quote('d', 'Five tabs for one renewal.', 'call_notes', '2026-11-05')] },
+  ]
+  const qs = suggestQuestions(topics, 'Contextual (walk-through)')
+  assert.equal(qs.length, MAX_QUESTIONS)
+  assert.deepEqual(qs.slice(0, 3).map((q) => q.topicTitle), ['Trust and accuracy', 'Reporting and digests', 'Renewal preparation'], 'a topic each first')
+  assert.match(qs[0].prompt, /^Walk me through the last time trust and accuracy came up/)
+  assert.equal(qs[0].evidence?.signalId, 'b', 'the strongest quote is the one from the channel that weighs most')
+  const asked = qs.filter((q) => q.prompt.startsWith('A customer told us:'))
+  assert.equal(asked.length, 3)
+  assert.ok(asked.every((q) => q.evidence && q.prompt.includes(q.evidence.quote)), 'the quote is the signal\'s own words')
+  assert.deepEqual(suggestQuestions(topics, 'Survey').map((q) => q.prompt).filter((p) => /1 to 5/.test(p)).length > 0, true, 'wording follows the method')
+  assert.deepEqual(suggestQuestions(topics, 'not a method'), suggestQuestions(topics, 'User Discussions'), 'an unknown method falls back')
+  assert.equal(suggestQuestions([{ id: 'x', title: 'Solo', quotes: [] }], 'Survey').length, 2, 'no quote, no quote question')
 })

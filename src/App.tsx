@@ -21,6 +21,7 @@ import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
 import { PulsePage } from './pages/pulse/PulsePage'
 import { TopicsPage } from './pages/pulse/TopicsPage'
+import { TopicDetailPage } from './pages/pulse/TopicDetailPage'
 import { PulseSettingsPage } from './pages/settings/PulseSettingsPage'
 import { PreviewsPage } from './pages/settings/PreviewsPage'
 import { LaunchPage } from './pages/launch/LaunchPage'
@@ -82,6 +83,7 @@ export function App() {
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
         <Route path="pulse" element={<TopicsPage />} />
+        <Route path="pulse/topics/:id" element={<TopicDetailPage />} />
         <Route path="pulse/signals" element={<PulsePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<Navigate to="/settings/access?tab=people" replace />} />

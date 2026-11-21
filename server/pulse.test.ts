@@ -215,3 +215,58 @@ test('the scheduled job updates the topics of every workspace that has Pulse on,
   assert.equal((await (await call(owner, 'GET', '/pulse/topics')).json()).topics.length, 4)
   assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 0 }, 'the next hour only attaches')
 })
+
+
+test('topic details, suggested questions, and starting a Signal Flow project from topics', async () => {
+  const { call, owner, alex, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  await fillDemoSignals(db, slug, true)
+  const list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  const trust = list.topics.find((t: any) => t.title === 'Trust and accuracy')
+  const reporting = list.topics.find((t: any) => t.title === 'Reporting and digests')
+
+  // Details: the quotes behind the topic, newest first, with who and where; the accounts and people.
+  const detail = await (await call(owner, 'GET', `/pulse/topics/${trust.id}`)).json()
+  assert.equal(detail.quotes.length, trust.signals)
+  assert.ok(detail.quotes.every((q: any) => q.body && q.channel))
+  assert.deepEqual(detail.quotes.map((q: any) => q.occurredOn), [...detail.quotes.map((q: any) => q.occurredOn)].sort().reverse(), 'newest first')
+  assert.ok(detail.accounts.length >= 3 && detail.accounts.every((a: any) => a.name !== 'Unknown'))
+  assert.equal(detail.score, trust.score, 'the same numbers as the list')
+  assert.equal((await call(owner, 'GET', '/pulse/topics/00000000-0000-0000-0000-000000000000')).status, 404)
+  assert.equal((await call(alex, 'GET', `/pulse/topics/${trust.id}`)).status, 404, 'not for an editor')
+
+  // Questions: grounded in the topics' own signals.
+  const asked = await call(owner, 'POST', '/pulse/questions', { topicIds: [trust.id, reporting.id], method: 'Contextual (walk-through)' })
+  assert.equal(asked.status, 200)
+  const questions = (await asked.json()).questions
+  assert.ok(questions.length >= 4 && questions.length <= 6)
+  const quotes = new Set([...detail.quotes.map((q: any) => q.body), ...(await (await call(owner, 'GET', `/pulse/topics/${reporting.id}`)).json()).quotes.map((q: any) => q.body)])
+  assert.ok(questions.filter((q: any) => q.evidence).every((q: any) => quotes.has(q.evidence.quote)), 'every piece of evidence is a real signal, verbatim')
+  assert.equal((await call(owner, 'POST', '/pulse/questions', { topicIds: [] })).status, 422)
+  assert.equal((await call(owner, 'POST', '/pulse/questions', { topicIds: ['00000000-0000-0000-0000-000000000000'] })).status, 404)
+  assert.equal((await call(alex, 'POST', '/pulse/questions', { topicIds: [trust.id] })).status, 404)
+
+  // Starting the project: the Test Plan is filled in, and the project remembers where it came from.
+  const body = { name: 'Trust and reporting', description: 'Frame the problem around trust in the score and manual reporting.', methods: ['Contextual (walk-through)'], topicIds: [trust.id, reporting.id], questions: questions.slice(0, 4).map((q: any) => ({ prompt: q.prompt, topicId: q.topicId })) }
+  const made = await call(owner, 'POST', '/pulse/projects', body)
+  assert.equal(made.status, 201)
+  const { projectId } = await made.json()
+  const project = await (await call(owner, 'GET', `/projects/${projectId}`)).json()
+  assert.deepEqual([project.name, project.description, project.methods, project.participants.length], ['Trust and reporting', body.description, ['Contextual (walk-through)'], 0])
+  assert.deepEqual(project.tasks.map((t: any) => t.prompt), body.questions.map((q: any) => q.prompt), 'the questions are the Test Plan\'s "What to ask or observe", in order')
+  assert.ok((await (await call(owner, 'GET', '/projects')).json()).data.some((p: any) => p.id === projectId), 'it is in the project list')
+  const origin = await (await call(owner, 'GET', `/pulse/origin/${projectId}`)).json()
+  assert.deepEqual(origin.topics.map((t: any) => t.title).sort(), ['Reporting and digests', 'Trust and accuracy'])
+  assert.equal(origin.signals, trust.signals + reporting.signals)
+  assert.equal((await call(owner, 'GET', `/pulse/origin/${(project.id as string).replace(/.$/, '0')}`)).status, 404, 'a project not started from Pulse has no origin')
+  assert.equal((await call(alex, 'GET', `/pulse/origin/${projectId}`)).status, 404, 'and an editor never sees where it came from')
+  const audit = (await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_project_links'`)).rows
+  assert.equal(audit.length, 1)
+
+  // A merge afterwards does not rewrite what the project started from.
+  await call(owner, 'POST', `/pulse/topics/${reporting.id}/merge`, { intoId: trust.id })
+  assert.deepEqual((await (await call(owner, 'GET', `/pulse/origin/${projectId}`)).json()).topics.map((t: any) => t.title).sort(), ['Reporting and digests', 'Trust and accuracy'])
+  assert.equal((await call(owner, 'POST', '/pulse/projects', { ...body, name: '' })).status, 422)
+  assert.equal((await call(owner, 'POST', '/pulse/projects', { ...body, topicIds: [reporting.id] })).status, 404, 'a merged topic can no longer start one')
+})

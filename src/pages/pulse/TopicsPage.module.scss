@@ -71,7 +71,8 @@
   }
 }
 
-.rankCol { inline-size: 2.5rem; padding-inline: var(--at-space-sm); }
+.checkCol { inline-size: 2.5rem; padding-inline: var(--at-space-sm); }
+.rankCol { inline-size: 2.25rem; padding-inline: var(--at-space-sm); }
 .chCol { inline-size: 4.25rem; padding-inline: var(--at-space-xxs); text-align: center; }
 .numCol { inline-size: 4.5rem; padding-inline: var(--at-space-xxs); text-align: center; white-space: nowrap; }
 .menuCol { inline-size: 2.5rem; padding-inline: var(--at-space-xxs); }
@@ -88,6 +89,10 @@
   @include tokens.role('body-md');
   font-weight: 500;
   color: var(--at-ink);
+  text-decoration: none;
+
+  &:hover { color: var(--at-link-active); text-decoration: underline; }
+  &:focus-visible { outline: 0.125rem solid var(--at-link); outline-offset: 0.125rem; }
 }
 
 .meta {
@@ -178,4 +183,37 @@
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+.mapSection {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+}
+
+.mapHead {
+  @include tokens.role('heading-3');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+// The picked topics and the way to start a project from them stay in view at the foot of the window.
+.pickBar {
+  position: sticky;
+  inset-block-end: var(--at-space-md);
+  z-index: var(--at-z-bar);
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  box-shadow: var(--at-ring);
+}
+
+.pickText {
+  @include tokens.role('body-md');
+  margin: 0 auto 0 0;
+  color: var(--at-ink);
 }

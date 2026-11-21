@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -51,6 +51,7 @@ import { CaptureError, capturePreflight, makeCapture, type CaptureService } from
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
+import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
 import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, mergeTopic, pulseEnabled, pulseOn, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
@@ -1251,6 +1252,48 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof BadSplit) throw new ApiError(422, 'validation_failed', 'That cannot be done to this topic.')
     throw err
   }
+  app.get('/pulse/topics/:id', withReadContext, async (c) => {
+    await pulseOnly(c)
+    const detail = await topicDetail(getDb(), c.get('ctx'), signalId(c))
+    if (!detail) throw new ApiError(404, 'not_found', 'Not found.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(detail)
+  })
+  // Suggested research questions for the chosen topics, each with the signal it came from.
+  app.post('/pulse/questions', withContext, async (c) => {
+    await pulseOnly(c)
+    const input = parseBody(pulseQuestionsSchema, await readJson(c))
+    try {
+      c.header('Cache-Control', 'private, no-store')
+      return c.json({ questions: await suggestFor(getDb(), c.get('ctx'), input.topicIds, input.method) })
+    } catch (err) {
+      if (err instanceof UnknownTopic) throw new ApiError(404, 'not_found', 'Not found.')
+      throw err
+    }
+  })
+  // Starts a Signal Flow project from the chosen topics, with its Test Plan filled in.
+  app.post('/pulse/projects', withContext, async (c) => {
+    await pulseOnly(c)
+    requireEditor(c)
+    const ctx = c.get('ctx')
+    const input = parseBody(pulseProjectSchema, await readJson(c))
+    try {
+      const projectId = await createProjectFromTopics(getDb(), ctx, { ...input, teamId: await newProjectTeam(getDb(), ctx) })
+      c.header('Cache-Control', 'no-store')
+      return c.json({ projectId }, 201)
+    } catch (err) {
+      if (err instanceof UnknownTopic) throw new ApiError(404, 'not_found', 'Not found.')
+      throw err
+    }
+  })
+  // Where a project came from: the topics it was started from, for the banner on its Test Plan. 404 when it was not started from Pulse, or Pulse is not for the caller.
+  app.get('/pulse/origin/:id', withReadContext, async (c) => {
+    await pulseOnly(c)
+    const origin = await originOf(getDb(), c.get('ctx'), signalId(c))
+    if (!origin) throw new ApiError(404, 'not_found', 'Not found.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(origin)
+  })
   app.patch('/pulse/topics/:id', withContext, async (c) => {
     await pulseOnly(c)
     const id = signalId(c)

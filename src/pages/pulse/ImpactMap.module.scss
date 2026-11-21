@@ -1,0 +1,58 @@
+@use '../../tokens' as tokens;
+
+.figure {
+  margin: 0;
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  overflow: visible;
+}
+
+.axis { stroke: var(--at-muted); stroke-width: 1; }
+.grid { stroke: var(--at-hairline); stroke-width: 1; }
+
+.tick,
+.axisLabel,
+.corner {
+  @include tokens.role('meta');
+  fill: var(--at-muted);
+}
+
+.corner { font-style: italic; }
+
+.bubble {
+  cursor: pointer;
+  outline: none;
+
+  circle {
+    fill: color-mix(in srgb, var(--at-link) 22%, var(--at-canvas));
+    stroke: var(--at-ink);
+    stroke-width: 2;
+    transition: fill 0.12s ease;
+  }
+
+  &:hover circle { fill: color-mix(in srgb, var(--at-link) 40%, var(--at-canvas)); }
+  &[data-selected='true'] circle { fill: var(--at-ink); }
+  &:focus-visible circle { stroke: var(--at-link); stroke-width: 4; }
+}
+
+.count {
+  @include tokens.role('label-md');
+  fill: var(--at-ink);
+  font-weight: 600;
+  pointer-events: none; // a click on the number is a click on the circle under it
+
+  .bubble[data-selected='true'] & { fill: var(--at-on-primary); }
+}
+
+.label {
+  @include tokens.role('body-md');
+  fill: var(--at-ink);
+}
