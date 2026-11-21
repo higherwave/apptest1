@@ -144,8 +144,8 @@ export function AppHeader() {
         {canSettings && (
           <nav className={styles.admin} aria-label="Admin" data-nav>
             <a href="/settings/categories" data-label="Admin" aria-current={settings ? 'page' : undefined} className={cx(styles.item, settings && styles.itemActive)} onClick={go('/settings/categories')}>
-              <SettingsIcon size={16} aria-hidden />
               Admin
+              <SettingsIcon size={16} aria-hidden />
             </a>
           </nav>
         )}

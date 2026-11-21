@@ -32,7 +32,6 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
 
 .launcherWrap { flex: none; }
 
-.aiBadge { display: flex; align-items: center; }
 
 .launcher {
   min-inline-size: 0;
@@ -188,11 +187,31 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
   flex: 1;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--at-space-sm);
+  gap: 0;
   min-inline-size: 0;
 }
 
-.access { display: flex; align-items: center; }
+// The badge, "Take a tour" and Admin are evenly spaced: each of the last two has the same padding on both sides, and the badge keeps that much room after it.
+.aiBadge {
+  display: flex;
+  align-items: center;
+  margin-inline-end: var(--at-space-md);
+}
+
+.right button.tour.tour {
+  padding-inline: var(--at-space-md); // (named twice, so it beats the library's own right padding, kept for an icon at the far right)
+  gap: var(--at-space-xs);
+
+  // The library puts the icon at the far right of the button; here it follows the label, as Admin's does.
+  :global(.cds--btn__icon) { position: static; margin: 0; }
+}
+
+.access {
+  display: flex;
+  align-items: center;
+  margin-inline-start: var(--at-space-sm);
+}
+
 
 .menu {
   display: none;
