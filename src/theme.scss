@@ -178,6 +178,11 @@
   // The title region (2026-11-18, "slate blue wash"): a pale slate blue at the top fading into the page colour, no bottom border, so it bleeds into the page. Replaced the violet/blue glow.
   --at-title-wash-top: #ebf0f7;
   --at-title-wash: linear-gradient(180deg, var(--at-title-wash-top) 0%, var(--at-page) 100%);
+  // The title bar's ribbons (2026-11-21, design-handoff/title-and-menu): four soft, blurred bands at the right of the bar for a project and for Admin, faded out toward the left. They also use --at-signature-mint, --at-link and --at-glow-violet.
+  --at-ribbon-sky: #8ec5f0;
+  --at-ribbon-lilac: #c3b5f2;
+  --at-ribbon-teal: #2a9d8f;
+  --at-ribbon-mask: #000; // the opaque end of the fade (a mask only reads its opacity)
   --at-glow-violet: #7c5cd6;
   --at-glow-blue: #5096e6;
   // How strong the header glow is (2026-11-17: lighter, the violet most of all; it was 60% violet and 40% blue). Raise to bring colour back.

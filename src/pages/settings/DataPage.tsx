@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Download } from '@carbon/icons-react'
 import { Button, InlineNotification } from '@carbon/react'
 import { ApiRequestError, download } from '../../api/client'
-import { SettingsHeader } from './SettingsHeader'
 import { LegalHoldCard } from './LegalHoldCard'
 import styles from './DataPage.module.scss'
 
@@ -48,7 +47,6 @@ export function DataPage() {
 
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <section className={styles.card} aria-label="Download your data" data-testid="data-downloads">
         <h2 className={styles.head}>Download your data</h2>
         <p className={styles.text}>Your data is yours. Take a copy at any time; each download is recorded in the audit log.</p>

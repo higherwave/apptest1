@@ -3,8 +3,8 @@
 // The title region: a slate blue wash fading into the page, reaching out to the edges of the content area (the padding around it is the page's). No border, so it bleeds in.
 .hero {
   position: relative;
-  margin: calc(-1 * var(--at-space-xl)) calc(-1 * var(--at-space-xl)) 0;
-  padding: var(--at-space-xl);
+  margin: calc(-1 * var(--at-content-pad, var(--at-space-xl))) calc(-1 * var(--at-content-pad, var(--at-space-xl))) 0;
+  padding: var(--at-content-pad, var(--at-space-xl));
   background: var(--at-title-wash);
 }
 

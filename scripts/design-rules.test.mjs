@@ -45,7 +45,7 @@ test('the type roles in the registry are exactly the roles the role() mixin know
 
 // A mistyped token inside var() with a fallback never fails: the fallback quietly wins. Every --at-* a page uses must be defined,
 // except those the page sets itself while it runs.
-const SET_BY_SCRIPT = new Set(['--at-banner']) // AppShell sets it to the height of the spend alert, 0 when there is none
+const SET_BY_SCRIPT = new Set(['--at-banner', '--at-content-pad']) // --at-banner: AppShell sets it to the height of the spend alert, 0 when there is none. --at-content-pad: the page's padding, set in AppShell.module.scss and reached back through by the title area
 test('every --at-* token used in src is defined in theme.scss or tokens.scss (or set by a script on purpose)', () => {
   const src = join(import.meta.dirname, '..', 'src')
   const walk = (d) => readdirSync(d).flatMap((n) => (statSync(join(d, n)).isDirectory() ? walk(join(d, n)) : [join(d, n)]))

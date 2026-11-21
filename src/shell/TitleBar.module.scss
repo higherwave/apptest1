@@ -1,0 +1,79 @@
+@use '../tokens' as tokens;
+
+$narrow: 40rem; // the phone breakpoint, where the section menu folds into one button (kept in step with SectionNav)
+$medium: 56.25rem;
+
+.bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  block-size: 3rem;
+  padding-inline: var(--at-space-lg);
+  background: var(--at-surface-soft);
+  border-block-end: 1px solid var(--at-hairline);
+  overflow: hidden;
+
+  @media (max-width: $medium) { padding-inline: var(--at-space-md); }
+}
+
+.inner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-md);
+  min-inline-size: 0;
+  inline-size: 100%;
+}
+
+.ribbons {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-end: 0;
+  inline-size: 40%;
+  pointer-events: none;
+  mask-image: linear-gradient(to right, transparent 0%, var(--at-ribbon-mask) 45%);
+
+  @media (max-width: $medium) { inline-size: 50%; }
+  @media (max-width: $narrow) { inline-size: 60%; }
+}
+
+// Four tall ellipses leaning the same way, blurred into each other. Their colours run through the brand's mint, blue, violet and lilac.
+.ribbon {
+  position: absolute;
+  inset-block-start: -250%;
+  block-size: 600%;
+  border-radius: 50%;
+  filter: blur(0.75rem);
+
+  &:nth-child(1) {
+    inset-inline-start: 8%;
+    inline-size: 30%;
+    background: linear-gradient(180deg, var(--at-signature-mint) 0%, var(--at-link) 70%, var(--at-signature-mint) 100%);
+    transform: rotate(-32deg);
+    opacity: 0.85;
+  }
+
+  &:nth-child(2) {
+    inset-inline-start: 30%;
+    inline-size: 34%;
+    background: linear-gradient(180deg, var(--at-ribbon-sky) 0%, var(--at-glow-violet) 50%, var(--at-link) 100%);
+    transform: rotate(-32deg);
+    opacity: 0.9;
+  }
+
+  &:nth-child(3) {
+    inset-inline-start: 52%;
+    inline-size: 26%;
+    background: linear-gradient(180deg, var(--at-ribbon-lilac) 0%, var(--at-ribbon-teal) 55%, var(--at-signature-mint) 100%);
+    transform: rotate(-26deg);
+    opacity: 0.85;
+  }
+
+  &:nth-child(4) {
+    inset-inline-start: 70%;
+    inline-size: 24%;
+    background: linear-gradient(180deg, var(--at-link) 0%, var(--at-signature-mint) 60%, var(--at-ribbon-lilac) 100%);
+    transform: rotate(-36deg);
+    opacity: 0.8;
+  }
+}

@@ -130,3 +130,16 @@ To undo: restore the previous `--at-panel-aurora` (two radial glows over a 115de
 - The launcher opens a panel of cards: Platform Insights (the suite home, a plain tile) first, then Signal Flow and, for an owner with the preview on, Pulse, with the full-colour icons; the
   Prototype gallery and Decision Guides links sit at the foot of the panel.
 - Width: below 68rem the AI badge goes and "Take a tour" keeps only its icon; below 60rem the items fold into one menu (tablet portrait).
+
+## 2026-11-21: the title bar and a horizontal menu for projects and Admin
+
+- Inside a project and inside Admin, the vertical step rail and the tall Admin title area are replaced by a slim title bar (3rem, `--at-surface-soft`) under the app header: the project's back arrow, name and status, or "Admin"
+  (and, for an owner, "Set up your workspace"). Four soft, blurred ribbons sit at its right and fade out toward the left (`TitleBar`; colours `--at-signature-mint`, `--at-link`, `--at-glow-violet` and the new `--at-ribbon-sky`,
+  `-lilac`, `-teal`, `-mask`, registered upstream in design-system-mcp). From design-handoff/title-and-menu.
+- Under the title bar a horizontal menu (`SectionNav`) shows the groups with their names above them: a project's Discovery, Analysis, Strategy and Delivery steps (set-up states and locks kept), and Admin's Experience Categories
+  (Categories, Matches), Usage and Costs (AI, System), Communication (Notifications), User Access (People, Teams, Approvals), Data and Compliance (Data, Audit log), Pulse (owners, while the preview is on) and Previews.
+  Admin's former in-page tabs and its title area are gone; the menu's items open the same pages (`?tab=` in the address).
+- Width: under 56.25rem (tablet portrait) the group names drop away and the spacing tightens, so all ten steps stay in one row at 820px; under 40rem (a phone) the row becomes one button ("Analysis › Themes") that opens the
+  groups as a list. The page's padding narrows with the window (`--at-content-pad`), and the page's title area follows it. On a phone the app header also drops "Take a tour" and the app mark.
+- The Platform Insights launcher card uses its own full-colour icon (design-handoff/app-icons/platform-insights) instead of the plain tile.
+- To undo: restore `AppShell.tsx`, `StepNav.*` and `SettingsHeader.tsx` from git (commit before this entry).

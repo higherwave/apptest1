@@ -1,7 +1,6 @@
 import { ApprovalsPage } from '../approvals/ApprovalsPage'
 import { PeoplePage } from '../people/PeoplePage'
 import { TeamsPage } from '../teams/TeamsPage'
-import { SettingsHeader } from './SettingsHeader'
 import { SettingsTabs } from './SettingsTabs'
 import styles from './SettingsSection.module.scss'
 import { T } from '../../../shared/terms.mjs'
@@ -10,9 +9,7 @@ import { T } from '../../../shared/terms.mjs'
 export function AccessPage() {
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <SettingsTabs
-        label="User access views"
         tabs={[
           { key: 'people', label: 'People', testId: 'tab-people', content: <PeoplePage /> },
           { key: 'teams', label: 'Teams', testId: 'tab-teams', content: <TeamsPage /> },

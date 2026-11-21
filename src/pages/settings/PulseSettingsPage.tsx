@@ -7,7 +7,6 @@ import { PulseOpportunities } from './PulseOpportunities'
 import { PulseSalesforce } from './PulseSalesforce'
 import { PulseSources } from './PulseSources'
 import { PulseViewers } from './PulseViewers'
-import { SettingsHeader } from './SettingsHeader'
 import styles from './NotificationsPage.module.scss'
 
 // Admin, Pulse (owners, while the preview is on): what a signal from each channel counts for in a topic's ranking. A change re-ranks the topics at once, because the score is
@@ -25,7 +24,6 @@ export function PulseSettingsPage() {
   if (me.data && !me.data.features.pulse) {
     return (
       <div className={styles.page}>
-        <SettingsHeader />
         <p className={styles.text}>Pulse is not switched on for this workspace. Turn it on under Previews.</p>
       </div>
     )
@@ -45,7 +43,6 @@ export function PulseSettingsPage() {
   }
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <section className={styles.card} aria-label="Channel weights" data-testid="pulse-weights-card">
         <h2 className={styles.head}>What each channel counts for</h2>
         <p className={styles.text}>

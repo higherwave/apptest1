@@ -1,8 +1,8 @@
 import { Button, Dropdown, InlineNotification, Loading, Modal, OverflowMenu, OverflowMenuItem, Tab, TabList, TabPanel, TabPanels, Tabs, Tag, TextInput } from '@carbon/react'
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, type Area } from '../../api/client'
 import { useAcceptAreaProposal, useAreaProposals, useAreas, useCreateArea, useDismissAreaProposal, useMe, useMergeArea, useRetireArea, useUpdateArea } from '../../api/hooks'
-import { SettingsHeader } from '../settings/SettingsHeader'
 import styles from './AreasPage.module.scss'
 
 // The distinct theme titles behind a suggestion (the same theme is often raised in several projects).
@@ -18,6 +18,23 @@ const used = (a: Area) => {
   return parts.length ? parts.join(', ') : 'Not used yet'
 }
 
+// The two views of the categories: tabs of their own inside the workspace setup, and plain panels in Admin (where the Admin menu chooses, by ?tab=).
+function Frame({ embedded, tab, onTab, canAdd, matchesCount, children }: { embedded: boolean; tab: number; onTab: (i: number) => void; canAdd: boolean; matchesCount: number; children: ReactNode }) {
+  if (!embedded) return <>{children}</>
+  return (
+    <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => onTab(selectedIndex)}>
+      <TabList aria-label="Experience categories views">
+        <Tab data-testid="tab-current">Current Categories</Tab>
+        {canAdd && <Tab data-testid="tab-matches">Relevant Word Matches{matchesCount > 0 ? ` · ${matchesCount}` : ''}</Tab>}
+      </TabList>
+      <TabPanels>{children}</TabPanels>
+    </Tabs>
+  )
+}
+function Panel({ embedded, children }: { embedded: boolean; children: ReactNode }) {
+  return embedded ? <TabPanel className={styles.tabPanel}>{children}</TabPanel> : <div className={styles.tabPanel}>{children}</div>
+}
+
 // The shared list of experience categories. Everyone who can open Settings reads it, an editor adds one (the duplicate check is in the dialog) and
 // edits one, and only an owner merges and retires (those change a lot of existing work at once). Connected: it owns the dialogs' state.
 export function AreasPage({ embedded = false }: { /** Inside the workspace setup: no Admin header, the setup has its own. */ embedded?: boolean } = {}) {
@@ -30,7 +47,9 @@ export function AreasPage({ embedded = false }: { /** Inside the workspace setup
   const proposals = useAreaProposals()
   const accept = useAcceptAreaProposal()
   const dismiss = useDismissAreaProposal()
-  const [tab, setTab] = useState(0)
+  // In Admin the open view is in the address (?tab=matches), chosen from the Admin menu; inside the workspace setup (embedded) it is a pair of tabs of its own.
+  const [params] = useSearchParams()
+  const [localTab, setTab] = useState(0)
   const [newName, setNewName] = useState('')
   const [heard, setHeard] = useState<{ existing?: string; similar: string[]; error?: string }>({ similar: [] })
   const [action, setAction] = useState<Action>(null)
@@ -79,19 +98,14 @@ export function AreasPage({ embedded = false }: { /** Inside the workspace setup
       else setHeard({ similar: [], error: friendlyMessage(err) })
     }
   }
+  const tab = embedded ? localTab : params.get('tab') === 'matches' && canAdd ? 1 : 0
   const busy = update.isPending || merge.isPending || retire.isPending
 
   return (
     <div className={styles.page}>
-      {!embedded && <SettingsHeader />}
       <p className={styles.intro}>What research is about, in one shared set of words. A question to ask or a task to observe names its category, so what people say is described the same way across studies and duplicates are caught early. A category is a label, never a requirement.</p>
-      <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setTab(selectedIndex)}>
-        <TabList aria-label="Experience categories views">
-          <Tab data-testid="tab-current">Current Categories</Tab>
-          {canAdd && <Tab data-testid="tab-matches">Relevant Word Matches{(proposals.data?.length ?? 0) > 0 ? ` · ${proposals.data!.length}` : ''}</Tab>}
-        </TabList>
-        <TabPanels>
-          <TabPanel className={styles.tabPanel}>
+      <Frame embedded={embedded} tab={tab} onTab={setTab} canAdd={canAdd} matchesCount={proposals.data?.length ?? 0}>
+          <Panel embedded={embedded}>
         {tab === 0 && (
         <div className={styles.list}>
       {canAdd && (
@@ -183,9 +197,9 @@ export function AreasPage({ embedded = false }: { /** Inside the workspace setup
 
         </div>
         )}
-          </TabPanel>
+          </Panel>
           {canAdd && (
-          <TabPanel className={styles.tabPanel}>
+          <Panel embedded={embedded}>
         {tab === 1 && (
         <section className={styles.proposals} aria-label="Relevant word matches" data-testid="area-proposals">
           <h2 className={styles.retiredHead}>Relevant word matches</h2>
@@ -213,10 +227,9 @@ export function AreasPage({ embedded = false }: { /** Inside the workspace setup
           {accept.isError && <InlineNotification kind="error" lowContrast hideCloseButton title="Not added" subtitle={friendlyMessage(accept.error)} />}
         </section>
         )}
-          </TabPanel>
+          </Panel>
           )}
-        </TabPanels>
-      </Tabs>
+      </Frame>
 
       <Modal
         open={action?.kind === 'edit'}

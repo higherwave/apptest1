@@ -1,7 +1,6 @@
 import { useMemo } from 'react'
 import { Button, Checkbox, ComboBox, InlineNotification } from '@carbon/react'
 import { useNotificationPreferences, useSaveNotificationPreferences, useSendReminderNow } from '../../api/hooks'
-import { SettingsHeader } from './SettingsHeader'
 import styles from './NotificationsPage.module.scss'
 
 const MESSAGE = {
@@ -21,7 +20,6 @@ export function NotificationsPage() {
   const p = prefs.data
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       {p && (
         <>
           <section className={styles.card} aria-label="Daily reminder" data-testid="reminder-card">

@@ -86,18 +86,6 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
   box-shadow: 0 0 0 1px var(--at-hairline);
 }
 
-// The suite home has no icon of its own: a plain tile with the Insights symbol.
-.homeTile {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  inline-size: 2.75rem;
-  block-size: 2.75rem;
-  border-radius: var(--at-radius-lg);
-  background: var(--at-surface-slate);
-  color: var(--at-ink);
-}
-
 .cardName {
   // not-a-heading: an app's name on its card
   @include tokens.role('title-sm');
@@ -266,4 +254,13 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
   .admin { display: none; }
   .menu { display: block; }
   .appName { display: none; }
+}
+
+// A phone: the tour link and the app's mark go, and the menu's button gives way before the account does, so nothing overlaps (the launcher still names every app).
+@media (max-width: 40rem) {
+  .tour,
+  .appBrand { display: none; }
+  .menu { min-inline-size: 0; flex: 0 1 auto; }
+  .menuButton { max-inline-size: 7.5rem; }
+  .right { flex: none; gap: var(--at-space-xs); }
 }

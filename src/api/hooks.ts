@@ -29,7 +29,7 @@ export const useCreateArea = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (body: Parameters<typeof createArea>[0]) => createArea(body), onSuccess: () => queryClient.invalidateQueries({ queryKey: ['areas'] }) })
 }
-export const useAreaProposals = () => useQuery({ queryKey: ['areas', 'proposals'], queryFn: listAreaProposals })
+export const useAreaProposals = (enabled = true) => useQuery({ queryKey: ['areas', 'proposals'], queryFn: listAreaProposals, enabled })
 // Accepting adds an area and files themes under it, so every list that shows either is refreshed.
 export const useAcceptAreaProposal = () => {
   const queryClient = useQueryClient()

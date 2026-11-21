@@ -1,4 +1,3 @@
-import { SettingsHeader } from './SettingsHeader'
 import { SettingsTabs } from './SettingsTabs'
 import { AiUsage } from './AppStatusPage'
 import { SystemUsage } from './UsagePage'
@@ -8,9 +7,7 @@ import styles from './SettingsSection.module.scss'
 export function UsageAndCostsPage() {
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <SettingsTabs
-        label="Usage and costs views"
         tabs={[
           { key: 'ai', label: 'AI', testId: 'tab-ai', content: <AiUsage /> },
           { key: 'system', label: 'System', testId: 'tab-system', content: <SystemUsage /> },

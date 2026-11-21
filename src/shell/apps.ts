@@ -46,4 +46,4 @@ export const APPS: Record<AppKey, AppDef> = {
 export const appFor = (path: string): AppDef => (APPS.pulse.owns(path) ? APPS.pulse : APPS['signal-flow'])
 
 /** The suite home: the page people land on after signing in. */
-export const HOME = { to: '/insights/themes', label: 'Platform Insights', blurb: 'Everything the suite has learned' }
+export const HOME = { to: '/insights/themes', label: 'Platform Insights', blurb: 'Everything the suite has learned', icon: '/app-icons/platform-insights-128.png' }

@@ -1,0 +1,170 @@
+@use '../tokens' as tokens;
+
+$medium: 56.25rem; // under this (a tablet in portrait) the group names drop away and the spacing tightens; kept in step with TitleBar
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--at-space-xxs) var(--at-space-lg);
+  padding: var(--at-space-sm) var(--at-space-lg) 0;
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
+
+  @media (max-width: $medium) {
+    gap: var(--at-space-xxs) 0;
+    padding: var(--at-space-xxs) var(--at-space-sm) 0;
+  }
+}
+
+.group {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.125rem;
+
+  & + & {
+    padding-inline-start: var(--at-space-lg);
+    border-inline-start: 1px solid var(--at-hairline);
+
+    @media (max-width: $medium) { padding-inline-start: var(--at-space-xxs); margin-inline-start: var(--at-space-xxs); }
+  }
+}
+
+.caption {
+  @include tokens.role('meta');
+  min-block-size: 1rem;
+  margin: 0;
+  color: var(--at-muted);
+  white-space: nowrap;
+
+  // On a tablet the names go; the groups are still told apart by the rule between them.
+  .group & { @media (max-width: $medium) { display: none; } }
+}
+
+.tabs {
+  display: flex;
+  gap: var(--at-space-xs);
+
+  @media (max-width: $medium) { gap: 0; }
+}
+
+.tab {
+  @include tokens.role('body-md');
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+  margin-block-end: -1px;
+  padding: var(--at-space-sm) var(--at-space-xs) var(--at-space-sm);
+  border-block-end: 0.125rem solid transparent;
+  border-radius: var(--at-radius-sm) var(--at-radius-sm) 0 0;
+  color: var(--at-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+
+  &:hover:not([aria-disabled='true']) {
+    border-block-end-color: var(--at-border-strong);
+    background: var(--at-surface-hover);
+    color: var(--at-ink);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 0.125rem solid var(--at-ink);
+    outline-offset: -0.125rem;
+  }
+
+  @media (max-width: $medium) { padding-inline: var(--at-space-xxs); }
+}
+
+// The open item: ink, medium weight and an underline.
+.active,
+.tab[aria-current='page'] {
+  border-block-end-color: var(--at-ink);
+  color: var(--at-ink);
+  font-weight: 500;
+}
+
+// While a project is being set up: the step to work on is medium weight, any other open step is full ink.
+.tab[data-state='current'] { color: var(--at-ink); font-weight: 500; }
+.tab[data-state='ready'] { color: var(--at-ink); }
+
+// An item that is not open yet: dimmed, with a lock, and not clickable. The reason is in the link's title.
+.locked,
+.tab[data-state='locked'] {
+  color: var(--at-text-disabled);
+  cursor: not-allowed;
+
+  &:hover { background: transparent; border-block-end-color: transparent; }
+}
+
+.lock {
+  flex: none;
+  fill: currentColor;
+}
+
+// -- A phone: one button, then a list ------------------------------------------------------------------------------------------------
+.phone {
+  position: relative;
+  padding: var(--at-space-sm) var(--at-space-md);
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.trigger.trigger {
+  inline-size: 100%;
+  max-inline-size: none;
+  min-block-size: 2.75rem;
+  justify-content: space-between;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+  color: var(--at-ink);
+  text-align: start;
+}
+
+.where {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.whereGroup { color: var(--at-muted); white-space: nowrap; }
+.sep { color: var(--at-border-strong); }
+.whereItem { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+
+.menu {
+  position: absolute;
+  inset-inline: var(--at-space-md);
+  inset-block-start: calc(100% - var(--at-space-xxs));
+  z-index: var(--at-z-header);
+  max-block-size: 70vh;
+  padding: var(--at-space-xxs) 0;
+  overflow-y: auto;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+  box-shadow: 0 0.5rem 1.5rem color-mix(in srgb, var(--at-ink) 14%, transparent);
+}
+
+.menuGroup { padding: var(--at-space-xxs) 0; }
+.menuGroup .caption { padding: var(--at-space-xs) var(--at-space-md) var(--at-space-xxs); }
+
+.item {
+  @include tokens.role('label-md');
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-block-size: 2.75rem;
+  padding-inline: var(--at-space-md);
+  color: var(--at-ink);
+  font-weight: 400;
+  text-decoration: none;
+
+  &:hover:not([aria-disabled='true']) { background: var(--at-surface-hover); text-decoration: none; }
+  &:focus-visible { outline: 0.125rem solid var(--at-ink); outline-offset: -0.125rem; }
+  &[aria-current='page'] { background: var(--at-surface-soft); font-weight: 500; }
+  &[aria-current='page']::after { content: '✓'; color: var(--at-link); }
+}

@@ -187,7 +187,7 @@ try {
   // Weights live in Admin, Pulse (owners): a change re-ranks at once.
   await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('#weight-call_notes', { timeout: 8000 })
-  ok('Admin has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'slack', 'salesforce'].every((k) => !!document.querySelector(`#weight-${k}`))))
+  ok('Admin has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] a')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'slack', 'salesforce'].every((k) => !!document.querySelector(`#weight-${k}`))))
   await page.$eval('#weight-slack', (el) => el.select())
   await page.keyboard.type('5')
   await click(page, 'weights-save')

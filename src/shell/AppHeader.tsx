@@ -1,4 +1,4 @@
-import { Analytics, ChevronDown, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
+import { ChevronDown, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button, Popover, PopoverContent } from '@carbon/react'
 import { useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -57,9 +57,7 @@ export function AppHeader() {
               <p className={styles.panelTitle}>Your apps</p>
               <div className={styles.cards}>
                 <a href={HOME.to} data-label="Platform Insights home" className={styles.card} onClick={go(HOME.to)}>
-                  <span className={styles.homeTile}>
-                    <Analytics size={24} aria-hidden />
-                  </span>
+                  <img className={styles.cardIcon} src={HOME.icon} alt="" width={44} height={44} />
                   <span className={styles.cardName}>{HOME.label}</span>
                   <span className={styles.cardBlurb}>{HOME.blurb}</span>
                 </a>

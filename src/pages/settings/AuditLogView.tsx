@@ -1,6 +1,5 @@
 import { Button, Dropdown, InlineNotification, Loading } from '@carbon/react'
 import type { AuditEntry, AuditGroup } from '../../api/client'
-import { SettingsHeader } from './SettingsHeader'
 import { AUDIT_RANGES, describe, GROUP_LABEL, type AuditRange } from './auditText'
 import styles from './AuditLogView.module.scss'
 
@@ -30,7 +29,6 @@ const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyl
 export function AuditLogView(p: AuditLogViewProps) {
   return (
     <div className={styles.page}>
-      <SettingsHeader />
       <p className={styles.intro}>What changed in this workspace, and who changed it: people and roles, experience categories, projects, journeys and Jira hand-offs.</p>
 
       <div>

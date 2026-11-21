@@ -131,7 +131,7 @@ try {
   await page.keyboard.press('Escape')
   await page.goto(`${BASE}/settings/status`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => document.body.innerText.includes('$1.00 of $10.00'), { timeout: 5000 })
-  ok('Usage and Costs opens on AI (the old AI address redirects there), with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="Usage and Costs"]')?.dataset.current === 'true' && location.search === '?tab=ai' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
+  ok('Usage and Costs opens on AI (the old AI address redirects there), with the AI mode, the spend against the budget and the recent problems', await page.evaluate(() => { const t = document.body.innerText; return document.querySelector('nav[aria-label="Admin sections"] [data-label="AI"]')?.getAttribute('aria-current') === 'page' && location.search === '?tab=ai' && /AI: live/.test(t) && /Recent problems/i.test(t) && /No problems in the past 30 days/.test(t) }))
   await new Promise((r) => setTimeout(r, 600))
   await page.click('[data-testid="tab-system"]')
   await page.waitForSelector('[data-testid="usage-database"]', { timeout: 8000 })
@@ -141,13 +141,13 @@ try {
   await page.reload({ waitUntil: 'networkidle0' })
   await waitText('Projects')
   await page.goto(`${BASE}/members`, { waitUntil: 'networkidle0' })
-  ok('the old Members address lands on People, under User Access', await page.evaluate(() => location.pathname === '/settings/access' && location.search === '?tab=people' && document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]')?.dataset.current === 'true' && document.querySelector('[data-testid="tab-people"]')?.getAttribute('aria-selected') === 'true'))
+  ok('the old Members address lands on People, under User Access', await page.evaluate(() => location.pathname === '/settings/access' && location.search === '?tab=people' && document.querySelector('nav[aria-label="Admin sections"] [data-label="People"]')?.getAttribute('aria-current') === 'page' && document.querySelector('[data-testid="tab-people"]')?.getAttribute('aria-current') === 'page'))
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle0' })
   await waitText('Experience')
-  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]').click())
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="People"]').click())
   await page.waitForSelector('[data-testid="people-table"]', { timeout: 8000 })
-  ok('the Admin tabs are Experience Categories, Notifications, Usage and Costs, User Access, Data, Audit log and Previews, and User Access has People, Teams and Approvals', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].map((b) => b.innerText.trim()).join('|') === 'Experience Categories|Notifications|Usage and Costs|User Access|Data|Audit log|Previews' && [...document.querySelectorAll('[aria-label="User access views"] [role="tab"]')].map((t) => t.innerText.trim()).join('|') === 'People|Teams|Approvals'))
+  ok('the Admin menu groups Categories and Matches, AI and System, Notifications, People, Teams and Approvals, Data and Audit log, and Previews', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] a')].map((b) => b.innerText.trim().replace(/ · \d+$/, '')).join('|') === 'Categories|Matches|AI|System|Notifications|People|Teams|Approvals|Data|Audit log|Previews' && [...document.querySelectorAll('nav[aria-label="Admin sections"] [role="group"]')].map((g) => g.getAttribute('aria-label')).join('|') === 'Experience Categories|Usage and Costs|Communication|User Access|Data and Compliance|Previews'))
   await waitText('sam@demo.signalflow.example') // the list arrives after the form
   ok('the People tab lists the demo people, each with a role, teams and approvals', await page.evaluate(() => { const row = document.querySelector('[data-testid="person-sam@demo.signalflow.example"]'); return !!row && /Viewer/.test(row.innerText) && /Platform/.test(row.innerText) && !!document.querySelector('[data-testid="approvals-sam@demo.signalflow.example"]') }))
   const panelOpen = (testid) => page.waitForSelector(`.cds--modal.is-visible [data-testid="${testid}"]`, { visible: true, timeout: 5000 })
@@ -235,7 +235,7 @@ try {
   ok('releasing it ends the hold, and it stays in the history', await page.evaluate(() => /released/i.test(document.querySelector('[data-testid="legal-hold"]').innerText)))
 
   // Teams: the owner makes a team in a panel, moves a project into it, and a person who is not in it no longer sees that project.
-  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="User Access"]').click())
+  await page.evaluate(() => document.querySelector('nav[aria-label="Admin sections"] [data-label="People"]').click())
   await page.waitForSelector('[data-testid="people-table"]', { timeout: 8000 }) // the People tab has loaded, so the tabs stay put when clicked
   await page.waitForSelector('[data-testid="tab-teams"]', { timeout: 8000 })
   await page.click('[data-testid="tab-teams"]')
@@ -292,7 +292,7 @@ try {
   await page.goto(`${BASE}/settings/members?tab=reviewers`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="approvals-grid"]', { timeout: 8000 })
   ok('the old Reviewers address lands on Approvals, under User Access', page.url().endsWith('/settings/access?tab=approvals'))
-  ok('Approvals is a sub-tab of User Access, and the sub-tab is in the address', await page.evaluate(() => document.querySelector('[data-testid="tab-approvals"]')?.getAttribute('aria-selected') === 'true' && document.querySelector('[aria-label="Admin sections"] [data-label="User Access"]')?.getAttribute('aria-current') === 'page'))
+  ok('Approvals is a sub-tab of User Access, and the sub-tab is in the address', await page.evaluate(() => document.querySelector('[data-testid="tab-approvals"]')?.getAttribute('aria-current') === 'page' && document.querySelector('[aria-label="Admin sections"] [data-label="Approvals"]')?.getAttribute('aria-current') === 'page'))
   ok('the grid shows every step, a column per team, and says how many steps have nobody', await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="step-row-"]')].map((r) => r.dataset.testid.replace('step-row-', '')); return rows.join() === 'product_leadership,sales,legal,documentation,marketing,final_decision' && /steps without an approver/.test(document.querySelector('[data-testid="gap-summary"]').innerText) && [...document.querySelectorAll('[role="columnheader"]')].map((h) => h.innerText.trim()).join('|').toLowerCase().includes('support') }))
   const panel = (sel) => `.cds--modal.is-visible ${sel}`
   const openStep = async (key) => { await page.evaluate((k) => document.querySelector(`[data-testid="open-step-${k}"]`).click(), key); await page.waitForSelector(panel(`[data-testid="step-panel"][data-step="${key}"]`), { visible: true, timeout: 5000 }) }
