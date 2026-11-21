@@ -2306,6 +2306,32 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /pulse/salesforce:
+    get:
+      operationId: getPulseSalesforce
+      summary: Whether Salesforce is connected for this workspace and when its accounts were last copied (read only). 404 unless the preview is on for an owner.
+      responses:
+        '200':
+          description: The status.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSalesforce' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pulse/salesforce/sync:
+    post:
+      operationId: syncPulseSalesforce
+      summary: An owner copies the accounts and ARR from Salesforce now. A Salesforce problem comes back as `error` in the status (the earlier copy stays). Nothing is written to Salesforce.
+      responses:
+        '200':
+          description: The status after the copy.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSalesforce' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /pulse/sources:
     get:
       operationId: listPulseSources
@@ -4077,6 +4103,14 @@ components:
             new: { type: integer }
             kept: { type: integer }
             dismissed: { type: integer }
+    PulseSalesforce:
+      type: object
+      required: [connected, accounts, syncedAt, error]
+      properties:
+        connected: { type: boolean }
+        accounts: { type: integer, description: 'Accounts with an ARR copied from Salesforce.' }
+        syncedAt: { type: [string, 'null'], format: date-time }
+        error: { type: [string, 'null'], description: 'Why the last copy failed, if it did.' }
     PulseSource:
       type: object
       required: [id, kind, name, channel, mode, enabled, lastCheckedAt, lastAdded, lastError]
@@ -4124,7 +4158,7 @@ components:
             other: { type: number }
     PulseTopic:
       type: object
-      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend]
+      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched]
       properties:
         id: { type: string }
         title: { type: string }
@@ -4154,6 +4188,9 @@ components:
               weight: { type: number }
               subtotal: { type: number }
         trend: { type: string, enum: [new, rising, steady, fading] }
+        arr: { type: [number, 'null'], description: 'Annual recurring revenue of the distinct accounts behind the signals that were found in Salesforce. Null when no accounts have been copied from Salesforce.' }
+        arrMatched: { type: integer, description: 'How many of the named accounts were found in Salesforce.' }
+        arrUnmatched: { type: integer, description: 'How many were not found (so the ARR is a floor, not the whole).' }
     PulseQuote:
       type: object
       required: [id, body, kind, channel, sourceLabel, sourceUrl, saidBy, account, occurredOn]
@@ -4178,10 +4215,11 @@ components:
               type: array
               items:
                 type: object
-                required: [name, signals]
+                required: [name, signals, arr]
                 properties:
                   name: { type: string }
                   signals: { type: integer }
+                  arr: { type: [number, 'null'], description: 'From Salesforce, or null when the account was not found there.' }
             people:
               type: array
               items:

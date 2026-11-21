@@ -4,6 +4,8 @@
 //   SLACK_TOKEN=xoxb-... node db/set-integration.mjs --workspace acme --kind slack --secret-env SLACK_TOKEN          dry run
 //   JIRA_TOKEN=...       node db/set-integration.mjs --workspace acme --kind jira --secret-env JIRA_TOKEN \
 //        --site https://acme.atlassian.net --email me@acme.com --project ACME --yes                                   does it
+//   SF_SECRET=...        node db/set-integration.mjs --workspace acme --kind salesforce --secret-env SF_SECRET \
+//        --site https://acme.my.salesforce.com --client-id 3MVG... --arr-field ARR__c --yes                          Salesforce, read only (Pulse)
 //   node db/set-integration.mjs --workspace acme --kind slack --remove --yes                                          disconnects it
 //
 // SETTINGS_ENCRYPTION_KEY (openssl rand -base64 32) must be the same key the app has in its environment, or it cannot read what is stored.
@@ -13,12 +15,20 @@ import { findConnectionString, loadEnvFile } from './migrate.mjs';
 import { sealSecret } from '../shared/secret-box.mjs';
 
 /** The row to store, or throws a plain message. Touches nothing. */
-export function buildRow(env, { kind, secret, site, email, project }) {
-  if (!['slack', 'jira'].includes(kind)) throw new Error('--kind must be slack or jira.');
+export function buildRow(env, { kind, secret, site, email, project, clientId, arrField }) {
+  if (!['slack', 'jira', 'salesforce'].includes(kind)) throw new Error('--kind must be slack, jira or salesforce.');
   if (!secret) throw new Error('The token is missing: name the environment variable that holds it with --secret-env.');
   if (kind === 'slack') {
     if (!/^xoxb-/.test(secret)) throw new Error('A Slack bot token starts with xoxb-.');
     return { kind, config: {}, secret_enc: sealSecret(env, secret) };
+  }
+  if (kind === 'salesforce') {
+    let host = '';
+    try { const u = new URL(String(site ?? '').trim()); if (u.protocol === 'https:' && /(^|\.)(salesforce|force)\.com$/i.test(u.hostname) && !u.username && !u.password) host = u.host; } catch { /* below */ }
+    if (!host) throw new Error('--site must be the Salesforce address, https and ending in .salesforce.com or .force.com (for example https://acme.my.salesforce.com).');
+    if (!/^[A-Za-z0-9._-]{10,200}$/.test(String(clientId ?? ''))) throw new Error('--client-id must be the app\'s consumer key.');
+    if (!/^[A-Za-z][A-Za-z0-9_]{0,60}$/.test(String(arrField ?? ''))) throw new Error('--arr-field must be the API name of the ARR field on Account, such as ARR__c.');
+    return { kind, config: { instanceUrl: `https://${host}`, clientId: String(clientId), arrField: String(arrField) }, secret_enc: sealSecret(env, secret) };
   }
   const baseUrl = String(site ?? '').trim().replace(/\/+$/, '');
   if (!/^https:\/\/\S+$/.test(baseUrl)) throw new Error('--site must be the Jira address, starting with https://.');
@@ -33,7 +43,7 @@ export async function setIntegration(db, env, { slug, remove, ...input }) {
   const ws = (await db.query('select id from core.workspaces where slug = $1', [slug])).rows[0];
   if (!ws) throw new Error(`No workspace with the slug "${slug}".`);
   if (remove) {
-    if (!['slack', 'jira'].includes(input.kind)) throw new Error('--kind must be slack or jira.');
+    if (!['slack', 'jira', 'salesforce'].includes(input.kind)) throw new Error('--kind must be slack, jira or salesforce.');
     const r = await db.query('delete from core.workspace_integrations where workspace_id = $1 and kind = $2 returning kind', [ws.id, input.kind]);
     return { workspaceId: ws.id, kind: input.kind, action: r.rows.length ? 'removed' : 'nothing to remove' };
   }
@@ -50,7 +60,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
   loadEnvFile();
-  const input = { slug: flag('--workspace'), kind: flag('--kind'), remove: args.includes('--remove'), site: flag('--site'), email: flag('--email'), project: flag('--project') };
+  const input = { slug: flag('--workspace'), kind: flag('--kind'), remove: args.includes('--remove'), site: flag('--site'), email: flag('--email'), project: flag('--project'), clientId: flag('--client-id'), arrField: flag('--arr-field') };
   const secretEnv = flag('--secret-env');
   input.secret = secretEnv ? process.env[secretEnv] : undefined;
   const yes = args.includes('--yes');

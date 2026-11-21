@@ -97,13 +97,21 @@ export function makeSlack(env: Env, fetchImpl: SlackFetch = fetch): SlackClient 
       throw new SlackError('channel_not_found')
     },
     async findChannel(name) {
-      let cursor = ''
-      for (let page = 0; page < 10; page++) {
-        const body = await call('conversations.list', { types: 'public_channel,private_channel', exclude_archived: 'true', limit: '1000', ...(cursor ? { cursor } : {}) }, false)
-        const found = ((body.channels ?? []) as { id: string; name: string }[]).find((c) => c.name === name)
-        if (found) return found.id
-        cursor = body.response_metadata?.next_cursor ?? ''
-        if (!cursor) break
+      // Private channels need the groups:read scope; an app without it can still find public ones.
+      for (const types of ['public_channel,private_channel', 'public_channel']) {
+        let cursor = ''
+        try {
+          for (let page = 0; page < 10; page++) {
+            const body = await call('conversations.list', { types, exclude_archived: 'true', limit: '1000', ...(cursor ? { cursor } : {}) }, false)
+            const found = ((body.channels ?? []) as { id: string; name: string }[]).find((c) => c.name === name)
+            if (found) return found.id
+            cursor = body.response_metadata?.next_cursor ?? ''
+            if (!cursor) break
+          }
+          break
+        } catch (err) {
+          if (!(err instanceof SlackError && err.code === 'missing_scope' && types.includes('private'))) throw err
+        }
       }
       throw new SlackError('channel_not_found')
     },

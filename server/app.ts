@@ -52,6 +52,8 @@ import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
 import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
+import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
+import type { SalesforceFetch } from './salesforce.js'
 import { addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
 import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, mergeTopic, pulseEnabled, pulseOn, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
@@ -68,7 +70,7 @@ import { createTeam, deleteTeam, listTeams, MembersManagedBySso, moveProject, Pe
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 import { T } from '../shared/terms.mjs'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService; salesforceFetch?: SalesforceFetch }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -89,7 +91,7 @@ export function createApp(options: AppOptions = {}) {
   const slack = options.slack ?? makeSlack(env)
   const pdf = options.pdf ?? makePdf(env)
   // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
-  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch })
+  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch, salesforceFetch: options.salesforceFetch })
   // This workspace's own Slack client for the request (a workspace with no connection of its own gets one that is not live).
   const slackOf = async (c: Context) => (await integrations(c.get('ctx').workspaceId)).slack
   // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
@@ -1380,6 +1382,21 @@ export function createApp(options: AppOptions = {}) {
     return c.json(result)
   })
 
+  // Salesforce (read only): the accounts and ARR copied for the topics. The connection itself is set by the operator (node db/set-integration.mjs), never typed into the app.
+  app.get('/pulse/salesforce', withReadContext, async (c) => {
+    await pulseOnly(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await salesforceStatus(getDb(), c.get('ctx'), !!(await integrations(c.get('ctx').workspaceId)).salesforce))
+  })
+  app.post('/pulse/salesforce/sync', withContext, limited('pulse_salesforce', 10), async (c) => {
+    await pulseOnly(c)
+    const ctx = c.get('ctx')
+    if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can copy accounts from Salesforce.')
+    await syncAccounts(getDb(), { workspaceId: ctx.workspaceId }, (await integrations(ctx.workspaceId)).salesforce)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await salesforceStatus(getDb(), ctx, !!(await integrations(ctx.workspaceId)).salesforce))
+  })
+
   // The Stories board ---------------------------------------------------------------------------------------
 
   const storyError = (err: unknown): never => {
@@ -2052,7 +2069,7 @@ export function createApp(options: AppOptions = {}) {
       return null
     })
     // And the Pulse preview's topics: new signals attach each hour, everything not edited is regrouped about once a day. It never fails the reminders either.
-    const pulse = await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack).catch((err) => {
+    const pulse = await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack, async (workspaceId) => (await integrations(workspaceId)).salesforce).catch((err) => {
       console.error('pulse update failed', err instanceof Error ? err.message : err)
       return null
     })

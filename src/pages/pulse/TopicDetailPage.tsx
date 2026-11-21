@@ -8,6 +8,7 @@ import { PageHero } from '../../shell/PageHero'
 import { CHANNEL_LABEL, CHANNELS } from './channels'
 import { CreateProjectPanel } from './CreateProjectPanel'
 import { PulseNotFound } from './PulseNotFound'
+import { moneyFull } from './money'
 import { useTopicSelection } from './selection'
 import styles from './TopicDetailPage.module.scss'
 
@@ -33,7 +34,7 @@ export function TopicDetailPage() {
 
   return (
     <div className={styles.page}>
-      <PageHero title={t?.title ?? 'Topic'} description={t ? `${plural(t.signals, 'kept signal')} from ${plural(t.reach, 'account')}, heard in ${t.channelCount} of ${CHANNELS.length} channels` : 'Loading…'} glow="left">
+      <PageHero title={t?.title ?? 'Topic'} description={t ? `${plural(t.signals, 'kept signal')} from ${plural(t.reach, 'account')}, heard in ${t.channelCount} of ${CHANNELS.length} channels${t.arr !== null ? ` · ${moneyFull(t.arr)} ARR${t.arrUnmatched ? ` (${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce)` : ''}` : ''}` : 'Loading…'} glow="left">
         {t && (
           <Tag type="purple" size="md">
             Rank #{t.rank} · score {t.score}
@@ -70,7 +71,10 @@ export function TopicDetailPage() {
                   {t.accounts.map((a) => (
                     <li key={a.name}>
                       <span>{a.name}</span>
-                      <span className={styles.muted}>{plural(a.signals, 'signal')}</span>
+                      <span className={styles.muted}>
+                        {a.arr !== null ? `${moneyFull(a.arr)} ARR · ` : ''}
+                        {plural(a.signals, 'signal')}
+                      </span>
                     </li>
                   ))}
                 </ul>

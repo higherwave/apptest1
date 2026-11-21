@@ -3,6 +3,7 @@ import { Button, InlineNotification, TextInput } from '@carbon/react'
 import { friendlyMessage, type PulseWeights } from '../../api/client'
 import { useMe, usePulseWeights, useSetPulseWeights } from '../../api/hooks'
 import { CHANNELS } from '../pulse/channels'
+import { PulseSalesforce } from './PulseSalesforce'
 import { PulseSources } from './PulseSources'
 import { SettingsHeader } from './SettingsHeader'
 import styles from './NotificationsPage.module.scss'
@@ -77,6 +78,7 @@ export function PulseSettingsPage() {
         </div>
       </section>
       <PulseSources />
+      <PulseSalesforce />
     </div>
   )
 }

@@ -1,13 +1,14 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, Checkbox, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, ContentSwitcher, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
 import { Link, useNavigate } from 'react-router-dom'
 import { friendlyMessage, type PulseTopic } from '../../api/client'
 import { useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
 import { CHANNEL_LABEL, CHANNELS } from './channels'
 import { CreateProjectPanel } from './CreateProjectPanel'
-import { ImpactMap } from './ImpactMap'
+import { ImpactMap, type MapBy } from './ImpactMap'
+import { money, moneyFull } from './money'
 import { PulseNotFound } from './PulseNotFound'
 import { useTopicSelection } from './selection'
 import styles from './TopicsPage.module.scss'
@@ -33,6 +34,7 @@ export function TopicsPage() {
   const [renaming, setRenaming] = useState<PulseTopic | null>(null)
   const [merging, setMerging] = useState<PulseTopic | null>(null)
   const [creating, setCreating] = useState(false)
+  const [by, setBy] = useState<MapBy>('accounts')
   const { selected, toggle, clear, keepOnly } = useTopicSelection()
   // A topic that was merged away or regrouped can no longer be picked.
   const validIds = topics.data?.topics.map((t) => t.id)
@@ -45,6 +47,9 @@ export function TopicsPage() {
   const max = Math.max(1, ...(list?.topics.flatMap((t) => CHANNELS.map((c) => t.channels[c.key] ?? 0)) ?? [1]))
   const level = (n: number) => (n === 0 ? 0 : Math.min(4, 1 + Math.floor((n / max) * 3.999)))
   const isOwner = me.data.role === 'owner'
+  // ARR shows only once accounts have been copied from Salesforce (the server sends null otherwise).
+  const hasArr = !!list?.topics.some((t) => t.arr !== null)
+  const mapBy: MapBy = hasArr ? by : 'accounts'
   const canStart = me.data.role === 'owner' || me.data.role === 'editor'
   const picked = list?.topics.filter((t) => selected.includes(t.id)) ?? []
   const pickedSignals = picked.reduce((a, t) => a + t.signals, 0)
@@ -106,7 +111,14 @@ export function TopicsPage() {
         <section className={styles.mapSection} aria-label="Impact map">
           <h2 className={styles.mapHead}>Impact map</h2>
           <p className={styles.text}>Topics heard in more channels by more accounts sit higher and further right; a bigger circle is more signals. Choose circles (or rows below) to start a project from them.</p>
-          <ImpactMap topics={list.topics} selected={selected} onToggle={toggle} />
+          {hasArr && (
+            <ContentSwitcher size="sm" selectedIndex={mapBy === 'arr' ? 1 : 0} onChange={(e) => setBy(e.name as MapBy)} className={styles.mapSwitch}>
+              <Switch name="accounts" text="Accounts" data-testid="map-by-accounts" />
+              <Switch name="arr" text="ARR" data-testid="map-by-arr" />
+            </ContentSwitcher>
+          )}
+          {mapBy === 'arr' && <p className={styles.text}>ARR adds up each account once, using only the accounts found in Salesforce. Open a topic to see any that were not found.</p>}
+          <ImpactMap topics={list.topics} selected={selected} onToggle={toggle} by={mapBy} />
         </section>
       )}
 
@@ -126,6 +138,7 @@ export function TopicsPage() {
                   </TableHeader>
                 ))}
                 <TableHeader className={styles.numCol}>Heard in</TableHeader>
+                {hasArr && <TableHeader className={styles.numCol}>ARR</TableHeader>}
                 <TableHeader className={styles.numCol}>Score</TableHeader>
                 <TableHeader className={styles.menuCol}>
                   <span className={styles.srOnly}>Actions</span>
@@ -169,6 +182,12 @@ export function TopicsPage() {
                     <TableCell className={styles.numCol}>
                       {t.channelCount} of {CHANNELS.length}
                     </TableCell>
+                    {hasArr && (
+                      <TableCell className={styles.numCol} data-testid={`topic-arr-${t.id}`} title={t.arr !== null ? `${moneyFull(t.arr)}${t.arrUnmatched ? `; ${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce` : ''}` : undefined}>
+                        {t.arr !== null ? money(t.arr) : '–'}
+                        {t.arrUnmatched > 0 && <span className={styles.srOnly}>, {t.arrUnmatched} accounts not found in Salesforce</span>}
+                      </TableCell>
+                    )}
                     <TableCell className={styles.numCol} data-testid="topic-score">
                       {t.score}
                     </TableCell>
@@ -181,7 +200,7 @@ export function TopicsPage() {
                   </TableRow>
                   {open === t.id && (
                     <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                      <TableCell colSpan={CHANNELS.length + 6}>
+                      <TableCell colSpan={CHANNELS.length + 6 + (hasArr ? 1 : 0)}>
                         <Why topic={t} isOwner={isOwner} onEdit={() => navigate('/settings/pulse')} />
                       </TableCell>
                     </TableRow>

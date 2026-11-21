@@ -8,6 +8,8 @@ import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import type { SlackClient } from './slack.js'
 import { checkAllSources } from './pulse-sources.js'
+import { arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
+import type { SalesforceClient } from './salesforce.js'
 import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, topicStats, type Channel, type TopicStats } from './pulse-topics.js'
 
 export { CHANNELS, isChannel, type Channel }
@@ -172,7 +174,17 @@ export async function setWeights(db: Db, ctx: RequestContext, patch: Partial<Wei
 export class TopicNotFound extends Error {}
 export class BadSplit extends Error {}
 
-export type Topic = TopicStats & { id: string; title: string; edited: boolean; rank: number }
+export type Topic = TopicStats & {
+  id: string
+  title: string
+  edited: boolean
+  rank: number
+  /** The ARR of the distinct accounts behind the signals that were found in Salesforce; null when no accounts have been copied from Salesforce. */
+  arr: number | null
+  /** How many of those accounts were found in Salesforce, and how many were not (so the number is never mistaken for the whole). */
+  arrMatched: number
+  arrUnmatched: number
+}
 export type TopicList = {
   topics: Topic[]
   weights: Weights
@@ -244,10 +256,23 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
       [ws],
     )
   ).rows
+  const known = await arrByName(db, ws)
   const by = new Map<string, typeof sigRows>()
   for (const r of sigRows) by.set(r.topic_id, [...(by.get(r.topic_id) ?? []), r])
   const topics = topicRows
-    .map((t) => ({ id: t.id as string, title: t.title as string, edited: !!t.edited, ...topicStats((by.get(t.id) ?? []).map((r) => ({ channel: r.channel as Channel, account: r.account, saidBy: r.said_by, occurredOn: r.occurred_on, createdAt: new Date(r.created_at).toISOString() })), weights, today) }))
+    .map((t) => {
+      const rows = by.get(t.id) ?? []
+      const money = arrFor(rows.map((r) => r.account), known)
+      return {
+        id: t.id as string,
+        title: t.title as string,
+        edited: !!t.edited,
+        ...topicStats(rows.map((r) => ({ channel: r.channel as Channel, account: r.account, saidBy: r.said_by, occurredOn: r.occurred_on, createdAt: new Date(r.created_at).toISOString() })), weights, today),
+        arr: known.size ? money.arr : null,
+        arrMatched: money.matched,
+        arrUnmatched: money.unmatched,
+      }
+    })
     .filter((t) => t.signals > 0)
     .sort((a, b) => b.score - a.score || b.signals - a.signals || a.title.localeCompare(b.title))
     .map((t, i) => ({ ...t, rank: i + 1 }))
@@ -297,13 +322,21 @@ export async function splitTopic(db: Db, ctx: RequestContext, id: string, signal
 }
 
 /** The scheduled update for every workspace that has the preview on: new signals attach hourly, and everything not edited is regrouped about once a day. Never throws for one workspace. */
-export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>): Promise<{ workspaces: number; regrouped: number; read: number }> {
+export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>, salesforceFor?: (workspaceId: string) => Promise<SalesforceClient | null>): Promise<{ workspaces: number; regrouped: number; read: number }> {
   const on = (await platformDb.query(`select workspace_id from core.workspace_features where feature = 'pulse' and enabled`)).rows as { workspace_id: string }[]
   let regrouped = 0
   let read = 0
   for (const { workspace_id } of on) {
     try {
       const db = platformDb.inWorkspace(workspace_id)
+      // Salesforce accounts are copied about once a day (only when this workspace has connected it), so the ARR on topics is fresh without a call every hour.
+      if (salesforceFor) {
+        const sf = await salesforceFor(workspace_id)
+        if (sf) {
+          const last = (await db.query(`select tried_at from core.pulse_account_sync where workspace_id = $1`, [workspace_id])).rows[0]
+          if (!last || Date.now() - new Date(last.tried_at).getTime() > SYNC_DUE_MS) await syncAccounts(db, { workspaceId: workspace_id }, sf)
+        }
+      }
       // Designated feedback channels are read first, so what they add is grouped in the same run.
       if (slackFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, await slackFor(workspace_id))).added
       const state = (await db.query(`select last_regroup_at from core.pulse_state where workspace_id = $1`, [workspace_id])).rows[0]

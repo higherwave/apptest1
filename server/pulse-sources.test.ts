@@ -130,3 +130,16 @@ test('the hourly job reads enabled sources before grouping, and skips a switched
   assert.equal(Number((await pg.query<any>(`select count(*)::int as n from core.pulse_signals where body like 'Nobody%'`)).rows[0].n), 0)
   assert.ok(a.id)
 })
+
+test('finding a channel falls back to public ones when the app lacks the private-channel permission', async () => {
+  const { makeSlack } = await import('./slack.js')
+  const seen: string[] = []
+  const slack = makeSlack({ SLACK_BOT_TOKEN: 'xoxb-test' }, async (url) => {
+    const types = new URL(url).searchParams.get('types') ?? ''
+    seen.push(types)
+    return types.includes('private') ? new Response(JSON.stringify({ ok: false, error: 'missing_scope' })) : new Response(JSON.stringify({ ok: true, channels: [{ id: 'C9', name: 'customer-feedback' }] }))
+  })
+  assert.equal(await slack.findChannel('customer-feedback'), 'C9')
+  assert.deepEqual(seen, ['public_channel,private_channel', 'public_channel'])
+  await assert.rejects(slack.findChannel('nope'), /Slack cannot find that channel/)
+})

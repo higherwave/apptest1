@@ -4,14 +4,15 @@
 // the database, and a slow or failing outside service is never waited on here.
 import type { Db, Env } from './db.js'
 import { jiraConfig, makeJira, type JiraConfig, type JiraFetch } from './jira.js'
+import { cleanInstanceUrl, isFieldName, makeSalesforce, type SalesforceClient, type SalesforceFetch } from './salesforce.js'
 import { makeSlack, type SlackClient, type SlackFetch } from './slack.js'
 import { fallbackSlug } from './workspace-host.js'
 import { openSecret } from '../shared/secret-box.mjs'
 
 export type JiraClient = ReturnType<typeof makeJira>
-export type Integrations = { slack: SlackClient; jira: JiraClient | null; source: { slack: 'own' | 'deployment' | 'none'; jira: 'own' | 'deployment' | 'none' } }
+export type Integrations = { slack: SlackClient; jira: JiraClient | null; salesforce: SalesforceClient | null; source: { slack: 'own' | 'deployment' | 'none'; jira: 'own' | 'deployment' | 'none' } }
 
-export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?: SlackClient; slackFetch?: SlackFetch; jiraFetch?: JiraFetch }) {
+export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?: SlackClient; slackFetch?: SlackFetch; jiraFetch?: JiraFetch; salesforceFetch?: SalesforceFetch }) {
   const { env } = deps
   const cache = new Map<string, { at: number; value: Integrations }>()
   const homeSlack = deps.slack ?? makeSlack(env, deps.slackFetch)
@@ -42,7 +43,16 @@ export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?:
       jira = cfg ? makeJira(cfg, deps.jiraFetch) : null
       source.jira = cfg ? 'own' : 'none'
     }
-    return { slack, jira, source }
+    // Salesforce (read only, for Pulse) has no deployment-wide setting: a workspace connects its own, or has none.
+    let salesforce: SalesforceClient | null = null
+    const sf = own('salesforce')
+    if (sf) {
+      const secret = openSecret(env, sf.secret_enc)
+      const url = cleanInstanceUrl(String(sf.config?.instanceUrl ?? ''))
+      const field = String(sf.config?.arrField ?? '')
+      if (secret && url && sf.config?.clientId && isFieldName(field)) salesforce = makeSalesforce({ instanceUrl: url, clientId: String(sf.config.clientId), clientSecret: secret, arrField: field }, deps.salesforceFetch)
+    }
+    return { slack, jira, salesforce, source }
   }
 
   return async (workspaceId: string): Promise<Integrations> => {

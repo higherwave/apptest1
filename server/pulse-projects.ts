@@ -6,13 +6,14 @@ import { getWeights, listTopics, type Topic } from './pulse.js'
 import { suggestQuestions, type Channel, type Suggested } from './pulse-topics.js'
 import { createProjectIn } from './projects.js'
 import { insertMany } from './sql.js'
+import { arrByName, normalizeAccount } from './pulse-accounts.js'
 
 export class UnknownTopic extends Error {}
 
 export type Quote = { id: string; body: string; kind: string; channel: Channel; sourceLabel: string | null; sourceUrl: string | null; saidBy: string | null; account: string | null; occurredOn: string | null }
 export type TopicDetail = Topic & {
   quotes: Quote[]
-  accounts: { name: string; signals: number }[]
+  accounts: { name: string; signals: number; arr: number | null }[]
   people: { name: string; signals: number }[]
 }
 
@@ -37,7 +38,9 @@ export async function topicDetail(db: Queryable, ctx: RequestContext, id: string
   const topic = (await listTopics(db, ctx)).topics.find((t) => t.id === id)
   if (!topic) return null
   const rows = (await db.query(QUOTES, [ctx.workspaceId, [id]])).rows
-  return { ...topic, quotes: rows.map(toQuote), accounts: tally(rows.map((r) => r.account)), people: tally(rows.map((r) => r.said_by)) }
+  const known = await arrByName(db, ctx.workspaceId)
+  const accounts = tally(rows.map((r) => r.account)).map((a) => ({ ...a, arr: known.get(normalizeAccount(a.name))?.arr ?? null }))
+  return { ...topic, quotes: rows.map(toQuote), accounts, people: tally(rows.map((r) => r.said_by)) }
 }
 
 /** Suggested questions for the chosen topics (in the order given), worked out from their own signals. */

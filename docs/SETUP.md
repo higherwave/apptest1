@@ -148,3 +148,20 @@ One deployment can serve many customers, each at its own address, `<customer>.<y
 6. **Try it before a customer does** (nothing replaces a real browser here): sign in at `acme.example.org` and land back there; open `beta.example.org` with the same session and expect "not invited"; sign out at one and expect to be signed out at the other; open a sign-in link whose return address is another domain and expect it to be refused.
 
 Security notes: one session works on every customer address, so any address under the domain that could be taken over or show someone else's content would expose it. Only the platform creates addresses, nothing else is hosted under the domain, and the platform's own names are reserved in code and in the database. A return address or origin outside the domain is refused.
+
+## 12. Pulse: feedback channels and Salesforce (optional, owners' preview)
+
+Pulse reads only what an owner designates. Both connections are per workspace and read only.
+
+**Slack channels (Pulse reads them hourly).**
+1. Open the Signal Flow app at api.slack.com/apps, then OAuth & Permissions, Bot Token Scopes. Add `channels:history` (the other scopes are already there). For private channels also add `groups:read` and `groups:history`. Or paste the updated `docs/slack-app-manifest.json` (replace `APP_URL`).
+2. Reinstall the app to the Slack workspace and approve. The bot token (`xoxb-...`) stays the same; it already lives in Vercel as `SLACK_BOT_TOKEN` (or, for a customer, in `node db/set-integration.mjs --kind slack`).
+3. In Slack, invite the bot to each feedback channel: type `/invite @Signal Flow` in the channel. A bot reads only channels it is in.
+4. In Signal Flow, Admin, Pulse, "Where Pulse listens": enter the channel name, choose what it counts as and "Wait for review" (safe default) or "Count at once", then **Add channel** and **Check now**.
+
+**Salesforce (read only, for ARR).**
+1. In Salesforce Setup, create a Permission Set that gives read on the Account object and read on the ARR field, and a dedicated integration user (a "run-as" user) with it. Nothing more: that user's access is the real limit on what Pulse can see.
+2. Setup, App Manager (or External Client App Manager), create an External Client App with OAuth enabled and the scope "Manage user data via APIs (api)". Under the OAuth policies enable the Client Credentials Flow and set the run-as user from step 1. Copy its Consumer Key and Consumer Secret.
+3. Note the ARR field's API name on Account (a custom field ends in `__c`, for example `ARR__c`) and the org's address (`https://yourcompany.my.salesforce.com`).
+4. Connect it (a dry run first, then add `--yes`): `SF_SECRET='<consumer secret>' node db/set-integration.mjs --workspace <slug> --kind salesforce --secret-env SF_SECRET --site https://yourcompany.my.salesforce.com --client-id <consumer key> --arr-field ARR__c`. The secret is read from the environment variable, encrypted with `SETTINGS_ENCRYPTION_KEY`, and never printed.
+5. In Signal Flow, Admin, Pulse, "Salesforce, for ARR": **Copy accounts now**. Topics then show an ARR column, the impact map gets an Accounts / ARR switch, and a topic's page lists each account's ARR. A signal's account must match the Salesforce account name (capitals, punctuation and "Inc"/"LLC" are ignored).

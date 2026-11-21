@@ -191,6 +191,10 @@
   gap: var(--at-space-sm);
 }
 
+.mapSwitch {
+  max-inline-size: 16rem;
+}
+
 .mapHead {
   @include tokens.role('heading-3');
   margin: 0;

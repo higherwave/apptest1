@@ -5,9 +5,11 @@ import { Hono } from 'hono'
 import { createApp } from './app.js'
 import { createDemoDatabase, fakeAuth } from './test-utils.js'
 import { makeSlack, type SlackClient } from './slack.js'
+// @ts-expect-error plain ESM helper
+import { setIntegration } from '../db/set-integration.mjs'
 
 // ANCHOR_CX=true also loads the Anchor CX demo story (db/seed/anchor-cx/README.md).
-const { db } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
+const { db, pglite } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
 const port = Number(process.env.API_PORT || 8787)
 const env = { ...process.env }
 // AUTH_TEST=true switches on sign-in with the stand-in service (see fakeAuth), for the browser tests of sign-in. It also
@@ -32,7 +34,21 @@ const demoSlack: SlackClient | undefined =
         return { ...base, live: false, reads: true, findChannel: async (name: string) => `C_${name}`, history: async (_c: string, oldest: string | undefined) => messages.filter((m) => !oldest || Number(m.ts) > Number(oldest)) } as SlackClient
       })()
     : undefined
-const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack })
+// SALESFORCE_DEMO=true connects a stand-in Salesforce holding ARR for most of the Anchor CX sample accounts (two are left out on purpose, to show "not found").
+let salesforceFetch: ((url: string, init?: RequestInit) => Promise<Response>) | undefined
+if (process.env.SALESFORCE_DEMO === 'true') {
+  env.SETTINGS_ENCRYPTION_KEY = env.SETTINGS_ENCRYPTION_KEY ?? Buffer.from('0123456789abcdef0123456789abcdef').toString('base64')
+  const slug = ((await pglite.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await setIntegration(pglite, env, { slug, kind: 'salesforce', secret: 'demo-secret', site: 'https://anchor-demo.my.salesforce.com', clientId: 'demo-consumer-key', arrField: 'ARR__c' })
+  const accounts = [
+    { Id: '001D1', Name: 'Contoso Health, Inc.', ARR__c: 420000 },
+    { Id: '001D2', Name: 'Fabrikam Retail', ARR__c: 180000 },
+    { Id: '001D3', Name: 'Northwind Logistics LLC', ARR__c: 310000 },
+    { Id: '001D4', Name: 'Tailspin Travel', ARR__c: 95000 },
+  ]
+  salesforceFetch = async (url) => new Response(JSON.stringify(url.endsWith('/oauth2/token') ? { access_token: 'demo' } : { done: true, records: accounts }))
+}
+const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack, salesforceFetch })
 const root = new Hono()
 if (testCapture) {
   // CAPTURE_TEST=true: thumbnails can be switched on and off while the server runs, and may visit this machine's own pages.

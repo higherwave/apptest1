@@ -1708,6 +1708,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pulse/salesforce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether Salesforce is connected for this workspace and when its accounts were last copied (read only). 404 unless the preview is on for an owner. */
+        get: operations["getPulseSalesforce"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/salesforce/sync": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** An owner copies the accounts and ARR from Salesforce now. A Salesforce problem comes back as `error` in the status (the earlier copy stays). Nothing is written to Salesforce. */
+        post: operations["syncPulseSalesforce"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pulse/sources": {
         parameters: {
             query?: never;
@@ -3106,6 +3140,15 @@ export interface components {
                 dismissed: number;
             };
         };
+        PulseSalesforce: {
+            connected: boolean;
+            /** @description Accounts with an ARR copied from Salesforce. */
+            accounts: number;
+            /** Format: date-time */
+            syncedAt: string | null;
+            /** @description Why the last copy failed, if it did. */
+            error: string | null;
+        };
         PulseSource: {
             /** Format: uuid */
             id: string;
@@ -3183,6 +3226,12 @@ export interface components {
             }[];
             /** @enum {string} */
             trend: "new" | "rising" | "steady" | "fading";
+            /** @description Annual recurring revenue of the distinct accounts behind the signals that were found in Salesforce. Null when no accounts have been copied from Salesforce. */
+            arr: number | null;
+            /** @description How many of the named accounts were found in Salesforce. */
+            arrMatched: number;
+            /** @description How many were not found (so the ARR is a floor, not the whole). */
+            arrUnmatched: number;
         };
         PulseQuote: {
             id: string;
@@ -3202,6 +3251,8 @@ export interface components {
             accounts: {
                 name: string;
                 signals: number;
+                /** @description From Salesforce, or null when the account was not found there. */
+                arr: number | null;
             }[];
             people: {
                 name: string;
@@ -7900,6 +7951,52 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    getPulseSalesforce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The status. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSalesforce"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    syncPulseSalesforce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The status after the copy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSalesforce"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
         };
     };
     listPulseSources: {

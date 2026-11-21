@@ -90,10 +90,10 @@ try {
   // Topics: kept signals grouped, ranked by weighted score, with the sums on request; a person can rename and merge; a weight changes the score.
   const api = (m, path, body) => fetch(`${API}/api/v1${path}`, { method: m, headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json())
   for (const [body, channel, account] of [
-    ['I do not trust the score, it was wrong on a renewal last quarter.', 'call_notes', 'Contoso'],
-    ['Can the score explain which factors moved it? I cannot trust what I cannot explain.', 'slack', 'Fabrikam'],
-    ['When a hard case moves to my queue I redo the whole investigation, the handoff loses the history.', 'support_tickets', 'Northwind'],
-    ['We need the context carried over with every handoff to success.', 'slack', 'Tailspin'],
+    ['I do not trust the score, it was wrong on a renewal last quarter.', 'call_notes', 'Contoso Health'],
+    ['Can the score explain which factors moved it? I cannot trust what I cannot explain.', 'slack', 'Fabrikam Retail'],
+    ['When a hard case moves to my queue I redo the whole investigation, the handoff loses the history.', 'support_tickets', 'Northwind Logistics'],
+    ['We need the context carried over with every handoff to success.', 'slack', 'Tailspin Travel'],
   ]) await api('POST', '/pulse/signals', { body, channel, account })
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
   await waitText(page, 'No topics yet')
@@ -223,6 +223,22 @@ try {
   await click(page, 'source-remove-customer-feedback')
   await page.waitForFunction(() => !document.querySelector('[data-testid="source-customer-feedback"]'), { timeout: 8000 })
   ok('a source can be removed', true)
+
+  // Salesforce (read only): copy the accounts, and the topics show the ARR behind them, in the table, on the map and on the topic's page.
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="salesforce-sync"]', { timeout: 8000 })
+  await click(page, 'salesforce-sync')
+  await page.waitForFunction(() => /4 accounts copied/.test(document.querySelector('[data-testid="salesforce-status"]')?.innerText ?? ''), { timeout: 8000 })
+  ok('Salesforce accounts are copied on request and counted', true)
+  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="map-by-arr"]', { timeout: 8000 })
+  ok('the topics table has an ARR column once Salesforce is copied', await page.evaluate(() => [...document.querySelectorAll('[data-testid="topics-grid"] th')].some((th) => th.innerText.trim() === 'ARR') && /\$[\d.]+[KM]/.test(document.querySelector('[data-testid^="topic-arr-"]').innerText)))
+  await click(page, 'map-by-arr')
+  await page.waitForFunction(() => document.querySelector('[data-testid="impact-map"]').innerText.includes('ARR of the accounts raising it'), { timeout: 4000 })
+  ok('the impact map can show height as ARR instead of accounts', await page.evaluate(() => /\$\d+[KM]/.test(document.querySelector('[data-testid="impact-map"]').innerText)))
+  await page.evaluate(() => document.querySelector('[data-testid="topic-title"]').click())
+  await page.waitForSelector('[data-testid="topic-accounts"]', { timeout: 8000 })
+  ok("a topic's page shows each account's ARR, and says which were not found", await page.evaluate(() => /ARR · /.test(document.querySelector('[data-testid="topic-accounts"]').innerText) && /ARR/.test(document.querySelector('h1').closest('div').parentElement.innerText)))
 
   // A read-only visitor never sees it.
   const visitor = await open(null, '/projects')

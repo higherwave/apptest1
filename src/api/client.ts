@@ -180,6 +180,9 @@ export const createPulseProject = (body: { name: string; description: string | n
 export const getPulseOrigin = (projectId: string) => request<PulseOrigin>(`/pulse/origin/${projectId}`)
 export const getPulseWeights = () => request<components['schemas']['PulseWeights']>('/pulse/weights')
 export const setPulseWeights = (weights: Partial<PulseWeights>) => request<components['schemas']['PulseWeights']>('/pulse/weights', { method: 'PUT', body: { weights } })
+export type PulseSalesforce = components['schemas']['PulseSalesforce']
+export const getPulseSalesforce = () => request<PulseSalesforce>('/pulse/salesforce')
+export const syncPulseSalesforce = () => request<PulseSalesforce>('/pulse/salesforce/sync', { method: 'POST' })
 export type PulseSource = components['schemas']['PulseSource']
 export type PulseSourceList = components['schemas']['PulseSourceList']
 export const listPulseSources = () => request<PulseSourceList>('/pulse/sources')
