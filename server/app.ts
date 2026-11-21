@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -51,7 +51,7 @@ import { CaptureError, capturePreflight, makeCapture, type CaptureService } from
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
-import { addSignal, importNotes, listSignals, pulseEnabled, pulseOn, setPulsePreview, SignalNotFound, updateSignal } from './pulse.js'
+import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, mergeTopic, pulseEnabled, pulseOn, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
@@ -1233,6 +1233,71 @@ export function createApp(options: AppOptions = {}) {
     }
   })
 
+  app.get('/pulse/topics', withReadContext, async (c) => {
+    await pulseOnly(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await listTopics(getDb(), c.get('ctx')))
+  })
+  app.post('/pulse/topics/update', withContext, limited('pulse_update', 20), async (c) => {
+    await pulseOnly(c)
+    const input = parseBody(updateTopicsSchema, await readJson(c))
+    const ctx = c.get('ctx')
+    await updateTopics(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, input.mode)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(await listTopics(getDb(), ctx))
+  })
+  const topicError = (err: unknown): never => {
+    if (err instanceof TopicNotFound) throw new ApiError(404, 'not_found', 'Not found.')
+    if (err instanceof BadSplit) throw new ApiError(422, 'validation_failed', 'That cannot be done to this topic.')
+    throw err
+  }
+  app.patch('/pulse/topics/:id', withContext, async (c) => {
+    await pulseOnly(c)
+    const id = signalId(c)
+    const input = parseBody(renameTopicSchema, await readJson(c))
+    try {
+      await renameTopic(getDb(), c.get('ctx'), id, input.title)
+    } catch (err) {
+      topicError(err)
+    }
+    return c.json(await listTopics(getDb(), c.get('ctx')))
+  })
+  app.post('/pulse/topics/:id/merge', withContext, async (c) => {
+    await pulseOnly(c)
+    const id = signalId(c)
+    const input = parseBody(mergeTopicSchema, await readJson(c))
+    try {
+      await mergeTopic(getDb(), c.get('ctx'), id, input.intoId)
+    } catch (err) {
+      topicError(err)
+    }
+    return c.json(await listTopics(getDb(), c.get('ctx')))
+  })
+  app.post('/pulse/topics/:id/split', withContext, async (c) => {
+    await pulseOnly(c)
+    const id = signalId(c)
+    const input = parseBody(splitTopicSchema, await readJson(c))
+    try {
+      await splitTopic(getDb(), c.get('ctx'), id, input.signalIds, input.title)
+    } catch (err) {
+      topicError(err)
+    }
+    return c.json(await listTopics(getDb(), c.get('ctx')))
+  })
+  // What a signal from each channel counts for. Any owner of a workspace with Pulse on can read it; only an owner changes it (today the two are the same people).
+  app.get('/pulse/weights', withReadContext, async (c) => {
+    await pulseOnly(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ weights: await getWeights(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.put('/pulse/weights', withContext, async (c) => {
+    await pulseOnly(c)
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change weights.')
+    const input = parseBody(pulseWeightsSchema, await readJson(c))
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ weights: await setWeights(getDb(), c.get('ctx'), input.weights) })
+  })
+
   // The Stories board ---------------------------------------------------------------------------------------
 
   const storyError = (err: unknown): never => {
@@ -1904,7 +1969,12 @@ export function createApp(options: AppOptions = {}) {
       console.error('retention run failed', err instanceof Error ? err.message : err)
       return null
     })
-    return c.json({ ...digest, launches, ...(retention ? { retention } : {}) })
+    // And the Pulse preview's topics: new signals attach each hour, everything not edited is regrouped about once a day. It never fails the reminders either.
+    const pulse = await runPulseUpdates(platformDb()).catch((err) => {
+      console.error('pulse update failed', err instanceof Error ? err.message : err)
+      return null
+    })
+    return c.json({ ...digest, launches, ...(retention ? { retention } : {}), ...(pulse ? { pulse } : {}) })
   })
 
   return app

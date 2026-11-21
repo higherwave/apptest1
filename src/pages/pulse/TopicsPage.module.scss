@@ -1,0 +1,181 @@
+@use '../../tokens' as tokens;
+@use '../insights/body';
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  @include body.below-hero;
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.statusText {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  @include tokens.role('body-md');
+  color: var(--at-body);
+
+  li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--at-space-xs);
+  }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.emptyActions {
+  display: flex;
+  gap: var(--at-space-sm);
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  max-inline-size: 40rem;
+}
+
+.table {
+  background: var(--at-canvas);
+
+  // Tighter cells than the library's, so the five channels, the count and the score fit a tablet in portrait.
+  :global(.cds--data-table) th,
+  :global(.cds--data-table) td {
+    padding-inline: var(--at-space-xs);
+  }
+}
+
+.rankCol { inline-size: 2.5rem; padding-inline: var(--at-space-sm); }
+.chCol { inline-size: 4.25rem; padding-inline: var(--at-space-xxs); text-align: center; }
+.numCol { inline-size: 4.5rem; padding-inline: var(--at-space-xxs); text-align: center; white-space: nowrap; }
+.menuCol { inline-size: 2.5rem; padding-inline: var(--at-space-xxs); }
+
+.topic {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-xxs);
+  padding-block: var(--at-space-xs);
+}
+
+.title {
+  @include tokens.role('body-md');
+  font-weight: 500;
+  color: var(--at-ink);
+}
+
+.meta {
+  @include tokens.role('meta');
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  color: var(--at-muted);
+}
+
+.why { margin-inline-start: calc(-1 * var(--at-space-sm)); }
+
+// Shading only helps the eye: the number is always written in the cell.
+.heat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 2.25rem;
+  border-radius: var(--at-radius-md);
+  @include tokens.role('body-md');
+  color: var(--at-ink);
+
+  &[data-level='0'] { background: var(--at-surface-slate); color: var(--at-muted); }
+  &[data-level='1'] { background: color-mix(in srgb, var(--at-link) 14%, var(--at-canvas)); }
+  &[data-level='2'] { background: color-mix(in srgb, var(--at-link) 30%, var(--at-canvas)); }
+  &[data-level='3'] { background: color-mix(in srgb, var(--at-link) 55%, var(--at-canvas)); color: var(--at-on-primary); }
+  &[data-level='4'] { background: var(--at-link-active); color: var(--at-on-primary); }
+}
+
+.whyRow td { background: var(--at-surface-slate); }
+
+.whyBox {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-sm) var(--at-space-md);
+}
+
+.whyIntro {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  max-inline-size: 44rem;
+}
+
+.sum {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xxs);
+  margin: 0;
+  min-inline-size: 18rem;
+  @include tokens.role('body-md');
+}
+
+.sumRow,
+.sumTotal {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--at-space-lg);
+
+  dt { color: var(--at-body); }
+  dd { margin: 0; color: var(--at-ink); font-variant-numeric: tabular-nums; }
+}
+
+.sumTotal {
+  padding-block-start: var(--at-space-xxs);
+  border-block-start: 1px solid var(--at-hairline);
+  font-weight: 500;
+}
+
+.footnote {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.modalNote {
+  @include tokens.role('body-md');
+  margin: 0 0 var(--at-space-md);
+  color: var(--at-body);
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

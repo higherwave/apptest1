@@ -3,6 +3,7 @@
 import puppeteer from 'puppeteer-core'
 const BASE = process.env.E2E_BASE || 'http://localhost:5198'
 const TOKEN = process.env.E2E_TOKEN || 'e2e-token'
+const API = process.env.E2E_API || 'http://localhost:8791'
 let failed = 0
 const ok = (name, cond, extra = '') => { if (!cond) failed++; console.log(`${cond ? '  ok  ' : '  FAIL'} ${name}${extra ? ' — ' + extra : ''}`) }
 
@@ -55,8 +56,10 @@ try {
 
   // The page: empty, then a signal typed in (kept at once), then notes (wait for review), then keep and dismiss.
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await waitText(page, 'No topics yet')
+  ok('/pulse opens Topics, with Pulse as the app in the header and Topics and Signals as its items', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Admin').join('|'))) === 'Topics|Signals')
+  await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
   await waitText(page, 'Nothing waiting for review')
-  ok('/pulse opens the Signals page, with Pulse as the app in the header', page.url().endsWith('/pulse/signals') && (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse')
   ok('Pulse opens with a preview tag and an empty review list', (await text(page)).includes('Preview · owners only') && !!(await page.$('[data-testid="pulse-empty"]')))
   await page.type('#signal-body', 'Our CSMs stopped trusting the health score after it dropped for no clear reason.')
   await page.type('#signal-said-by', 'Marcus Bell')
@@ -84,6 +87,70 @@ try {
   await click(page, 'pulse-filter-dismissed')
   await waitText(page, 'Put back to review')
   ok('a dismissed signal can be put back', (await text(page)).includes('Handoffs to support') || (await text(page)).includes('Reports take hours'))
+  // Topics: kept signals grouped, ranked by weighted score, with the sums on request; a person can rename and merge; a weight changes the score.
+  const api = (m, path, body) => fetch(`${API}/api/v1${path}`, { method: m, headers: { authorization: `Bearer ${TOKEN}`, 'content-type': 'application/json' }, body: body ? JSON.stringify(body) : undefined }).then((r) => r.json())
+  for (const [body, channel, account] of [
+    ['I do not trust the score, it was wrong on a renewal last quarter.', 'call_notes', 'Contoso'],
+    ['Can the score explain which factors moved it? I cannot trust what I cannot explain.', 'slack', 'Fabrikam'],
+    ['When a hard case moves to my queue I redo the whole investigation, the handoff loses the history.', 'support_tickets', 'Northwind'],
+    ['We need the context carried over with every handoff to success.', 'slack', 'Tailspin'],
+  ]) await api('POST', '/pulse/signals', { body, channel, account })
+  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await waitText(page, 'No topics yet')
+  await click(page, 'topics-update')
+  await waitText(page, 'Trust and accuracy')
+  const grid = await text(page)
+  ok('Update topics groups the kept signals into topics, ranked, with a count for each channel', grid.includes('Trust and accuracy') && grid.includes('Handoffs and lost context') && (await page.evaluate(() => document.querySelectorAll('[data-testid^="topic-"][data-rank]').length)) >= 2)
+  const first = await page.evaluate(() => { const r = document.querySelector('[data-testid^="topic-"][data-rank="1"]'); return { id: r.dataset.testid.slice(6), score: r.querySelector('[data-testid="topic-score"]').innerText.trim(), title: r.querySelector('[data-testid="topic-title"]').innerText.trim() } })
+  await click(page, `why-${first.id}`)
+  await waitText(page, 'Edit weights')
+  ok('"Why it ranks here" shows signals times weight for each channel, adding up to the score shown', await page.evaluate((score) => { const box = document.querySelector('[data-testid^="why-row-"]').innerText; return /×/.test(box) && box.includes('Score') && box.replace(/\s+/g, ' ').includes(score) }, first.score))
+  ok('and the grid says who is behind it: accounts, and how many channels it was heard in', /accounts?/.test(grid) && /\d of 5/.test(grid))
+
+  // Rename: opens with the current name; saving changes it.
+  await page.evaluate((id) => document.querySelector(`[data-testid="topic-menu-${id}"]`).click(), first.id)
+  await page.waitForSelector(`[data-testid="rename-${first.id}"]`, { timeout: 4000 })
+  await page.evaluate((id) => document.querySelector(`[data-testid="rename-${id}"]`).click(), first.id)
+  await page.waitForSelector('.cds--modal.is-visible #rename-title', { timeout: 4000 })
+  ok("Rename opens with the topic's own name", (await page.$eval('#rename-title', (el) => el.value)) === first.title)
+  await page.$eval('#rename-title', (el) => el.select())
+  await page.keyboard.type('Why the health score moves')
+  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Save').click())
+  await waitText(page, 'Why the health score moves')
+  await wait(500)
+  ok('a renamed topic shows its new name', (await text(page)).includes('Why the health score moves'))
+
+  // Merge the other topic into it: one row is left.
+  const other = await page.evaluate(() => { const rows = [...document.querySelectorAll('[data-testid^="topic-"][data-rank]')]; return rows.length > 1 ? rows[1].dataset.testid.slice(6) : null })
+  ok('there is a second topic to merge', !!other)
+  if (other) {
+    await page.evaluate((id) => document.querySelector(`[data-testid="topic-menu-${id}"]`).click(), other)
+    await page.waitForSelector(`[data-testid="merge-${other}"]`, { timeout: 4000 })
+    await page.evaluate((id) => document.querySelector(`[data-testid="merge-${id}"]`).click(), other)
+    await page.waitForSelector('.cds--modal.is-visible #merge-into', { timeout: 4000 })
+    await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => b.innerText.trim() === 'Merge').click())
+    await page.waitForFunction(() => document.querySelectorAll('[data-testid^="topic-"][data-rank]').length === 1, { timeout: 8000 })
+    ok('merging a topic into another leaves one topic', true)
+  }
+  const before = await page.evaluate(() => document.querySelector('[data-testid="topic-score"]').innerText.trim())
+
+  // Weights live in Admin, Pulse (owners): a change re-ranks at once.
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#weight-call_notes', { timeout: 8000 })
+  ok('Admin has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] button')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'support_tickets', 'slack', 'conference', 'other'].every((k) => !!document.querySelector(`#weight-${k}`))))
+  await page.$eval('#weight-slack', (el) => el.select())
+  await page.keyboard.type('5')
+  await click(page, 'weights-save')
+  await waitText(page, 'Weights saved')
+  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="topic-score"]', { timeout: 8000 })
+  const after = await page.evaluate(() => document.querySelector('[data-testid="topic-score"]').innerText.trim())
+  ok("raising Slack's weight raises the topic score at once", Number(after) > Number(before), `${before} to ${after}`)
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('#weight-slack', { timeout: 8000 })
+  await page.$eval('#weight-slack', (el) => el.select())
+  await page.keyboard.type('9')
+  ok('a weight above 5 is refused, with the Save button off', await page.evaluate(() => document.querySelector('[data-testid="weights-save"]').disabled === true && /0 to 5/.test(document.body.innerText)))
   await page.screenshot({ path: process.env.PULSE_SHOT || '/tmp/pulse.png' })
 
   // A read-only visitor never sees it.

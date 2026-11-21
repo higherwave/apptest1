@@ -104,9 +104,11 @@ export const setupSchema = z.object({ status: z.enum(['done', 'skipped']), ackno
 export const pulsePreviewSchema = z.object({ enabled: z.boolean() })
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use a date like 2026-11-20.').refine((d) => !Number.isNaN(Date.parse(d)), 'That is not a date.')
 const signalKind = z.enum(['complaint', 'request', 'praise', 'question', 'other'])
+const channel = z.enum(['slack', 'call_notes', 'support_tickets', 'conference', 'other'])
 export const addSignalSchema = z.object({
   body: z.string().trim().min(1, 'Write what was said.').max(4000, 'That is too long for one signal.'),
   kind: signalKind.optional(),
+  channel: channel.optional(),
   sourceLabel: optionalText(200),
   sourceUrl: optionalText(1000).refine((u) => u === null || /^https?:\/\//i.test(u), 'A link must start with http:// or https://.'),
   saidBy: optionalText(200),
@@ -115,11 +117,23 @@ export const addSignalSchema = z.object({
 })
 export const importNotesSchema = z.object({
   text: z.string().trim().min(1, 'Paste some notes first.').max(200_000, 'That is too much to import at once.'),
+  channel: channel.optional(),
   sourceLabel: optionalText(200),
   account: optionalText(200),
   occurredOn: isoDate.nullish().transform((v) => v ?? null),
 })
-export const updateSignalSchema = z.object({ status: z.enum(['new', 'kept', 'dismissed']).optional(), kind: signalKind.optional() }).refine((v) => v.status !== undefined || v.kind !== undefined, 'Say what to change.')
+export const updateSignalSchema = z.object({ status: z.enum(['new', 'kept', 'dismissed']).optional(), kind: signalKind.optional(), channel: channel.optional() }).refine((v) => v.status !== undefined || v.kind !== undefined || v.channel !== undefined, 'Say what to change.')
+const CHANNEL_KEYS = ['slack', 'call_notes', 'support_tickets', 'conference', 'other']
+export const pulseWeightsSchema = z.object({
+  weights: z
+    .record(z.string(), z.number().min(0, 'A weight cannot be negative.').max(5, 'A weight is at most 5.'))
+    .refine((w) => Object.keys(w).length > 0, 'Give at least one weight.')
+    .refine((w) => Object.keys(w).every((k) => CHANNEL_KEYS.includes(k)), 'Weights are set per channel: slack, call_notes, support_tickets, conference or other.'),
+})
+export const updateTopicsSchema = z.object({ mode: z.enum(['attach', 'regroup']).default('attach') })
+export const renameTopicSchema = z.object({ title: z.string().trim().min(1, 'A topic needs a name.').max(200, 'That name is too long.') })
+export const mergeTopicSchema = z.object({ intoId: z.string().uuid('Choose a topic to merge into.') })
+export const splitTopicSchema = z.object({ signalIds: z.array(z.string().uuid()).min(1, 'Choose at least one signal.').max(500), title: z.string().trim().min(1, 'The new topic needs a name.').max(200, 'That name is too long.') })
 export const holdSchema = z.object({ projectId: z.string().nullish(), reason: text(1000).min(3, 'Say why the hold is being placed.') })
 export const redoSchema = z.object({ instructions: text(500).min(1, 'Tell the agent what to change.') })
 export const editStepSchema = z.object({ text: z.string().trim().min(1, 'The text cannot be empty.').max(5000, 'The text is too long.') })

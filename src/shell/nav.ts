@@ -30,6 +30,7 @@ export const SETTINGS_SECTIONS = [
   { key: 'access', label: 'User Access' },
   { key: 'data', label: 'Data' },
   { key: 'audit', label: 'Audit log' },
+  { key: 'pulse', label: 'Pulse' },
   { key: 'preview', label: 'Previews' },
 ]
 

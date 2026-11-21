@@ -1553,6 +1553,109 @@ export interface paths {
         patch: operations["updatePulseSignal"];
         trace?: never;
     };
+    "/pulse/topics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Topics (kept signals grouped), ranked, with every number computed from their signals and the channel weights: signals per channel, channels, reach, the score and its full breakdown, and the trend. Also how many signals wait for review, how many kept ones are in no topic, and when topics were last updated. Owners only, and only while the preview is on; everyone else gets 404. */
+        get: operations["listPulseTopics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/topics/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Brings topics up to date now. `attach` (the default) removes signals that are no longer kept, adds new ones to the topic they fit and groups the rest; `regroup` also regroups every topic a person has not edited. The same runs hourly (attach) and about daily (regroup) in the scheduled job. Returns the topics after the update. 404 unless the preview is on for an owner. */
+        post: operations["updatePulseTopics"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/topics/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Renames a topic. A topic a person has renamed is left alone by the daily regrouping. Returns the topics. */
+        patch: operations["renamePulseTopic"];
+        trace?: never;
+    };
+    "/pulse/topics/{id}/merge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Merges this topic into another; its signals move and it is marked merged. The target counts as edited. Returns the topics. */
+        post: operations["mergePulseTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/topics/{id}/split": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Moves the chosen signals of a topic into a new topic with the given title. At least one signal has to stay behind (422 otherwise). Returns the topics. */
+        post: operations["splitPulseTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/weights": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What a signal from each channel counts for in the ranking (the workspace's own, else the defaults). 404 unless the preview is on for an owner. */
+        get: operations["getPulseWeights"];
+        /** An owner changes some or all weights (0 to 5). Topics re-rank at once, because the score is computed on read. Recorded in the audit log. */
+        put: operations["setPulseWeights"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/setup": {
         parameters: {
             query?: never;
@@ -2857,6 +2960,11 @@ export interface components {
             /** @enum {string} */
             kind: "complaint" | "request" | "praise" | "question" | "other";
             /**
+             * @description Where it was heard, from a fixed list; the ranking weights are set per channel.
+             * @enum {string}
+             */
+            channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            /**
              * @description Typed in, split out of notes, or read from a connected channel.
              * @enum {string}
              */
@@ -2875,6 +2983,8 @@ export interface components {
             body: string;
             /** @enum {string} */
             kind?: "complaint" | "request" | "praise" | "question" | "other";
+            /** @enum {string} */
+            channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
             sourceLabel?: string | null;
             /** @description Must start with http:// or https://. */
             sourceUrl?: string | null;
@@ -2890,6 +3000,58 @@ export interface components {
                 kept: number;
                 dismissed: number;
             };
+        };
+        PulseWeights: {
+            weights: {
+                slack: number;
+                call_notes: number;
+                support_tickets: number;
+                conference: number;
+                other: number;
+            };
+        };
+        PulseTopic: {
+            id: string;
+            title: string;
+            /** @description A person renamed, merged or split it: the daily regrouping leaves it alone. */
+            edited: boolean;
+            /** @description 1 is the highest score. */
+            rank: number;
+            signals: number;
+            /** @description Kept signals per channel; a channel with none is left out. */
+            channels: {
+                slack?: number;
+                call_notes?: number;
+                support_tickets?: number;
+                conference?: number;
+                other?: number;
+            };
+            channelCount: number;
+            /** @description Distinct accounts behind the signals, or people where no account is named. */
+            reach: number;
+            /** @description The weighted sum of signals per channel, which `breakdown` shows in full. */
+            score: number;
+            breakdown: {
+                /** @enum {string} */
+                channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+                count: number;
+                weight: number;
+                subtotal: number;
+            }[];
+            /** @enum {string} */
+            trend: "new" | "rising" | "steady" | "fading";
+        };
+        PulseTopicList: {
+            topics: components["schemas"]["PulseTopic"][];
+            weights: components["schemas"]["PulseWeights"]["weights"];
+            /** @description When topics were last updated; null before the first update. */
+            updatedAt: string | null;
+            /** @description Kept signals that are in no topic. */
+            unsorted: number;
+            /** @description Signals waiting to be kept or dismissed. */
+            toReview: number;
+            /** @description Kept signals added since topics were last updated. */
+            sinceUpdate: number;
         };
         Setup: {
             categories: {
@@ -7161,6 +7323,11 @@ export interface operations {
             content: {
                 "application/json": {
                     text: string;
+                    /**
+                     * @description Defaults to call_notes.
+                     * @enum {string}
+                     */
+                    channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
                     /** @description What the notes are, for example "Renewal call with Northwind". */
                     sourceLabel?: string | null;
                     account?: string | null;
@@ -7205,6 +7372,8 @@ export interface operations {
                     status?: "new" | "kept" | "dismissed";
                     /** @enum {string} */
                     kind?: "complaint" | "request" | "praise" | "question" | "other";
+                    /** @enum {string} */
+                    channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
                 };
             };
         };
@@ -7220,6 +7389,207 @@ export interface operations {
             };
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    listPulseTopics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The topics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    updatePulseTopics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    mode?: "attach" | "regroup";
+                };
+            };
+        };
+        responses: {
+            /** @description The topics after the update. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+        };
+    };
+    renamePulseTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The topics after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    mergePulseTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    intoId: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The topics after the merge. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    splitPulseTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    signalIds: string[];
+                    title: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The topics after the split. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getPulseWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The weights. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseWeights"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    setPulseWeights: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    weights: {
+                        [key: string]: number;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description The weights after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseWeights"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
         };

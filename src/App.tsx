@@ -20,6 +20,8 @@ import { PlatformJourneyPage } from './pages/insights/PlatformJourneyPage'
 import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
 import { PulsePage } from './pages/pulse/PulsePage'
+import { TopicsPage } from './pages/pulse/TopicsPage'
+import { PulseSettingsPage } from './pages/settings/PulseSettingsPage'
 import { PreviewsPage } from './pages/settings/PreviewsPage'
 import { LaunchPage } from './pages/launch/LaunchPage'
 import { LaunchByIdPage } from './pages/launch/LaunchByIdPage'
@@ -79,7 +81,7 @@ export function App() {
         <Route path="launches/:launchId" element={<LaunchByIdPage />} />
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
-        <Route path="pulse" element={<Navigate to="/pulse/signals" replace />} />
+        <Route path="pulse" element={<TopicsPage />} />
         <Route path="pulse/signals" element={<PulsePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<Navigate to="/settings/access?tab=people" replace />} />
@@ -95,6 +97,7 @@ export function App() {
           <Route path="areas" element={<Navigate to="/settings/categories" replace />} />
           <Route path="categories" element={<AreasPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="pulse" element={<PulseSettingsPage />} />
           <Route path="preview" element={<PreviewsPage />} />
           <Route path="usage" element={<UsageAndCostsPage />} />
           <Route path="status" element={<Navigate to="/settings/usage?tab=ai" replace />} />

@@ -35,7 +35,10 @@ export const APPS: Record<AppKey, AppDef> = {
     name: 'Pulse',
     blurb: 'What customers are telling you',
     icon: '/app-icons/pulse-128.png',
-    items: [{ to: '/pulse/signals', label: 'Signals', match: startsWith('/pulse') }],
+    items: [
+      { to: '/pulse', label: 'Topics', match: (p) => p === '/pulse' || startsWith('/pulse/topics')(p) },
+      { to: '/pulse/signals', label: 'Signals', match: startsWith('/pulse/signals') },
+    ],
     owns: startsWith('/pulse'),
   },
 }

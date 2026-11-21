@@ -3,6 +3,8 @@ import { Button, InlineNotification, Select, SelectItem, Tag, TextArea, TextInpu
 import { friendlyMessage, type PulseSignal, type PulseStatus } from '../../api/client'
 import { useAddPulseSignal, useImportPulseNotes, useMe, usePulseSignals, useUpdatePulseSignal } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
+import { CHANNEL_LABEL, CHANNELS } from './channels'
+import { PulseNotFound } from './PulseNotFound'
 import switchStyles from '../insights/InsightsHeader.module.scss'
 import styles from './PulsePage.module.scss'
 
@@ -14,7 +16,6 @@ const KINDS: { key: PulseSignal['kind']; label: string }[] = [
   { key: 'other', label: 'Other' },
 ]
 const KIND_TAG: Record<PulseSignal['kind'], 'red' | 'blue' | 'green' | 'purple' | 'gray'> = { complaint: 'red', request: 'blue', praise: 'green', question: 'purple', other: 'gray' }
-const SOURCE_LABEL: Record<PulseSignal['source'], string> = { manual: 'Added by hand', notes: 'From notes', slack: 'From Slack' }
 const FILTERS: { key: PulseStatus; label: string }[] = [
   { key: 'new', label: 'To review' },
   { key: 'kept', label: 'Kept' },
@@ -33,7 +34,7 @@ export function PulsePage() {
 
   if (!me.data) return null
   // Anyone Pulse is not for sees the page that does not exist: the server answers 404 to them too.
-  if (!me.data.features.pulse) return <NotFound />
+  if (!me.data.features.pulse) return <PulseNotFound />
 
   return (
     <div className={styles.page}>
@@ -62,7 +63,7 @@ export function PulsePage() {
                 <Tag type={KIND_TAG[s.kind]} size="sm">
                   {KINDS.find((k) => k.key === s.kind)?.label}
                 </Tag>
-                <span>{[SOURCE_LABEL[s.source], s.sourceLabel, s.saidBy, s.account, s.occurredOn].filter(Boolean).join(' · ')}</span>
+                <span>{[CHANNEL_LABEL[s.channel], s.sourceLabel, s.saidBy, s.account, s.occurredOn].filter(Boolean).join(' · ')}</span>
                 {s.sourceUrl && (
                   <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer">
                     Open the source<span className={styles.srOnly}> (opens in a new tab)</span>
@@ -101,18 +102,11 @@ export function PulsePage() {
   )
 }
 
-function NotFound() {
-  return (
-    <div className={styles.page}>
-      <PageHero title="Page not found" description="There is nothing at this address." />
-    </div>
-  )
-}
-
 function AddSignal() {
   const add = useAddPulseSignal()
   const [body, setBody] = useState('')
   const [kind, setKind] = useState<PulseSignal['kind']>('other')
+  const [channel, setChannel] = useState<PulseSignal['channel']>('call_notes')
   const [saidBy, setSaidBy] = useState('')
   const [account, setAccount] = useState('')
   const [sourceLabel, setSourceLabel] = useState('')
@@ -123,7 +117,7 @@ function AddSignal() {
   const save = async () => {
     setDone(false)
     try {
-      await add.mutateAsync({ body, kind, saidBy, account, sourceLabel, sourceUrl, occurredOn: date || null })
+      await add.mutateAsync({ body, kind, channel, saidBy, account, sourceLabel, sourceUrl, occurredOn: date || null })
       setBody(''); setKind('other'); setSaidBy(''); setAccount(''); setSourceLabel(''); setSourceUrl(''); setDate('')
       setDone(true)
     } catch {
@@ -141,14 +135,19 @@ function AddSignal() {
             <SelectItem key={k.key} value={k.key} text={k.label} />
           ))}
         </Select>
-        <TextInput id="signal-said-by" labelText="Who said it" value={saidBy} onChange={(e) => setSaidBy(e.target.value)} />
-        <TextInput id="signal-account" labelText="Account" value={account} onChange={(e) => setAccount(e.target.value)} />
-      </div>
-      <div className={styles.row}>
-        <TextInput id="signal-source" labelText="Where it came from" placeholder="Renewal call, support ticket, conference" value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} />
-        <TextInput id="signal-url" labelText="Link to the source" placeholder="https://" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
+        <Select id="signal-channel" data-testid="signal-channel" labelText="Channel" value={channel} onChange={(e) => setChannel(e.target.value as PulseSignal['channel'])}>
+          {CHANNELS.map((c) => (
+            <SelectItem key={c.key} value={c.key} text={c.label} />
+          ))}
+        </Select>
         <TextInput id="signal-date" labelText="Date" placeholder="2026-11-20" invalid={dateBad} invalidText="Use a date like 2026-11-20." value={date} onChange={(e) => setDate(e.target.value)} />
       </div>
+      <div className={styles.row}>
+        <TextInput id="signal-said-by" labelText="Who said it" value={saidBy} onChange={(e) => setSaidBy(e.target.value)} />
+        <TextInput id="signal-account" labelText="Account" value={account} onChange={(e) => setAccount(e.target.value)} />
+        <TextInput id="signal-source" labelText="Where it came from" placeholder="Renewal call, support ticket, conference" value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} />
+      </div>
+      <TextInput id="signal-url" labelText="Link to the source" placeholder="https://" value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} />
       {add.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(add.error)} />}
       {done && <InlineNotification hideCloseButton lowContrast kind="success" title="Signal added" subtitle="It is under Kept." data-testid="signal-added" />}
       <div>
@@ -164,12 +163,13 @@ function ImportNotes({ onDone }: { onDone: () => void }) {
   const imp = useImportPulseNotes()
   const [text, setText] = useState('')
   const [label, setLabel] = useState('')
+  const [channel, setChannel] = useState<PulseSignal['channel']>('call_notes')
   const [account, setAccount] = useState('')
   const [result, setResult] = useState<{ created: number; skipped: number } | null>(null)
   const run = async () => {
     setResult(null)
     try {
-      const r = await imp.mutateAsync({ text, sourceLabel: label, account })
+      const r = await imp.mutateAsync({ text, channel, sourceLabel: label, account })
       setResult(r)
       setText('')
       onDone()
@@ -183,6 +183,11 @@ function ImportNotes({ onDone }: { onDone: () => void }) {
       <p className={styles.text}>Paste notes from a call or a meeting. Each paragraph (or line) becomes a signal that waits for you to keep or dismiss it.</p>
       <TextArea id="notes-text" data-testid="notes-text" labelText="Notes" rows={6} value={text} onChange={(e) => setText(e.target.value)} />
       <div className={styles.row}>
+        <Select id="notes-channel" data-testid="notes-channel" labelText="Channel" value={channel} onChange={(e) => setChannel(e.target.value as PulseSignal['channel'])}>
+          {CHANNELS.map((c) => (
+            <SelectItem key={c.key} value={c.key} text={c.label} />
+          ))}
+        </Select>
         <TextInput id="notes-label" labelText="What the notes are" placeholder="Renewal call with Northwind" value={label} onChange={(e) => setLabel(e.target.value)} />
         <TextInput id="notes-account" labelText="Account" value={account} onChange={(e) => setAccount(e.target.value)} />
       </div>

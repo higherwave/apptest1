@@ -4,7 +4,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { createApp } from './app.js'
 import { createDemoDatabase } from './test-utils.js'
-import { splitNotes } from './pulse.js'
+import { runPulseUpdates, splitNotes } from './pulse.js'
 import { fillDemoSignals, SAMPLES } from '../scripts/demo-pulse-signals.js'
 
 declare global {
@@ -105,4 +105,113 @@ test('the sample-signals script fills Pulse with the Anchor CX story, and is saf
   assert.ok(by.some((r: any) => r.source === 'slack' && r.status === 'new'), 'some Slack signals wait for review')
   assert.ok(by.some((r: any) => r.source === 'notes' && r.status === 'kept'))
   assert.equal((await fillDemoSignals(db, slug, true)).added, 0, 'a second run adds nothing')
+})
+
+
+test('topics: updating groups the kept signals, ranks them by weighted score, and re-ranks when an owner changes a weight', async () => {
+  const { call, owner, alex, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  await fillDemoSignals(db, slug, true)
+
+  const before = await (await call(owner, 'GET', '/pulse/topics')).json()
+  assert.deepEqual([before.topics.length, before.updatedAt, before.unsorted, before.toReview], [0, null, 15, 2], 'nothing is grouped until topics are updated')
+
+  const res = await call(owner, 'POST', '/pulse/topics/update', {})
+  assert.equal(res.status, 200)
+  const list = await res.json()
+  assert.deepEqual(list.topics.map((t: any) => [t.title, t.signals]), [['Trust and accuracy', 5], ['Reporting and digests', 4], ['Handoffs and lost context', 3], ['Renewal preparation', 2]])
+  assert.deepEqual([list.unsorted, list.toReview, list.sinceUpdate, typeof list.updatedAt], [1, 2, 0, 'string'], 'the praise fits no topic; the two new signals still wait for review')
+  const trust = list.topics[0]
+  assert.equal(trust.rank, 1)
+  assert.equal(trust.score, Math.round(trust.breakdown.reduce((a: number, b: any) => a + b.subtotal, 0) * 100) / 100, 'the score is the breakdown summed')
+  assert.ok(trust.breakdown.every((b: any) => b.subtotal === Math.round(b.count * b.weight * 100) / 100))
+  assert.ok(trust.channelCount >= 3 && trust.reach >= 3)
+
+  // Weights: silencing Slack and boosting conferences changes the order, at once, with no update.
+  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, support_tickets: 0.8, conference: 0.6, slack: 0.5, other: 0.3 })
+  const put = await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 0, call_notes: 0.1, conference: 5 } })
+  assert.equal(put.status, 200)
+  const reranked = await (await call(owner, 'GET', '/pulse/topics')).json()
+  assert.notDeepEqual(reranked.topics.map((t: any) => t.title), list.topics.map((t: any) => t.title), 'the order moved')
+  assert.equal(reranked.topics[0].title, 'Handoffs and lost context', 'it has the conference signal')
+  assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 9 } })).status, 422, 'a weight is at most 5')
+  assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: { email: 1 } })).status, 422, 'only the known channels')
+  assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: {} })).status, 422)
+  const audit = (await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_weights'`)).rows
+  assert.equal(audit.length, 1, 'a weight change is audited')
+  for (const who of [alex]) {
+    assert.equal((await call(who, 'GET', '/pulse/topics')).status, 404)
+    assert.equal((await call(who, 'POST', '/pulse/topics/update', {})).status, 404)
+    assert.equal((await call(who, 'GET', '/pulse/weights')).status, 404)
+    assert.equal((await call(who, 'PUT', '/pulse/weights', { weights: { slack: 1 } })).status, 404)
+  }
+})
+
+test('topics: a person can rename, merge and split, and what they touch survives the regrouping', async () => {
+  const { call, owner, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  await fillDemoSignals(db, slug, true)
+  let list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  const id = (title: string) => list.topics.find((t: any) => t.title === title).id as string
+
+  list = await (await call(owner, 'PATCH', `/pulse/topics/${id('Trust and accuracy')}`, { title: 'Why the health score moves' })).json()
+  assert.deepEqual(list.topics.map((t: any) => [t.title, t.edited]).find(([t]: any) => t === 'Why the health score moves'), ['Why the health score moves', true])
+  assert.equal((await call(owner, 'PATCH', `/pulse/topics/${id('Renewal preparation')}`, { title: '  ' })).status, 422)
+  assert.equal((await call(owner, 'PATCH', '/pulse/topics/00000000-0000-0000-0000-000000000000', { title: 'x' })).status, 404)
+
+  // Merge Renewal preparation into Reporting: five signals there, one topic fewer, and the target counts as edited.
+  list = await (await call(owner, 'POST', `/pulse/topics/${id('Renewal preparation')}/merge`, { intoId: id('Reporting and digests') })).json()
+  assert.deepEqual([list.topics.length, list.topics.find((t: any) => t.title === 'Reporting and digests').signals, list.topics.find((t: any) => t.title === 'Reporting and digests').edited], [3, 6, true])
+  assert.equal((await call(owner, 'POST', `/pulse/topics/${id('Reporting and digests')}/merge`, { intoId: id('Reporting and digests') })).status, 422, 'not into itself')
+
+  // Split two signals out of Handoffs; at least one has to stay.
+  const handoffSignals = (await pg.query<any>(`select s.id from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.topic_id = $1 order by s.created_at, s.id`, [id('Handoffs and lost context')])).rows.map((r: any) => r.id)
+  assert.equal((await call(owner, 'POST', `/pulse/topics/${id('Handoffs and lost context')}/split`, { signalIds: handoffSignals, title: 'All of it' })).status, 422, 'something must stay behind')
+  list = await (await call(owner, 'POST', `/pulse/topics/${id('Handoffs and lost context')}/split`, { signalIds: handoffSignals.slice(0, 1), title: 'Context for support' })).json()
+  assert.deepEqual(list.topics.filter((t: any) => ['Context for support', 'Handoffs and lost context'].includes(t.title)).map((t: any) => t.signals).sort(), [1, 2])
+
+  // The daily regrouping leaves every topic a person touched exactly as it is.
+  const touched = list.topics.map((t: any) => [t.title, t.signals])
+  list = await (await call(owner, 'POST', '/pulse/topics/update', { mode: 'regroup' })).json()
+  assert.deepEqual(list.topics.map((t: any) => [t.title, t.signals]).sort(), touched.sort())
+})
+
+test('topics: a signal that is no longer kept leaves its topic, and a new one joins the topic it fits when topics next update', async () => {
+  const { call, owner, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  await fillDemoSignals(db, slug, true)
+  let list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  const trustCount = list.topics.find((t: any) => t.title === 'Trust and accuracy').signals
+
+  // Keep a waiting signal about the score, and dismiss a kept one: nothing moves until the next update.
+  const waiting = (await (await call(owner, 'GET', '/pulse/signals?status=new')).json()).signals.find((s: any) => /score/.test(s.body))
+  await call(owner, 'PATCH', `/pulse/signals/${waiting.id}`, { status: 'kept' })
+  const added = await (await call(owner, 'POST', '/pulse/signals', { body: 'Nobody can explain why the score keeps changing.', channel: 'support_tickets', saidBy: 'Pat', account: 'Initech' })).json()
+  assert.equal(added.channel, 'support_tickets')
+  list = await (await call(owner, 'GET', '/pulse/topics')).json()
+  assert.equal(list.topics.find((t: any) => t.title === 'Trust and accuracy').signals, trustCount, 'rankings do not shift while a page is read')
+  assert.equal(list.sinceUpdate, 2)
+
+  list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  assert.equal(list.topics.find((t: any) => t.title === 'Trust and accuracy').signals, trustCount + 2, 'both joined the existing topic')
+  assert.equal(list.sinceUpdate, 0)
+
+  const first = (await pg.query<any>(`select s.id from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id join core.pulse_topics t on t.id = ts.topic_id where t.title = 'Trust and accuracy' limit 1`)).rows[0].id
+  await call(owner, 'PATCH', `/pulse/signals/${first}`, { status: 'dismissed' })
+  list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  assert.equal(list.topics.find((t: any) => t.title === 'Trust and accuracy').signals, trustCount + 1, 'a dismissed signal leaves its topic')
+})
+
+test('the scheduled job updates the topics of every workspace that has Pulse on, and no other', async () => {
+  const { call, owner, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await fillDemoSignals(db, slug, true)
+  assert.deepEqual(await runPulseUpdates(db), { workspaces: 0, regrouped: 0 }, 'off: nothing happens')
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 1 }, 'the first run regroups')
+  assert.equal((await (await call(owner, 'GET', '/pulse/topics')).json()).topics.length, 4)
+  assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 0 }, 'the next hour only attaches')
 })

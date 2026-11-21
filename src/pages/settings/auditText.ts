@@ -30,6 +30,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.legal_holds': 'Legal hold',
   'core.workspace_setup': 'Workspace setup',
   'core.workspace_features': 'Preview feature',
+  'core.pulse_weights': 'Pulse weights',
   'insights.workflows': 'Journey',
   'delivery.story_tickets': 'Jira ticket',
 }

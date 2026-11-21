@@ -2016,6 +2016,7 @@ paths:
               required: [text]
               properties:
                 text: { type: string }
+                channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other], description: 'Defaults to call_notes.' }
                 sourceLabel: { type: [string, 'null'], description: 'What the notes are, for example "Renewal call with Northwind".' }
                 account: { type: [string, 'null'] }
                 occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
@@ -2050,6 +2051,7 @@ paths:
               properties:
                 status: { type: string, enum: [new, kept, dismissed] }
                 kind: { type: string, enum: [complaint, request, praise, question, other] }
+                channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
       responses:
         '200':
           description: The signal after the change.
@@ -2058,6 +2060,151 @@ paths:
               schema: { $ref: '#/components/schemas/PulseSignal' }
         '400': { $ref: '#/components/responses/Error' }
         '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/topics:
+    get:
+      operationId: listPulseTopics
+      summary: >
+        Topics (kept signals grouped), ranked, with every number computed from their signals and the channel weights: signals per channel, channels, reach, the score and its full breakdown, and the trend.
+        Also how many signals wait for review, how many kept ones are in no topic, and when topics were last updated. Owners only, and only while the preview is on; everyone else gets 404.
+      responses:
+        '200':
+          description: The topics.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pulse/topics/update:
+    post:
+      operationId: updatePulseTopics
+      summary: >
+        Brings topics up to date now. `attach` (the default) removes signals that are no longer kept, adds new ones to the topic they fit and groups the rest; `regroup` also regroups every topic a person has not
+        edited. The same runs hourly (attach) and about daily (regroup) in the scheduled job. Returns the topics after the update. 404 unless the preview is on for an owner.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                mode: { type: string, enum: [attach, regroup] }
+      responses:
+        '200':
+          description: The topics after the update.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
+  /pulse/topics/{id}:
+    patch:
+      operationId: renamePulseTopic
+      summary: Renames a topic. A topic a person has renamed is left alone by the daily regrouping. Returns the topics.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [title]
+              properties:
+                title: { type: string }
+      responses:
+        '200':
+          description: The topics after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/topics/{id}/merge:
+    post:
+      operationId: mergePulseTopic
+      summary: Merges this topic into another; its signals move and it is marked merged. The target counts as edited. Returns the topics.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [intoId]
+              properties:
+                intoId: { type: string }
+      responses:
+        '200':
+          description: The topics after the merge.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/topics/{id}/split:
+    post:
+      operationId: splitPulseTopic
+      summary: Moves the chosen signals of a topic into a new topic with the given title. At least one signal has to stay behind (422 otherwise). Returns the topics.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signalIds, title]
+              properties:
+                signalIds: { type: array, items: { type: string } }
+                title: { type: string }
+      responses:
+        '200':
+          description: The topics after the split.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/weights:
+    get:
+      operationId: getPulseWeights
+      summary: What a signal from each channel counts for in the ranking (the workspace's own, else the defaults). 404 unless the preview is on for an owner.
+      responses:
+        '200':
+          description: The weights.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseWeights' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: setPulseWeights
+      summary: An owner changes some or all weights (0 to 5). Topics re-rank at once, because the score is computed on read. Recorded in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weights]
+              properties:
+                weights: { type: object, additionalProperties: { type: number } }
+      responses:
+        '200':
+          description: The weights after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseWeights' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
   /setup:
@@ -3709,11 +3856,12 @@ components:
         enabled: { type: boolean }
     PulseSignal:
       type: object
-      required: [id, body, kind, source, sourceLabel, sourceUrl, saidBy, account, occurredOn, status, createdAt]
+      required: [id, body, kind, channel, source, sourceLabel, sourceUrl, saidBy, account, occurredOn, status, createdAt]
       properties:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
+        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
         source: { type: string, enum: [manual, notes, slack], description: 'Typed in, split out of notes, or read from a connected channel.' }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
@@ -3728,6 +3876,7 @@ components:
       properties:
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
+        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'], description: 'Must start with http:// or https://.' }
         saidBy: { type: [string, 'null'] }
@@ -3745,6 +3894,61 @@ components:
             new: { type: integer }
             kept: { type: integer }
             dismissed: { type: integer }
+    PulseWeights:
+      type: object
+      required: [weights]
+      properties:
+        weights:
+          type: object
+          required: [slack, call_notes, support_tickets, conference, other]
+          properties:
+            slack: { type: number }
+            call_notes: { type: number }
+            support_tickets: { type: number }
+            conference: { type: number }
+            other: { type: number }
+    PulseTopic:
+      type: object
+      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        edited: { type: boolean, description: 'A person renamed, merged or split it: the daily regrouping leaves it alone.' }
+        rank: { type: integer, description: '1 is the highest score.' }
+        signals: { type: integer }
+        channels:
+          type: object
+          description: 'Kept signals per channel; a channel with none is left out.'
+          properties:
+            slack: { type: integer }
+            call_notes: { type: integer }
+            support_tickets: { type: integer }
+            conference: { type: integer }
+            other: { type: integer }
+        channelCount: { type: integer }
+        reach: { type: integer, description: 'Distinct accounts behind the signals, or people where no account is named.' }
+        score: { type: number, description: 'The weighted sum of signals per channel, which `breakdown` shows in full.' }
+        breakdown:
+          type: array
+          items:
+            type: object
+            required: [channel, count, weight, subtotal]
+            properties:
+              channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+              count: { type: integer }
+              weight: { type: number }
+              subtotal: { type: number }
+        trend: { type: string, enum: [new, rising, steady, fading] }
+    PulseTopicList:
+      type: object
+      required: [topics, weights, updatedAt, unsorted, toReview, sinceUpdate]
+      properties:
+        topics: { type: array, items: { $ref: '#/components/schemas/PulseTopic' } }
+        weights: { $ref: '#/components/schemas/PulseWeights/properties/weights' }
+        updatedAt: { type: [string, 'null'], description: 'When topics were last updated; null before the first update.' }
+        unsorted: { type: integer, description: 'Kept signals that are in no topic.' }
+        toReview: { type: integer, description: 'Signals waiting to be kept or dismissed.' }
+        sinceUpdate: { type: integer, description: 'Kept signals added since topics were last updated.' }
     Setup:
       type: object
       required: [categories, done, total, complete]

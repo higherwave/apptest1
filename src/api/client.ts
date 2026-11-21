@@ -158,12 +158,22 @@ export type PulseSignal = components['schemas']['PulseSignal']
 export type PulseSignalList = components['schemas']['PulseSignalList']
 export type NewPulseSignal = components['schemas']['NewPulseSignal']
 export type PulseStatus = PulseSignal['status']
+export type PulseChannel = PulseSignal['channel']
+export type PulseTopic = components['schemas']['PulseTopic']
+export type PulseTopicList = components['schemas']['PulseTopicList']
+export type PulseWeights = components['schemas']['PulseWeights']['weights']
 export const getPulsePreview = () => request<PulsePreview>('/pulse/preview')
 export const setPulsePreview = (enabled: boolean) => request<PulsePreview>('/pulse/preview', { method: 'PUT', body: { enabled } })
 export const listPulseSignals = (status?: PulseStatus) => request<PulseSignalList>(`/pulse/signals${status ? `?status=${status}` : ''}`)
 export const addPulseSignal = (body: NewPulseSignal) => request<PulseSignal>('/pulse/signals', { method: 'POST', body })
-export const importPulseNotes = (body: { text: string; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }) => request<{ created: number; skipped: number }>('/pulse/signals/import', { method: 'POST', body })
-export const updatePulseSignal = (id: string, body: { status?: PulseStatus; kind?: PulseSignal['kind'] }) => request<PulseSignal>(`/pulse/signals/${id}`, { method: 'PATCH', body })
+export const importPulseNotes = (body: { text: string; channel?: PulseChannel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }) => request<{ created: number; skipped: number }>('/pulse/signals/import', { method: 'POST', body })
+export const listPulseTopics = () => request<PulseTopicList>('/pulse/topics')
+export const updatePulseTopics = (mode: 'attach' | 'regroup' = 'attach') => request<PulseTopicList>('/pulse/topics/update', { method: 'POST', body: { mode } })
+export const renamePulseTopic = (id: string, title: string) => request<PulseTopicList>(`/pulse/topics/${id}`, { method: 'PATCH', body: { title } })
+export const mergePulseTopic = (id: string, intoId: string) => request<PulseTopicList>(`/pulse/topics/${id}/merge`, { method: 'POST', body: { intoId } })
+export const getPulseWeights = () => request<components['schemas']['PulseWeights']>('/pulse/weights')
+export const setPulseWeights = (weights: Partial<PulseWeights>) => request<components['schemas']['PulseWeights']>('/pulse/weights', { method: 'PUT', body: { weights } })
+export const updatePulseSignal = (id: string, body: { status?: PulseStatus; kind?: PulseSignal['kind']; channel?: PulseChannel }) => request<PulseSignal>(`/pulse/signals/${id}`, { method: 'PATCH', body })
 export type LaunchSuccess = components['schemas']['LaunchSuccess']
 export const getLaunchSuccess = (id: string) => request<LaunchSuccess>(`/launches/${id}/success`)
 export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })

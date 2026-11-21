@@ -38,6 +38,9 @@ export const SAMPLES: Sample[] = [
   { body: 'lol the new dashboard is fine i guess', kind: 'other', source: 'slack', label: '#cs-feedback', by: 'Samir Qureshi', account: 'Wide World Importers', daysAgo: 0, status: 'new' },
 ]
 
+/** Where each sample was heard, from the fixed channel list. */
+const channelOf = (s: Sample) => (s.source === 'slack' ? 'slack' : s.source === 'notes' ? 'call_notes' : /support ticket/i.test(s.label) ? 'support_tickets' : /conference/i.test(s.label) ? 'conference' : 'other')
+
 export type Report = { lines: string[]; added: number }
 
 export async function fillDemoSignals(db: Db, slug: string, apply: boolean, samples: Sample[] = SAMPLES): Promise<Report> {
@@ -49,13 +52,17 @@ export async function fillDemoSignals(db: Db, slug: string, apply: boolean, samp
   let added = 0
   for (const [i, s] of samples.entries()) {
     const have = (await wdb.query('select 1 from core.pulse_signals where workspace_id = $1 and body = $2 limit 1', [ws.id, s.body])).rows.length > 0
-    if (have) continue
+    if (have) {
+      // A sample added before channels existed: give it its channel, touching nothing else.
+      if (apply) await wdb.query(`update core.pulse_signals set channel = $3 where workspace_id = $1 and body = $2 and channel <> $3`, [ws.id, s.body, channelOf(s)])
+      continue
+    }
     lines.push(`${apply ? 'adding' : 'would add'} [${s.source}] ${s.kind}: ${s.body.slice(0, 70)}${s.body.length > 70 ? '…' : ''}`)
     if (!apply) continue
     await wdb.query(
-      `insert into core.pulse_signals (workspace_id, body, kind, source, source_label, said_by, account, occurred_on, status, external_id, created_by)
-       values ($1, $2, $3, $4, $5, $6, $7, (current_date - $8::int), $9, $10, $11)`,
-      [ws.id, s.body, s.kind, s.source, s.label, s.by, s.account, s.daysAgo, s.status ?? 'kept', s.source === 'slack' ? `sample-${i}` : null, owner?.user_id ?? null],
+      `insert into core.pulse_signals (workspace_id, body, kind, channel, source, source_label, said_by, account, occurred_on, status, external_id, created_by)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, (current_date - $9::int), $10, $11, $12)`,
+      [ws.id, s.body, s.kind, channelOf(s), s.source, s.label, s.by, s.account, s.daysAgo, s.status ?? 'kept', s.source === 'slack' ? `sample-${i}` : null, owner?.user_id ?? null],
     )
     added++
   }

@@ -12,7 +12,8 @@ export function SettingsHeader() {
   const { pathname } = useLocation()
   const me = useMe()
   const setup = useSetup(me.data?.role === 'owner')
-  const sections = SETTINGS_SECTIONS.filter((s) => s.key === 'categories' || s.key === 'notifications' || me.data?.role === 'owner')
+  // The Pulse tab is for owners, and appears only while the Pulse preview is on.
+  const sections = SETTINGS_SECTIONS.filter((s) => s.key === 'categories' || s.key === 'notifications' || (me.data?.role === 'owner' && (s.key !== 'pulse' || !!me.data.features.pulse)))
   const current = sections.findIndex((s) => pathname === `/settings/${s.key}`)
   return (
     <PageHero title="Admin" description="How this workspace is set up: its experience categories, what the AI and the app are using, who can use it, and what has changed" glow="left">

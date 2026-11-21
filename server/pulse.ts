@@ -6,6 +6,9 @@
 import type { RequestContext } from './context.js'
 import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
+import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, topicStats, type Channel, type TopicStats } from './pulse-topics.js'
+
+export { CHANNELS, isChannel, type Channel }
 
 export const SIGNAL_KINDS = ['complaint', 'request', 'praise', 'question', 'other'] as const
 export type SignalKind = (typeof SIGNAL_KINDS)[number]
@@ -16,6 +19,7 @@ export type Signal = {
   id: string
   body: string
   kind: SignalKind
+  channel: Channel
   source: SignalSource
   sourceLabel: string | null
   sourceUrl: string | null
@@ -60,6 +64,7 @@ const toSignal = (r: Record<string, any>): Signal => ({
   id: r.id,
   body: r.body,
   kind: r.kind,
+  channel: r.channel,
   source: r.source,
   sourceLabel: r.source_label ?? null,
   sourceUrl: r.source_url ?? null,
@@ -70,7 +75,7 @@ const toSignal = (r: Record<string, any>): Signal => ({
   createdAt: new Date(r.created_at).toISOString(),
 })
 
-const SELECT = `select id, body, kind, source, source_label, source_url, said_by, account, to_char(occurred_on, 'YYYY-MM-DD') as occurred_on, status, created_at from core.pulse_signals`
+const SELECT = `select id, body, kind, channel, source, source_label, source_url, said_by, account, to_char(occurred_on, 'YYYY-MM-DD') as occurred_on, status, created_at from core.pulse_signals`
 
 export async function listSignals(db: Queryable, ctx: RequestContext, status?: SignalStatus): Promise<SignalList> {
   const rows = (await db.query(`${SELECT} where workspace_id = $1 and ($2::text is null or status = $2) order by coalesce(occurred_on, created_at::date) desc, created_at desc limit 500`, [ctx.workspaceId, status ?? null])).rows
@@ -79,16 +84,16 @@ export async function listSignals(db: Queryable, ctx: RequestContext, status?: S
   return { signals: rows.map(toSignal), counts }
 }
 
-export type NewSignal = { body: string; kind?: SignalKind; sourceLabel?: string | null; sourceUrl?: string | null; saidBy?: string | null; account?: string | null; occurredOn?: string | null }
+export type NewSignal = { body: string; kind?: SignalKind; channel?: Channel; sourceLabel?: string | null; sourceUrl?: string | null; saidBy?: string | null; account?: string | null; occurredOn?: string | null }
 const clean = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null)
 
 /** A signal typed in by a person. A person who adds one has already judged it, so it starts kept. */
 export async function addSignal(db: Queryable, ctx: RequestContext, input: NewSignal): Promise<Signal> {
   const row = (
     await db.query(
-      `insert into core.pulse_signals (workspace_id, body, kind, source, source_label, source_url, said_by, account, occurred_on, status, created_by)
-       values ($1, $2, $3, 'manual', $4, $5, $6, $7, $8, 'kept', $9) returning id`,
-      [ctx.workspaceId, input.body.trim(), input.kind ?? 'other', clean(input.sourceLabel), clean(input.sourceUrl), clean(input.saidBy), clean(input.account), input.occurredOn ?? null, ctx.userId],
+      `insert into core.pulse_signals (workspace_id, body, kind, channel, source, source_label, source_url, said_by, account, occurred_on, status, kept_at, created_by)
+       values ($1, $2, $3, $4, 'manual', $5, $6, $7, $8, $9, 'kept', now(), $10) returning id`,
+      [ctx.workspaceId, input.body.trim(), input.kind ?? 'other', input.channel ?? 'other', clean(input.sourceLabel), clean(input.sourceUrl), clean(input.saidBy), clean(input.account), input.occurredOn ?? null, ctx.userId],
     )
   ).rows[0]
   return toSignal((await db.query(`${SELECT} where id = $1`, [row.id])).rows[0])
@@ -108,7 +113,7 @@ export function splitNotes(text: string): string[] {
 export const MAX_IMPORT = 200
 
 /** Splits notes into signals that wait for review (status new). Returns how many were made, and how many paragraphs were left out when over the cap. */
-export async function importNotes(db: Db, ctx: RequestContext, input: { text: string; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }): Promise<{ created: number; skipped: number }> {
+export async function importNotes(db: Db, ctx: RequestContext, input: { text: string; channel?: Channel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }): Promise<{ created: number; skipped: number }> {
   const all = splitNotes(input.text)
   const parts = all.slice(0, MAX_IMPORT)
   if (!parts.length) return { created: 0, skipped: 0 }
@@ -116,16 +121,193 @@ export async function importNotes(db: Db, ctx: RequestContext, input: { text: st
     await insertMany(
       tx,
       'core.pulse_signals',
-      parts.map((body) => ({ workspace_id: ctx.workspaceId, body, kind: 'other', source: 'notes', source_label: clean(input.sourceLabel), account: clean(input.account), occurred_on: input.occurredOn ?? null, status: 'new', created_by: ctx.userId })),
+      parts.map((body) => ({ workspace_id: ctx.workspaceId, body, kind: 'other', channel: input.channel ?? 'call_notes', source: 'notes', source_label: clean(input.sourceLabel), account: clean(input.account), occurred_on: input.occurredOn ?? null, status: 'new', created_by: ctx.userId })),
     )
   })
   return { created: parts.length, skipped: all.length - parts.length }
 }
 
 /** Keep, dismiss or put back a signal, and optionally say what kind it is. */
-export async function updateSignal(db: Queryable, ctx: RequestContext, id: string, patch: { status?: SignalStatus; kind?: SignalKind }): Promise<Signal> {
+export async function updateSignal(db: Queryable, ctx: RequestContext, id: string, patch: { status?: SignalStatus; kind?: SignalKind; channel?: Channel }): Promise<Signal> {
   const found = (await db.query(`select id from core.pulse_signals where id = $1 and workspace_id = $2`, [id, ctx.workspaceId])).rows[0]
   if (!found) throw new SignalNotFound()
-  await db.query(`update core.pulse_signals set status = coalesce($2, status), kind = coalesce($3, kind) where id = $1`, [id, patch.status ?? null, patch.kind ?? null])
+  await db.query(`update core.pulse_signals set kept_at = case when $2 = 'kept' and status <> 'kept' then now() else kept_at end, status = coalesce($2, status), kind = coalesce($3, kind), channel = coalesce($4, channel) where id = $1`, [id, patch.status ?? null, patch.kind ?? null, patch.channel ?? null])
   return toSignal((await db.query(`${SELECT} where id = $1`, [id])).rows[0])
+}
+
+
+// Weights ----------------------------------------------------------------------------------------------------------------------
+
+export type Weights = Record<Channel, number>
+
+/** What a signal from each channel counts for in this workspace: its own setting, else the default. */
+export async function getWeights(db: Queryable, workspaceId: string): Promise<Weights> {
+  const w: Weights = { ...DEFAULT_WEIGHTS }
+  for (const r of (await db.query(`select channel, weight::float8 as weight from core.pulse_weights where workspace_id = $1`, [workspaceId])).rows) if (isChannel(r.channel)) w[r.channel] = Number(r.weight)
+  return w
+}
+
+/** An owner changes some or all weights. Recorded in the audit log with what each was before. */
+export async function setWeights(db: Db, ctx: RequestContext, patch: Partial<Weights>): Promise<Weights> {
+  await db.transaction(async (tx) => {
+    const before = await getWeights(tx, ctx.workspaceId)
+    for (const [channel, weight] of Object.entries(patch)) {
+      if (!isChannel(channel) || weight === undefined) continue
+      await tx.query(
+        `insert into core.pulse_weights (workspace_id, channel, weight, updated_by) values ($1, $2, $3, $4)
+         on conflict (workspace_id, channel) do update set weight = excluded.weight, updated_by = excluded.updated_by, updated_at = now()`,
+        [ctx.workspaceId, channel, weight, ctx.userId],
+      )
+    }
+    const after = await getWeights(tx, ctx.workspaceId)
+    if (JSON.stringify(before) !== JSON.stringify(after)) await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.pulse_weights', entity_id: null, verb: 'changed', before, after }])
+  })
+  return getWeights(db, ctx.workspaceId)
+}
+
+// Topics -----------------------------------------------------------------------------------------------------------------------
+
+export class TopicNotFound extends Error {}
+export class BadSplit extends Error {}
+
+export type Topic = TopicStats & { id: string; title: string; edited: boolean; rank: number }
+export type TopicList = {
+  topics: Topic[]
+  weights: Weights
+  updatedAt: string | null
+  /** Kept signals that are in no topic yet (a signal on its own is not a topic). */
+  unsorted: number
+  /** Signals waiting for a person to keep or dismiss them. */
+  toReview: number
+  /** Kept signals added since topics were last updated. */
+  sinceUpdate: number
+}
+
+type Actor = { workspaceId: string; userId: string | null }
+
+/**
+ * Brings topics up to date with the kept signals. `attach`: signals that were un-kept leave their topic, a new signal joins the topic it fits best, and what fits nowhere is grouped
+ * among itself. `regroup`: first drops every topic a person has not touched, then does the same, so everything not edited is grouped afresh. A topic a person renamed, merged or split is
+ * never regrouped. Rankings only change here, never when a signal is merely kept, so a page does not shift while someone reads it.
+ */
+export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup'): Promise<{ topics: number; attached: number; created: number }> {
+  return db.transaction(async (tx) => {
+    const ws = who.workspaceId
+    await tx.query(`delete from core.pulse_topic_signals where workspace_id = $1 and signal_id in (select id from core.pulse_signals where workspace_id = $1 and status <> 'kept')`, [ws])
+    if (mode === 'regroup') await tx.query(`delete from core.pulse_topics where workspace_id = $1 and edited = false and status = 'active'`, [ws])
+    // Topics a person edited that are now empty stay out of the way; an untouched empty one is just removed.
+    await tx.query(`delete from core.pulse_topics t where t.workspace_id = $1 and t.status = 'active' and not exists (select 1 from core.pulse_topic_signals s where s.topic_id = t.id)`, [ws])
+
+    const loose = (await tx.query(`select id, body from core.pulse_signals where workspace_id = $1 and status = 'kept' and id not in (select signal_id from core.pulse_topic_signals) order by occurred_on desc nulls last, created_at, id`, [ws])).rows as { id: string; body: string }[]
+    const existing = (await tx.query(`select t.id, s.body from core.pulse_topics t join core.pulse_topic_signals ts on ts.topic_id = t.id join core.pulse_signals s on s.id = ts.signal_id where t.workspace_id = $1 and t.status = 'active'`, [ws])).rows as { id: string; body: string }[]
+    const byTopic = new Map<string, string[]>()
+    for (const r of existing) byTopic.set(r.id, [...(byTopic.get(r.id) ?? []), r.body])
+    const topics = [...byTopic.entries()].map(([id, bodies]) => ({ id, bodies }))
+
+    let attached = 0
+    const rest: { id: string; body: string }[] = []
+    for (const sig of loose) {
+      const into = bestTopic(sig.body, topics)
+      if (into) {
+        await tx.query(`insert into core.pulse_topic_signals (signal_id, topic_id, workspace_id) values ($1, $2, $3)`, [sig.id, into, ws])
+        topics.find((t) => t.id === into)!.bodies.push(sig.body)
+        attached++
+      } else rest.push(sig)
+    }
+    let created = 0
+    for (const g of groupSignals(rest)) {
+      const topic = (await tx.query(`insert into core.pulse_topics (workspace_id, title, created_by) values ($1, $2, $3) returning id`, [ws, g.title, who.userId])).rows[0]
+      await insertMany(tx, 'core.pulse_topic_signals', g.ids.map((id) => ({ signal_id: id, topic_id: topic.id, workspace_id: ws })))
+      created++
+    }
+    await tx.query(
+      `insert into core.pulse_state (workspace_id, updated_at, last_regroup_at, updated_by) values ($1, now(), case when $2 then now() end, $3)
+       on conflict (workspace_id) do update set updated_at = now(), last_regroup_at = case when $2 then now() else core.pulse_state.last_regroup_at end, updated_by = excluded.updated_by`,
+      [ws, mode === 'regroup', who.userId],
+    )
+    const total = Number((await tx.query(`select count(*)::int as n from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows[0].n)
+    return { topics: total, attached, created }
+  })
+}
+
+/** Topics with every number computed from their kept signals and the weights, ranked by score. */
+export async function listTopics(db: Queryable, ctx: RequestContext, today: Date = new Date()): Promise<TopicList> {
+  const ws = ctx.workspaceId
+  const weights = await getWeights(db, ws)
+  const topicRows = (await db.query(`select id, title, edited from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows
+  const sigRows = (
+    await db.query(
+      `select ts.topic_id, s.channel, s.account, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
+         from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and s.status = 'kept'`,
+      [ws],
+    )
+  ).rows
+  const by = new Map<string, typeof sigRows>()
+  for (const r of sigRows) by.set(r.topic_id, [...(by.get(r.topic_id) ?? []), r])
+  const topics = topicRows
+    .map((t) => ({ id: t.id as string, title: t.title as string, edited: !!t.edited, ...topicStats((by.get(t.id) ?? []).map((r) => ({ channel: r.channel as Channel, account: r.account, saidBy: r.said_by, occurredOn: r.occurred_on, createdAt: new Date(r.created_at).toISOString() })), weights, today) }))
+    .filter((t) => t.signals > 0)
+    .sort((a, b) => b.score - a.score || b.signals - a.signals || a.title.localeCompare(b.title))
+    .map((t, i) => ({ ...t, rank: i + 1 }))
+  const state = (await db.query(`select updated_at from core.pulse_state where workspace_id = $1`, [ws])).rows[0]
+  const counts = (
+    await db.query(
+      `select count(*) filter (where status = 'new')::int as to_review,
+              count(*) filter (where status = 'kept' and id not in (select signal_id from core.pulse_topic_signals))::int as unsorted,
+              count(*) filter (where status = 'kept' and $2::timestamptz is not null and coalesce(kept_at, created_at) > $2::timestamptz)::int as since
+         from core.pulse_signals where workspace_id = $1`,
+      [ws, state ? new Date(state.updated_at).toISOString() : null],
+    )
+  ).rows[0]
+  return { topics, weights, updatedAt: state ? new Date(state.updated_at).toISOString() : null, unsorted: counts.unsorted, toReview: counts.to_review, sinceUpdate: counts.since }
+}
+
+export async function renameTopic(db: Queryable, ctx: RequestContext, id: string, title: string): Promise<void> {
+  const r = await db.query(`update core.pulse_topics set title = $3, edited = true, updated_at = now() where id = $1 and workspace_id = $2 and status = 'active' returning id`, [id, ctx.workspaceId, title.trim()])
+  if (!r.rows.length) throw new TopicNotFound()
+}
+
+/** Everything in `id` moves into `intoId`; `id` is marked merged and the target counts as edited. */
+export async function mergeTopic(db: Db, ctx: RequestContext, id: string, intoId: string): Promise<void> {
+  if (id === intoId) throw new BadSplit()
+  await db.transaction(async (tx) => {
+    const found = (await tx.query(`select id from core.pulse_topics where workspace_id = $1 and status = 'active' and id = any($2::uuid[])`, [ctx.workspaceId, [id, intoId]])).rows
+    if (found.length !== 2) throw new TopicNotFound()
+    await tx.query(`update core.pulse_topic_signals set topic_id = $2 where topic_id = $1 and workspace_id = $3`, [id, intoId, ctx.workspaceId])
+    await tx.query(`update core.pulse_topics set status = 'merged', merged_into = $2, updated_at = now() where id = $1`, [id, intoId])
+    await tx.query(`update core.pulse_topics set edited = true, updated_at = now() where id = $1`, [intoId])
+  })
+}
+
+/** Moves the chosen signals out of a topic into a new one. Both count as edited. */
+export async function splitTopic(db: Db, ctx: RequestContext, id: string, signalIds: string[], title: string): Promise<string> {
+  return db.transaction(async (tx) => {
+    const found = (await tx.query(`select id from core.pulse_topics where id = $1 and workspace_id = $2 and status = 'active'`, [id, ctx.workspaceId])).rows[0]
+    if (!found) throw new TopicNotFound()
+    const inTopic = (await tx.query(`select signal_id from core.pulse_topic_signals where topic_id = $1 and signal_id = any($2::uuid[])`, [id, signalIds])).rows.map((r) => r.signal_id as string)
+    const total = Number((await tx.query(`select count(*)::int as n from core.pulse_topic_signals where topic_id = $1`, [id])).rows[0].n)
+    if (!inTopic.length || inTopic.length !== new Set(signalIds).size || inTopic.length >= total) throw new BadSplit()
+    const created = (await tx.query(`insert into core.pulse_topics (workspace_id, title, edited, created_by) values ($1, $2, true, $3) returning id`, [ctx.workspaceId, title.trim(), ctx.userId])).rows[0]
+    await tx.query(`update core.pulse_topic_signals set topic_id = $2 where topic_id = $1 and signal_id = any($3::uuid[])`, [id, created.id, inTopic])
+    await tx.query(`update core.pulse_topics set edited = true, updated_at = now() where id = $1`, [id])
+    return created.id as string
+  })
+}
+
+/** The scheduled update for every workspace that has the preview on: new signals attach hourly, and everything not edited is regrouped about once a day. Never throws for one workspace. */
+export async function runPulseUpdates(platformDb: Db): Promise<{ workspaces: number; regrouped: number }> {
+  const on = (await platformDb.query(`select workspace_id from core.workspace_features where feature = 'pulse' and enabled`)).rows as { workspace_id: string }[]
+  let regrouped = 0
+  for (const { workspace_id } of on) {
+    try {
+      const db = platformDb.inWorkspace(workspace_id)
+      const state = (await db.query(`select last_regroup_at from core.pulse_state where workspace_id = $1`, [workspace_id])).rows[0]
+      const due = !state?.last_regroup_at || Date.now() - new Date(state.last_regroup_at).getTime() > 20 * 3600_000
+      await updateTopics(db, { workspaceId: workspace_id, userId: null }, due ? 'regroup' : 'attach')
+      if (due) regrouped++
+    } catch (err) {
+      console.error('pulse update failed', err instanceof Error ? err.message : err)
+    }
+  }
+  return { workspaces: on.length, regrouped }
 }

@@ -7,7 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
-  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, type NewPulseSignal, type PulseSignal, type PulseStatus,
+  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -393,4 +393,34 @@ export const useImportPulseNotes = () => {
 export const useUpdatePulseSignal = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (v: { id: string; status?: PulseStatus; kind?: PulseSignal['kind'] }) => updatePulseSignal(v.id, { status: v.status, kind: v.kind }), onSuccess: () => refreshPulse(queryClient) })
+}
+
+/** Pulse topics: ranked, with every number computed on the server from the kept signals and the channel weights. */
+export const usePulseTopics = () => useQuery({ queryKey: ['pulse', 'topics'], queryFn: listPulseTopics, retry: false })
+const setTopics = (queryClient: ReturnType<typeof useQueryClient>) => (data: Awaited<ReturnType<typeof listPulseTopics>>) => {
+  queryClient.setQueryData(['pulse', 'topics'], data)
+  void queryClient.invalidateQueries({ queryKey: ['pulse', 'signals'] })
+}
+export const useUpdatePulseTopics = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (mode: 'attach' | 'regroup' = 'attach') => updatePulseTopics(mode), onSuccess: setTopics(queryClient) })
+}
+export const useRenamePulseTopic = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { id: string; title: string }) => renamePulseTopic(v.id, v.title), onSuccess: setTopics(queryClient) })
+}
+export const useMergePulseTopic = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: (v: { id: string; intoId: string }) => mergePulseTopic(v.id, v.intoId), onSuccess: setTopics(queryClient) })
+}
+export const usePulseWeights = (enabled = true) => useQuery({ queryKey: ['pulse', 'weights'], queryFn: getPulseWeights, enabled, retry: false })
+export const useSetPulseWeights = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (weights: Partial<PulseWeights>) => setPulseWeights(weights),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['pulse', 'weights'], data)
+      void queryClient.invalidateQueries({ queryKey: ['pulse', 'topics'] })
+    },
+  })
 }
