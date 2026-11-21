@@ -180,6 +180,13 @@ export const createPulseProject = (body: { name: string; description: string | n
 export const getPulseOrigin = (projectId: string) => request<PulseOrigin>(`/pulse/origin/${projectId}`)
 export const getPulseWeights = () => request<components['schemas']['PulseWeights']>('/pulse/weights')
 export const setPulseWeights = (weights: Partial<PulseWeights>) => request<components['schemas']['PulseWeights']>('/pulse/weights', { method: 'PUT', body: { weights } })
+export type PulseSource = components['schemas']['PulseSource']
+export type PulseSourceList = components['schemas']['PulseSourceList']
+export const listPulseSources = () => request<PulseSourceList>('/pulse/sources')
+export const addPulseSource = (body: components['schemas']['NewPulseSource']) => request<PulseSource>('/pulse/sources', { method: 'POST', body })
+export const updatePulseSource = (id: string, body: components['schemas']['UpdatePulseSource']) => request<PulseSource>(`/pulse/sources/${id}`, { method: 'PATCH', body })
+export const removePulseSource = (id: string) => request<null>(`/pulse/sources/${id}`, { method: 'DELETE' })
+export const checkPulseSource = (id: string) => request<{ added: number; error: string | null }>(`/pulse/sources/${id}/check`, { method: 'POST' })
 export const updatePulseSignal = (id: string, body: { status?: PulseStatus; kind?: PulseSignal['kind']; channel?: PulseChannel }) => request<PulseSignal>(`/pulse/signals/${id}`, { method: 'PATCH', body })
 export type LaunchSuccess = components['schemas']['LaunchSuccess']
 export const getLaunchSuccess = (id: string) => request<LaunchSuccess>(`/launches/${id}/success`)

@@ -40,6 +40,12 @@ function recordingSlack(opts: { live?: boolean } = {}) {
     },
     async openView() {},
     async respond() {},
+    async findChannel(name) {
+      return `C_${name}`
+    },
+    async history() {
+      return []
+    },
     async permalink(channel, ts) {
       return `https://example-workspace.slack.test/archives/${channel}/p${ts.replace('.', '')}`
     },

@@ -130,6 +130,10 @@ export const pulseWeightsSchema = z.object({
     .refine((w) => Object.keys(w).length > 0, 'Give at least one weight.')
     .refine((w) => Object.keys(w).every((k) => CHANNEL_KEYS.includes(k)), 'Weights are set per channel: slack, call_notes, support_tickets, conference or other.'),
 })
+export const newSourceSchema = z.object({ name: text(80).min(1, 'Enter a Slack channel name.'), channel: channel.optional(), mode: z.enum(['keep', 'review']).optional() })
+export const updateSourceSchema = z
+  .object({ channel: channel.optional(), mode: z.enum(['keep', 'review']).optional(), enabled: z.boolean().optional() })
+  .refine((v) => v.channel !== undefined || v.mode !== undefined || v.enabled !== undefined, 'Say what to change.')
 export const pulseQuestionsSchema = z.object({ topicIds: z.array(z.string().uuid()).min(1, 'Choose at least one topic.').max(10, 'Choose up to ten topics.'), method: z.enum(METHOD_OPTIONS).default('User Discussions') })
 export const pulseProjectSchema = z.object({
   name: text(120).min(1, 'Enter a project name.'),

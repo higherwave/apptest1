@@ -203,6 +203,27 @@ try {
   ok('a weight above 5 is refused, with the Save button off', await page.evaluate(() => document.querySelector('[data-testid="weights-save"]').disabled === true && /0 to 5/.test(document.body.innerText)))
   await page.screenshot({ path: process.env.PULSE_SHOT || '/tmp/pulse.png' })
 
+  // Feedback sources live under the weights: list a channel, read it, and its messages wait in the Signals list for review.
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="source-name"]', { timeout: 8000 })
+  await page.type('#source-name', '#customer-feedback')
+  await click(page, 'source-add')
+  await page.waitForSelector('[data-testid="source-customer-feedback"]', { timeout: 8000 })
+  ok('a Slack channel can be listed as a source, waiting for review by default', await page.evaluate(() => document.querySelector('[data-testid="source-mode-customer-feedback"]').value === 'review'))
+  await click(page, 'source-check-customer-feedback')
+  await page.waitForFunction(() => document.querySelector('[data-testid="source-note"]')?.innerText.includes('4 new messages'), { timeout: 8000 })
+  ok('Check now reads the channel and says how many messages it found', true)
+  await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
+  ok('those messages wait in the Signals list, marked as from the channel', await page.evaluate(() => document.body.innerText.includes('#customer-feedback') && document.body.innerText.includes('weekly digest does not match')))
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="source-check-customer-feedback"]', { timeout: 8000 })
+  await click(page, 'source-check-customer-feedback')
+  await page.waitForFunction(() => document.querySelector('[data-testid="source-note"]')?.innerText.includes('Nothing new'), { timeout: 8000 })
+  ok('reading again adds nothing', true)
+  await click(page, 'source-remove-customer-feedback')
+  await page.waitForFunction(() => !document.querySelector('[data-testid="source-customer-feedback"]'), { timeout: 8000 })
+  ok('a source can be removed', true)
+
   // A read-only visitor never sees it.
   const visitor = await open(null, '/projects')
   ok('a read-only visitor has no Pulse in the launcher', !(await menu(visitor)).includes('Pulse'))

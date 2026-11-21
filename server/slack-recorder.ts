@@ -1,5 +1,5 @@
 // A stand-in for Slack in tests: it records what the app does (posts, updates, forms opened, replies to interactions) and never leaves the machine.
-import { SlackError, type SlackBlocks, type SlackClient } from './slack.js'
+import { SlackError, type SlackBlocks, type SlackClient, type SlackMessage } from './slack.js'
 
 export type Recorded = {
   posts: { channel: string; text: string; threadTs?: string; blocks?: SlackBlocks; ts: string }[]
@@ -10,7 +10,9 @@ export type Recorded = {
 
 export function recordingSlack(opts: { live?: boolean } = {}) {
   const rec: Recorded = { posts: [], updates: [], views: [], responses: [] }
-  const state = { failNext: 0, n: 0, failViews: false, updateError: null as string | null }
+  const state = { failNext: 0, n: 0, failViews: false, updateError: null as string | null, historyError: null as string | null }
+  // What each channel (by id, "C_name") holds, for the feedback-channel reader.
+  const feeds: Record<string, SlackMessage[]> = {}
   const slack: SlackClient = {
     live: opts.live ?? true,
     async channelId(name) {
@@ -37,9 +39,17 @@ export function recordingSlack(opts: { live?: boolean } = {}) {
     async respond(url, body) {
       rec.responses.push({ url, body })
     },
+    async findChannel(name) {
+      if (name === 'missing-channel') throw new SlackError('channel_not_found')
+      return `C_${name}`
+    },
+    async history(channel, oldest, limit) {
+      if (state.historyError) throw new SlackError(state.historyError)
+      return (feeds[channel] ?? []).filter((m) => !oldest || Number(m.ts) > Number(oldest)).sort((a, b) => Number(a.ts) - Number(b.ts)).slice(0, limit)
+    },
     async permalink(channel, ts) {
       return `https://example-workspace.slack.test/archives/${channel}/p${ts.replace('.', '')}`
     },
   }
-  return { slack, ...rec, rec, state }
+  return { slack, ...rec, rec, state, feeds }
 }

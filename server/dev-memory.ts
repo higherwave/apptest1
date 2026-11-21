@@ -4,6 +4,7 @@ import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { createApp } from './app.js'
 import { createDemoDatabase, fakeAuth } from './test-utils.js'
+import { makeSlack, type SlackClient } from './slack.js'
 
 // ANCHOR_CX=true also loads the Anchor CX demo story (db/seed/anchor-cx/README.md).
 const { db } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
@@ -15,7 +16,23 @@ const testAuth = process.env.AUTH_TEST === 'true'
 const testCapture = process.env.CAPTURE_TEST === 'true'
 // The stand-in needs a provider to offer on the sign-in screen (it never contacts Google).
 if (testAuth) Object.assign(env, { GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID ?? 'test', GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET ?? 'test' })
-const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined })
+// SLACK_DEMO=true stands in for Slack's channel reading only, so Pulse's "Check now" can be tried without a Slack app: any channel exists and holds a few
+// Anchor CX customer-feedback messages. Posting stays as with no Slack.
+const demoSlack: SlackClient | undefined =
+  process.env.SLACK_DEMO === 'true'
+    ? (() => {
+        const base = makeSlack({})
+        const at = (hoursAgo: number) => `${Math.floor(Date.now() / 1000) - hoursAgo * 3600}.000100`
+        const messages = [
+          { ts: at(30), text: 'Anchor CX admins keep telling us the weekly digest does not match what they see in the dashboard, so they stopped trusting the health score.', user: 'U1', bot: false, subtype: null },
+          { ts: at(26), text: 'Renewal prep is still a scramble: nobody can tell which accounts have open risks before the QBR.', user: 'U2', bot: false, subtype: null },
+          { ts: at(20), text: 'A customer asked again for scheduled exports of the usage report, third time this month.', user: 'U3', bot: false, subtype: null },
+          { ts: at(5), text: 'When an account changes owners the context from the last call gets lost, handoffs are rough.', user: 'U1', bot: false, subtype: null },
+        ]
+        return { ...base, live: false, reads: true, findChannel: async (name: string) => `C_${name}`, history: async (_c: string, oldest: string | undefined) => messages.filter((m) => !oldest || Number(m.ts) > Number(oldest)) } as SlackClient
+      })()
+    : undefined
+const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack })
 const root = new Hono()
 if (testCapture) {
   // CAPTURE_TEST=true: thumbnails can be switched on and off while the server runs, and may visit this machine's own pages.

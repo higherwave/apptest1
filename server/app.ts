@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, newSourceSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -52,6 +52,7 @@ import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
 import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
+import { addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
 import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, mergeTopic, pulseEnabled, pulseOn, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
@@ -1341,6 +1342,44 @@ export function createApp(options: AppOptions = {}) {
     return c.json({ weights: await setWeights(getDb(), c.get('ctx'), input.weights) })
   })
 
+  // Designated feedback sources (Slack channels): only these are ever read. Owners only, like the rest of Pulse.
+  const sourceError = (err: unknown): never => {
+    if (err instanceof SourceNotFound) throw new ApiError(404, 'not_found', 'Not found.')
+    if (err instanceof BadSource) throw new ApiError(422, 'validation_failed', err.message, 'name')
+    throw err
+  }
+  app.get('/pulse/sources', withReadContext, async (c) => {
+    await pulseOnly(c)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ sources: await listSources(getDb(), c.get('ctx')), slackConnected: await (async () => { const sl = await slackOf(c); return sl.reads ?? sl.live })() })
+  })
+  app.post('/pulse/sources', withContext, async (c) => {
+    await pulseOnly(c)
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can designate a source.')
+    const input = parseBody(newSourceSchema, await readJson(c))
+    return c.json(await addSource(getDb(), c.get('ctx'), await slackOf(c), input).catch(sourceError), 201)
+  })
+  app.patch('/pulse/sources/:id', withContext, async (c) => {
+    await pulseOnly(c)
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change a source.')
+    const input = parseBody(updateSourceSchema, await readJson(c))
+    return c.json(await updateSource(getDb(), c.get('ctx'), signalId(c), input).catch(sourceError))
+  })
+  app.delete('/pulse/sources/:id', withContext, async (c) => {
+    await pulseOnly(c)
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can remove a source.')
+    await removeSource(getDb(), c.get('ctx'), signalId(c)).catch(sourceError)
+    return c.body(null, 204)
+  })
+  app.post('/pulse/sources/:id/check', withContext, limited('pulse_check', 20), async (c) => {
+    await pulseOnly(c)
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can read a source.')
+    const ctx = c.get('ctx')
+    const result = await checkSource(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, await slackOf(c), signalId(c)).catch(sourceError)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json(result)
+  })
+
   // The Stories board ---------------------------------------------------------------------------------------
 
   const storyError = (err: unknown): never => {
@@ -2013,7 +2052,7 @@ export function createApp(options: AppOptions = {}) {
       return null
     })
     // And the Pulse preview's topics: new signals attach each hour, everything not edited is regrouped about once a day. It never fails the reminders either.
-    const pulse = await runPulseUpdates(platformDb()).catch((err) => {
+    const pulse = await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack).catch((err) => {
       console.error('pulse update failed', err instanceof Error ? err.message : err)
       return null
     })

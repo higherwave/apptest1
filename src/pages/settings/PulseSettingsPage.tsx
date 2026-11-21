@@ -3,11 +3,12 @@ import { Button, InlineNotification, TextInput } from '@carbon/react'
 import { friendlyMessage, type PulseWeights } from '../../api/client'
 import { useMe, usePulseWeights, useSetPulseWeights } from '../../api/hooks'
 import { CHANNELS } from '../pulse/channels'
+import { PulseSources } from './PulseSources'
 import { SettingsHeader } from './SettingsHeader'
 import styles from './NotificationsPage.module.scss'
 
 // Admin, Pulse (owners, while the preview is on): what a signal from each channel counts for in a topic's ranking. A change re-ranks the topics at once, because the score is
-// worked out from the signals and these weights every time it is read. The connected sources will be listed here too.
+// worked out from the signals and these weights every time it is read. The designated feedback sources are listed below the weights.
 export function PulseSettingsPage() {
   const me = useMe()
   const weights = usePulseWeights(!!me.data?.features.pulse)
@@ -75,6 +76,7 @@ export function PulseSettingsPage() {
           </Button>
         </div>
       </section>
+      <PulseSources />
     </div>
   )
 }

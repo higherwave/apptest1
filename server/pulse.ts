@@ -6,6 +6,8 @@
 import type { RequestContext } from './context.js'
 import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
+import type { SlackClient } from './slack.js'
+import { checkAllSources } from './pulse-sources.js'
 import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, topicStats, type Channel, type TopicStats } from './pulse-topics.js'
 
 export { CHANNELS, isChannel, type Channel }
@@ -295,12 +297,15 @@ export async function splitTopic(db: Db, ctx: RequestContext, id: string, signal
 }
 
 /** The scheduled update for every workspace that has the preview on: new signals attach hourly, and everything not edited is regrouped about once a day. Never throws for one workspace. */
-export async function runPulseUpdates(platformDb: Db): Promise<{ workspaces: number; regrouped: number }> {
+export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>): Promise<{ workspaces: number; regrouped: number; read: number }> {
   const on = (await platformDb.query(`select workspace_id from core.workspace_features where feature = 'pulse' and enabled`)).rows as { workspace_id: string }[]
   let regrouped = 0
+  let read = 0
   for (const { workspace_id } of on) {
     try {
       const db = platformDb.inWorkspace(workspace_id)
+      // Designated feedback channels are read first, so what they add is grouped in the same run.
+      if (slackFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, await slackFor(workspace_id))).added
       const state = (await db.query(`select last_regroup_at from core.pulse_state where workspace_id = $1`, [workspace_id])).rows[0]
       const due = !state?.last_regroup_at || Date.now() - new Date(state.last_regroup_at).getTime() > 20 * 3600_000
       await updateTopics(db, { workspaceId: workspace_id, userId: null }, due ? 'regroup' : 'attach')
@@ -309,5 +314,5 @@ export async function runPulseUpdates(platformDb: Db): Promise<{ workspaces: num
       console.error('pulse update failed', err instanceof Error ? err.message : err)
     }
   }
-  return { workspaces: on.length, regrouped }
+  return { workspaces: on.length, regrouped, read }
 }

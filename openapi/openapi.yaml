@@ -2306,6 +2306,90 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /pulse/sources:
+    get:
+      operationId: listPulseSources
+      summary: The designated feedback sources (Slack channels) and whether Slack is connected. 404 unless the preview is on for an owner.
+      responses:
+        '200':
+          description: The sources.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSourceList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    post:
+      operationId: addPulseSource
+      summary: An owner designates a Slack channel as a source. With Slack connected the channel must exist (422 otherwise). Recorded in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewPulseSource' }
+      responses:
+        '201':
+          description: The source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSource' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/sources/{id}:
+    patch:
+      operationId: updatePulseSource
+      summary: An owner changes what a source counts as, whether messages wait for review, or switches it off. Recorded in the audit log.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePulseSource' }
+      responses:
+        '200':
+          description: The source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSource' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: removePulseSource
+      summary: An owner stops reading a source. Signals already read stay. Recorded in the audit log.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Removed. }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pulse/sources/{id}/check:
+    post:
+      operationId: checkPulseSource
+      summary: Reads a source now ("Check now"). A Slack problem comes back as `error`, not as a failure; the same is kept on the source.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: What was added.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [added, error]
+                properties:
+                  added: { type: integer }
+                  error: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '429': { $ref: '#/components/responses/Error' }
   /setup:
     get:
       operationId: getSetup
@@ -3993,6 +4077,38 @@ components:
             new: { type: integer }
             kept: { type: integer }
             dismissed: { type: integer }
+    PulseSource:
+      type: object
+      required: [id, kind, name, channel, mode, enabled, lastCheckedAt, lastAdded, lastError]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [slack] }
+        name: { type: string }
+        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        mode: { type: string, enum: [keep, review], description: 'keep: messages count at once. review: they wait for a person.' }
+        enabled: { type: boolean }
+        lastCheckedAt: { type: [string, 'null'], format: date-time }
+        lastAdded: { type: [integer, 'null'] }
+        lastError: { type: [string, 'null'] }
+    PulseSourceList:
+      type: object
+      required: [sources, slackConnected]
+      properties:
+        sources: { type: array, items: { $ref: '#/components/schemas/PulseSource' } }
+        slackConnected: { type: boolean }
+    NewPulseSource:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, description: 'The Slack channel name, with or without #.' }
+        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        mode: { type: string, enum: [keep, review] }
+    UpdatePulseSource:
+      type: object
+      properties:
+        channel: { type: string, enum: [slack, call_notes, support_tickets, conference, other] }
+        mode: { type: string, enum: [keep, review] }
+        enabled: { type: boolean }
     PulseWeights:
       type: object
       required: [weights]

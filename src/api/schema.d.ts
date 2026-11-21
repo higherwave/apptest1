@@ -1708,6 +1708,59 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pulse/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The designated feedback sources (Slack channels) and whether Slack is connected. 404 unless the preview is on for an owner. */
+        get: operations["listPulseSources"];
+        put?: never;
+        /** An owner designates a Slack channel as a source. With Slack connected the channel must exist (422 otherwise). Recorded in the audit log. */
+        post: operations["addPulseSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/sources/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** An owner stops reading a source. Signals already read stay. Recorded in the audit log. */
+        delete: operations["removePulseSource"];
+        options?: never;
+        head?: never;
+        /** An owner changes what a source counts as, whether messages wait for review, or switches it off. Recorded in the audit log. */
+        patch: operations["updatePulseSource"];
+        trace?: never;
+    };
+    "/pulse/sources/{id}/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reads a source now ("Check now"). A Slack problem comes back as `error`, not as a failure; the same is kept on the source. */
+        post: operations["checkPulseSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/setup": {
         parameters: {
             query?: never;
@@ -3052,6 +3105,44 @@ export interface components {
                 kept: number;
                 dismissed: number;
             };
+        };
+        PulseSource: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "slack";
+            name: string;
+            /** @enum {string} */
+            channel: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            /**
+             * @description keep: messages count at once. review: they wait for a person.
+             * @enum {string}
+             */
+            mode: "keep" | "review";
+            enabled: boolean;
+            /** Format: date-time */
+            lastCheckedAt: string | null;
+            lastAdded: number | null;
+            lastError: string | null;
+        };
+        PulseSourceList: {
+            sources: components["schemas"]["PulseSource"][];
+            slackConnected: boolean;
+        };
+        NewPulseSource: {
+            /** @description The Slack channel name, with or without #. */
+            name: string;
+            /** @enum {string} */
+            channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            /** @enum {string} */
+            mode?: "keep" | "review";
+        };
+        UpdatePulseSource: {
+            /** @enum {string} */
+            channel?: "slack" | "call_notes" | "support_tickets" | "conference" | "other";
+            /** @enum {string} */
+            mode?: "keep" | "review";
+            enabled?: boolean;
         };
         PulseWeights: {
             weights: {
@@ -7809,6 +7900,140 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    listPulseSources: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The sources. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSourceList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    addPulseSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPulseSource"];
+            };
+        };
+        responses: {
+            /** @description The source. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    removePulseSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    updatePulseSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdatePulseSource"];
+            };
+        };
+        responses: {
+            /** @description The source. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    checkPulseSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description What was added. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        added: number;
+                        error: string | null;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            429: components["responses"]["Error"];
         };
     };
     getSetup: {

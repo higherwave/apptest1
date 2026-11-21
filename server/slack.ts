@@ -10,6 +10,8 @@ export type SlackBlocks = Record<string, unknown>[]
 export type SlackClient = {
   /** True when a token is set, so posting can reach a real workspace. */
   live: boolean
+  /** True when channels can be read (a stand-in for the local demo reads without posting). Defaults to `live`. */
+  reads?: boolean
   /** The id of a public channel from its name (no "#"). */
   channelId(name: string): Promise<string>
   post(channel: string, text: string, threadTs?: string, blocks?: SlackBlocks): Promise<SlackPost>
@@ -20,7 +22,13 @@ export type SlackClient = {
   /** Answers an interaction through the address Slack gave with it; only Slack's own addresses are used. */
   respond(responseUrl: string, body: Record<string, unknown>): Promise<void>
   permalink(channel: string, ts: string): Promise<string | null>
+  /** Finds a channel's id from its name, public or private (a private one only when the app has been invited to it). Used to read designated feedback channels. */
+  findChannel(name: string): Promise<string>
+  /** Messages in a channel after `oldest` (a Slack timestamp), oldest first, at most `limit`. Needs the channels:history scope (groups:history for private channels). */
+  history(channel: string, oldest: string | undefined, limit: number): Promise<SlackMessage[]>
 }
+
+export type SlackMessage = { ts: string; text: string; user: string | null; bot: boolean; subtype: string | null }
 
 export class SlackError extends Error {
   constructor(public code: string) {
@@ -40,7 +48,7 @@ export function slackProblem(code: string): string {
     case 'account_inactive':
       return 'Slack refused the token. Check SLACK_BOT_TOKEN.'
     case 'missing_scope':
-      return 'The Slack app is missing a permission (scope). It needs chat:write, chat:write.public and channels:read.'
+      return 'The Slack app is missing a permission (scope). It needs chat:write, chat:write.public and channels:read (and channels:history, plus groups:read and groups:history for private channels, to read feedback channels).'
     case 'ratelimited':
       return 'Slack asked us to slow down; it will be tried again.'
     default:
@@ -87,6 +95,23 @@ export function makeSlack(env: Env, fetchImpl: SlackFetch = fetch): SlackClient 
         if (!cursor) break
       }
       throw new SlackError('channel_not_found')
+    },
+    async findChannel(name) {
+      let cursor = ''
+      for (let page = 0; page < 10; page++) {
+        const body = await call('conversations.list', { types: 'public_channel,private_channel', exclude_archived: 'true', limit: '1000', ...(cursor ? { cursor } : {}) }, false)
+        const found = ((body.channels ?? []) as { id: string; name: string }[]).find((c) => c.name === name)
+        if (found) return found.id
+        cursor = body.response_metadata?.next_cursor ?? ''
+        if (!cursor) break
+      }
+      throw new SlackError('channel_not_found')
+    },
+    async history(channel, oldest, limit) {
+      const body = await call('conversations.history', { channel, limit: String(Math.min(Math.max(limit, 1), 200)), ...(oldest ? { oldest } : {}) }, false)
+      return ((body.messages ?? []) as Record<string, any>[])
+        .map((m) => ({ ts: String(m.ts), text: String(m.text ?? ''), user: m.user ? String(m.user) : null, bot: !!m.bot_id, subtype: m.subtype ? String(m.subtype) : null }))
+        .sort((a, b) => Number(a.ts) - Number(b.ts))
     },
     async post(channel, text, threadTs, blocks) {
       const body = await call('chat.postMessage', { channel, text, unfurl_links: false, unfurl_media: false, ...(threadTs ? { thread_ts: threadTs } : {}), ...(blocks ? { blocks } : {}) }, true)

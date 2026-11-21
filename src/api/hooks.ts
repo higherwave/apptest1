@@ -7,7 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
-  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
+  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, listPulseSources, addPulseSource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -422,6 +422,28 @@ export const useSetPulseWeights = () => {
       queryClient.setQueryData(['pulse', 'weights'], data)
       void queryClient.invalidateQueries({ queryKey: ['pulse', 'topics'] })
     },
+  })
+}
+
+export const usePulseSources = (enabled = true) => useQuery({ queryKey: ['pulse', 'sources'], queryFn: listPulseSources, enabled, retry: false })
+// Any change to a source, or reading one, may add signals, so the signal and topic lists are refreshed with it.
+const useSourceMutation = <V,>(fn: (v: V) => Promise<unknown>) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['pulse'] })
+    },
+  })
+}
+export const useAddPulseSource = () => useSourceMutation((v: Parameters<typeof addPulseSource>[0]) => addPulseSource(v))
+export const useUpdatePulseSource = () => useSourceMutation((v: { id: string; patch: Parameters<typeof updatePulseSource>[1] }) => updatePulseSource(v.id, v.patch))
+export const useRemovePulseSource = () => useSourceMutation((id: string) => removePulseSource(id))
+export const useCheckPulseSource = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => checkPulseSource(id),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['pulse'] }),
   })
 }
 

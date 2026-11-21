@@ -209,11 +209,11 @@ test('the scheduled job updates the topics of every workspace that has Pulse on,
   const { call, owner, pg, db } = await fixture()
   const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
   await fillDemoSignals(db, slug, true)
-  assert.deepEqual(await runPulseUpdates(db), { workspaces: 0, regrouped: 0 }, 'off: nothing happens')
+  assert.deepEqual(await runPulseUpdates(db), { workspaces: 0, regrouped: 0, read: 0 }, 'off: nothing happens')
   await call(owner, 'PUT', '/pulse/preview', { enabled: true })
-  assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 1 }, 'the first run regroups')
+  assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 1, read: 0 }, 'the first run regroups')
   assert.equal((await (await call(owner, 'GET', '/pulse/topics')).json()).topics.length, 4)
-  assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 0 }, 'the next hour only attaches')
+  assert.deepEqual(await runPulseUpdates(db), { workspaces: 1, regrouped: 0, read: 0 }, 'the next hour only attaches')
 })
 
 
