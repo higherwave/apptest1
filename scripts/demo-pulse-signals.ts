@@ -53,8 +53,8 @@ export async function fillDemoSignals(db: Db, slug: string, apply: boolean, samp
   for (const [i, s] of samples.entries()) {
     const have = (await wdb.query('select 1 from core.pulse_signals where workspace_id = $1 and body = $2 limit 1', [ws.id, s.body])).rows.length > 0
     if (have) {
-      // A sample added before channels existed: give it its channel, touching nothing else.
-      if (apply) await wdb.query(`update core.pulse_signals set channel = $3 where workspace_id = $1 and body = $2 and channel <> $3`, [ws.id, s.body, channelOf(s)])
+      // A sample added earlier: bring its channel, source and label up to date (the channel list was cut to call notes, Slack and Salesforce), touching nothing else.
+      if (apply) await wdb.query(`update core.pulse_signals set channel = $3, source = $4, source_label = $5 where workspace_id = $1 and body = $2 and (channel, source, source_label) is distinct from ($3, $4, $5)`, [ws.id, s.body, channelOf(s), s.source, s.label])
       continue
     }
     lines.push(`${apply ? 'adding' : 'would add'} [${s.source}] ${s.kind}: ${s.body.slice(0, 70)}${s.body.length > 70 ? '…' : ''}`)

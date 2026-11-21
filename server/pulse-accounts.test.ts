@@ -105,9 +105,9 @@ test('without Salesforce, topics carry no ARR and the status says it is not conn
 
 test('sync copies accounts, matches them to signals, and topics show the ARR behind them', async () => {
   const { call, owner, alex, sam, sf, pg } = await fixture()
-  for (const who of [alex, sam]) {
-    assert.equal((await call(who, 'GET', '/pulse/salesforce')).status, 404)
-    assert.equal((await call(who, 'POST', '/pulse/salesforce/sync')).status, 404)
+  for (const [who, status] of [[alex, 403], [sam, 404]] as const) {
+    assert.equal((await call(who, 'GET', '/pulse/salesforce')).status, status, 'settings are the owner\'s: an editor is refused, a viewer sees nothing')
+    assert.equal((await call(who, 'POST', '/pulse/salesforce/sync')).status, status)
   }
   assert.equal((await owner.request('/api/v1/pulse/salesforce')).status, 404)
 

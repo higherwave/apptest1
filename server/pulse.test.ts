@@ -23,7 +23,7 @@ async function fixture() {
   return { pg, db, as, call, owner: as(), alex: as('alex'), sam: as('sam') }
 }
 
-test('Pulse is off until an owner switches it on, and only an owner can see it even then', async () => {
+test('Pulse is off until an owner switches it on; then owners and editors use it, a granted viewer only sees it, and everyone else gets "not found"', async () => {
   const { call, owner, alex, sam, pg } = await fixture()
   assert.equal((await (await call(owner, 'GET', '/me')).json()).features.pulse, false, 'off by default')
   assert.equal((await call(owner, 'GET', '/pulse/signals')).status, 404, 'off: even the owner gets "not found"')
@@ -36,23 +36,47 @@ test('Pulse is off until an owner switches it on, and only an owner can see it e
   assert.equal((await call(owner, 'PUT', '/pulse/preview', { enabled: 'yes' })).status, 422)
 
   assert.deepEqual(await (await call(owner, 'PUT', '/pulse/preview', { enabled: true })).json(), { enabled: true })
-  assert.equal((await (await call(owner, 'GET', '/me')).json()).features.pulse, true)
+  assert.deepEqual((await (await call(owner, 'GET', '/me')).json()).features, { pulse: true, pulseEdit: true })
   assert.equal((await call(owner, 'GET', '/pulse/signals')).status, 200)
-  // On, but still invisible to everyone who is not an owner: the same answer as a page that does not exist.
-  for (const who of [alex, sam]) {
-    assert.equal((await (await call(who, 'GET', '/me')).json()).features.pulse, false)
-    assert.equal((await call(who, 'GET', '/pulse/signals')).status, 404)
-    assert.equal((await call(who, 'POST', '/pulse/signals', { body: 'x' })).status, 404)
-    assert.equal((await call(who, 'POST', '/pulse/signals/import', { text: 'x' })).status, 404)
-    assert.equal((await call(who, 'PATCH', '/pulse/signals/00000000-0000-0000-0000-000000000000', { status: 'kept' })).status, 404)
+
+  // An editor (platform editor) can use Pulse and change what is in it, but not its settings.
+  assert.deepEqual((await (await call(alex, 'GET', '/me')).json()).features, { pulse: true, pulseEdit: true })
+  assert.equal((await call(alex, 'GET', '/pulse/signals')).status, 200)
+  assert.equal((await call(alex, 'POST', '/pulse/signals', { body: 'An editor adds a signal about handoffs.' })).status, 201)
+  for (const [m, path, body] of [['PUT', '/pulse/weights', { weights: { slack: 1 } }], ['GET', '/pulse/sources', undefined], ['GET', '/pulse/salesforce', undefined], ['GET', '/pulse/viewers', undefined], ['POST', '/pulse/sources', { name: 'feedback' }]] as const) {
+    assert.equal((await call(alex, m, path, body)).status, 403, `${m} ${path} is the owner's`)
   }
+
+  // A viewer sees nothing until an owner grants view; the grant is view only.
+  const samId = (await (await call(sam, 'GET', '/me')).json()).userId
+  assert.deepEqual((await (await call(sam, 'GET', '/me')).json()).features, { pulse: false, pulseEdit: false })
+  for (const [m, path, body] of [['GET', '/pulse/signals', undefined], ['GET', '/pulse/topics', undefined], ['POST', '/pulse/signals', { body: 'x' }], ['POST', '/pulse/signals/import', { text: 'x' }], ['PATCH', '/pulse/signals/00000000-0000-0000-0000-000000000000', { status: 'kept' }]] as const) {
+    assert.equal((await call(sam, m, path, body)).status, 404, `${m} ${path}: not found for a viewer with no grant`)
+  }
+  assert.equal((await call(sam, 'PUT', `/pulse/viewers/${samId}`, { canView: true })).status, 404, 'a viewer cannot grant themselves (and cannot tell it exists)')
+  assert.equal((await call(alex, 'PUT', `/pulse/viewers/${samId}`, { canView: true })).status, 403, 'neither can an editor')
+  const viewers = await (await call(owner, 'GET', '/pulse/viewers')).json()
+  assert.ok(viewers.members.find((m: any) => m.email.startsWith('david')).always && !viewers.members.find((m: any) => m.userId === samId).canView)
+  const granted = await (await call(owner, 'PUT', `/pulse/viewers/${samId}`, { canView: true })).json()
+  assert.ok(granted.members.find((m: any) => m.userId === samId).canView)
+  assert.deepEqual((await (await call(sam, 'GET', '/me')).json()).features, { pulse: true, pulseEdit: false })
+  for (const path of ['/pulse/signals', '/pulse/topics', '/pulse/weights']) assert.equal((await call(sam, 'GET', path)).status, 200, `a granted viewer can read ${path}`)
+  for (const [m, path, body] of [['POST', '/pulse/signals', { body: 'A viewer cannot add this.' }], ['POST', '/pulse/signals/import', { text: 'A viewer cannot import this either.' }], ['PATCH', '/pulse/signals/00000000-0000-0000-0000-000000000000', { status: 'kept' }], ['POST', '/pulse/topics/update', {}], ['POST', '/pulse/questions', { topicIds: ['00000000-0000-0000-0000-000000000000'] }], ['PUT', '/pulse/weights', { weights: { slack: 1 } }], ['GET', '/pulse/sources', undefined], ['GET', '/pulse/viewers', undefined]] as const) {
+    assert.equal((await call(sam, m, path, body)).status, 403, `${m} ${path}: a granted viewer cannot change anything`)
+  }
+  assert.equal((await call(owner, 'PUT', `/pulse/viewers/${(await (await call(alex, 'GET', '/me')).json()).userId}`, { canView: true })).status, 422, 'owners and editors always have access; nothing to grant')
+  assert.equal((await call(owner, 'PUT', `/pulse/viewers/${samId}`, { canView: false })).status, 200)
+  assert.equal((await call(sam, 'GET', '/pulse/signals')).status, 404, 'taking it away is immediate')
+
   // The read-only demo visitor (no token) never sees it either.
   assert.equal((await owner.request('/api/v1/pulse/signals')).status, 404)
 
   await call(owner, 'PUT', '/pulse/preview', { enabled: false })
   assert.equal((await call(owner, 'GET', '/pulse/signals')).status, 404, 'switched off again')
+  assert.equal((await call(alex, 'GET', '/pulse/signals')).status, 404, 'and off for editors too')
   const audit = (await pg.query<any>(`select verb from core.audit_log where entity = 'core.workspace_features' order by created_at`)).rows.map((r: any) => r.verb)
   assert.deepEqual(audit, ['turned on', 'turned off'], 'the switch is audited')
+  assert.deepEqual((await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_viewers' order by created_at`)).rows.map((r: any) => r.verb), ['granted view', 'removed view'], 'grants are audited')
 })
 
 test('signals: typed in (kept), split out of notes (new), then kept or dismissed; bad input is refused', async () => {
@@ -140,12 +164,10 @@ test('topics: updating groups the kept signals, ranks them by weighted score, an
   assert.equal((await call(owner, 'PUT', '/pulse/weights', { weights: {} })).status, 422)
   const audit = (await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_weights'`)).rows
   assert.equal(audit.length, 1, 'a weight change is audited')
-  for (const who of [alex]) {
-    assert.equal((await call(who, 'GET', '/pulse/topics')).status, 404)
-    assert.equal((await call(who, 'POST', '/pulse/topics/update', {})).status, 404)
-    assert.equal((await call(who, 'GET', '/pulse/weights')).status, 404)
-    assert.equal((await call(who, 'PUT', '/pulse/weights', { weights: { slack: 1 } })).status, 404)
-  }
+  assert.equal((await call(alex, 'GET', '/pulse/topics')).status, 200, 'an editor sees topics')
+  assert.equal((await call(alex, 'POST', '/pulse/topics/update', {})).status, 200, 'and updates them')
+  assert.equal((await call(alex, 'GET', '/pulse/weights')).status, 200)
+  assert.equal((await call(alex, 'PUT', '/pulse/weights', { weights: { slack: 1 } })).status, 403, 'but weights are the owner\'s')
 })
 
 test('topics: a person can rename, merge and split, and what they touch survives the regrouping', async () => {
@@ -234,7 +256,7 @@ test('topic details, suggested questions, and starting a Signal Flow project fro
   assert.ok(detail.accounts.length >= 3 && detail.accounts.every((a: any) => a.name !== 'Unknown'))
   assert.equal(detail.score, trust.score, 'the same numbers as the list')
   assert.equal((await call(owner, 'GET', '/pulse/topics/00000000-0000-0000-0000-000000000000')).status, 404)
-  assert.equal((await call(alex, 'GET', `/pulse/topics/${trust.id}`)).status, 404, 'not for an editor')
+  assert.equal((await call(alex, 'GET', `/pulse/topics/${trust.id}`)).status, 200, 'an editor can open a topic')
 
   // Questions: grounded in the topics' own signals.
   const asked = await call(owner, 'POST', '/pulse/questions', { topicIds: [trust.id, reporting.id], method: 'Contextual (walk-through)' })
@@ -245,7 +267,7 @@ test('topic details, suggested questions, and starting a Signal Flow project fro
   assert.ok(questions.filter((q: any) => q.evidence).every((q: any) => quotes.has(q.evidence.quote)), 'every piece of evidence is a real signal, verbatim')
   assert.equal((await call(owner, 'POST', '/pulse/questions', { topicIds: [] })).status, 422)
   assert.equal((await call(owner, 'POST', '/pulse/questions', { topicIds: ['00000000-0000-0000-0000-000000000000'] })).status, 404)
-  assert.equal((await call(alex, 'POST', '/pulse/questions', { topicIds: [trust.id] })).status, 404)
+  assert.equal((await call(alex, 'POST', '/pulse/questions', { topicIds: [trust.id] })).status, 200, 'an editor can draft questions')
 
   // Starting the project: the Test Plan is filled in, and the project remembers where it came from.
   const body = { name: 'Trust and reporting', description: 'Frame the problem around trust in the score and manual reporting.', methods: ['Contextual (walk-through)'], topicIds: [trust.id, reporting.id], questions: questions.slice(0, 4).map((q: any) => ({ prompt: q.prompt, topicId: q.topicId })) }
@@ -260,7 +282,7 @@ test('topic details, suggested questions, and starting a Signal Flow project fro
   assert.deepEqual(origin.topics.map((t: any) => t.title).sort(), ['Reporting and digests', 'Trust and accuracy'])
   assert.equal(origin.signals, trust.signals + reporting.signals)
   assert.equal((await call(owner, 'GET', `/pulse/origin/00000000-0000-4000-8000-000000000000`)).status, 404, 'a project not started from Pulse has no origin')
-  assert.equal((await call(alex, 'GET', `/pulse/origin/${projectId}`)).status, 404, 'and an editor never sees where it came from')
+  assert.equal((await call(alex, 'GET', `/pulse/origin/${projectId}`)).status, 200, 'and sees where a project came from')
   const audit = (await pg.query<any>(`select verb from core.audit_log where entity = 'core.pulse_project_links'`)).rows
   assert.equal(audit.length, 1)
 

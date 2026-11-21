@@ -61,7 +61,8 @@ export function TopicsPage() {
         return by || a.rank - b.rank
       })
     : []
-  const canStart = me.data.role === 'owner' || me.data.role === 'editor'
+  // Owners and editors change things; a member who was only given view sees the topics, quotes and numbers.
+  const canStart = me.data.features.pulseEdit
   const picked = list?.topics.filter((t) => selected.includes(t.id)) ?? []
   const pickedSignals = picked.reduce((a, t) => a + t.signals, 0)
 
@@ -69,7 +70,7 @@ export function TopicsPage() {
     <div className={styles.page}>
       <PageHero title="Topics" description="What customers keep raising, grouped from the signals you have kept and ranked by how much each counts" glow="left">
         <Tag type="purple" size="md" data-testid="pulse-preview-tag">
-          Preview · owners only
+          Preview
         </Tag>
       </PageHero>
 
@@ -78,9 +79,11 @@ export function TopicsPage() {
           {list ? `${plural(list.topics.length, 'topic')} from ${plural(total, 'kept signal')}` : 'Loading topics…'}
           {list?.updatedAt ? ` · updated ${when(list.updatedAt)}` : list ? ' · not updated yet' : ''}
         </p>
-        <Button kind="tertiary" size="sm" data-testid="topics-update" disabled={update.isPending} onClick={() => update.mutate('attach')}>
-          {update.isPending ? 'Updating…' : 'Update topics'}
-        </Button>
+        {canStart && (
+          <Button kind="tertiary" size="sm" data-testid="topics-update" disabled={update.isPending} onClick={() => update.mutate('attach')}>
+            {update.isPending ? 'Updating…' : 'Update topics'}
+          </Button>
+        )}
       </div>
 
       {topics.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics could not be loaded" subtitle={friendlyMessage(topics.error)} />}
@@ -107,14 +110,14 @@ export function TopicsPage() {
       {list && !list.topics.length && (
         <section className={styles.empty} data-testid="topics-empty">
           <p className={styles.text}>No topics yet. Topics form when at least two kept signals are about the same thing. Keep some signals, then update topics.</p>
-          <div className={styles.emptyActions}>
+          {canStart && <div className={styles.emptyActions}>
             <Button kind="primary" size="md" disabled={update.isPending} onClick={() => update.mutate('regroup')}>
               Update topics
             </Button>
             <Button kind="ghost" size="md" onClick={() => navigate('/pulse/signals')}>
               Go to signals
             </Button>
-          </div>
+          </div>}
         </section>
       )}
 
@@ -232,10 +235,10 @@ export function TopicsPage() {
                       {t.score}
                     </TableCell>
                     <TableCell className={styles.menuCol}>
-                      <OverflowMenu size="sm" flipped aria-label={`Actions for ${t.title}`} data-testid={`topic-menu-${t.id}`}>
+                      {canStart && <OverflowMenu size="sm" flipped aria-label={`Actions for ${t.title}`} data-testid={`topic-menu-${t.id}`}>
                         <OverflowMenuItem itemText="Rename" data-testid={`rename-${t.id}`} onClick={() => setRenaming(t)} />
                         <OverflowMenuItem itemText="Merge into another topic" data-testid={`merge-${t.id}`} disabled={list.topics.length < 2} onClick={() => setMerging(t)} />
-                      </OverflowMenu>
+                      </OverflowMenu>}
                     </TableCell>
                   </TableRow>
                   {open === t.id && (
@@ -258,7 +261,7 @@ export function TopicsPage() {
         </p>
       )}
 
-      {picked.length > 0 && (
+      {canStart && picked.length > 0 && (
         <div className={styles.pickBar} role="region" aria-label="Selected topics" data-testid="pick-bar">
           <p className={styles.pickText}>
             {plural(picked.length, 'topic')} selected · {plural(pickedSignals, 'signal')}

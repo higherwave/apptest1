@@ -60,7 +60,7 @@ try {
   ok('/pulse opens Topics, with Pulse as the app in the header and Topics and Signals as its items', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Admin').join('|'))) === 'Topics|Signals')
   await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
   await waitText(page, 'Nothing waiting for review')
-  ok('Pulse opens with a preview tag and an empty review list', (await text(page)).includes('Preview · owners only') && !!(await page.$('[data-testid="pulse-empty"]')))
+  ok('Pulse opens with a preview tag and an empty review list', (await text(page)).includes('Preview') && !!(await page.$('[data-testid="pulse-empty"]')))
   await page.type('#signal-body', 'Our CSMs stopped trusting the health score after it dropped for no clear reason.')
   await page.type('#signal-said-by', 'Marcus Bell')
   await page.type('#signal-account', 'Northwind')
@@ -202,6 +202,19 @@ try {
   await page.keyboard.type('9')
   ok('a weight above 5 is refused, with the Save button off', await page.evaluate(() => document.querySelector('[data-testid="weights-save"]').disabled === true && /0 to 5/.test(document.body.innerText)))
   await page.screenshot({ path: process.env.PULSE_SHOT || '/tmp/pulse.png' })
+
+  // Who can view Pulse: owners and editors always; a viewer can be given view access one person at a time.
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="pulse-viewers"] li', { timeout: 8000 })
+  ok('Admin lists who can view Pulse: owners and editors always, and a checkbox for each viewer', await page.evaluate(() => /Owner: always/.test(document.querySelector('[data-testid="pulse-viewers"]').innerText) && /Editor: always/.test(document.querySelector('[data-testid="pulse-viewers"]').innerText) && !!document.querySelector('[data-testid^="viewer-check-"]')))
+  const box = await page.$('[data-testid^="viewer-check-"]')
+  const boxId = await box.evaluate((el) => el.id)
+  await page.evaluate((id) => document.getElementById(id).click(), boxId)
+  await page.waitForFunction((id) => document.getElementById(id)?.checked === true, { timeout: 8000 }, boxId)
+  ok('view access can be given to a viewer', true)
+  await page.evaluate((id) => document.getElementById(id).click(), boxId)
+  await page.waitForFunction((id) => document.getElementById(id)?.checked === false, { timeout: 8000 }, boxId)
+  ok('and taken away again', true)
 
   // Feedback sources live under the weights: list a channel, read it, and its messages wait in the Signals list for review.
   await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })

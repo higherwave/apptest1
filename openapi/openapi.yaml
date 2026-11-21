@@ -2332,6 +2332,45 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '429': { $ref: '#/components/responses/Error' }
+  /pulse/viewers:
+    get:
+      operationId: listPulseViewers
+      summary: The members an owner can grant Pulse view access to, and who has it. Owners only; 404 unless the preview is on.
+      responses:
+        '200':
+          description: The members.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseViewers' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pulse/viewers/{userId}:
+    put:
+      operationId: setPulseViewer
+      summary: An owner gives or takes away one member's view access to Pulse (view only; owners and editors always have it). Recorded in the audit log.
+      parameters:
+        - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [canView]
+              properties:
+                canView: { type: boolean }
+      responses:
+        '200':
+          description: The members after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseViewers' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /pulse/sources:
     get:
       operationId: listPulseSources
@@ -4127,6 +4166,22 @@ components:
             new: { type: integer }
             kept: { type: integer }
             dismissed: { type: integer }
+    PulseViewers:
+      type: object
+      required: [members]
+      properties:
+        members:
+          type: array
+          items:
+            type: object
+            required: [userId, email, displayName, role, canView, always]
+            properties:
+              userId: { type: string, format: uuid }
+              email: { type: string }
+              displayName: { type: [string, 'null'] }
+              role: { type: string }
+              canView: { type: boolean }
+              always: { type: boolean, description: 'True for owners and editors, who always have access.' }
     PulseSalesforce:
       type: object
       required: [connected, accounts, syncedAt, error]
@@ -4986,10 +5041,11 @@ components:
         teamsManagedBySso: { type: boolean, description: 'True when SSO_TEAM_GROUP_PREFIX is set: people''s places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`.' }
         features:
           type: object
-          required: [pulse]
-          description: 'Preview features this caller may see. Pulse is true only for a signed-in owner of a workspace where an owner has switched the preview on; it decides whether the menu shows it.'
+          required: [pulse, pulseEdit]
+          description: 'Preview features this caller may use. Pulse is true for a signed-in owner or editor, or a member an owner granted view, in a workspace where an owner has switched the preview on; it decides whether the menu shows it. pulseEdit is true for owners and editors only.'
           properties:
             pulse: { type: boolean }
+            pulseEdit: { type: boolean }
         teams:
           type: array
           description: 'The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team''s projects whether or not they belong to it.'

@@ -7,7 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
-  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
+  getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -425,6 +425,14 @@ export const useSetPulseWeights = () => {
   })
 }
 
+export const usePulseViewers = (enabled = true) => useQuery({ queryKey: ['pulse', 'viewers'], queryFn: listPulseViewers, enabled, retry: false })
+export const useSetPulseViewer = () => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { userId: string; canView: boolean }) => setPulseViewer(v.userId, v.canView),
+    onSuccess: (data) => queryClient.setQueryData(['pulse', 'viewers'], data),
+  })
+}
 export const usePulseSalesforce = (enabled = true) => useQuery({ queryKey: ['pulse', 'salesforce'], queryFn: getPulseSalesforce, enabled, retry: false })
 export const useSyncPulseSalesforce = () => {
   const queryClient = useQueryClient()

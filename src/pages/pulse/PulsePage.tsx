@@ -29,7 +29,10 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/
 export function PulsePage() {
   const me = useMe()
   const [filter, setFilter] = useState<PulseStatus>('new')
-  const list = usePulseSignals(filter)
+  // Someone who may only view sees the kept signals (what counts toward topics); reviewing, adding and importing are for editors.
+  const canEdit = !!me.data?.features.pulseEdit
+  const active: PulseStatus = canEdit ? filter : 'kept'
+  const list = usePulseSignals(active)
   const counts = usePulseSignals().data?.counts
   const update = useUpdatePulseSignal()
 
@@ -41,9 +44,10 @@ export function PulsePage() {
     <div className={styles.page}>
       <PageHero title="Pulse" description="What customers are telling you, gathered in one place before you decide what to research" glow="left">
         <Tag type="purple" size="md" data-testid="pulse-preview-tag">
-          Preview · owners only
+          Preview
         </Tag>
       </PageHero>
+        {canEdit && (
         <nav className={switchStyles.switch} aria-label="Signals">
           {FILTERS.map((f) => (
             <Button key={f.key} kind={f.key === filter ? 'primary' : 'ghost'} size="sm" data-testid={`pulse-filter-${f.key}`} data-current={f.key === filter} aria-current={f.key === filter ? 'true' : undefined} onClick={() => setFilter(f.key)}>
@@ -52,11 +56,12 @@ export function PulsePage() {
             </Button>
           ))}
         </nav>
+        )}
 
         {list.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Signals could not be loaded" subtitle={friendlyMessage(list.error)} />}
         {update.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(update.error)} />}
 
-        <ul className={styles.list} aria-label={`${FILTERS.find((f) => f.key === filter)?.label} signals`} data-testid="pulse-list">
+        <ul className={styles.list} aria-label={`${FILTERS.find((f) => f.key === active)?.label} signals`} data-testid="pulse-list">
           {list.data?.signals.map((s) => (
             <li key={s.id} className={styles.signal} data-testid={`signal-${s.id}`} data-status={s.status}>
               <p className={styles.quote}>{s.body}</p>
@@ -72,6 +77,7 @@ export function PulsePage() {
                   </a>
                 )}
               </div>
+              {canEdit && (
               <div className={styles.actions}>
                 {s.status !== 'kept' && (
                   <Button kind="tertiary" size="sm" data-testid={`keep-${s.id}`} disabled={update.isPending} onClick={() => update.mutate({ id: s.id, status: 'kept' })}>
@@ -89,17 +95,18 @@ export function PulsePage() {
                   </Button>
                 )}
               </div>
+              )}
             </li>
           ))}
         </ul>
         {list.data && !list.data.signals.length && (
           <p className={styles.empty} data-testid="pulse-empty">
-            {filter === 'new' ? 'Nothing waiting for review. Add a signal below, or paste notes from a customer call.' : filter === 'kept' ? 'No kept signals yet.' : 'Nothing dismissed.'}
+            {active === 'new' ? 'Nothing waiting for review. Add a signal below, or paste notes from a customer call.' : active === 'kept' ? 'No kept signals yet.' : 'Nothing dismissed.'}
           </p>
         )}
 
-        <AddSignal />
-        <ImportNotes onDone={() => setFilter('new')} />
+        {canEdit && <AddSignal />}
+        {canEdit && <ImportNotes onDone={() => setFilter('new')} />}
     </div>
   )
 }

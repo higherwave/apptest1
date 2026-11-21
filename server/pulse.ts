@@ -50,10 +50,56 @@ export async function pulseEnabled(db: Queryable, workspaceId: string): Promise<
   return !!row?.enabled
 }
 
-/** Whether this caller may see Pulse at all: a signed-in owner of a workspace that has it switched on. Anyone else never learns it exists. */
+export type PulseAccess = 'edit' | 'view'
+
+/**
+ * What this caller may do in Pulse: nothing (null: the answer is the one a page that does not exist would give), view, or edit. Owners and editors (platform editors) edit; any other
+ * signed-in member sees Pulse only when an owner has granted them view (a department leader, for example), and a grant never lets them change anything. The read-only visitor and
+ * external members never see it, and nobody does while the workspace has the preview off. ONE place decides; every /pulse route and the menu (through /me) ask it.
+ */
+export async function pulseAccess(db: Queryable, ctx: RequestContext): Promise<PulseAccess | null> {
+  if (ctx.anonymous || ctx.external) return null
+  if (!(await pulseEnabled(db, ctx.workspaceId))) return null
+  if (ctx.role === 'owner' || ctx.role === 'editor') return 'edit'
+  const granted = (await db.query(`select 1 from core.pulse_viewers where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, ctx.userId])).rows[0]
+  return granted ? 'view' : null
+}
+
+/** Whether this caller may see Pulse at all. */
 export async function pulseOn(db: Queryable, ctx: RequestContext): Promise<boolean> {
-  if (ctx.anonymous || ctx.external || ctx.role !== 'owner') return false
-  return pulseEnabled(db, ctx.workspaceId)
+  return (await pulseAccess(db, ctx)) !== null
+}
+
+export type PulseViewer = { userId: string; email: string; displayName: string | null; role: string; canView: boolean; always: boolean }
+
+/** The members an owner can grant view to: everyone but external members, with who already has it by being an owner or editor. */
+export async function listViewers(db: Queryable, ctx: RequestContext): Promise<PulseViewer[]> {
+  const rows = (
+    await db.query(
+      `select m.user_id, u.email, u.display_name, m.role, (v.user_id is not null) as granted
+         from core.memberships m join core.users u on u.id = m.user_id
+         left join core.pulse_viewers v on v.workspace_id = m.workspace_id and v.user_id = m.user_id
+        where m.workspace_id = $1 and not m.is_external
+        order by (m.role = 'owner') desc, (m.role = 'editor') desc, lower(u.email)`,
+      [ctx.workspaceId],
+    )
+  ).rows
+  return rows.map((r) => ({ userId: r.user_id, email: r.email, displayName: r.display_name ?? null, role: r.role, always: r.role === 'owner' || r.role === 'editor', canView: r.role === 'owner' || r.role === 'editor' || !!r.granted }))
+}
+
+export class NotGrantable extends Error {}
+
+/** An owner gives or takes away view access for one member (a viewer; owners and editors always have it). Recorded in the audit log. */
+export async function setViewer(db: Db, ctx: RequestContext, userId: string, canView: boolean): Promise<PulseViewer[]> {
+  await db.transaction(async (tx) => {
+    const m = (await tx.query(`select role, is_external from core.memberships where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, userId])).rows[0]
+    if (!m || m.is_external || m.role === 'owner' || m.role === 'editor') throw new NotGrantable()
+    const had = !!(await tx.query(`select 1 from core.pulse_viewers where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, userId])).rows[0]
+    if (canView && !had) await tx.query(`insert into core.pulse_viewers (workspace_id, user_id, granted_by) values ($1, $2, $3)`, [ctx.workspaceId, userId, ctx.userId])
+    if (!canView && had) await tx.query(`delete from core.pulse_viewers where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, userId])
+    if (canView !== had) await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.pulse_viewers', entity_id: userId, verb: canView ? 'granted view' : 'removed view', after: { feature: 'pulse' } }])
+  })
+  return listViewers(db, ctx)
 }
 
 /** An owner turns the preview on or off. Recorded in the audit log. */

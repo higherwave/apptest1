@@ -1742,6 +1742,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pulse/viewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** The members an owner can grant Pulse view access to, and who has it. Owners only; 404 unless the preview is on. */
+        get: operations["listPulseViewers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/viewers/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** An owner gives or takes away one member's view access to Pulse (view only; owners and editors always have it). Recorded in the audit log. */
+        put: operations["setPulseViewer"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pulse/sources": {
         parameters: {
             query?: never;
@@ -3158,6 +3192,18 @@ export interface components {
                 dismissed: number;
             };
         };
+        PulseViewers: {
+            members: {
+                /** Format: uuid */
+                userId: string;
+                email: string;
+                displayName: string | null;
+                role: string;
+                canView: boolean;
+                /** @description True for owners and editors, who always have access. */
+                always: boolean;
+            }[];
+        };
         PulseSalesforce: {
             connected: boolean;
             /** @description Accounts with an ARR copied from Salesforce. */
@@ -3939,9 +3985,10 @@ export interface components {
             rolesManagedBySso: boolean;
             /** @description True when SSO_TEAM_GROUP_PREFIX is set: people's places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`. */
             teamsManagedBySso: boolean;
-            /** @description Preview features this caller may see. Pulse is true only for a signed-in owner of a workspace where an owner has switched the preview on; it decides whether the menu shows it. */
+            /** @description Preview features this caller may use. Pulse is true for a signed-in owner or editor, or a member an owner granted view, in a workspace where an owner has switched the preview on; it decides whether the menu shows it. pulseEdit is true for owners and editors only. */
             features: {
                 pulse: boolean;
+                pulseEdit: boolean;
             };
             /** @description The teams the person belongs to, with their role in each. A leader (workspace owner) sees every team's projects whether or not they belong to it. */
             teams: {
@@ -8068,6 +8115,62 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             429: components["responses"]["Error"];
+        };
+    };
+    listPulseViewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The members. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseViewers"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    setPulseViewer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    canView: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The members after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseViewers"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     listPulseSources: {

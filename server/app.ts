@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, newSourceSchema, newOpportunitySourceSchema, updateSourceSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -55,7 +55,7 @@ import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopi
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import type { SalesforceFetch } from './salesforce.js'
 import { addOpportunitySource, addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
-import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, mergeTopic, pulseEnabled, pulseOn, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
+import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
@@ -220,7 +220,7 @@ export function createApp(options: AppOptions = {}) {
       rolesManagedBySso: ssoPolicy(env).managedByGroups,
       teamsManagedBySso: !!ssoPolicy(env).teamGroupPrefix,
       teams,
-      features: { pulse: await pulseOn(getDb(), ctx) },
+      features: await (async () => { const access = await pulseAccess(getDb(), ctx); return { pulse: access !== null, pulseEdit: access === 'edit' } })(),
     })
   })
 
@@ -1188,8 +1188,14 @@ export function createApp(options: AppOptions = {}) {
 
   // Pulse (preview): customer signals for early problem framing. For owners only, and only while an owner has switched the preview on (pulse.ts, `pulseOn`). Anyone
   // else gets the answer a page that does not exist would give, so a viewer cannot tell it is there. The switch itself is an owner's setting in Admin.
-  const pulseOnly = async (c: Context) => {
-    if (!(await pulseOn(getDb(), c.get('ctx')))) throw new ApiError(404, 'not_found', 'Not found.')
+  // `need` is what the route asks for: view (default), edit (owners and editors), or owner (settings). Someone with no access at all gets the not-found answer; someone who can
+  // see Pulse but not do this gets a plain refusal.
+  const pulseOnly = async (c: Context, need: 'view' | 'edit' | 'owner' = 'view') => {
+    const ctx = c.get('ctx')
+    const access = await pulseAccess(getDb(), ctx)
+    if (!access) throw new ApiError(404, 'not_found', 'Not found.')
+    if (need === 'edit' && access !== 'edit') throw new ApiError(403, 'forbidden', 'You can view Pulse but not change it.')
+    if (need === 'owner' && ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change this.')
   }
   const signalId = (c: Context) => {
     const id = c.req.param('id') ?? ''
@@ -1216,17 +1222,17 @@ export function createApp(options: AppOptions = {}) {
     return c.json(await listSignals(getDb(), c.get('ctx'), status as 'new' | 'kept' | 'dismissed' | undefined))
   })
   app.post('/pulse/signals', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const input = parseBody(addSignalSchema, await readJson(c))
     return c.json(await addSignal(getDb(), c.get('ctx'), input), 201)
   })
   app.post('/pulse/signals/import', withContext, limited('pulse_import', 20), async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const input = parseBody(importNotesSchema, await readJson(c))
     return c.json(await importNotes(getDb(), c.get('ctx'), input), 201)
   })
   app.patch('/pulse/signals/:id', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const id = signalId(c)
     const input = parseBody(updateSignalSchema, await readJson(c))
     try {
@@ -1243,7 +1249,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json(await listTopics(getDb(), c.get('ctx')))
   })
   app.post('/pulse/topics/update', withContext, limited('pulse_update', 20), async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const input = parseBody(updateTopicsSchema, await readJson(c))
     const ctx = c.get('ctx')
     await updateTopics(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, input.mode)
@@ -1264,7 +1270,7 @@ export function createApp(options: AppOptions = {}) {
   })
   // Suggested research questions for the chosen topics, each with the signal it came from.
   app.post('/pulse/questions', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const input = parseBody(pulseQuestionsSchema, await readJson(c))
     try {
       c.header('Cache-Control', 'private, no-store')
@@ -1276,7 +1282,7 @@ export function createApp(options: AppOptions = {}) {
   })
   // Starts a Signal Flow project from the chosen topics, with its Test Plan filled in.
   app.post('/pulse/projects', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     requireEditor(c)
     const ctx = c.get('ctx')
     const input = parseBody(pulseProjectSchema, await readJson(c))
@@ -1298,7 +1304,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json(origin)
   })
   app.patch('/pulse/topics/:id', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const id = signalId(c)
     const input = parseBody(renameTopicSchema, await readJson(c))
     try {
@@ -1309,7 +1315,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json(await listTopics(getDb(), c.get('ctx')))
   })
   app.post('/pulse/topics/:id/merge', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const id = signalId(c)
     const input = parseBody(mergeTopicSchema, await readJson(c))
     try {
@@ -1320,7 +1326,7 @@ export function createApp(options: AppOptions = {}) {
     return c.json(await listTopics(getDb(), c.get('ctx')))
   })
   app.post('/pulse/topics/:id/split', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'edit')
     const id = signalId(c)
     const input = parseBody(splitTopicSchema, await readJson(c))
     try {
@@ -1337,13 +1343,31 @@ export function createApp(options: AppOptions = {}) {
     return c.json({ weights: await getWeights(getDb(), c.get('ctx').workspaceId) })
   })
   app.put('/pulse/weights', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change weights.')
     const input = parseBody(pulseWeightsSchema, await readJson(c))
     c.header('Cache-Control', 'private, no-store')
     return c.json({ weights: await setWeights(getDb(), c.get('ctx'), input.weights) })
   })
 
+  // Who may VIEW Pulse beyond owners and editors: an owner grants it member by member (department leaders). A grant is view only.
+  app.get('/pulse/viewers', withReadContext, async (c) => {
+    await pulseOnly(c, 'owner')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ members: await listViewers(getDb(), c.get('ctx')) })
+  })
+  app.put('/pulse/viewers/:userId', withContext, async (c) => {
+    await pulseOnly(c, 'owner')
+    const userId = c.req.param('userId') ?? ''
+    if (!UUID.test(userId)) throw new ApiError(404, 'not_found', 'Not found.')
+    const input = parseBody(pulseViewerSchema, await readJson(c))
+    try {
+      return c.json({ members: await setViewer(getDb(), c.get('ctx'), userId, input.canView) })
+    } catch (err) {
+      if (err instanceof NotGrantable) throw new ApiError(422, 'validation_failed', 'View access can be given to a viewer who is not external. Owners and editors always have it.')
+      throw err
+    }
+  })
   // Designated feedback sources (Slack channels): only these are ever read. Owners only, like the rest of Pulse.
   const sourceError = (err: unknown): never => {
     if (err instanceof SourceNotFound) throw new ApiError(404, 'not_found', 'Not found.')
@@ -1351,36 +1375,36 @@ export function createApp(options: AppOptions = {}) {
     throw err
   }
   app.get('/pulse/sources', withReadContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     c.header('Cache-Control', 'private, no-store')
     return c.json({ sources: await listSources(getDb(), c.get('ctx')), slackConnected: await (async () => { const sl = await slackOf(c); return sl.reads ?? sl.live })() })
   })
   app.post('/pulse/sources', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can designate a source.')
     const input = parseBody(newSourceSchema, await readJson(c))
     return c.json(await addSource(getDb(), c.get('ctx'), await slackOf(c), input).catch(sourceError), 201)
   })
   app.post('/pulse/sources/opportunities', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can designate a source.')
     const input = parseBody(newOpportunitySourceSchema, await readJson(c))
     return c.json(await addOpportunitySource(getDb(), c.get('ctx'), input).catch(sourceError), 201)
   })
   app.patch('/pulse/sources/:id', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change a source.')
     const input = parseBody(updateSourceSchema, await readJson(c))
     return c.json(await updateSource(getDb(), c.get('ctx'), signalId(c), input).catch(sourceError))
   })
   app.delete('/pulse/sources/:id', withContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can remove a source.')
     await removeSource(getDb(), c.get('ctx'), signalId(c)).catch(sourceError)
     return c.body(null, 204)
   })
   app.post('/pulse/sources/:id/check', withContext, limited('pulse_check', 20), async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can read a source.')
     const ctx = c.get('ctx')
     const result = await checkSource(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, { slack: await slackOf(c), salesforce: (await integrations(ctx.workspaceId)).salesforce }, signalId(c)).catch(sourceError)
@@ -1390,12 +1414,12 @@ export function createApp(options: AppOptions = {}) {
 
   // Salesforce (read only): the accounts and ARR copied for the topics. The connection itself is set by the operator (node db/set-integration.mjs), never typed into the app.
   app.get('/pulse/salesforce', withReadContext, async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     c.header('Cache-Control', 'private, no-store')
     return c.json(await salesforceStatus(getDb(), c.get('ctx'), !!(await integrations(c.get('ctx').workspaceId)).salesforce))
   })
   app.post('/pulse/salesforce/sync', withContext, limited('pulse_salesforce', 10), async (c) => {
-    await pulseOnly(c)
+    await pulseOnly(c, 'owner')
     const ctx = c.get('ctx')
     if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can copy accounts from Salesforce.')
     await syncAccounts(getDb(), { workspaceId: ctx.workspaceId }, (await integrations(ctx.workspaceId)).salesforce)

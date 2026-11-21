@@ -130,6 +130,7 @@ export const pulseWeightsSchema = z.object({
     .refine((w) => Object.keys(w).length > 0, 'Give at least one weight.')
     .refine((w) => Object.keys(w).every((k) => CHANNEL_KEYS.includes(k)), 'Weights are set per channel: slack, call_notes or salesforce.'),
 })
+export const pulseViewerSchema = z.object({ canView: z.boolean() })
 export const newSourceSchema = z.object({ name: text(80).min(1, 'Enter a Slack channel name.'), channel: channel.optional(), mode: z.enum(['keep', 'review']).optional() })
 export const newOpportunitySourceSchema = z.object({
   fields: z.array(z.string().trim().regex(/^[A-Za-z][A-Za-z0-9_]{0,60}$/, 'A field name is its API name, such as NextStep or Loss_Reason__c.')).min(1, 'Name at least one field.').max(5, 'Up to five fields.'),

@@ -86,7 +86,7 @@ async function fixture(connected = true) {
 
 test('the opportunity source: owners only, validated, one per workspace, audited, and honest when Salesforce is not connected', async () => {
   const { call, owner, alex, pg } = await fixture(false)
-  assert.equal((await call(alex, 'POST', '/pulse/sources/opportunities', { fields: ['NextStep'] })).status, 404)
+  assert.equal((await call(alex, 'POST', '/pulse/sources/opportunities', { fields: ['NextStep'] })).status, 403)
   assert.equal((await call(owner, 'POST', '/pulse/sources/opportunities', { fields: [] })).status, 422)
   assert.equal((await call(owner, 'POST', '/pulse/sources/opportunities', { fields: ['Next Step'] })).status, 422, 'API names only')
   assert.equal((await call(owner, 'POST', '/pulse/sources/opportunities', { fields: ['A', 'B', 'C', 'D', 'E', 'F'] })).status, 422, 'up to five')

@@ -37,9 +37,9 @@ test('Slack text becomes plain words, and only messages from people count', () =
 
 test('sources: owners only, while the preview is on; a channel must exist; each is audited', async () => {
   const { call, owner, alex, sam, pg } = await fixture()
-  for (const who of [alex, sam]) {
-    assert.equal((await call(who, 'GET', '/pulse/sources')).status, 404)
-    assert.equal((await call(who, 'POST', '/pulse/sources', { name: 'customer-feedback' })).status, 404)
+  for (const [who, status] of [[alex, 403], [sam, 404]] as const) {
+    assert.equal((await call(who, 'GET', '/pulse/sources')).status, status, 'sources are the owner\'s: an editor is refused, a viewer sees nothing')
+    assert.equal((await call(who, 'POST', '/pulse/sources', { name: 'customer-feedback' })).status, status)
   }
   assert.equal((await owner.request('/api/v1/pulse/sources')).status, 404, 'the read-only visitor never sees it')
   assert.deepEqual(await (await call(owner, 'GET', '/pulse/sources')).json(), { sources: [], slackConnected: true })
