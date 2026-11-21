@@ -15,7 +15,15 @@ const click = async (page, testid) => {
   await page.waitForFunction((id) => { const el = document.querySelector(`[data-testid="${id}"]`); return !!el && !el.disabled }, { timeout: 8000 }, testid)
   await page.evaluate((id) => { const el = document.querySelector(`[data-testid="${id}"]`); el.scrollIntoView({ block: 'center' }); el.click() }, testid)
 }
-const menu = (page) => page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Navigation"] a')].map((a) => a.getAttribute('data-label')))
+// The apps the launcher offers: it is opened, read, and closed again.
+const menu = async (page) => {
+  await page.click('[data-testid="app-launcher"]')
+  await page.waitForSelector('[data-testid="launcher-panel"]', { visible: true, timeout: 5000 })
+  const names = await page.evaluate(() => [...document.querySelectorAll('[data-testid="launcher-panel"] a')].map((a) => a.getAttribute('data-label')))
+  await page.keyboard.press('Escape')
+  await wait(300)
+  return names
+}
 const open = async (token, path) => {
   const context = await browser.createBrowserContext()
   const page = await context.newPage()
@@ -32,7 +40,7 @@ const open = async (token, path) => {
 try {
   // Off by default: not in the menu, and the address shows a page that does not exist.
   let page = await open(TOKEN, '/projects')
-  ok('Pulse is not in the menu while the preview is off', !(await menu(page)).includes('Pulse'))
+  ok('Pulse is not in the launcher while the preview is off', !(await menu(page)).includes('Pulse'))
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
   ok('and /pulse is a page that does not exist', (await text(page)).includes('Page not found'))
 
@@ -43,11 +51,12 @@ try {
   await click(page, 'preview-pulse')
   await page.waitForFunction(() => document.querySelector('[data-testid="preview-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  ok('with it on, Pulse is in the menu for the owner', (await menu(page)).includes('Pulse'))
+  ok('with it on, Pulse is in the launcher for the owner', (await menu(page)).includes('Pulse'))
 
   // The page: empty, then a signal typed in (kept at once), then notes (wait for review), then keep and dismiss.
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
   await waitText(page, 'Nothing waiting for review')
+  ok('/pulse opens the Signals page, with Pulse as the app in the header', page.url().endsWith('/pulse/signals') && (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse')
   ok('Pulse opens with a preview tag and an empty review list', (await text(page)).includes('Preview · owners only') && !!(await page.$('[data-testid="pulse-empty"]')))
   await page.type('#signal-body', 'Our CSMs stopped trusting the health score after it dropped for no clear reason.')
   await page.type('#signal-said-by', 'Marcus Bell')
@@ -79,7 +88,7 @@ try {
 
   // A read-only visitor never sees it.
   const visitor = await open(null, '/projects')
-  ok('a read-only visitor has no Pulse in the menu', !(await menu(visitor)).includes('Pulse'))
+  ok('a read-only visitor has no Pulse in the launcher', !(await menu(visitor)).includes('Pulse'))
   await visitor.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
   ok('and the address is a page that does not exist for them', (await text(visitor)).includes('Page not found'))
 
@@ -89,7 +98,7 @@ try {
   await click(page, 'preview-pulse')
   await page.waitForFunction(() => document.querySelector('[data-testid="preview-pulse"]')?.getAttribute('aria-checked') === 'false', { timeout: 8000 })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
-  ok('switched off, Pulse leaves the menu again', !(await menu(page)).includes('Pulse'))
+  ok('switched off, Pulse leaves the launcher again', !(await menu(page)).includes('Pulse'))
 } catch (err) {
   failed++
   console.log('  FAIL ' + (err instanceof Error ? err.message : err))

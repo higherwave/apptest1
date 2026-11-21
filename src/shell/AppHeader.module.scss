@@ -1,0 +1,250 @@
+@use '../tokens' as tokens;
+
+// The dark app bar across the top of every app. The launcher and the app's name sit at the left, its items beside them, and what is the same in every app
+// (the AI badge, the tour, Admin, the account) at the far right. Below the narrow breakpoint the items fold into one menu.
+$header-height: 4rem; // kept in step with AppShell.module.scss and StepNav.module.scss
+$narrow: 60rem; // below this the items fold into one menu (tablet portrait)
+$tight: 68rem; // below this the AI badge goes and the tour link keeps only its icon, so everything fits at 1024px
+
+.bar {
+  position: fixed;
+  inset-block-start: var(--at-banner, 0rem);
+  inset-inline: 0;
+  z-index: var(--at-z-header);
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  box-sizing: border-box;
+  block-size: $header-height;
+  padding-inline: var(--at-space-md);
+  background: var(--at-rail);
+  color: var(--at-rail-text);
+
+  // The library's quiet buttons, on the dark bar.
+  :global(.cds--btn--ghost) {
+    color: var(--at-rail-text);
+
+    &:hover { background: var(--at-rail-hover); color: var(--at-on-primary); }
+    &:focus-visible { outline: 0.125rem solid var(--at-on-primary); outline-offset: -0.125rem; box-shadow: none; border-color: transparent; }
+    svg { fill: currentColor; }
+  }
+}
+
+.launcherWrap { flex: none; }
+
+.aiBadge { display: flex; align-items: center; }
+
+.launcher {
+  min-inline-size: 0;
+  padding: var(--at-space-sm);
+  border-radius: var(--at-radius-md);
+  block-size: 2.5rem;
+  inline-size: 2.5rem;
+  justify-content: center;
+}
+
+.launcherOpen { background: var(--at-rail-active); color: var(--at-on-primary); }
+
+.panel {
+  inline-size: 36rem;
+  max-inline-size: calc(100vw - 2rem);
+  padding: var(--at-space-md);
+  background: var(--at-canvas);
+}
+
+.panelTitle {
+  @include tokens.role('meta');
+  margin: 0 0 var(--at-space-sm);
+  color: var(--at-muted);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--at-space-sm);
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  color: var(--at-ink);
+  text-decoration: none;
+
+  &:hover { background: var(--at-surface-hover); }
+  &:focus-visible { outline: 0.125rem solid var(--at-link); outline-offset: 0.125rem; }
+}
+
+.cardCurrent { border-color: var(--at-ink); background: var(--at-surface-slate); }
+
+.cardIcon {
+  display: block;
+  border-radius: var(--at-radius-lg);
+  box-shadow: 0 0 0 1px var(--at-hairline);
+}
+
+// The suite home has no icon of its own: a plain tile with the Insights symbol.
+.homeTile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.75rem;
+  block-size: 2.75rem;
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-slate);
+  color: var(--at-ink);
+}
+
+.cardName {
+  // not-a-heading: an app's name on its card
+  @include tokens.role('title-sm');
+  color: var(--at-ink);
+}
+
+.cardBlurb {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+}
+
+.more {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-md);
+  margin-block-start: var(--at-space-md);
+  padding-block-start: var(--at-space-sm);
+  border-block-start: 1px solid var(--at-hairline);
+}
+
+.moreLink {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+  @include tokens.role('body-md');
+  color: var(--at-link);
+  text-decoration: none;
+
+  &:hover { color: var(--at-link-active); text-decoration: underline; }
+}
+
+.appBrand {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--at-space-sm);
+  padding-inline: var(--at-space-xs) var(--at-space-md);
+  margin-inline-end: var(--at-space-xs);
+  border-inline-end: 1px solid var(--at-rail-active);
+  color: var(--at-on-primary);
+  text-decoration: none;
+
+  &:focus-visible { outline: 0.125rem solid var(--at-on-primary); outline-offset: 0.125rem; border-radius: var(--at-radius-md); }
+}
+
+.mark { display: inline-flex; }
+
+.appName {
+  // not-a-heading: the app's name
+  @include tokens.role('title-sm');
+  margin: 0;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.items,
+.admin {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
+}
+
+.item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  color: var(--at-rail-text);
+  text-decoration: none;
+  white-space: nowrap;
+  @include tokens.role('body-md');
+
+  &:hover { background: var(--at-rail-hover); color: var(--at-on-primary); }
+  &:focus-visible { outline: 0.125rem solid var(--at-on-primary); outline-offset: -0.125rem; }
+}
+
+.itemActive {
+  background: var(--at-rail-active);
+  color: var(--at-on-primary);
+  font-weight: 500;
+}
+
+.right {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+}
+
+.access { display: flex; align-items: center; }
+
+.menu {
+  display: none;
+  position: relative;
+}
+
+.menuButton { border: 1px solid var(--at-rail-active); }
+
+.menuList {
+  position: absolute;
+  inset-block-start: calc(100% + var(--at-space-xxs));
+  inset-inline-start: 0;
+  min-inline-size: 12rem;
+  display: flex;
+  flex-direction: column;
+  padding: var(--at-space-xxs);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+  box-shadow: var(--at-ring);
+}
+
+.menuItem {
+  padding: var(--at-space-sm) var(--at-space-md);
+  border-radius: var(--at-radius-md);
+  color: var(--at-muted);
+  text-decoration: none;
+  @include tokens.role('body-md');
+
+  &:hover { background: var(--at-surface-hover); color: var(--at-ink); }
+}
+
+.menuItemActive { background: var(--at-surface-hover); color: var(--at-ink); }
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+// Smaller than a wide desktop: the AI badge goes and the tour link keeps only its icon, so the items and the account always fit.
+@media (max-width: $tight) {
+  .aiBadge { display: none; }
+  .tourText { display: none; }
+}
+
+// Tablet portrait and down: the items fold into one menu.
+@media (max-width: $narrow) {
+  .items,
+  .admin { display: none; }
+  .menu { display: block; }
+  .appName { display: none; }
+}

@@ -1,33 +1,23 @@
-import { Activity, Analytics, ChartLineData, ChevronDown, ChevronLeft, Filter, Help, Settings as SettingsIcon } from '@carbon/icons-react'
-import { Button } from '@carbon/react'
+import { ChevronLeft } from '@carbon/icons-react'
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { useMe, useProject, useProjectStage } from '../api/hooks'
-import { AccessBar } from '../auth/AccessBar'
-import { AiBadge } from '../auth/AiBadge'
+import { useProject, useProjectStage } from '../api/hooks'
 import type { StepKey } from '../api/client'
 import { STEPS, stepStates } from './nav'
 import { StepNav, useRailWide, type StepItem } from './StepNav'
-import { Logo } from './Logo'
-import { DecisionGuideIcon, PrototypeIcon } from './NavIcons'
+import { AppHeader } from './AppHeader'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
 import { StatusTag } from './StatusTag'
-import { useTour } from '../tour/tourContext'
 import { noteVisit } from '../resume/recent'
 import { useReportTimeZone } from './useReportTimeZone'
 import styles from './AppShell.module.scss'
-import brand from '../../brand/brand.json'
 
-const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
-
-// Two navigation levels: a dark header with the app's areas (a dropdown on narrow screens), and inside a project a light
+// Two navigation levels: the dark app header (AppHeader), and inside a project a light
 // strip of that project's steps. Links carry data-label so tests and scripts find them by name, not by their markup.
 export function AppShell() {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const tour = useTour()
   // The spend alert sits above the fixed app bar; it reports its height so everything below moves down by that much.
   const shell = useRef<HTMLDivElement>(null)
   const onBanner = useCallback((rem: number) => shell.current?.style.setProperty('--at-banner', `${rem}rem`), [])
@@ -38,16 +28,11 @@ export function AppShell() {
 
   const go = (to: string) => (event: MouseEvent) => {
     event.preventDefault()
-    setMenuOpen(false)
     navigate(to)
   }
 
   const project = pathname.match(/^\/projects\/([^/]+)\/([^/]+)/)
   const projectId = project && project[1] !== 'new' ? project[1] : null
-  const insights = pathname.startsWith('/insights')
-  const settings = pathname.startsWith('/settings')
-  const measureArea = pathname === '/measure'
-  const pulseArea = pathname === '/pulse'
   // Creating a project shows the same steps, with only Test Plan open: the others need a saved project.
   const creating = pathname === '/projects/new'
   // The server says which steps are open; until it answers, none are shown as locked.
@@ -78,95 +63,10 @@ export function AppShell() {
     }
   })
 
-  // Admin (the /settings pages) is for owners and editors; a viewer does not see it in the menu at all.
-  const me = useMe()
-  const canSettings = me.data?.role === 'owner' || me.data?.role === 'editor'
-  const areas = [
-    { to: '/insights/themes', label: 'Platform Insights', active: insights, icon: Analytics },
-    { to: '/projects', label: 'Projects', active: !insights && !settings && !measureArea && !pulseArea, icon: Filter },
-    { to: '/measure', label: 'Measure', active: measureArea, icon: ChartLineData },
-    // Pulse is a preview: the server says whether this person may see it (an owner, with the preview switched on); no one else gets even a menu item.
-    ...(me.data?.features.pulse ? [{ to: '/pulse', label: 'Pulse', active: pulseArea, icon: Activity }] : []),
-    ...(canSettings ? [{ to: '/settings/categories', label: 'Admin', active: settings, icon: SettingsIcon }] : []),
-  ]
-  const current = areas.find((a) => a.active) ?? areas[0]
-  // The prototype gallery lives elsewhere: it opens in its own tab. Its address is a brand setting; with none, the link is not shown.
-  const gallery = brand.galleryUrl as string | undefined
-  // The decision guides are another place outside the app, set the same way and shown under the gallery.
-  const decisionGuides = brand.decisionGuidesUrl as string | undefined
-
   return (
     <div className={styles.shell} ref={shell}>
       <SpendBanner onHeight={onBanner} />
-      <aside className={styles.rail} aria-label="Main menu">
-        <div className={styles.brand}>
-          <Logo />
-          <span className={cx(styles.appName, styles.label)}>{brand.appName}</span>
-        </div>
-
-        <nav className={styles.areas} aria-label="Navigation" data-nav>
-          {areas.map((a) => (
-            <a key={a.to} href={a.to} data-label={a.label} aria-current={a.active ? 'page' : undefined} className={cx(styles.area, a.active && styles.areaActive)} onClick={go(a.to)}>
-              <a.icon size={20} aria-hidden />
-              <span className={styles.label}>{a.label}</span>
-            </a>
-          ))}
-          {gallery && (
-            <a href={gallery} data-label="Prototype gallery" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
-              <PrototypeIcon />
-              <span className={styles.label}>Prototype gallery</span>
-              <span className={styles.srOnly}> (opens in a new tab)</span>
-            </a>
-          )}
-          {decisionGuides && (
-            <a href={decisionGuides} data-label="Decision Guides" target="_blank" rel="noopener noreferrer" className={cx(styles.area, styles.areaExternal)}>
-              <DecisionGuideIcon />
-              <span className={styles.label}>Decision Guides</span>
-              <span className={styles.srOnly}> (opens in a new tab)</span>
-            </a>
-          )}
-        </nav>
-      </aside>
-
-      <header className={styles.topbar}>
-        <div className={styles.narrowBrand}>
-          <Logo />
-          <span className={styles.appName}>{brand.appName}</span>
-        </div>
-        <div className={styles.menu} data-menu>
-          <Button kind="ghost" size="sm" className={styles.menuButton} renderIcon={ChevronDown} aria-haspopup="true" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
-            {current.label}
-          </Button>
-          {menuOpen && (
-            <div className={styles.menuList} role="menu">
-              {areas.map((a) => (
-                <a key={a.to} href={a.to} role="menuitem" aria-current={a.active ? 'page' : undefined} className={cx(styles.menuItem, a.active && styles.menuItemActive)} onClick={go(a.to)}>
-                  {a.label}
-                </a>
-              ))}
-              {gallery && (
-                <a href={gallery} role="menuitem" target="_blank" rel="noopener noreferrer" className={styles.menuItem}>
-                  Prototype gallery
-                </a>
-              )}
-              {decisionGuides && (
-                <a href={decisionGuides} role="menuitem" target="_blank" rel="noopener noreferrer" className={styles.menuItem}>
-                  Decision Guides
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-        <div className={styles.aiBadge}>
-          <AiBadge />
-        </div>
-        <Button kind="ghost" size="sm" className={styles.tourLink} renderIcon={Help} data-testid="take-a-tour" onClick={tour.openWelcome}>
-          Take a tour
-        </Button>
-        <div className={styles.access}>
-          <AccessBar />
-        </div>
-      </header>
+      <AppHeader />
 
       {hasPanel && (
         <div className={styles.context} data-context data-rail={railWide}>
@@ -194,9 +94,7 @@ export function AppShell() {
           )}
         </main>
       </div>
-      <div className={styles.footer}>
-        <SiteFooter flush />
-      </div>
+      <SiteFooter flush />
     </div>
   )
 }

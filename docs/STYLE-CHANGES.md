@@ -122,3 +122,11 @@ original dark gray (the menu rail colour) at the left so the text there sits on 
 Lives in `--at-panel-aurora` in `src/theme.scss` (an inline SVG, so no image file). Why: David's choice after trying a lighter gray, a slate blue
 base and a slate-blue highlight. Legibility checked by eye on the task list (the ribbons are the weakest spot; the first try at 75% was too bright).
 To undo: restore the previous `--at-panel-aurora` (two radial glows over a 115deg gradient from the rail colour) from git.
+
+## 2026-11-20: the app header and launcher replace the left icon strip
+
+- The 68px dark icon strip down the left (opening to 240px on hover) is gone. A dark bar (`--at-rail`) now runs across the top of every page: the launcher (nine dots) at the left, the
+  current app's one-colour mark and name, its items, and at the far right the AI badge, "Take a tour", Admin and the account. The project step rail and project bar are unchanged and now start at the left edge.
+- The launcher opens a panel of cards: Platform Insights (the suite home, a plain tile) first, then Signal Flow and, for an owner with the preview on, Pulse, with the full-colour icons; the
+  Prototype gallery and Decision Guides links sit at the foot of the panel.
+- Width: below 68rem the AI badge goes and "Take a tour" keeps only its icon; below 60rem the items fold into one menu (tablet portrait).

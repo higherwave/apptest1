@@ -79,7 +79,8 @@ export function App() {
         <Route path="launches/:launchId" element={<LaunchByIdPage />} />
         <Route path="projects/:projectId/measure" element={<MeasureOfProject />} />
         <Route path="measure" element={<MeasurePage />} />
-        <Route path="pulse" element={<PulsePage />} />
+        <Route path="pulse" element={<Navigate to="/pulse/signals" replace />} />
+        <Route path="pulse/signals" element={<PulsePage />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<Navigate to="/settings/access?tab=people" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />
