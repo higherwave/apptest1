@@ -16,7 +16,7 @@ const page = await browser.newPage()
 const selectAll = async (sel) => { await page.click(sel); await page.$eval(sel, (el) => el.select()) }
 await page.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow-tour', JSON.stringify({ welcomed: true, finished: [] })) } catch { /* ignore */ } }) // the welcome screen is tested in tour.mjs; here it would only be in the way
 await page.setViewport({ width: 1400, height: 900 })
-page.on('pageerror', (e) => ok('no page errors', false, e.message))
+page.on('pageerror', (e) => ok('no page errors', false, e.message + ' ' + String(e.stack).split('\n').slice(1, 12).join(' | ')))
 const text = async () => page.evaluate(() => document.body.innerText)
 const waitText = (t, timeout = 8000) => page.waitForFunction((x) => document.body.innerText.toLowerCase().includes(x.toLowerCase()), { timeout }, t)
 const clickText = async (t, tag = 'button') => {
