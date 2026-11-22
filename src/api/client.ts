@@ -2,6 +2,7 @@
 // is one operation in that spec, and the MCP data-binding check will match hooks to these names.
 import type { components } from './schema'
 import { getToken } from './token'
+import { reportProblem } from '../shell/problems'
 
 export type Project = components['schemas']['ProjectSummary']
 export type ProjectTint = Project['color']
@@ -35,8 +36,12 @@ async function request<T>(path: string, { method = 'GET', body, token, version }
       ...(version !== undefined ? { 'if-match': String(version) } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+  }).catch((e: unknown) => {
+    reportProblem('request', `${method} ${path} could not reach the server`, String(e))
+    throw e
   })
   const parsed = res.status === 204 ? null : await res.json().catch(() => null)
+  if (res.status >= 500) reportProblem('request', `${method} ${path} answered ${res.status}${parsed?.error?.code ? ` (${parsed.error.code})` : ''}`, parsed?.error?.message ?? res.statusText)
   if (!res.ok) throw new ApiRequestError(res.status, parsed?.error?.code ?? 'unknown', parsed?.error?.message ?? res.statusText, parsed?.error?.field, parsed?.current, parsed ?? {})
   return parsed as T
 }
@@ -45,9 +50,13 @@ async function request<T>(path: string, { method = 'GET', body, token, version }
 // message, then handed to the browser to save. Resolves with the file's name.
 export async function download(path: string): Promise<string> {
   const bearer = getToken()
-  const res = await fetch(`/api/v1${path}`, { headers: bearer ? { authorization: `Bearer ${bearer}` } : {} })
+  const res = await fetch(`/api/v1${path}`, { headers: bearer ? { authorization: `Bearer ${bearer}` } : {} }).catch((e: unknown) => {
+    reportProblem('request', `GET ${path} could not reach the server`, String(e))
+    throw e
+  })
   if (!res.ok) {
     const parsed = await res.json().catch(() => null)
+    if (res.status >= 500) reportProblem('request', `GET ${path} answered ${res.status}`, parsed?.error?.message ?? res.statusText)
     throw new ApiRequestError(res.status, parsed?.error?.code ?? 'unknown', parsed?.error?.message ?? res.statusText)
   }
   const blob = await res.blob()

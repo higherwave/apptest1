@@ -1,0 +1,47 @@
+@use '../tokens' as tokens;
+
+// A slim bar fixed above everything, including the spend bar. The app bar and the spend bar move down by its height (--at-error-banner).
+.banner {
+  position: fixed;
+  inset-block-start: 0;
+  inset-inline: 0;
+  z-index: var(--at-z-banner);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+  min-block-size: 2rem;
+  padding: var(--at-space-xxs) var(--at-space-lg);
+  border-block-end: 1px solid var(--at-hairline);
+
+  &[data-level='request'] {
+    background: var(--at-tint-yellow);
+    color: var(--at-ink);
+  }
+
+  &[data-level='script'] {
+    background: var(--at-tint-coral);
+    color: var(--at-on-tint-coral);
+  }
+
+  @media (max-width: 48rem) {
+    padding-inline: var(--at-space-md);
+  }
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.copy {
+  color: inherit;
+}

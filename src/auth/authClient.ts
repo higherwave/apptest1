@@ -2,6 +2,7 @@
 // session cookie is a plain first-party cookie.
 import { createAuthClient } from 'better-auth/react'
 import type { SignInOption } from '../api/client'
+import { reportProblem } from '../shell/problems'
 
 export const authClient = createAuthClient({ baseURL: `${window.location.origin}/api/v1/auth` })
 
@@ -17,8 +18,18 @@ export async function signInWith(id: SignInOption['id'], callbackURL = window.lo
   return result
 }
 
-// Ends the session, then loads the app fresh so nothing from the last person stays in memory.
+// Ends the session, then loads the app fresh so nothing from the last person stays in memory. If the server refuses or cannot be reached the
+// person stays where they are, with the reason in the problem bar, instead of being reloaded into the same session without a word.
 export async function signOut() {
-  await authClient.signOut().catch(() => undefined)
+  try {
+    const result = await authClient.signOut()
+    if (result?.error) {
+      reportProblem('request', `Sign out did not work: ${result.error.message || result.error.statusText || result.error.status}`, JSON.stringify(result.error))
+      return
+    }
+  } catch (e) {
+    reportProblem('request', 'Sign out did not work: the server could not be reached', String(e))
+    return
+  }
   window.location.assign('/')
 }

@@ -8,7 +8,7 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
 
 .bar {
   position: fixed;
-  inset-block-start: var(--at-banner, 0rem);
+  inset-block-start: calc(var(--at-banner, 0rem) + var(--at-error-banner, 0rem));
   inset-inline: 0;
   z-index: var(--at-z-header);
   display: flex;

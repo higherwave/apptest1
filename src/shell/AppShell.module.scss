@@ -18,7 +18,7 @@ $narrow: 40rem;
   display: flex;
   flex: 1 0 auto;
   flex-direction: column;
-  margin-block-start: calc(#{$header-height} + var(--at-banner, 0rem));
+  margin-block-start: calc(#{$header-height} + var(--at-banner, 0rem) + var(--at-error-banner, 0rem));
   background: var(--at-page);
 }
 
