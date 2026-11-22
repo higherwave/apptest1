@@ -1,5 +1,5 @@
 import { SHOW_SUITE } from './suite'
-import { ChevronDown, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
+import { ChevronDown, Help, Launch } from '@carbon/icons-react'
 import { Button, Popover, PopoverContent } from '@carbon/react'
 import { useState, type MouseEvent } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -15,7 +15,7 @@ import brand from '../../brand/brand.json'
 const cx = (...names: (string | false | undefined)[]) => names.filter(Boolean).join(' ')
 
 // The dark bar across the top of every app: the launcher (all the apps and the suite home), the current app's mark and name, its top-level items, and at the
-// far right what is the same everywhere (the AI badge, the tour, Settings, the account). On a narrow screen the items fold into one menu.
+// far right what is the same everywhere (the AI badge, the tour, the account, which holds Settings). On a narrow screen the items fold into one menu.
 // Links carry data-label so tests and scripts find them by name, not by their markup.
 export function AppHeader() {
   const { pathname } = useLocation()
@@ -27,8 +27,7 @@ export function AppHeader() {
 
   const app = appFor(pathname)
   const settings = pathname.startsWith('/settings')
-  // Settings is for owners and editors; a viewer does not see it at all.
-  const canSettings = me.data?.role === 'owner' || me.data?.role === 'editor'
+
   // Pulse is a preview: the server says whether this person may see it, and nobody else gets even a launcher card.
   const apps: AppDef[] = [APPS['signal-flow'], ...(me.data?.features.pulse ? [APPS.pulse] : [])]
   const items = app.items.map((i) => ({ ...i, active: !settings && i.match(pathname) }))
@@ -114,11 +113,6 @@ export function AppHeader() {
                 {i.label}
               </a>
             ))}
-            {canSettings && (
-              <a href="/settings/categories" role="menuitem" aria-current={settings ? 'page' : undefined} className={cx(styles.menuItem, settings && styles.menuItemActive)} onClick={go('/settings/categories')}>
-                Settings
-              </a>
-            )}
             {apps
               .filter((a) => a.key !== app.key)
               .map((a) => (
@@ -142,14 +136,6 @@ export function AppHeader() {
         <Button kind="ghost" size="sm" className={styles.tour} renderIcon={Help} aria-label="Take a tour" data-testid="take-a-tour" onClick={tour.openWelcome}>
           <span className={styles.tourText}>Take a tour</span>
         </Button>
-        {canSettings && (
-          <nav className={styles.admin} aria-label="Settings" data-nav>
-            <a href="/settings/categories" data-label="Settings" aria-current={settings ? 'page' : undefined} className={cx(styles.item, settings && styles.itemActive)} onClick={go('/settings/categories')}>
-              Settings
-              <SettingsIcon size={16} aria-hidden />
-            </a>
-          </nav>
-        )}
         <div className={styles.access}>
           <AccessBar />
         </div>

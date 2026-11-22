@@ -141,8 +141,7 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
   white-space: nowrap;
 }
 
-.items,
-.admin {
+.items {
   display: flex;
   align-items: center;
   gap: var(--at-space-xxs);
@@ -251,7 +250,6 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
 // Tablet portrait and down: the items fold into one menu.
 @media (max-width: $narrow) {
   .items,
-  .admin { display: none; }
   .menu { display: block; }
   .appName { display: none; }
 }
