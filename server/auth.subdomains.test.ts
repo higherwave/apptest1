@@ -227,3 +227,32 @@ test('the demo’s public viewing and open editing belong to the home workspace 
   const write = await open.fetch(`${ACME}/api/v1/projects`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
   assert.equal(write.status, 401)
 })
+
+// The bare domain as the front door (https://signalflow.example instead of https://app.signalflow.example).
+const APEX = 'https://signalflow.example'
+
+test('with the bare domain as the sign-in address, a person signs in and out there, and the session ends on every address', async () => {
+  const e = { BETTER_AUTH_URL: APEX }
+  const b = new Browser(appWith(e))
+  idp.next = { sub: 'okta-apex', email: 'ada@acme.test', name: 'Ada' }
+  const start = await b.fetch(`${APEX}/api/v1/auth/sign-in/social`, { method: 'POST', headers: { 'content-type': 'application/json', origin: APEX }, body: JSON.stringify({ provider: 'oidc', callbackURL: `${APEX}/projects` }) })
+  assert.equal(start.status, 200, await start.clone().text())
+  const authorize = await fetch((await start.json()).url, { redirect: 'manual' })
+  const callback = await b.fetch(new URL(authorize.headers.get('location')!).toString())
+  assert.ok(callback.status < 400, `callback ${callback.status}`)
+  assert.notEqual((await me(b, APEX)).status, 401, 'signed in on the bare domain (a person outside the home workspace is refused there, not unknown)')
+  assert.equal((await me(b, ACME)).status, 200, 'the session is shared with customer addresses')
+  const out = await b.fetch(`${APEX}/api/v1/auth/sign-out`, { method: 'POST', headers: { 'content-type': 'application/json', origin: APEX }, body: '{}' })
+  assert.equal(out.status, 200)
+  assert.equal((await me(b, APEX)).status, 401, 'signed out on the bare domain')
+  assert.equal((await me(b, ACME)).status, 401)
+})
+
+test('control: signing out from the bare domain is refused (403 invalid_origin) until it is the sign-in address, which is what made Sign out do nothing', async () => {
+  const b = new Browser(appWith())
+  await b.signIn(ACME, { sub: 'okta-apex2', email: 'apex2@acme.test', name: 'Apex2' })
+  const out = await b.fetch(`${APEX}/api/v1/auth/sign-out`, { method: 'POST', headers: { 'content-type': 'application/json', origin: APEX }, body: '{}' })
+  assert.equal(out.status, 403)
+  assert.equal((await out.json()).code, 'INVALID_ORIGIN')
+  assert.notEqual((await me(b, ACME)).status, 401, 'the session is still there')
+})
