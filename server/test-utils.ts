@@ -1,4 +1,8 @@
-import { readFileSync } from 'node:fs'
+import { createHash } from 'node:crypto'
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { after } from 'node:test'
 import { PGlite } from '@electric-sql/pglite'
 import { scopeSql, type Db, type Queryable } from './db.js'
 import type { AuthService } from './auth.js'
@@ -29,16 +33,70 @@ export function pgliteDb(pg: PGlite, workspaceId?: string): Db {
   }
 }
 
+// Called synchronously when a database is requested, so it closes with whatever was running then: the test that asked for it, or the
+// whole file when it was asked for at the top (a shared database). Only under `node --test`: the in-memory dev servers import this file too.
+function closeWhenDone(get: () => PGlite | undefined): void {
+  if (!process.env.NODE_TEST_CONTEXT) return
+  after(async () => {
+    await get()?.close().catch(() => {})
+  })
+}
+
+// Walks a folder and returns every file's path and size/mtime, so the snapshot key changes whenever a migration or the seed does.
+function fingerprint(): string {
+  const root = new URL('../db/', import.meta.url).pathname
+  const h = createHash('sha256')
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir).sort()) {
+      const path = join(dir, name)
+      if (statSync(path).isDirectory()) walk(path)
+      else h.update(path.slice(root.length)).update(readFileSync(path))
+    }
+  }
+  walk(join(root, 'migrations'))
+  walk(join(root, 'seed'))
+  h.update(readFileSync(join(root, 'migrate.mjs')))
+  h.update(readFileSync(new URL('../node_modules/@electric-sql/pglite/package.json', import.meta.url)))
+  return h.digest('hex').slice(0, 16)
+}
+
+// The migrated and seeded database is built once per machine (until a migration or the seed changes) and every test database
+// starts from that snapshot: loading it takes about 0.5 s, building it again about 2.4 s and every copy of that work added memory.
+let snapshot: Promise<Blob> | undefined
+function baseSnapshot(): Promise<Blob> {
+  snapshot ??= (async () => {
+    const dir = join(tmpdir(), 'signal-flow-test-db')
+    const file = join(dir, `${fingerprint()}.tar`)
+    if (existsSync(file)) return new Blob([readFileSync(file)])
+    const pglite = new PGlite()
+    for (const f of migrationFiles()) await pglite.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
+    await pglite.exec(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`)
+    await pglite.exec(`grant select on public.schema_migrations to sf_app`) // the migration tool's own bookkeeping table, which the health check reads
+    for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
+    await seed(pglite)
+    const blob = (await pglite.dumpDataDir('none')) as Blob
+    await pglite.close()
+    try {
+      mkdirSync(dir, { recursive: true })
+      const tmp = `${file}.${process.pid}.tmp`
+      writeFileSync(tmp, Buffer.from(await blob.arrayBuffer()))
+      renameSync(tmp, file) // atomic, so test files running side by side never read half a file
+    } catch {
+      // no cache this time; the snapshot still serves this process
+    }
+    return blob
+  })()
+  return snapshot
+}
+
 // A migrated and seeded in-memory database, with the bookkeeping table the health check reads.
 // With { anchor: true } the Anchor CX demo story is loaded beside it (the original demo's tests count on it being absent).
-/** `drafts`: the seeded requirements documents are returned to draft, so their projects are not locked (a published document locks its project: server/lock.ts). */
-export async function createDemoDatabase(options: { anchor?: boolean; drafts?: boolean } = {}): Promise<{ pglite: PGlite; db: Db }> {
-  const pglite = new PGlite()
-  for (const f of migrationFiles()) await pglite.exec(readFileSync(new URL(`../db/migrations/${f}`, import.meta.url), 'utf8'))
-  await pglite.exec(`create table if not exists public.schema_migrations (name text primary key, applied_at timestamptz default now())`)
-  await pglite.exec(`grant select on public.schema_migrations to sf_app`) // the migration tool's own bookkeeping table, which the health check reads
-  for (const f of migrationFiles()) await pglite.query('insert into public.schema_migrations (name) values ($1) on conflict do nothing', [f])
-  await seed(pglite)
+/** `keepOpen`: a database shared by many tests but created lazily inside the first one that needs it, so it must outlive that test (the process end frees it). `drafts`: the seeded requirements documents are returned to draft, so their projects are not locked (a published document locks its project: server/lock.ts). */
+export async function createDemoDatabase(options: { anchor?: boolean; drafts?: boolean; keepOpen?: boolean } = {}): Promise<{ pglite: PGlite; db: Db }> {
+  let pglite: PGlite | undefined
+  if (!options.keepOpen) closeWhenDone(() => pglite)
+  pglite = new PGlite({ loadDataDir: await baseSnapshot() })
+  await pglite.waitReady
   if (options.anchor) await loadAnchorCx(pglite, { workspaceId: uid('workspace'), userId: uid('user:david') })
   if (options.drafts) await pglite.query(`update delivery.specs set status = 'draft', published_at = null`)
   return { pglite, db: pgliteDb(pglite) }

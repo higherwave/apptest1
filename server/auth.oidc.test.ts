@@ -75,7 +75,7 @@ await new Promise<void>((r) => idpServer.listen(0, '127.0.0.1', r))
 idp.issuer = `http://127.0.0.1:${(idpServer.address() as { port: number }).port}`
 
 // --- the database and the app -----------------------------------------------------------------------------------------------
-const { pglite, db } = await createDemoDatabase()
+const { pglite, db } = await createDemoDatabase({ keepOpen: true }) // closed at the end of this file's own after hook, once its server is stopped
 const dbServer = new PGLiteSocketServer({ db: pglite, port: 0, host: '127.0.0.1' })
 await dbServer.start()
 const address = (dbServer as any).server?.address?.() ?? (dbServer as any).getAddress?.()
@@ -84,6 +84,7 @@ const pool = new pg.Pool({ host: '127.0.0.1', port, user: 'postgres', database: 
 after(async () => {
   await pool.end()
   await dbServer.stop()
+  await pglite.close()
   idpServer.close()
 })
 

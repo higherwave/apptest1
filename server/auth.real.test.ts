@@ -15,7 +15,7 @@ declare global {
   }
 }
 
-const { pglite, db } = await createDemoDatabase()
+const { pglite, db } = await createDemoDatabase({ keepOpen: true }) // closed at the end of this file's own after hook, once its server is stopped
 const server = new PGLiteSocketServer({ db: pglite, port: 0, host: '127.0.0.1' })
 await server.start()
 const address = (server as any).server?.address?.() ?? (server as any).getAddress?.()
@@ -24,6 +24,7 @@ const pool = new pg.Pool({ host: '127.0.0.1', port, user: 'postgres', database: 
 after(async () => {
   await pool.end()
   await server.stop()
+  await pglite.close()
 })
 
 const env = { BETTER_AUTH_SECRET: 'y'.repeat(40), BETTER_AUTH_URL: 'http://localhost:5198', GOOGLE_CLIENT_ID: 'id', GOOGLE_CLIENT_SECRET: 'secret' }

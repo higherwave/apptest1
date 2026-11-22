@@ -30,7 +30,7 @@ let pglite: PGlite
 let db: Db
 async function demoDb() {
   if (db) return db
-  ;({ pglite, db } = await createDemoDatabase())
+  ;({ pglite, db } = await createDemoDatabase({ keepOpen: true }))
   return db
 }
 
