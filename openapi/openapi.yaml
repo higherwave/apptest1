@@ -1974,6 +1974,7 @@ paths:
         a page that does not exist.
       parameters:
         - { name: status, in: query, required: false, schema: { type: string, enum: [new, kept, dismissed] } }
+        - { name: origin, in: query, required: false, schema: { type: string, enum: [auto, manual] }, description: 'auto: found by Pulse itself (Slack channels, Salesforce opportunity notes). manual: put in by a person. Left out: everything.' }
       responses:
         '200':
           description: The signals.
@@ -2069,6 +2070,8 @@ paths:
       summary: >
         Topics (kept signals grouped), ranked, with every number computed from their signals and the channel weights: signals per channel, channels, reach, the score and its full breakdown, and the trend.
         Also how many signals wait for review, how many kept ones are in no topic, and when topics were last updated. Owners only, and only while the preview is on; everyone else gets 404.
+      parameters:
+        - { name: origin, in: query, required: false, schema: { type: string, enum: [auto, manual] }, description: 'auto: found by Pulse itself (Slack channels, Salesforce opportunity notes). manual: put in by a person. Left out: everything.' }
       responses:
         '200':
           description: The topics.
@@ -2108,6 +2111,7 @@ paths:
         for an owner, or the topic does not exist.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: origin, in: query, required: false, schema: { type: string, enum: [auto, manual] }, description: 'auto: found by Pulse itself (Slack channels, Salesforce opportunity notes). manual: put in by a person. Left out: everything.' }
       responses:
         '200':
           description: The topic.
@@ -4255,7 +4259,7 @@ components:
             salesforce: { type: number }
     PulseTopic:
       type: object
-      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, inPlay, projects, researched]
+      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, inPlay, accounts, projects, researched]
       properties:
         id: { type: string }
         title: { type: string }
@@ -4306,6 +4310,16 @@ components:
                   properties:
                     count: { type: integer }
                     amount: { type: number }
+        accounts:
+          type: array
+          description: 'The accounts behind the topic, each once, with how many signals named it and its ARR when found in Salesforce.'
+          items:
+            type: object
+            required: [name, signals, arr]
+            properties:
+              name: { type: string }
+              signals: { type: integer }
+              arr: { type: [number, 'null'] }
         projects:
           type: array
           description: 'Signal Flow projects started from this topic.'
@@ -4355,18 +4369,9 @@ components:
       allOf:
         - { $ref: '#/components/schemas/PulseTopic' }
         - type: object
-          required: [quotes, accounts, people]
+          required: [quotes, people]
           properties:
             quotes: { type: array, items: { $ref: '#/components/schemas/PulseQuote' } }
-            accounts:
-              type: array
-              items:
-                type: object
-                required: [name, signals, arr]
-                properties:
-                  name: { type: string }
-                  signals: { type: integer }
-                  arr: { type: [number, 'null'], description: 'From Salesforce, or null when the account was not found there.' }
             people:
               type: array
               items:

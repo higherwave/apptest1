@@ -55,7 +55,7 @@ import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopi
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import type { SalesforceFetch } from './salesforce.js'
 import { addOpportunitySource, addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
-import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
+import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
@@ -1214,12 +1214,19 @@ export function createApp(options: AppOptions = {}) {
     c.header('Cache-Control', 'private, no-store')
     return c.json({ enabled: input.enabled })
   })
+  // The two views of Signals: ?origin=auto (found by Pulse itself) or ?origin=manual (put in by a person). Left out, everything.
+  const originParam = (c: Context) => {
+    const v = c.req.query('origin')
+    if (v === undefined || v === '') return undefined
+    if (!isOrigin(v)) throw new ApiError(422, 'validation_failed', 'Origin must be auto or manual.', 'origin')
+    return v
+  }
   app.get('/pulse/signals', withReadContext, async (c) => {
     await pulseOnly(c)
     const status = c.req.query('status')
     if (status !== undefined && !['new', 'kept', 'dismissed'].includes(status)) throw new ApiError(422, 'validation_failed', 'Status must be new, kept or dismissed.', 'status')
     c.header('Cache-Control', 'private, no-store')
-    return c.json(await listSignals(getDb(), c.get('ctx'), status as 'new' | 'kept' | 'dismissed' | undefined))
+    return c.json(await listSignals(getDb(), c.get('ctx'), status as 'new' | 'kept' | 'dismissed' | undefined, originParam(c)))
   })
   app.post('/pulse/signals', withContext, async (c) => {
     await pulseOnly(c, 'edit')
@@ -1246,7 +1253,7 @@ export function createApp(options: AppOptions = {}) {
   app.get('/pulse/topics', withReadContext, async (c) => {
     await pulseOnly(c)
     c.header('Cache-Control', 'private, no-store')
-    return c.json(await listTopics(getDb(), c.get('ctx')))
+    return c.json(await listTopics(getDb(), c.get('ctx'), new Date(), originParam(c)))
   })
   app.post('/pulse/topics/update', withContext, limited('pulse_update', 20), async (c) => {
     await pulseOnly(c, 'edit')
@@ -1263,7 +1270,7 @@ export function createApp(options: AppOptions = {}) {
   }
   app.get('/pulse/topics/:id', withReadContext, async (c) => {
     await pulseOnly(c)
-    const detail = await topicDetail(getDb(), c.get('ctx'), signalId(c))
+    const detail = await topicDetail(getDb(), c.get('ctx'), signalId(c), originParam(c))
     if (!detail) throw new ApiError(404, 'not_found', 'Not found.')
     c.header('Cache-Control', 'private, no-store')
     return c.json(detail)

@@ -3326,6 +3326,12 @@ export interface components {
                     amount: number;
                 };
             };
+            /** @description The accounts behind the topic, each once, with how many signals named it and its ARR when found in Salesforce. */
+            accounts: {
+                name: string;
+                signals: number;
+                arr: number | null;
+            }[];
             /** @description Signal Flow projects started from this topic. */
             projects: {
                 /** Format: uuid */
@@ -3365,12 +3371,6 @@ export interface components {
         };
         PulseTopicDetail: components["schemas"]["PulseTopic"] & {
             quotes: components["schemas"]["PulseQuote"][];
-            accounts: {
-                name: string;
-                signals: number;
-                /** @description From Salesforce, or null when the account was not found there. */
-                arr: number | null;
-            }[];
             people: {
                 name: string;
                 signals: number;
@@ -7619,6 +7619,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: "new" | "kept" | "dismissed";
+                /** @description auto: found by Pulse itself (Slack channels, Salesforce opportunity notes). manual: put in by a person. Left out: everything. */
+                origin?: "auto" | "manual";
             };
             header?: never;
             path?: never;
@@ -7753,7 +7755,10 @@ export interface operations {
     };
     listPulseTopics: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description auto: found by Pulse itself (Slack channels, Salesforce opportunity notes). manual: put in by a person. Left out: everything. */
+                origin?: "auto" | "manual";
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7805,7 +7810,10 @@ export interface operations {
     };
     getPulseTopic: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description auto: found by Pulse itself (Slack channels, Salesforce opportunity notes). manual: put in by a person. Left out: everything. */
+                origin?: "auto" | "manual";
+            };
             header?: never;
             path: {
                 id: string;

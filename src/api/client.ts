@@ -167,14 +167,19 @@ export type PulseOrigin = components['schemas']['PulseOrigin']
 export type PulseWeights = components['schemas']['PulseWeights']['weights']
 export const getPulsePreview = () => request<PulsePreview>('/pulse/preview')
 export const setPulsePreview = (enabled: boolean) => request<PulsePreview>('/pulse/preview', { method: 'PUT', body: { enabled } })
-export const listPulseSignals = (status?: PulseStatus) => request<PulseSignalList>(`/pulse/signals${status ? `?status=${status}` : ''}`)
+export type SignalOrigin = 'auto' | 'manual'
+const query = (params: Record<string, string | undefined>) => {
+  const q = Object.entries(params).filter((e): e is [string, string] => !!e[1]).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&')
+  return q ? `?${q}` : ''
+}
+export const listPulseSignals = (status?: PulseStatus, origin?: SignalOrigin) => request<PulseSignalList>(`/pulse/signals${query({ status, origin })}`)
 export const addPulseSignal = (body: NewPulseSignal) => request<PulseSignal>('/pulse/signals', { method: 'POST', body })
 export const importPulseNotes = (body: { text: string; channel?: PulseChannel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }) => request<{ created: number; skipped: number; duplicates: number }>('/pulse/signals/import', { method: 'POST', body })
-export const listPulseTopics = () => request<PulseTopicList>('/pulse/topics')
+export const listPulseTopics = (origin?: SignalOrigin) => request<PulseTopicList>(`/pulse/topics${query({ origin })}`)
 export const updatePulseTopics = (mode: 'attach' | 'regroup' = 'attach') => request<PulseTopicList>('/pulse/topics/update', { method: 'POST', body: { mode } })
 export const renamePulseTopic = (id: string, title: string) => request<PulseTopicList>(`/pulse/topics/${id}`, { method: 'PATCH', body: { title } })
 export const mergePulseTopic = (id: string, intoId: string) => request<PulseTopicList>(`/pulse/topics/${id}/merge`, { method: 'POST', body: { intoId } })
-export const getPulseTopic = (id: string) => request<PulseTopicDetail>(`/pulse/topics/${id}`)
+export const getPulseTopic = (id: string, origin?: SignalOrigin) => request<PulseTopicDetail>(`/pulse/topics/${id}${query({ origin })}`)
 export const suggestPulseQuestions = (topicIds: string[], method: string) => request<{ questions: PulseQuestion[] }>('/pulse/questions', { method: 'POST', body: { topicIds, method } })
 export const createPulseProject = (body: { name: string; description: string | null; methods: string[]; topicIds: string[]; questions: { prompt: string; topicId: string | null }[] }) => request<{ projectId: string }>('/pulse/projects', { method: 'POST', body })
 export const getPulseOrigin = (projectId: string) => request<PulseOrigin>(`/pulse/origin/${projectId}`)

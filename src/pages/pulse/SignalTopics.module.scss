@@ -1,0 +1,165 @@
+@use '../../tokens' as tokens;
+
+.topics {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  min-inline-size: 0;
+}
+
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.sectionTitle {
+  @include tokens.role('heading-3');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.empty {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+  max-inline-size: 40rem;
+}
+
+.checkCol { inline-size: 3rem; }
+.num { white-space: nowrap; }
+
+.topic {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  min-inline-size: 0;
+}
+
+.title {
+  @include tokens.role('label-md');
+  color: var(--at-ink);
+  text-decoration: none;
+
+  &:hover { color: var(--at-link-active); text-decoration: underline; }
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xxs);
+}
+
+// The count that opens a topic's accounts or quotes: a link-coloured button.
+.linkButton.linkButton {
+  color: var(--at-link);
+  min-block-size: 2rem;
+  padding-block: 0;
+}
+
+.expanded > td {
+  background: var(--at-surface-soft);
+}
+
+.accounts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding-block: var(--at-space-xs);
+}
+
+.accountsHead {
+  @include tokens.role('label-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.accountList {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+
+  li {
+    @include tokens.role('body-md');
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: var(--at-space-md);
+    padding: var(--at-space-xs) var(--at-space-md);
+    color: var(--at-body);
+  }
+
+  li + li { border-block-start: 1px solid var(--at-hairline); }
+}
+
+.accountName { color: var(--at-ink); font-weight: 500; }
+.muted { @include tokens.role('meta'); color: var(--at-muted); margin: 0; }
+
+.quotes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: var(--at-space-xs) 0;
+  list-style: none;
+
+  @media (max-width: 56.25rem) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+}
+
+.quoteText { @include tokens.role('body-md'); margin: 0; color: var(--at-ink); }
+
+.quoteMeta {
+  @include tokens.role('meta');
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin: 0;
+  color: var(--at-muted);
+}
+
+// The foot of the list: how many topics are picked, the ARR they cover, and the way to start a project from them. It stays in view beside a long list.
+.footer {
+  position: sticky;
+  inset-block-end: var(--at-space-md);
+  z-index: var(--at-z-bar);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-sm) var(--at-space-md);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-soft);
+}
+
+.footerText {
+  @include tokens.role('body-md');
+  margin: 0 auto 0 0;
+  color: var(--at-body);
+}
+
+.srOnly {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

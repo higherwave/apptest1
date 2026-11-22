@@ -10,7 +10,7 @@ import type { SlackClient } from './slack.js'
 import { checkAllSources } from './pulse-sources.js'
 import { isRepeat, loadSeen } from './pulse-clean.js'
 import { linksFor } from './pulse-links.js'
-import { arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
+import { accountRows, arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
 import type { SalesforceClient } from './salesforce.js'
 import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, playStats, topicStats, type Channel, type InPlay, type TopicStats } from './pulse-topics.js'
 
@@ -50,6 +50,11 @@ export async function pulseEnabled(db: Queryable, workspaceId: string): Promise<
   const row = (await db.query(`select enabled from core.workspace_features where workspace_id = $1 and feature = 'pulse'`, [workspaceId])).rows[0]
   return !!row?.enabled
 }
+
+/** Where signals come from, for the two views of the Signals page: found by Pulse itself (Slack channels, Salesforce opportunity notes), or put in by a person (typed, or call notes pasted in). */
+export type Origin = 'auto' | 'manual'
+export const ORIGIN_SOURCES: Record<Origin, string[]> = { auto: ['slack', 'salesforce'], manual: ['manual', 'notes'] }
+export const isOrigin = (s: string | undefined): s is Origin => s === 'auto' || s === 'manual'
 
 export type PulseAccess = 'edit' | 'view'
 
@@ -136,10 +141,11 @@ const toSignal = (r: Record<string, any>): Signal => ({
 
 const SELECT = `select id, body, kind, channel, source, source_label, source_url, said_by, account, to_char(occurred_on, 'YYYY-MM-DD') as occurred_on, status, created_at, opp_id, opp_name, opp_amount, opp_stage, to_char(opp_close_date, 'YYYY-MM-DD') as opp_close_date, opp_state from core.pulse_signals`
 
-export async function listSignals(db: Queryable, ctx: RequestContext, status?: SignalStatus): Promise<SignalList> {
-  const rows = (await db.query(`${SELECT} where workspace_id = $1 and ($2::text is null or status = $2) order by coalesce(occurred_on, created_at::date) desc, created_at desc limit 500`, [ctx.workspaceId, status ?? null])).rows
+export async function listSignals(db: Queryable, ctx: RequestContext, status?: SignalStatus, origin?: Origin): Promise<SignalList> {
+  const sources = origin ? ORIGIN_SOURCES[origin] : null
+  const rows = (await db.query(`${SELECT} where workspace_id = $1 and ($2::text is null or status = $2) and ($3::text[] is null or source = any($3::text[])) order by coalesce(occurred_on, created_at::date) desc, created_at desc limit 500`, [ctx.workspaceId, status ?? null, sources])).rows
   const counts = { new: 0, kept: 0, dismissed: 0 } as Record<SignalStatus, number>
-  for (const r of (await db.query(`select status, count(*)::int as n from core.pulse_signals where workspace_id = $1 group by status`, [ctx.workspaceId])).rows) counts[r.status as SignalStatus] = r.n
+  for (const r of (await db.query(`select status, count(*)::int as n from core.pulse_signals where workspace_id = $1 and ($2::text[] is null or source = any($2::text[])) group by status`, [ctx.workspaceId, sources])).rows) counts[r.status as SignalStatus] = r.n
   return { signals: rows.map(toSignal), counts }
 }
 
@@ -248,6 +254,8 @@ export type Topic = TopicStats & {
   inPlay: InPlay | null
   projects: { id: string; name: string }[]
   researched: { id: string; title: string }[]
+  /** The accounts behind the topic's signals, each once, with how many signals named it and its ARR when found in Salesforce. */
+  accounts: { name: string; signals: number; arr: number | null }[]
 }
 export type TopicList = {
   topics: Topic[]
@@ -309,15 +317,15 @@ export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup
 }
 
 /** Topics with every number computed from their kept signals and the weights, ranked by score. */
-export async function listTopics(db: Queryable, ctx: RequestContext, today: Date = new Date()): Promise<TopicList> {
+export async function listTopics(db: Queryable, ctx: RequestContext, today: Date = new Date(), origin?: Origin): Promise<TopicList> {
   const ws = ctx.workspaceId
   const weights = await getWeights(db, ws)
   const topicRows = (await db.query(`select id, title, edited from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows
   const sigRows = (
     await db.query(
       `select ts.topic_id, s.body, s.channel, s.account, s.account_sf_id, s.opp_id, s.opp_amount, s.opp_state, to_char(s.opp_close_date, 'YYYY-MM-DD') as opp_close_date, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
-         from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and s.status = 'kept'`,
-      [ws],
+         from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and s.status = 'kept' and ($2::text[] is null or s.source = any($2::text[]))`,
+      [ws, origin ? ORIGIN_SOURCES[origin] : null],
     )
   ).rows
   const known = await arrByName(db, ws)
@@ -338,6 +346,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
         inPlay: playStats(rows.map((r) => ({ oppId: r.opp_id ?? null, amount: r.opp_amount === null || r.opp_amount === undefined ? null : Number(r.opp_amount), state: r.opp_state ?? null, closeDate: r.opp_close_date ?? null })), today),
         projects: [] as Topic['projects'],
         researched: [] as Topic['researched'],
+        accounts: accountRows(rows.map((r) => ({ account: r.account as string | null, sfId: (r.account_sf_id as string | null) ?? null })), known),
         bodies: rows.map((r) => r.body as string),
       }
     })

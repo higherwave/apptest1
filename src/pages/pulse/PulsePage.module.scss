@@ -91,3 +91,48 @@
   clip-path: inset(50%);
   white-space: nowrap;
 }
+
+.panel { padding: var(--at-space-lg) 0 0; }
+
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xl);
+}
+
+.blurb {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+  max-inline-size: 40rem;
+}
+
+// The two ways to add by hand side by side where there is room.
+.forms {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-md);
+  align-items: start;
+
+  @media (max-width: 64rem) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.reviewHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.sectionTitle {
+  @include tokens.role('heading-3');
+  margin: 0;
+  color: var(--at-ink);
+}

@@ -103,4 +103,20 @@ export function arrFor(names: AccountRef[], known: Map<string, { name: string; a
   return { arr: Math.round(arr * 100) / 100, matched, unmatched }
 }
 
+/** The accounts behind some signals, each once, with how many signals named it and its ARR from Salesforce when it was found (by Salesforce id first, then by name). */
+export function accountRows(rows: { account: string | null; sfId?: string | null }[], known: Map<string, { name: string; arr: number }>): { name: string; signals: number; arr: number | null }[] {
+  const out = new Map<string, { name: string; signals: number; arr: number | null }>()
+  for (const r of rows) {
+    const name = r.account?.trim()
+    const byId = r.sfId ? known.get(`sf:${r.sfId}`) : undefined
+    if (!byId && (!name || /^unknown$/i.test(name))) continue
+    const key = byId ? normalizeAccount(byId.name) : normalizeAccount(name!)
+    if (!key) continue
+    const hit = byId ?? known.get(key)
+    const have = out.get(key)
+    out.set(key, { name: have?.name ?? name ?? byId!.name, signals: (have?.signals ?? 0) + 1, arr: hit ? hit.arr : null })
+  }
+  return [...out.values()].sort((a, b) => b.signals - a.signals || a.name.localeCompare(b.name))
+}
+
 export const SYNC_DUE_MS = 20 * 3600_000
