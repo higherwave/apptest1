@@ -1034,9 +1034,8 @@ try {
   await page.click('h1')
   await page.waitForFunction(() => /100 a week/.test(document.querySelector('[data-testid="measure-reading-R1"]')?.innerText ?? ''), { timeout: 8000 })
   const m3 = (await measureApi()).items.find((i) => i.key === 'R1')
-  // The cards start folded to their top line (there is more than one); Expand all opens them to their readings.
-  ok('the cards start folded and the toggle offers Expand all', await page.evaluate(() => !document.querySelector('[data-testid="measure-strip-R1"]') && [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Expand all')))
-  await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Expand all').click())
+  // The cards start open, so a saved reading shows on its card at once; Collapse all folds them to their top line.
+  ok('the cards start open and the toggle offers Collapse all', await page.evaluate(() => [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Collapse all') && ![...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Expand all')))
   await page.waitForSelector('[data-testid="measure-strip-R1"]')
   ok('a reading is saved with the status, shown with its unit, and again on the card', m3.checkins.length === 1 && m3.checkins[0].value === '100' && m3.checkins[0].verdict === 'needs_attention' && await page.evaluate(() => /100 a week/.test(document.querySelector('[data-testid="measure-strip-R1"]')?.innerText ?? '')))
   // Cards open to their latest reading; Collapse all folds them to their top line, and Expand all brings them back.

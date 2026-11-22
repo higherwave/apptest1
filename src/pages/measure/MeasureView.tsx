@@ -1,5 +1,4 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { startOpen } from '../../shell/startOpen'
 import { Button, Dropdown, InlineNotification, Loading, Tag } from '@carbon/react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { Checkin, MeasureAcross, MeasureAcrossItem, MeasureRequest } from '../../api/client'
@@ -114,15 +113,8 @@ export function MeasureView(props: MeasureViewProps) {
   const { state, data, team, project, openKey, saving, savedAt, errorText } = props
   const wide = useWide()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // The cards start folded to their top line, unless there is only one (or a link asked for one): "Expand all" opens them, and a card can be opened on its own.
+  // The cards start open, each with its latest reading (a visitor sees the full panels); "Collapse all" folds them to their top line, and a card can be folded on its own.
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [started, setStarted] = useState(false)
-  if (!started && data && data.items.length > 0) {
-    setStarted(true)
-    const open = startOpen(data.items.map((i) => i.storyId))
-    const asked = openKey ? data.items.find((i) => i.key === openKey)?.storyId : undefined
-    setCollapsed(new Set(data.items.filter((i) => !open.has(i.storyId) && i.storyId !== asked).map((i) => i.storyId)))
-  }
   // A result picked from the counts: only those requirements are listed. Picking it again shows everything.
   const [only, setOnly] = useState<Verdict | 'none' | null>(null)
 
