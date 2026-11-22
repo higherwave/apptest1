@@ -21,7 +21,8 @@ type SortKey = 'score' | 'arr' | 'play'
 
 // What was heard, by topic, for one view of Signals. Each row is a topic with where it was heard, the accounts behind it (with their ARR once Salesforce is copied), its trend and its quotes,
 // which open in place. Picking topics (editors) gathers them at the foot, with the ARR in scope, ready to start a Signal Flow project from them.
-export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdit: boolean }) {
+export function SignalTopics({ origin, canEdit }: { origin?: SignalOrigin; canEdit: boolean }) {
+  const view = origin ?? 'all'
   const topics = usePulseTopics(true, origin)
   const { selected, toggle, clear } = useTopicSelection()
   const [open, setOpen] = useState<string[]>([])
@@ -45,11 +46,11 @@ export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdi
   const columns = (canEdit ? 1 : 0) + 5 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)
 
   return (
-    <section className={styles.topics} aria-label="Topics" data-testid={`topics-${origin}`}>
+    <section className={styles.topics} aria-label="Topics" data-testid={`topics-${view}`}>
       <div className={styles.head}>
         <h2 className={styles.sectionTitle}>{list.length ? `${plural(list.length, 'topic')}` : 'Topics'}</h2>
         {(hasArr || hasPlay) && (
-          <Select id={`sort-${origin}`} data-testid={`sort-${origin}`} size="sm" inline labelText="Sort by" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
+          <Select id={`sort-${view}`} data-testid={`sort-${view}`} size="sm" inline labelText="Sort by" value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
             <SelectItem value="score" text="Signal score" />
             {hasArr && <SelectItem value="arr" text="ARR" />}
             {hasPlay && <SelectItem value="play" text="In play" />}
@@ -58,15 +59,17 @@ export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdi
       </div>
 
       {topics.isSuccess && !list.length && (
-        <p className={styles.empty} data-testid={`topics-empty-${origin}`}>
+        <p className={styles.empty} data-testid={`topics-empty-${view}`}>
           {origin === 'auto'
             ? 'No topics from what Pulse finds yet. When a Slack channel or opportunity notes bring in signals that are kept, and two are about the same thing, a topic forms here.'
-            : 'No topics from notes and signals added by hand yet. Keep some, and when two are about the same thing a topic forms here.'}
+            : origin === 'manual'
+              ? 'No topics from notes and signals added by hand yet. Keep some, and when two are about the same thing a topic forms here.'
+              : 'No topics yet. Keep some signals, and when two are about the same thing a topic forms here.'}
         </p>
       )}
 
       {list.length > 0 && (
-        <Table size="lg" aria-label={`Topics, ${origin === 'auto' ? 'found by Pulse' : 'added by hand'}`} data-testid={`topic-table-${origin}`}>
+        <Table size="lg" aria-label={`Topics, ${origin === 'auto' ? 'found by Pulse' : origin === 'manual' ? 'added by hand' : 'from every source'}`} data-testid={`topic-table-${view}`}>
           <TableHead>
             <TableRow>
               {canEdit && (
@@ -88,7 +91,7 @@ export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdi
                 <TableRow data-testid={`sig-topic-${t.id}`} data-selected={selected.includes(t.id)}>
                   {canEdit && (
                     <TableCell className={styles.checkCol}>
-                      <Checkbox id={`sig-pick-${origin}-${t.id}`} data-testid={`sig-pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
+                      <Checkbox id={`sig-pick-${view}-${t.id}`} data-testid={`sig-pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
                     </TableCell>
                   )}
                   <TableCell>
@@ -171,7 +174,7 @@ export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdi
       )}
 
       {canEdit && list.length > 0 && (
-        <div className={styles.footer} role="region" aria-label="Start a project" data-testid={`sig-footer-${origin}`}>
+        <div className={styles.footer} role="region" aria-label="Start a project" data-testid={`sig-footer-${view}`}>
           <p className={styles.footerText} data-testid="sig-selected">
             {plural(picked.length, 'topic')} selected{arrInScope > 0 ? ` · ${money(arrInScope)} ARR in scope` : ''}
           </p>
@@ -180,7 +183,7 @@ export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdi
               Clear
             </Button>
           )}
-          <Button kind="primary" size="md" data-testid={`sig-create-${origin}`} disabled={!picked.length} onClick={() => setCreating(true)}>
+          <Button kind="primary" size="md" data-testid={`sig-create-${view}`} disabled={!picked.length} onClick={() => setCreating(true)}>
             Create Signal Flow project
           </Button>
         </div>
@@ -191,7 +194,7 @@ export function SignalTopics({ origin, canEdit }: { origin: SignalOrigin; canEdi
 }
 
 // A topic's quotes, as cards: what was said, where it was heard, who said it and when, and the opportunity behind it for Salesforce notes.
-function Evidence({ id, origin }: { id: string; origin: SignalOrigin }) {
+function Evidence({ id, origin }: { id: string; origin?: SignalOrigin }) {
   const detail = usePulseTopic(id, origin)
   if (detail.isPending) return <p className={styles.muted}>Loading quotes…</p>
   if (detail.isError || !detail.data) return <p className={styles.muted}>The quotes could not be loaded.</p>

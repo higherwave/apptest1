@@ -136,3 +136,25 @@
   margin: 0;
   color: var(--at-ink);
 }
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.filterGroup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--at-space-sm);
+}
+
+.filterLabel {
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+}
+
+.filter { max-inline-size: 36rem; }

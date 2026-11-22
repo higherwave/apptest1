@@ -15,14 +15,14 @@ const FILTERS: { key: PulseStatus; label: string }[] = [
 
 // The individual signals of one view (found by Pulse, or put in by a person): the ones waiting to be kept or dismissed first, with Kept and Dismissed a click away. Someone who may only
 // view sees the kept ones, with no buttons.
-export function SignalReview({ origin, canEdit, filter, onFilter }: { origin: SignalOrigin; canEdit: boolean; filter: PulseStatus; onFilter: (f: PulseStatus) => void }) {
+export function SignalReview({ origin, canEdit, filter, onFilter }: { origin?: SignalOrigin; canEdit: boolean; filter: PulseStatus; onFilter: (f: PulseStatus) => void }) {
   const active: PulseStatus = canEdit ? filter : 'kept'
   const list = usePulseSignals(active, origin)
   const counts = usePulseSignals(undefined, origin).data?.counts
   const update = useUpdatePulseSignal()
   const label = FILTERS.find((f) => f.key === active)?.label ?? ''
   return (
-    <section className={styles.review} aria-label="Signals" data-testid={`review-${origin}`}>
+    <section className={styles.review} aria-label="Signals" data-testid={`review-${origin ?? 'all'}`}>
       <div className={styles.reviewHead}>
         <h2 className={styles.sectionTitle}>Signals{counts && canEdit && counts.new > 0 ? ` · ${counts.new} to review` : ''}</h2>
         {canEdit && (
@@ -80,7 +80,7 @@ export function SignalReview({ origin, canEdit, filter, onFilter }: { origin: Si
       </ul>
       {list.data && !list.data.signals.length && (
         <p className={styles.empty} data-testid="pulse-empty">
-          {active === 'new' ? (origin === 'manual' ? 'Nothing waiting for review. Add notes or a signal above.' : 'Nothing waiting for review. Messages and opportunity notes Pulse finds will appear here when their source asks for review.') : active === 'kept' ? 'No kept signals yet.' : 'Nothing dismissed.'}
+          {active === 'new' ? (origin === 'manual' ? 'Nothing waiting for review. Add call notes or a signal with the button above.' : 'Nothing waiting for review. Messages and opportunity notes Pulse finds will appear here when their source asks for review.') : active === 'kept' ? 'No kept signals yet.' : 'Nothing dismissed.'}
         </p>
       )}
     </section>
