@@ -11,7 +11,7 @@ saying who signed in and as which role. Ctrl+C stops it and the data is gone.
 ## 1. A free Okta tenant
 
 Sign up for a free developer account at https://developer.okta.com (the free plan's name has changed over the years; any plan that lets
-you create an application is enough). Then, in its **Admin Console**:
+you create an application is enough). Then, in its **Settings Console**:
 
 1. **Applications > Applications > Create App Integration > OIDC - OpenID Connect > Web Application**.
 2. Name it, keep the grant type **Authorization Code**, and set **Sign-in redirect URIs** to exactly:

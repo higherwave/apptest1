@@ -136,7 +136,7 @@ test('a step nobody covers is told to the owner once a week, and only after some
   const first = await sweepLaunches(deps())
   assert.equal(first.sent, 2, 'sales and documentation have no reviewer')
   assert.deepEqual(mailer.sent.map((m) => m.subject).sort(), [`Signal Flow: no ${T.approver} for Documentation on Spring release`, `Signal Flow: no ${T.approver} for Sales on Spring release`])
-  assert.match(mailer.sent[0].text, new RegExp(`Admin, ${T.Approvals}`))
+  assert.match(mailer.sent[0].text, new RegExp(`Settings, ${T.Approvals}`))
   assert.equal((await sweepLaunches(deps())).sent, 0, 'once this week')
   assert.equal((await sweepLaunches(deps(8))).sent >= 2, true, 'and again the next week')
 })

@@ -1,4 +1,4 @@
-// Pulse (preview): invisible until an owner switches it on in Admin, Previews; then an owner sees it in the menu and can add signals and notes, keep and dismiss them;
+// Pulse (preview): invisible until an owner switches it on in Settings, Previews; then an owner sees it in the menu and can add signals and notes, keep and dismiss them;
 // a read-only visitor never sees it, and switching it off hides it again. Started by e2e/run.mjs against the main test API.
 import puppeteer from 'puppeteer-core'
 const BASE = process.env.E2E_BASE || 'http://localhost:5198'
@@ -45,10 +45,11 @@ try {
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
   ok('and /pulse is a page that does not exist', (await text(page)).includes('Page not found'))
 
-  // An owner switches it on in Admin, Previews.
+  // An owner switches it on in Settings, Previews.
   await page.goto(`${BASE}/settings/preview`, { waitUntil: 'networkidle0' })
   await waitText(page, 'Show Pulse (preview)')
-  ok('Admin has a Previews tab with the Pulse switch, off', await page.evaluate(() => document.querySelector('[data-testid="preview-pulse"]').getAttribute('aria-checked') === 'false' && !!document.querySelector('[aria-label="Admin sections"]').innerText.includes('Previews')))
+  ok('Settings has a Previews tab with the Pulse switch, off', await page.evaluate(() => document.querySelector('[data-testid="preview-pulse"]').getAttribute('aria-checked') === 'false' && !!document.querySelector('[aria-label="Settings sections"]').innerText.includes('Previews')))
+  ok('under the Pulse card the Previews tab has a Workspace setup card that opens the setup', await (async () => { const order = await page.evaluate(() => { const a = document.querySelector('[data-testid="preview-pulse-card"]').getBoundingClientRect(), b = document.querySelector('[data-testid="preview-setup-card"]').getBoundingClientRect(); return b.top >= a.bottom - 1 }); await click(page, 'preview-setup-open'); await page.waitForFunction(() => location.pathname === '/setup' && !!document.querySelector('[data-testid="setup-progress"]'), { timeout: 8000 }); await page.goBack(); await page.waitForSelector('[data-testid="preview-pulse"]'); return order })())
   await click(page, 'preview-pulse')
   await page.waitForFunction(() => document.querySelector('[data-testid="preview-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
@@ -57,7 +58,7 @@ try {
   // The page: empty, then a signal typed in (kept at once), then notes (wait for review), then keep and dismiss.
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
   await waitText(page, 'No topics yet')
-  ok('/pulse opens Topics, with Pulse as the app in the header and Topics and Signals as its items', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Admin').join('|'))) === 'Topics|Signals')
+  ok('/pulse opens Topics, with Pulse as the app in the header and Topics and Signals as its items', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Settings').join('|'))) === 'Topics|Signals')
   await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
   await waitText(page, 'Nothing waiting for review')
   ok('Signals opens on Auto-discovered, with Manual and All beside it, a preview tag and an empty review list', (await text(page)).includes('Preview') && !!(await page.$('[data-testid="pulse-empty"]')) && await page.evaluate(() => document.querySelector('[data-testid="signals-filter-auto"]').getAttribute('aria-selected') === 'true' && !!document.querySelector('[data-testid="signals-filter-manual"]') && !!document.querySelector('[data-testid="signals-filter-all"]') && !document.querySelector('#signal-body')))
@@ -189,10 +190,10 @@ try {
   }
   const before = await page.evaluate(() => document.querySelector('[data-testid="topic-score"]').innerText.trim())
 
-  // Weights live in Admin, Pulse (owners): a change re-ranks at once.
+  // Weights live in Settings, Pulse (owners): a change re-ranks at once.
   await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('#weight-call_notes', { timeout: 8000 })
-  ok('Admin has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Admin sections"] a')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'slack', 'salesforce'].every((k) => !!document.querySelector(`#weight-${k}`))))
+  ok('Settings has a Pulse tab, with a weight for each channel', await page.evaluate(() => [...document.querySelectorAll('nav[aria-label="Settings sections"] a')].some((b) => b.innerText.trim() === 'Pulse') && ['call_notes', 'slack', 'salesforce'].every((k) => !!document.querySelector(`#weight-${k}`))))
   await page.$eval('#weight-slack', (el) => el.select())
   await page.keyboard.type('5')
   await click(page, 'weights-save')
@@ -211,7 +212,7 @@ try {
   // Who can view Pulse: owners and editors always; a viewer can be given view access one person at a time.
   await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="pulse-viewers"] li', { timeout: 8000 })
-  ok('Admin lists who can view Pulse: owners and editors always, and a checkbox for each viewer', await page.evaluate(() => /Owner: always/.test(document.querySelector('[data-testid="pulse-viewers"]').innerText) && /Editor: always/.test(document.querySelector('[data-testid="pulse-viewers"]').innerText) && !!document.querySelector('[data-testid^="viewer-check-"]')))
+  ok('Settings lists who can view Pulse: owners and editors always, and a checkbox for each viewer', await page.evaluate(() => /Owner: always/.test(document.querySelector('[data-testid="pulse-viewers"]').innerText) && /Editor: always/.test(document.querySelector('[data-testid="pulse-viewers"]').innerText) && !!document.querySelector('[data-testid^="viewer-check-"]')))
   const box = await page.$('[data-testid^="viewer-check-"]')
   const boxId = await box.evaluate((el) => el.id)
   await page.evaluate((id) => document.getElementById(id).click(), boxId)

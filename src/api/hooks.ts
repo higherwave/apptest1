@@ -374,7 +374,7 @@ export const useReleaseHold = () => {
   return useMutation({ mutationFn: (id: string) => releaseHold(id), onSuccess: () => Promise.all(['holds', 'audit'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))) })
 }
 
-/** Pulse (preview, owners only). The switch is read in Admin; the signals only load where the menu already showed Pulse. */
+/** Pulse (preview, owners only). The switch is read in Settings; the signals only load where the menu already showed Pulse. */
 export const usePulsePreview = (enabled = true) => useQuery({ queryKey: ['pulse', 'preview'], queryFn: getPulsePreview, enabled })
 export const useSetPulsePreview = () => {
   const queryClient = useQueryClient()

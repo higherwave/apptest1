@@ -18,7 +18,7 @@ const SOURCES: { key: Source; label: string }[] = [
 ]
 
 // Signals (preview): what customers are saying, grouped into topics, with the accounts and quotes behind them. One list, with a filter on where it came from: Auto-discovered (found by Pulse, from the Slack
-// channels and Salesforce opportunity notes set up in Admin; the page opens on this), Manual (put in by a person) or All. Editors add call notes and single signals from the button at the top, and start a
+// channels and Salesforce opportunity notes set up in Settings; the page opens on this), Manual (put in by a person) or All. Editors add call notes and single signals from the button at the top, and start a
 // Signal Flow project from the topics they pick. Below the topics are the individual signals waiting to be kept or dismissed.
 export function PulsePage() {
   const me = useMe()
@@ -63,7 +63,7 @@ export function PulsePage() {
         )}
       </div>
       <p className={styles.blurb}>
-        {source === 'auto' && 'What Pulse finds by itself: the Slack channels and Salesforce opportunity notes you set up in Admin.'}
+        {source === 'auto' && 'What Pulse finds by itself: the Slack channels and Salesforce opportunity notes you set up in Settings.'}
         {source === 'manual' && 'What you put in: notes pasted from a customer call or meeting, and single signals typed in.'}
         {source === 'all' && 'Everything, from every source: what Pulse finds by itself and what you put in.'}
       </p>

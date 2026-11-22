@@ -1,6 +1,6 @@
-// The steps of a launch and who covers each, shared by the server (which enforces it) and the Admin screens (which show it). Pure functions.
+// The steps of a launch and who covers each, shared by the server (which enforces it) and the Settings screens (which show it). Pure functions.
 //
-// An approver is set up once per step (Admin, Approvals): the workspace approver and an optional backup, and, for a team that needs someone else, a team
+// An approver is set up once per step (Settings, Approvals): the workspace approver and an optional backup, and, for a team that needs someone else, a team
 // approver (and backup) that replaces the workspace ones for that team. Stored as assignments: a person, a step, a team (null = the workspace) and a role
 // ('primary' = approver, 'alternate' = backup). For one team and step:
 //   - a team's own assignments beat the workspace's, but only when the team has an approver of its own (a team backup alone does not count);

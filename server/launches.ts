@@ -1,7 +1,7 @@
 // Launch: the go signals for a project's release. A launch has one section per step (product leadership, sales, legal, documentation, marketing, and
 // the final decision); each section is answered by that step's approver, with a rationale and links to the evidence. Everyone with access reads every
 // internal section; only a step's approver writes it. Answers are never overwritten: a new answer is a new row, and an answer given on an earlier
-// brief shows as reopened. Who covers a step comes from shared/launch.mjs (reviewersFor), set up under Admin, Approvals.
+// brief shows as reopened. Who covers a step comes from shared/launch.mjs (reviewersFor), set up under Settings, Approvals.
 import { activeFor, isAnswerFor, isStep, LAUNCH_STEPS, rationaleRequired, reviewersFor, stepLabel, stepState, stepUsed, type Assignment } from '../shared/launch.mjs'
 import type { Db, Queryable } from './db.js'
 import type { RequestContext } from './context.js'

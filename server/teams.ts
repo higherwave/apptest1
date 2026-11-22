@@ -23,7 +23,7 @@ export async function loadTeamRoles(db: Queryable, workspaceId: string, userId: 
 }
 
 /**
- * The role used for everything that is not about one project (the Admin tabs, categories, notifications). A workspace owner is a leader and
+ * The role used for everything that is not about one project (the Settings tabs, categories, notifications). A workspace owner is a leader and
  * keeps the owner role. Anyone else is an editor if they edit in any team, otherwise a viewer; a team's owner role is power inside that team only.
  */
 export function effectiveRole(workspaceRole: Role, teams: TeamRoles): Role {

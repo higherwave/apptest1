@@ -1,6 +1,6 @@
 @use '../tokens' as tokens;
 
-// The dark app header across the top (AppHeader.module.scss), and inside a project or Admin a title bar and a row of that place's menu above the page (TitleBar, SectionNav).
+// The dark app header across the top (AppHeader.module.scss), and inside a project or Settings a title bar and a row of that place's menu above the page (TitleBar, SectionNav).
 $header-height: 4rem;
 $column-width: 75rem; // every project step shares this width, centered
 $medium: 56.25rem;
@@ -60,7 +60,7 @@ $narrow: 40rem;
   color: var(--at-ink);
 }
 
-// Admin's name in its title bar. The page below has its own headings; this one is what gives the section a first-level title.
+// Settings's name in its title bar. The page below has its own headings; this one is what gives the section a first-level title.
 .adminTitle {
   // not-a-heading: the section's name in the title bar (a slim bar, sized as the project's name is)
   @include tokens.role('title-sm');

@@ -12,7 +12,7 @@ const MODES = [
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'not yet')
 
-// Admin, Pulse: the places Pulse may read customer feedback from. Only a channel listed here is ever read.
+// Settings, Pulse: the places Pulse may read customer feedback from. Only a channel listed here is ever read.
 export function PulseSources() {
   const list = usePulseSources()
   const add = useAddPulseSource()

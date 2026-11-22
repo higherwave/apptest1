@@ -4,7 +4,7 @@ import { useUsage } from '../../api/hooks'
 import { formatBytes, LEVEL_LABEL, share } from './usageText'
 import styles from './AppStatusPage.module.scss'
 
-// How much of each limit the app has used. Owners only: the Admin gate sends everyone else away, and the server refuses them. Today the database's
+// How much of each limit the app has used. Owners only: the Settings gate sends everyone else away, and the server refuses them. Today the database's
 // size against the plan's limit; more rows come when the accounts behind the app are on plans worth connecting.
 export function SystemUsage() {
   const usage = useUsage()

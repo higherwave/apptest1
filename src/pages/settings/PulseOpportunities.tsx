@@ -14,7 +14,7 @@ const MODES = [
   { key: 'keep', label: 'Count at once' },
 ] as const
 
-// Admin, Pulse: the notes on Salesforce opportunities as a source. The owner names the fields (their API names) and which opportunities; only those fields are read. The source then
+// Settings, Pulse: the notes on Salesforce opportunities as a source. The owner names the fields (their API names) and which opportunities; only those fields are read. The source then
 // appears in "Where Pulse listens" with the rest, where it is checked, switched off or removed.
 export function PulseOpportunities() {
   const sources = usePulseSources()

@@ -9,7 +9,7 @@ import { PulseSources } from './PulseSources'
 import { PulseViewers } from './PulseViewers'
 import styles from './NotificationsPage.module.scss'
 
-// Admin, Pulse (owners, while the preview is on): what a signal from each channel counts for in a topic's ranking. A change re-ranks the topics at once, because the score is
+// Settings, Pulse (owners, while the preview is on): what a signal from each channel counts for in a topic's ranking. A change re-ranks the topics at once, because the score is
 // worked out from the signals and these weights every time it is read. The designated feedback sources are listed below the weights.
 export function PulseSettingsPage() {
   const me = useMe()

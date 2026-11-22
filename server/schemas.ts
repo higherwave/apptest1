@@ -213,7 +213,7 @@ export const setUpLaunchSchema = z.object({
 export const launchAnswerSchema = z.object({ answer: z.enum(LAUNCH_ANSWERS), rationale: z.string().trim().max(4000).default('') })
 export const launchLinkSchema = z.object({ title: z.string().trim().max(120).optional(), url: z.string().trim().min(1, 'Enter a link.').max(2000) })
 
-// Launch approvers (Admin, Approvals): one step as the panel shows it. Approver and backup are people (user ids); each team uses the workspace's, its own, or not the step.
+// Launch approvers (Settings, Approvals): one step as the panel shows it. Approver and backup are people (user ids); each team uses the workspace's, its own, or not the step.
 const teamApprovalSchema = z.object({ mode: z.enum(['default', 'custom', 'off']), approver: z.uuid().nullable().optional(), backup: z.uuid().nullable().optional() })
 export const approvalStepSchema = z.object({
   approver: z.uuid().nullable(),

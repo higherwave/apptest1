@@ -7,7 +7,7 @@ import { TeamsPage } from '../teams/TeamsPage'
 import { GUARD_ITEMS, type SetupKey } from './setupText'
 import styles from './SetupSteps.module.scss'
 
-// The "Set up" step of each category: the real Admin screens, shown here so nobody has to leave the setup. Later changes are made in Admin as usual.
+// The "Set up" step of each category: the real Settings screens, shown here so nobody has to leave the setup. Later changes are made in Settings as usual.
 export function SetupStep({ category, confirmed, onConfirm }: { category: SetupKey; confirmed: boolean[]; onConfirm: (index: number, on: boolean) => void }) {
   switch (category) {
     case 'people':

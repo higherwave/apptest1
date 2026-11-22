@@ -18,7 +18,7 @@ const used = (a: Area) => {
   return parts.length ? parts.join(', ') : 'Not used yet'
 }
 
-// The two views of the categories: tabs of their own inside the workspace setup, and plain panels in Admin (where the Admin menu chooses, by ?tab=).
+// The two views of the categories: tabs of their own inside the workspace setup, and plain panels in Settings (where the Settings menu chooses, by ?tab=).
 function Frame({ embedded, tab, onTab, canAdd, matchesCount, children }: { embedded: boolean; tab: number; onTab: (i: number) => void; canAdd: boolean; matchesCount: number; children: ReactNode }) {
   if (!embedded) return <>{children}</>
   return (
@@ -37,7 +37,7 @@ function Panel({ embedded, children }: { embedded: boolean; children: ReactNode 
 
 // The shared list of experience categories. Everyone who can open Settings reads it, an editor adds one (the duplicate check is in the dialog) and
 // edits one, and only an owner merges and retires (those change a lot of existing work at once). Connected: it owns the dialogs' state.
-export function AreasPage({ embedded = false }: { /** Inside the workspace setup: no Admin header, the setup has its own. */ embedded?: boolean } = {}) {
+export function AreasPage({ embedded = false }: { /** Inside the workspace setup: no Settings header, the setup has its own. */ embedded?: boolean } = {}) {
   const areas = useAreas()
   const me = useMe()
   const update = useUpdateArea()
@@ -47,7 +47,7 @@ export function AreasPage({ embedded = false }: { /** Inside the workspace setup
   const proposals = useAreaProposals()
   const accept = useAcceptAreaProposal()
   const dismiss = useDismissAreaProposal()
-  // In Admin the open view is in the address (?tab=matches), chosen from the Admin menu; inside the workspace setup (embedded) it is a pair of tabs of its own.
+  // In Settings the open view is in the address (?tab=matches), chosen from the Settings menu; inside the workspace setup (embedded) it is a pair of tabs of its own.
   const [params] = useSearchParams()
   const [localTab, setTab] = useState(0)
   const [newName, setNewName] = useState('')

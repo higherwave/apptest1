@@ -36,10 +36,10 @@ export function usePhone() {
   return phone
 }
 
-// The menu inside a project and inside Admin: groups of items laid out in a row under the title bar, each group with its name above it (the names drop away on a tablet to save room).
+// The menu inside a project and inside Settings: groups of items laid out in a row under the title bar, each group with its name above it (the names drop away on a tablet to save room).
 // On a phone the row becomes one button naming where you are ("Analysis › Storyboard") that opens the groups as a list. The same items, links with data-label so tests and scripts find
 // them by name, are shown either way.
-// `dataNav` marks a project's steps with data-nav, as its old rail was, so scripts that find the project's menu that way still do (Admin's row is not marked: the header's items are what data-nav means elsewhere).
+// `dataNav` marks a project's steps with data-nav, as its old rail was, so scripts that find the project's menu that way still do (Settings's row is not marked: the header's items are what data-nav means elsewhere).
 export function SectionNav({ label, groups, onGo, dataNav = false }: { label: string; groups: NavGroup[]; onGo: (to: string) => void; dataNav?: boolean }) {
   const phone = usePhone()
   const [open, setOpen] = useState(false)

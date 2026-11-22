@@ -23,7 +23,7 @@ export const INSIGHT_SECTIONS = [
   { key: 'case-studies', label: 'Case studies' },
 ]
 
-// The Admin tab (its pages live under /settings/<key>): Experience Categories and Notifications for owners and editors; Usage and Costs, User Access, Data and the Audit log are for owners (SettingsHeader hides the ones a person cannot use).
+// The Settings tab (its pages live under /settings/<key>): Experience Categories and Notifications for owners and editors; Usage and Costs, User Access, Data and the Audit log are for owners (SettingsHeader hides the ones a person cannot use).
 export const SETTINGS_SECTIONS = [
   { key: 'categories', label: 'Experience Categories' },
   { key: 'notifications', label: 'Notifications' },
@@ -35,7 +35,7 @@ export const SETTINGS_SECTIONS = [
   { key: 'preview', label: 'Previews' },
 ]
 
-// The Admin menu (the horizontal one under the title bar, like a project's): groups of views. Each view is a section's page (/settings/<section>), and where a section has views of its own the
+// The Settings menu (the horizontal one under the title bar, like a project's): groups of views. Each view is a section's page (/settings/<section>), and where a section has views of its own the
 // choice is in the address (?tab=...), the first being the default. A group is for owners only where `ownerOnly` says so (editors see Experience Categories and Communication), and the Pulse group
 // shows only while the Pulse preview is on. The terms for the sign-off roles come from shared/terms.mjs.
 export type AdminItem = { key: string; label: string; section: string; tab?: string; testId?: string }

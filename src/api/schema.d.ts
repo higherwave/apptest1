@@ -28,7 +28,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and the budget when live, and what recently went wrong (the AI usage and costs tab in Admin); nobody else does. */
+        /** Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and the budget when live, and what recently went wrong (the AI usage and costs tab in Settings); nobody else does. */
         get: operations["getAiStatus"];
         put?: never;
         post?: never;
@@ -530,7 +530,7 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        /** A step's approver (primary or alternate, from Admin, Approvals) gives their answer: ready, ready with conditions, changes needed or not applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for anyone else (naming who can), 409 `step_not_used` for a step the team turned off. */
+        /** A step's approver (primary or alternate, from Settings, Approvals) gives their answer: ready, ready with conditions, changes needed or not applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for anyone else (naming who can), 409 `step_not_used` for a step the team turned off. */
         put: operations["answerLaunchStep"];
         post?: never;
         delete?: never;
@@ -3983,7 +3983,7 @@ export interface components {
             signInAvailable: boolean;
             /** @description True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`. */
             rolesManagedBySso: boolean;
-            /** @description True when SSO_TEAM_GROUP_PREFIX is set: people's places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`. */
+            /** @description True when SSO_TEAM_GROUP_PREFIX is set: people's places in every team but the default one come from their sign-in groups, and changing them in Settings is refused with 409 `managed_by_sso`. */
             teamsManagedBySso: boolean;
             /** @description Preview features this caller may use. Pulse is true for a signed-in owner or editor, or a member an owner granted view, in a workspace where an owner has switched the preview on; it decides whether the menu shows it. pulseEdit is true for owners and editors only. */
             features: {

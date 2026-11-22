@@ -336,7 +336,7 @@ export function createApp(options: AppOptions = {}) {
     if (err instanceof RequirementsNotPublished) throw new ApiError(409, 'requirements_not_published', `${T.Approvals} open once the requirements are published.`)
     if (err instanceof NoThemes) throw new ApiError(409, 'no_themes', 'A launch can start once the project has themes.')
     if (err instanceof LaunchExists) throw new ApiError(409, 'launch_exists', 'This project already has a launch.')
-    if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : `Nobody is set up to answer this step yet. An owner can add ${T.a('approver')} under Admin, ${T.Approvals}.`)
+    if (err instanceof NotTheReviewer) throw new ApiError(403, 'not_the_reviewer', err.who.length ? `Only ${err.who.join(' or ')} can answer this step.` : `Nobody is set up to answer this step yet. An owner can add ${T.a('approver')} under Settings, ${T.Approvals}.`)
     if (err instanceof StepNotUsed) throw new ApiError(409, 'step_not_used', 'This team’s launches do not use that step.')
     if (err instanceof BadAnswer) throw new ApiError(422, 'validation_failed', 'That is not an answer for this step.', 'answer')
     if (err instanceof NeedsRationale) throw new ApiError(422, 'validation_failed', 'Say why: this answer needs a reason.', 'rationale')
@@ -1187,7 +1187,7 @@ export function createApp(options: AppOptions = {}) {
   })
 
   // Pulse (preview): customer signals for early problem framing. For owners only, and only while an owner has switched the preview on (pulse.ts, `pulseOn`). Anyone
-  // else gets the answer a page that does not exist would give, so a viewer cannot tell it is there. The switch itself is an owner's setting in Admin.
+  // else gets the answer a page that does not exist would give, so a viewer cannot tell it is there. The switch itself is an owner's setting in Settings.
   // `need` is what the route asks for: view (default), edit (owners and editors), or owner (settings). Someone with no access at all gets the not-found answer; someone who can
   // see Pulse but not do this gets a plain refusal.
   const pulseOnly = async (c: Context, need: 'view' | 'edit' | 'owner' = 'view') => {

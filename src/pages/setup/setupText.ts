@@ -32,7 +32,7 @@ export const SETUP: Record<SetupKey, { title: string; desc: string; who: string;
     title: 'Data and AI',
     desc: 'See how long things are kept, what the monthly AI limit is, and what the project lock means.',
     who: 'Workspace owner · read and confirm',
-    welcome: ['Three rules the workspace runs on. Nothing to set here, only to read.', 'You can find each of them again under Admin later.'],
+    welcome: ['Three rules the workspace runs on. Nothing to set here, only to read.', 'You can find each of them again under Settings later.'],
   },
 }
 
@@ -43,12 +43,12 @@ export const STEPS = ['Welcome', 'Set up', 'Review', 'Done'] as const
 export const GUARD_ITEMS = [
   {
     title: 'How long things are kept',
-    text: 'A deleted project or document stays in the Trash for 90 days, then is removed for good. The audit log and the record of AI use are kept for 12 months. An owner can download everything at any time (Admin, Data).',
+    text: 'A deleted project or document stays in the Trash for 90 days, then is removed for good. The audit log and the record of AI use are kept for 12 months. An owner can download everything at any time (Settings, Data).',
     confirm: 'I have read how long things are kept',
   },
   {
     title: 'The monthly AI limit',
-    text: 'The AI has a spending limit for this workspace each month. When it is reached, the steps that use it pause until the next month or an owner raises the limit. You can see the limit and what has been used under Admin, Usage and costs.',
+    text: 'The AI has a spending limit for this workspace each month. When it is reached, the steps that use it pause until the next month or an owner raises the limit. You can see the limit and what has been used under Settings, Usage and costs.',
     confirm: 'I know where the AI limit is',
   },
   {

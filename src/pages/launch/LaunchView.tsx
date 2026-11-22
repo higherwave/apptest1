@@ -27,7 +27,7 @@ export type LaunchViewProps = {
   focusStep?: string | null
   /** Which tab to open on (?tab=brief, from a message about a document; ?tab=success). */
   tab?: string | null
-  /** The address of Admin, Approvals, for an owner who finds a step with no approver. */
+  /** The address of Settings, Approvals, for an owner who finds a step with no approver. */
   reviewersHref?: string
 }
 
@@ -497,7 +497,7 @@ export function LaunchView(p: LaunchViewProps) {
               ) : (
                 <p className={styles.notes}>No step is waiting on {T.a('approver')} who can be asked.</p>
               )}
-              {withoutReviewer.length > 0 && <p className={styles.notes}>No {T.approver} is set up for {withoutReviewer.map((x) => x.label).join(', ')}, so nobody can be asked. An owner can add one under Admin, {T.Approvals}.</p>}
+              {withoutReviewer.length > 0 && <p className={styles.notes}>No {T.approver} is set up for {withoutReviewer.map((x) => x.label).join(', ')}, so nobody can be asked. An owner can add one under Settings, {T.Approvals}.</p>}
             </div>
           </Modal>
           <Modal

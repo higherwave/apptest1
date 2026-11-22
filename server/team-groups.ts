@@ -1,5 +1,5 @@
 // Sign-in groups to teams. With SSO_TEAM_GROUP_PREFIX set, a person's groups decide their place in every team except the default one, at each sign-in:
-// a group `<prefix><team>-<role>` adds them (or changes their role) and its absence takes them out. Teams are still made in Admin > Teams; a group for a
+// a group `<prefix><team>-<role>` adds them (or changes their role) and its absence takes them out. Teams are still made in Settings > Teams; a group for a
 // team that does not exist is ignored. Each change is audited, with the person as the actor.
 import type { Db } from './db.js'
 import { teamRolesFromGroups, teamSlug } from './sso.js'

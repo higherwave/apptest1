@@ -55,7 +55,7 @@ export async function projectOfTheme(db: Queryable, themeId: string): Promise<st
   return ((await db.query(`select project_id from research.themes where id = $1`, [themeId])).rows[0]?.project_id as string | undefined) ?? null
 }
 
-/** Who may return published requirements to draft: a workspace owner, or the final approver for the project's team (primary or backup, as set under Admin). */
+/** Who may return published requirements to draft: a workspace owner, or the final approver for the project's team (primary or backup, as set under Settings). */
 export async function mayReopen(db: Queryable, ctx: RequestContext, projectId: string): Promise<boolean> {
   if (ctx.role === 'owner' && !ctx.anonymous) return true
   const team = (await db.query(`select team_id from core.projects where id = $1`, [projectId])).rows[0]?.team_id as string | null | undefined

@@ -1,4 +1,4 @@
-// Teams as the Admin panel saves them: create with people and a channel, one atomic save of name, channel, people and moved projects, gaps, and sign-in groups.
+// Teams as the Settings panel saves them: create with people and a channel, one atomic save of name, channel, people and moved projects, gaps, and sign-in groups.
 // Run with: npm run test:api
 import { test } from 'node:test'
 import assert from 'node:assert/strict'

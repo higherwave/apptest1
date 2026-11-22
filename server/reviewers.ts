@@ -1,4 +1,4 @@
-// Launch approvers, set up once per step (Admin, Approvals): the workspace's approver and backup, and for a team that needs someone else its own approver
+// Launch approvers, set up once per step (Settings, Approvals): the workspace's approver and backup, and for a team that needs someone else its own approver
 // (and backup), or the step not used. Only owners change anything. The rules for who covers a step are in shared/launch.mjs.
 import { coverageState, isOptionalStep, isStep, LAUNCH_STEPS, type Assignment, type CoverageState, type ReviewerRole } from '../shared/launch.mjs'
 import type { Db, Queryable } from './db.js'

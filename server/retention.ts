@@ -83,7 +83,7 @@ export async function releaseHold(db: Db, who: Actor, id: string): Promise<Legal
 /** Refuses (409 legal_hold) when what is about to be deleted for good is under a hold: the workspace, or the project it belongs to. */
 export async function assertNotHeld(db: Queryable, workspaceId: string, projectId: string | null): Promise<void> {
   const held = (await db.query(`select 1 from core.legal_holds where workspace_id = $1 and released_at is null and (project_id is null or ($2::uuid is not null and project_id = $2::uuid)) limit 1`, [workspaceId, projectId])).rows[0]
-  if (held) throw new ApiError(409, 'legal_hold', 'This is under a legal hold, so it cannot be deleted for good. Release the hold first (Admin, Data).')
+  if (held) throw new ApiError(409, 'legal_hold', 'This is under a legal hold, so it cannot be deleted for good. Release the hold first (Settings, Data).')
 }
 
 /** The project a Trash entry belongs to, if any: the project itself, or the project of a deleted document. */

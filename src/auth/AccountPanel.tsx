@@ -1,4 +1,4 @@
-import { Logout, LogoSlack, TaskView, TrashCan } from '@carbon/icons-react'
+import { Logout, LogoSlack, Settings, TaskView, TrashCan } from '@carbon/icons-react'
 import { Button, Popover, PopoverContent, Tag } from '@carbon/react'
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -40,6 +40,14 @@ export function AccountPanel({ name, email, role, avatarUrl }: Props) {
             }}>
             My {T.approvals}
           </Button>
+          {(role === 'owner' || role === 'editor') && (
+            <Button kind="ghost" size="md" className={styles.link} renderIcon={Settings} data-testid="account-settings" onClick={() => {
+                setOpen(false)
+                navigate('/settings/categories')
+              }}>
+              Settings
+            </Button>
+          )}
           {(trash.data?.data.length ?? 0) > 0 && (
             <Button kind="ghost" size="md" className={styles.link} renderIcon={TrashCan} data-testid="my-deleted" onClick={() => {
                 setOpen(false)

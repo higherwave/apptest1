@@ -1,4 +1,4 @@
-// System usage: how much of a limit the app has used, for the Admin > System usage tab. Today one row, the database's size against the plan's
+// System usage: how much of a limit the app has used, for the Settings > System usage tab. Today one row, the database's size against the plan's
 // limit (read from the database itself: no outside service or access key is involved, and it costs one tiny query). More rows (compute hours,
 // bandwidth, build minutes) can be added to getUsage when those accounts are on paid plans and worth connecting.
 import type { Queryable } from './db.js'

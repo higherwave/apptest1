@@ -16,8 +16,8 @@ import { noteVisit } from '../resume/recent'
 import { useReportTimeZone } from './useReportTimeZone'
 import styles from './AppShell.module.scss'
 
-// Two navigation levels: the dark app header (AppHeader), and inside a project or Admin a title bar (what you are in, with the ribbons) and under it a row of that place's menu
-// (SectionNav: the steps of a project, the views of Admin; one button on a phone). Links carry data-label so tests and scripts find them by name, not by their markup.
+// Two navigation levels: the dark app header (AppHeader), and inside a project or Settings a title bar (what you are in, with the ribbons) and under it a row of that place's menu
+// (SectionNav: the steps of a project, the views of Settings; one button on a phone). Links carry data-label so tests and scripts find them by name, not by their markup.
 export function AppShell() {
   const { pathname, search } = useLocation()
   const navigate = useNavigate()
@@ -70,7 +70,7 @@ export function AppShell() {
     }),
   }))
 
-  // Admin: the groups this person may open. Editors have Experience Categories and Communication; owners have them all (Pulse only while its preview is on).
+  // Settings: the groups this person may open. Editors have Experience Categories and Communication; owners have them all (Pulse only while its preview is on).
   const owner = me.data?.role === 'owner'
   const setup = useSetup(admin && owner)
   const proposals = useAreaProposals(admin && !!me.data)
@@ -109,14 +109,14 @@ export function AppShell() {
         {admin && (
           <>
             <TitleBar data-admin-title>
-              <h1 className={styles.adminTitle}>Admin</h1>
+              <h1 className={styles.adminTitle}>Settings</h1>
               {owner && setup.data && !setup.data.complete && (
                 <Button kind="tertiary" size="sm" className={styles.setup} onClick={() => navigate('/setup')} data-testid="open-setup">
                   Set up your workspace · {setup.data.done} of {setup.data.total}
                 </Button>
               )}
             </TitleBar>
-            <SectionNav label="Admin sections" groups={adminGroups} onGo={navigate} />
+            <SectionNav label="Settings sections" groups={adminGroups} onGo={navigate} />
           </>
         )}
         <main className={styles.content}>

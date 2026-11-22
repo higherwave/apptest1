@@ -5,7 +5,7 @@ import styles from './PulseSources.module.scss'
 
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'not yet')
 
-// Admin, Pulse: the read-only Salesforce link. Pulse copies each account's name and ARR so topics show the revenue behind the accounts that raised them. It never writes to Salesforce.
+// Settings, Pulse: the read-only Salesforce link. Pulse copies each account's name and ARR so topics show the revenue behind the accounts that raised them. It never writes to Salesforce.
 // The connection itself is set up by the operator (see docs/SETUP.md), not typed in here.
 export function PulseSalesforce() {
   const status = usePulseSalesforce()

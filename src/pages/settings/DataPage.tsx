@@ -26,7 +26,7 @@ const KEEP = [
   ['When you end your agreement', 'You can download everything first. We keep your data for 30 more days in case you need it, then remove it and confirm in writing.'],
 ] as const
 
-// The Admin "Data" page (owners): taking your data away at any time, and how long each kind is kept.
+// The Settings "Data" page (owners): taking your data away at any time, and how long each kind is kept.
 export function DataPage() {
   const [busy, setBusy] = useState<string | null>(null)
   const [done, setDone] = useState<{ key: string; name: string } | null>(null)

@@ -369,7 +369,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
         key: `missing:${launch.id}:${s.step}:${isoWeek(now)}`,
         payload: { step: s.step },
         build: (link, allReviews) =>
-          compose({ name: to.name, subject: `Signal Flow: no ${T.approver} for ${s.label} on ${launch.name}`, lines: [`${s.label} on ${launch.name} has no ${T.approver}, so nobody can answer it. A workspace owner can add one under Admin, ${T.Approvals}.`], link, linkText: 'Open the launch', allReviews }),
+          compose({ name: to.name, subject: `Signal Flow: no ${T.approver} for ${s.label} on ${launch.name}`, lines: [`${s.label} on ${launch.name} has no ${T.approver}, so nobody can answer it. A workspace owner can add one under Settings, ${T.Approvals}.`], link, linkText: 'Open the launch', allReviews }),
       }))
     }
   }

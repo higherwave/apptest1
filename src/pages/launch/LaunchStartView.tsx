@@ -30,7 +30,7 @@ export function LaunchStartView(p: LaunchStartViewProps) {
         <section className={styles.start} aria-label="Start the launch" data-testid="launch-start">
           <h2 className={styles.launchName}>No launch yet</h2>
           <p className={styles.notes}>
-            Start the launch to ask each function for its go signal. {T.Approvers} are set up once under Admin, {T.Approvals}; a step nobody covers shows as “{T.approver} missing”. Functions can follow the project from now,
+            Start the launch to ask each function for its go signal. {T.Approvers} are set up once under Settings, {T.Approvals}; a step nobody covers shows as “{T.approver} missing”. Functions can follow the project from now,
             well before anything is asked of them.
           </p>
           {p.canCreate ? (

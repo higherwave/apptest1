@@ -2,11 +2,11 @@ import { useEffect } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useMe } from '../../api/hooks'
 
-// Who may open which Admin page: viewers none (they go back to the projects), editors Experience Categories and Notifications, owners all.
+// Who may open which Settings page: viewers none (they go back to the projects), editors Experience Categories and Notifications, owners all.
 export function SettingsGate() {
   const me = useMe()
   const { pathname } = useLocation()
-  // Moving between Admin sections opens the next one at the top, not wherever the last one was scrolled to (its tabs would sit under the fixed header).
+  // Moving between Settings sections opens the next one at the top, not wherever the last one was scrolled to (its tabs would sit under the fixed header).
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [pathname])

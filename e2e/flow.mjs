@@ -298,13 +298,13 @@ try {
   await page.waitForSelector('#task-3-area')
   ok('the chosen areas are saved with the questions', await page.evaluate(() => ['task-0-area', 'task-1-area', 'task-3-area'].every((id) => document.querySelector('#' + id).value === 'Scheduling') && document.querySelector('#task-2-area').value === ''))
   await page.goto(`${BASE}/settings/categories`, { waitUntil: 'networkidle0' })
-  ok('Admin is the title bar’s name, with a row of views below it (Categories first, then Usage and Costs and User Access views for an owner)', await page.evaluate(() => document.querySelector('h1')?.innerText === 'Admin' && [...document.querySelectorAll('nav[aria-label="Admin sections"] [data-label]')].map((b) => b.dataset.label.replace(/ · \d+$/, '')).join('|').startsWith('Categories|Matches|AI|System|Notifications|People|Teams')))
-  ok('Admin is a top-level item, open on this page, and Categories is the open view in the row below the title bar', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Admin sections"] [data-label="Categories"]'); return nav.join('|') === 'Platform Insights|Projects|Measure|Admin' && cur === 'Admin' && row?.getAttribute('aria-current') === 'page' }))
+  ok('Settings is the title bar’s name, with a row of views below it (Categories first, then Usage and Costs and User Access views for an owner)', await page.evaluate(() => document.querySelector('h1')?.innerText === 'Settings' && [...document.querySelectorAll('nav[aria-label="Settings sections"] [data-label]')].map((b) => b.dataset.label.replace(/ · \d+$/, '')).join('|').startsWith('Categories|Matches|AI|System|Notifications|People|Teams')))
+  ok('Settings is a top-level item, open on this page, and Categories is the open view in the row below the title bar', await page.evaluate(() => { const nav = [...document.querySelectorAll('[data-nav] a')].map((x) => x.textContent); const cur = document.querySelector('[data-nav] a[aria-current="page"]')?.textContent; const row = document.querySelector('nav[aria-label="Settings sections"] [data-label="Categories"]'); return nav.join('|') === 'Platform Insights|Projects|Measure|Settings' && cur === 'Settings' && row?.getAttribute('aria-current') === 'page' }))
   await page.goto(`${BASE}/settings/notifications`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="reminder-card"]', { timeout: 8000 })
   await page.waitForFunction(() => (document.querySelector('#reminder-zone')?.value || '').length > 0, { timeout: 8000 })
-  ok('Notifications is an Admin tab with the daily reminder switched on and the browser time zone saved', await page.evaluate(async () => {
-    const tab = document.querySelector('nav[aria-label="Admin sections"] [data-label="Notifications"]')
+  ok('Notifications is an Settings tab with the daily reminder switched on and the browser time zone saved', await page.evaluate(async () => {
+    const tab = document.querySelector('nav[aria-label="Settings sections"] [data-label="Notifications"]')
     const box = document.querySelector('[data-testid="reminder-on"]')
     const zone = document.querySelector('#reminder-zone')
     return tab?.getAttribute('aria-current') === 'page' && box?.checked === true && (zone?.value || '').length > 0 && /6am/.test(document.querySelector('[data-testid="reminder-card"]').innerText)
@@ -315,10 +315,10 @@ try {
   await page.goto(`${BASE}/settings/categories`, { waitUntil: 'networkidle0' })
   ok('Experience categories is no longer one of the Platform Insights sections', await page.evaluate(() => !document.querySelector('nav[aria-label="Platform Insights sections"]')))
   await page.goto(`${BASE}/insights/areas`, { waitUntil: 'networkidle0' })
-  ok('the old address lands on Admin', await page.evaluate(() => location.pathname === '/settings/categories'))
+  ok('the old address lands on Settings', await page.evaluate(() => location.pathname === '/settings/categories'))
   await page.goto(`${BASE}/settings/areas`, { waitUntil: 'networkidle0' })
-  ok('the first Admin address redirects too', await page.evaluate(() => location.pathname === '/settings/categories'))
-  ok('Categories is the first and default view, beside Matches, both in the Admin menu', await page.evaluate(() => { const links = [...document.querySelectorAll('nav[aria-label="Admin sections"] a')]; return links[0]?.dataset.label === 'Categories' && links[0].getAttribute('aria-current') === 'page' && links[1]?.dataset.label.startsWith('Matches') && !document.querySelector('[data-testid="area-proposals"]') }))
+  ok('the first Settings address redirects too', await page.evaluate(() => location.pathname === '/settings/categories'))
+  ok('Categories is the first and default view, beside Matches, both in the Settings menu', await page.evaluate(() => { const links = [...document.querySelectorAll('nav[aria-label="Settings sections"] a')]; return links[0]?.dataset.label === 'Categories' && links[0].getAttribute('aria-current') === 'page' && links[1]?.dataset.label.startsWith('Matches') && !document.querySelector('[data-testid="area-proposals"]') }))
   await page.click('[data-testid="tab-matches"]')
   await page.waitForSelector('[data-testid="area-proposals"]', { timeout: 5000 })
   ok('Matches shows the suggestions in place of the table', await page.evaluate(() => /Relevant word matches/i.test(document.querySelector('[data-testid="area-proposals"]').innerText) && !document.querySelector('[data-testid="area-Scheduling"]')))
@@ -963,7 +963,7 @@ try {
   // Workspace setup (onboarding for owners): five categories on one screen; the drawer carries on from step to step and from category to category.
   await page.goto(`${BASE}/settings/categories`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="open-setup"]', { timeout: 8000 })
-  ok('Admin offers Set up your workspace to an owner until it is done, with how far along it is', await page.evaluate(() => /Set up your workspace · \d of 5/.test(document.querySelector('[data-testid="open-setup"]').innerText)))
+  ok('Settings offers Set up your workspace to an owner until it is done, with how far along it is', await page.evaluate(() => /Set up your workspace · \d of 5/.test(document.querySelector('[data-testid="open-setup"]').innerText)))
   await page.goto(`${BASE}/setup`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="setup-card-people"]', { timeout: 10000 })
   ok('Setup shows five categories in order: the first in progress, the others locked', await page.evaluate(() => { const c = ['people', 'approvals', 'categories', 'connections', 'guard'].map((k) => document.querySelector(`[data-testid="setup-card-${k}"]`)); return c.every(Boolean) && c[0].dataset.status === 'current' && c.slice(1).every((x) => x.dataset.status === 'locked') }))
@@ -996,7 +996,7 @@ try {
 
   // Measure: how each requirement will be known to have worked, then check-ins over time.
   const measureApi = async () => (await fetch(`${API}/api/v1/projects/${projectId}/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
-  ok('Measure is an area of its own beside Platform Insights, Projects and Admin, and no longer a step of the project', await page.evaluate(() => { const top = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); const rail = [...document.querySelectorAll('nav[aria-label="Project steps"] a:not([href="/projects"])')].map((a) => a.dataset.label); const order = ['Platform Insights', 'Projects', 'Measure']; return order.every((l, i) => top.indexOf(l) === i) && !rail.includes('Measure') }))
+  ok('Measure is an area of its own beside Platform Insights, Projects and Settings, and no longer a step of the project', await page.evaluate(() => { const top = [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); const rail = [...document.querySelectorAll('nav[aria-label="Project steps"] a:not([href="/projects"])')].map((a) => a.dataset.label); const order = ['Platform Insights', 'Projects', 'Measure']; return order.every((l, i) => top.indexOf(l) === i) && !rail.includes('Measure') }))
   await page.goto(`${BASE}/measure?project=${projectId}`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid^="measure-"]', { timeout: 8000 })
   ok('the top menu marks Measure as the open area', await page.evaluate(() => document.querySelector('[data-nav] a[data-label="Measure"]')?.getAttribute('aria-current') === 'page' && document.querySelector('[data-nav] a[data-label="Projects"]')?.getAttribute('aria-current') !== 'page'))
@@ -1217,7 +1217,7 @@ try {
   ok('a theme in a persona opens that theme', true)
   // Group by Experience category: None is the default; grouping makes a section for each area, the themes with none last, and the choice is in the address.
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
-  ok('the header is a dark bar across the top with Platform Insights, Projects and Measure at the left and Admin at the far right', await page.evaluate(() => { const h = document.querySelector('header'); const b = h.getBoundingClientRect(); const bg = getComputedStyle(h).backgroundColor.match(/\d+/g).map(Number); const labels = [...h.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); const admin = h.querySelector('a[data-label="Admin"]').getBoundingClientRect(); const projects = h.querySelector('a[data-label="Projects"]').getBoundingClientRect(); return b.left === 0 && Math.round(b.width) === innerWidth && b.height <= 70 && bg.slice(0, 3).every((v) => v < 90) && labels.join('|') === 'Platform Insights|Projects|Measure|Admin' && admin.left > projects.right + 200 }))
+  ok('the header is a dark bar across the top with Platform Insights, Projects and Measure at the left and Settings at the far right', await page.evaluate(() => { const h = document.querySelector('header'); const b = h.getBoundingClientRect(); const bg = getComputedStyle(h).backgroundColor.match(/\d+/g).map(Number); const labels = [...h.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label); const admin = h.querySelector('a[data-label="Settings"]').getBoundingClientRect(); const projects = h.querySelector('a[data-label="Projects"]').getBoundingClientRect(); return b.left === 0 && Math.round(b.width) === innerWidth && b.height <= 70 && bg.slice(0, 3).every((v) => v < 90) && labels.join('|') === 'Platform Insights|Projects|Measure|Settings' && admin.left > projects.right + 200 }))
   ok('there is no left menu strip any more', await page.evaluate(() => !document.querySelector('aside[aria-label="Main menu"]')))
   ok('the table has a Source column, and Participants is a narrow column with a small bar', await page.evaluate(() => { const heads = [...document.querySelectorAll('section[aria-labelledby="themes-heading"] > div[aria-hidden] > *')].map((e) => e.innerText.trim().toLowerCase()); const row = document.querySelector('[data-testid^="platform-theme-"]'); const cells = [...row.querySelector('[class*="columns"]').children]; const part = cells[cells.length - 1].getBoundingClientRect().width; const src = cells[heads.indexOf('source')]; return heads.join() === 'themes,type,source,status,trend,participants' && part < 180 && /^(Customers|Team|Customers \+ Team)$/.test(src.innerText.trim()) && !!cells[cells.length - 1].querySelector('[role="progressbar"], [class*="progress"]') }))
   ok('a theme row in Design uses the same font and size as a theme in Themes across projects', true)

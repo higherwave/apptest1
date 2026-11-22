@@ -5,7 +5,7 @@
 //   npx tsx scripts/demo-pulse-signals.ts --yes      adds them
 //
 // Safe to run again: a signal whose text is already there is left alone. Nothing is deleted. The people and accounts are invented (Anchor CX is a fictional company).
-// It does not turn the preview on: that is the switch in Admin, Previews.
+// It does not turn the preview on: that is the switch in Settings, Previews.
 // @ts-expect-error the migration helpers are plain .mjs with no types
 import { loadEnvFile } from '../db/migrate.mjs'
 import { findConnectionString, lazyPgDb, type Db } from '../server/db.js'

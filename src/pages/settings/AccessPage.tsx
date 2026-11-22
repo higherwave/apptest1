@@ -5,7 +5,7 @@ import { SettingsTabs } from './SettingsTabs'
 import styles from './SettingsSection.module.scss'
 import { T } from '../../../shared/terms.mjs'
 
-// Admin, User Access: who is in the workspace (People), how they are grouped (Teams) and who approves each launch step (Approvals). Owners only.
+// Settings, User Access: who is in the workspace (People), how they are grouped (Teams) and who approves each launch step (Approvals). Owners only.
 export function AccessPage() {
   return (
     <div className={styles.page}>

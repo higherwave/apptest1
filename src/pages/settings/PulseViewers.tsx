@@ -3,7 +3,7 @@ import { friendlyMessage } from '../../api/client'
 import { usePulseViewers, useSetPulseViewer } from '../../api/hooks'
 import styles from './PulseSources.module.scss'
 
-// Admin, Pulse: who may VIEW Pulse. Owners and editors always can (and editors can change things); anyone else is given view one person at a time, for department leaders in sales,
+// Settings, Pulse: who may VIEW Pulse. Owners and editors always can (and editors can change things); anyone else is given view one person at a time, for department leaders in sales,
 // customer success, sales ops, product and design. A grant only lets them see: they cannot add, keep, dismiss, regroup or start projects.
 export function PulseViewers() {
   const list = usePulseViewers()

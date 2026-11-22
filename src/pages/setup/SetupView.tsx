@@ -97,7 +97,7 @@ export function SetupView(p: SetupViewProps) {
                 )}
                 {p.step === 3 && (
                   <>
-                    <p className={styles.lead}>{cat.status === 'skipped' ? `${meta.title} skipped. You can set it up later from Admin.` : finished ? `${meta.title} is done.` : `${meta.title} is not marked done yet.`}</p>
+                    <p className={styles.lead}>{cat.status === 'skipped' ? `${meta.title} skipped. You can set it up later from Settings.` : finished ? `${meta.title} is done.` : `${meta.title} is not marked done yet.`}</p>
                     {!last && finished && <p className={styles.meta}>Next: {SETUP[ORDER[ORDER.indexOf(cat.key) + 1]].title}.</p>}
                     {last && finished && <p className={styles.meta}>That was the last one. Your workspace is set up.</p>}
                   </>

@@ -21,8 +21,8 @@ Decisions so far (2026-11-17). Scope: **set-up and orientation for workspace own
 - **Experience categories:** at least one; a definition is optional (the quick add never asks for one).
 - **Connections:** nothing required (Slack channel per team and Jira are optional).
 - **Data and AI:** all three items confirmed; the server checks and records it (`acknowledged` on `PUT /setup/guard`).
-- **The embedded screens are the real Admin screens**, so their own required fields (a team's name, an invite's email and role, an approver) hold in the setup exactly as in Admin;
-  afterwards the Admin screens are simply the continuation of the setup. The setup's extra gates only decide when a category can be marked done.
+- **The embedded screens are the real Settings screens**, so their own required fields (a team's name, an invite's email and role, an approver) hold in the setup exactly as in Settings;
+  afterwards the Settings screens are simply the continuation of the setup. The setup's extra gates only decide when a category can be marked done.
 - **The starter team is called Platform** (it was General): a nudge to use it for people who normally have access to everything. Not enforced; an owner can rename it.
 
 ## Flagged for December
@@ -33,5 +33,5 @@ Decisions so far (2026-11-17). Scope: **set-up and orientation for workspace own
 
 ## Open
 
-- Whether the Set up step embeds the real Admin forms (recommended) or starts as an explanation with a button into Admin.
+- Whether the Set up step embeds the real Settings forms (recommended) or starts as an explanation with a button into Settings.
 - Where it appears: a "Set up your workspace" entry for owners until complete, reopenable; shown automatically on an owner's first visit?

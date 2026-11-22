@@ -1,7 +1,7 @@
 @use '../tokens' as tokens;
 
 // The dark app bar across the top of every app. The launcher and the app's name sit at the left, its items beside them, and what is the same in every app
-// (the AI badge, the tour, Admin, the account) at the far right. Below the narrow breakpoint the items fold into one menu.
+// (the AI badge, the tour, Settings, the account) at the far right. Below the narrow breakpoint the items fold into one menu.
 $header-height: 4rem; // kept in step with AppShell.module.scss and StepNav.module.scss
 $narrow: 60rem; // below this the items fold into one menu (tablet portrait)
 $tight: 68rem; // below this the AI badge goes and the tour link keeps only its icon, so everything fits at 1024px
@@ -179,7 +179,7 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
   min-inline-size: 0;
 }
 
-// The badge, "Take a tour" and Admin are evenly spaced: each of the last two has the same padding on both sides, and the badge keeps that much room after it.
+// The badge, "Take a tour" and Settings are evenly spaced: each of the last two has the same padding on both sides, and the badge keeps that much room after it.
 .aiBadge {
   display: flex;
   align-items: center;
@@ -190,7 +190,7 @@ $tight: 68rem; // below this the AI badge goes and the tour link keeps only its 
   padding-inline: var(--at-space-md); // (named twice, so it beats the library's own right padding, kept for an icon at the far right)
   gap: var(--at-space-xs);
 
-  // The library puts the icon at the far right of the button; here it follows the label, as Admin's does.
+  // The library puts the icon at the far right of the button; here it follows the label, as Settings's does.
   :global(.cds--btn__icon) { position: static; margin: 0; }
 }
 

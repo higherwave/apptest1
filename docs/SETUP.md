@@ -101,8 +101,8 @@ optional `email` claim to the ID token, and send groups as group ids or names in
 
 Who gets in, in order of how much the identity provider decides:
 
-1. **Invitation only (default).** Owners invite people on the People page (Admin > User Access > People); the provider only proves who they are.
-2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the People page (Admin > User Access > People). If Google sign-in is also on, add `SSO_ALLOWED_DOMAINS=acme.com` so only company addresses are added; without it nobody is (any Gmail account would otherwise qualify).
+1. **Invitation only (default).** Owners invite people on the People page (Settings > User Access > People); the provider only proves who they are.
+2. **Anyone at the company.** `SSO_DEFAULT_ROLE=viewer` adds each signed-in person as a viewer the first time. Owners promote people on the People page (Settings > User Access > People). If Google sign-in is also on, add `SSO_ALLOWED_DOMAINS=acme.com` so only company addresses are added; without it nobody is (any Gmail account would otherwise qualify).
 3. **Groups decide.** Set `SSO_OWNER_GROUPS`, `SSO_EDITOR_GROUPS`, `SSO_VIEWER_GROUPS`. Roles follow the groups at every sign-in; remove someone from a group
    and their role goes at their next sign-in (end a session now by removing them from the company directory, which stops new sign-ins). Put the people who
    run the workspace in the owner group **before** switching this on.
@@ -110,7 +110,7 @@ Who gets in, in order of how much the identity provider decides:
 To try a provider on your own machine before deploying, with a throwaway database, see [SSO-TRY.md](SSO-TRY.md) (`npm run sso:try`).
 
 Offboarding is the provider's job: a person it no longer signs in cannot start a session. An existing session lasts up to seven days; removing a member
-on the People page (Admin > User Access > People) (modes 1 and 2) ends theirs at once.
+on the People page (Settings > User Access > People) (modes 1 and 2) ends theirs at once.
 
 Google still works beside it (`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect `<BETTER_AUTH_URL>/api/v1/auth/callback/google`); use one provider
 per company unless you know why you want both, because the same person signing in two ways is two accounts.
@@ -157,7 +157,7 @@ Pulse reads only what an owner designates. Both connections are per workspace an
 1. Open the Signal Flow app at api.slack.com/apps, then OAuth & Permissions, Bot Token Scopes. Add `channels:history` (the other scopes are already there). For private channels also add `groups:read` and `groups:history`. Or paste the updated `docs/slack-app-manifest.json` (replace `APP_URL`).
 2. Reinstall the app to the Slack workspace and approve. The bot token (`xoxb-...`) stays the same; it already lives in Vercel as `SLACK_BOT_TOKEN` (or, for a customer, in `node db/set-integration.mjs --kind slack`).
 3. In Slack, invite the bot to each feedback channel: type `/invite @Signal Flow` in the channel. A bot reads only channels it is in.
-4. In Signal Flow, Admin, Pulse, "Where Pulse listens": enter the channel name, choose what it counts as and "Wait for review" (safe default) or "Count at once", then **Add channel** and **Check now**.
+4. In Signal Flow, Settings, Pulse, "Where Pulse listens": enter the channel name, choose what it counts as and "Wait for review" (safe default) or "Count at once", then **Add channel** and **Check now**.
 
 **Salesforce (read only, for ARR).**
 1. In Salesforce Setup, create a Permission Set that gives read on the Account object and read on the ARR field, and a dedicated integration user (a "run-as" user) with it. Nothing more: that user's access is the real limit on what Pulse can see.
@@ -165,5 +165,5 @@ Pulse reads only what an owner designates. Both connections are per workspace an
 3. Note the ARR field's API name on Account (a custom field ends in `__c`, for example `ARR__c`) and the org's address (`https://yourcompany.my.salesforce.com`).
 4. Connect it (a dry run first, then add `--yes`): `SF_SECRET='<consumer secret>' node db/set-integration.mjs --workspace <slug> --kind salesforce --secret-env SF_SECRET --site https://yourcompany.my.salesforce.com --client-id <consumer key> --arr-field ARR__c`. The secret is read from the environment variable, encrypted with `SETTINGS_ENCRYPTION_KEY`, and never printed.
 4b. For opportunity notes, the run-as user's permission set also needs read on the Opportunity object and on each field you will name (for example Next Step, Description, a custom Loss Reason field), and on the opportunity Amount, Stage, Close Date and the Account relationship. Nothing is written.
-5. In Signal Flow, Admin, Pulse, "Salesforce, for ARR": **Copy accounts now**. Topics then show an ARR column, the impact map gets an Accounts / ARR switch, and a topic's page lists each account's ARR. A signal's account must match the Salesforce account name (capitals, punctuation and "Inc"/"LLC" are ignored).
-6. Then, still in Admin, Pulse, "Salesforce opportunity notes": enter the fields by their API names, choose which opportunities (open, lost in the last 90 days, or both) and keep "Wait for review" until you have seen what the notes contain. Press **Add opportunity notes**, then **Check now** under "Where Pulse listens". Topics then show an **In play** column, and **Rank by** can order them by it.
+5. In Signal Flow, Settings, Pulse, "Salesforce, for ARR": **Copy accounts now**. Topics then show an ARR column, the impact map gets an Accounts / ARR switch, and a topic's page lists each account's ARR. A signal's account must match the Salesforce account name (capitals, punctuation and "Inc"/"LLC" are ignored).
+6. Then, still in Settings, Pulse, "Salesforce opportunity notes": enter the fields by their API names, choose which opportunities (open, lost in the last 90 days, or both) and keep "Wait for review" until you have seen what the notes contain. Press **Add opportunity notes**, then **Check now** under "Where Pulse listens". Topics then show an **In play** column, and **Rank by** can order them by it.

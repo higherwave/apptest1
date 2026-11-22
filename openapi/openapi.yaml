@@ -23,7 +23,7 @@ paths:
       operationId: getAiStatus
       summary: >
         Whether AI runs are live or simulated (the header indicator), for everyone. Owners also get this month's spend and
-        the budget when live, and what recently went wrong (the AI usage and costs tab in Admin); nobody else does.
+        the budget when live, and what recently went wrong (the AI usage and costs tab in Settings); nobody else does.
       responses:
         '200':
           description: The AI mode.
@@ -652,7 +652,7 @@ paths:
     put:
       operationId: answerLaunchStep
       summary: >
-        A step's approver (primary or alternate, from Admin, Approvals) gives their answer: ready, ready with conditions, changes needed or not
+        A step's approver (primary or alternate, from Settings, Approvals) gives their answer: ready, ready with conditions, changes needed or not
         applicable; for the final decision, go, go with conditions or no-go. Every answer but a plain ready or go needs a rationale (422). The answer is
         added to the record and earlier answers stay. The final decision keeps the steps that were not ready at the time. 403 `not_the_reviewer` for
         anyone else (naming who can), 409 `step_not_used` for a step the team turned off.
@@ -5045,7 +5045,7 @@ components:
         external: { type: boolean, description: 'True for an external member (outside counsel, a partner): refused everywhere except their own details and the launches they are asked to review (403 `external_member`).' }
         signInAvailable: { type: boolean, description: 'True when sign-in (Google or the company single sign-on) is configured on this deployment.' }
         rolesManagedBySso: { type: boolean, description: 'True when roles come from sign-in groups: inviting, changing roles and removing are then refused with 409 `managed_by_sso`.' }
-        teamsManagedBySso: { type: boolean, description: 'True when SSO_TEAM_GROUP_PREFIX is set: people''s places in every team but the default one come from their sign-in groups, and changing them in Admin is refused with 409 `managed_by_sso`.' }
+        teamsManagedBySso: { type: boolean, description: 'True when SSO_TEAM_GROUP_PREFIX is set: people''s places in every team but the default one come from their sign-in groups, and changing them in Settings is refused with 409 `managed_by_sso`.' }
         features:
           type: object
           required: [pulse, pulseEdit]
