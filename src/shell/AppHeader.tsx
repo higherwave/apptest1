@@ -1,3 +1,4 @@
+import { SHOW_SUITE } from './suite'
 import { ChevronDown, Help, Launch, Settings as SettingsIcon } from '@carbon/icons-react'
 import { Button, Popover, PopoverContent } from '@carbon/react'
 import { useState, type MouseEvent } from 'react'
@@ -47,6 +48,7 @@ export function AppHeader() {
 
   return (
     <header className={styles.bar}>
+      {SHOW_SUITE && (
       <div className={styles.launcherWrap} onKeyDown={(e) => e.key === 'Escape' && setLauncherOpen(false)}>
         <Popover open={launcherOpen} align="bottom-start" dropShadow onRequestClose={() => setLauncherOpen(false)}>
           <Button kind="ghost" size="md" className={cx(styles.launcher, launcherOpen && styles.launcherOpen)} aria-label="All apps" aria-haspopup="true" aria-expanded={launcherOpen} data-testid="app-launcher" onClick={() => setLauncherOpen((o) => !o)}>
@@ -84,6 +86,7 @@ export function AppHeader() {
           </PopoverContent>
         </Popover>
       </div>
+      )}
 
       <a href={app.items[0].to} className={styles.appBrand} data-testid="app-brand" aria-label={`${app.name} home`} onClick={go(app.items[0].to)}>
         <span className={styles.mark}>

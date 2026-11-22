@@ -48,3 +48,13 @@
   inline-size: 100%;
   max-inline-size: none;
 }
+
+// The header colours every ghost button inside it for its dark bar (pale text), and this panel is light: without this the menu rows read as disabled.
+.links .link:global(.cds--btn) {
+  color: var(--at-ink);
+
+  &:hover {
+    background: var(--at-surface-soft);
+    color: var(--at-ink);
+  }
+}
