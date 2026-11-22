@@ -14,7 +14,7 @@ type TestPlanFormProps = {
 }
 
 // The test plan form: name, a short project description, methods and participants. The specific questions and tasks are on the Test Plan's
-// What to ask or observe tab. New test plan shows all of it; a project's Test Plan tab and its Participants page each show their part.
+// What to ask or observe panel beside it. New test plan shows all of it; a project's Test Plan tab and its Participants page each show their part.
 // Both parts save through the same request, so whatever one page does not show it sends back unchanged.
 export function TestPlanForm({ form, errors, methodOptions, readOnly = false, show = 'all', onChange }: TestPlanFormProps) {
   const plan = show !== 'participants'
@@ -39,7 +39,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, sh
       <TextArea
         id="project-description"
         labelText="Project description"
-        helperText="A sentence or two on what this research is for. The specific questions and tasks go on the What to ask or observe tab."
+        helperText="A sentence or two on what this research is for. The specific questions and tasks go in What to ask or observe, beside this."
         placeholder="e.g. Whether first-time patients can find a provider and book without calling the clinic"
         rows={3}
         maxCount={2000}

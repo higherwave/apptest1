@@ -33,7 +33,7 @@ export function NewTestPlanPage() {
     if (!canEdit) return setSubmitError(EDITING_LOCKED)
     try {
       const created = await create.mutateAsync({ ...toRequest(form), ...(choosing && teamId ? { teamId } : {}) })
-      navigate(`/projects/${created.id}/plan/ask`)
+      navigate(`/projects/${created.id}/plan`)
     } catch (err) {
       if (err instanceof ApiRequestError && err.code === 'validation_failed' && err.field) setErrors({ [err.field]: err.message })
       else setSubmitError(friendlyMessage(err))

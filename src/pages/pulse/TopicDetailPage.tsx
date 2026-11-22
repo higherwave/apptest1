@@ -104,7 +104,7 @@ export function TopicDetailPage() {
                 {t.projects.map((p, i) => (
                   <span key={p.id}>
                     {i > 0 && ', '}
-                    <Link to={`/projects/${p.id}/plan/ask`} data-testid="project-link">
+                    <Link to={`/projects/${p.id}/plan`} data-testid="project-link">
                       {p.name}
                     </Link>
                   </span>

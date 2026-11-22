@@ -11,6 +11,7 @@ import { AppHeader } from './AppHeader'
 import { SiteFooter } from './SiteFooter'
 import { SpendBanner } from './SpendBanner'
 import { StatusTag } from './StatusTag'
+import { LockTag } from './LockTag'
 import { noteVisit } from '../resume/recent'
 import { useReportTimeZone } from './useReportTimeZone'
 import styles from './AppShell.module.scss'
@@ -100,6 +101,7 @@ export function AppShell() {
               </a>
               <span className={styles.projectName}>{creating ? 'New project' : (projectDetail.data?.name ?? '')}</span>
               {projectDetail.data && !creating && <StatusTag status={projectDetail.data.status} />}
+              {projectId && !creating && <LockTag projectId={projectId} />}
             </TitleBar>
             <SectionNav label="Project steps" groups={stepGroups} onGo={navigate} dataNav />
           </>

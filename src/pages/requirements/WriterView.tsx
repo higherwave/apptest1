@@ -6,7 +6,7 @@ import { CATEGORY_LABEL } from '../themes/themeEdits'
 import { ClampedBlock } from './ClampedBlock'
 import { StepCard } from './StepCard'
 import { T } from '../../../shared/terms.mjs'
-import { lockText } from '../../components/LockNotice'
+import { lockText } from '../../components/lockText'
 import styles from './WriterView.module.scss'
 
 /** What the page is busy with, step by step: approving a step, then (once that has gone through) writing the next one; or a redo. */

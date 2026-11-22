@@ -1,3 +1,5 @@
+@use '../../tokens' as tokens;
+
 .page {
   display: flex;
   flex-direction: column;
@@ -14,4 +16,44 @@
   border-radius: var(--at-radius-md);
   background: var(--at-surface-slate);
   color: var(--at-body);
+}
+
+// The setup fields on the left and the questions and tasks in a wider panel on the right, so the whole plan is in one view.
+// Narrow windows (a tablet held upright) stack them, setup first.
+.split {
+  display: grid;
+  grid-template-columns: minmax(20rem, 5fr) minmax(0, 7fr);
+  gap: var(--at-space-xl);
+  align-items: start;
+
+  @media (max-width: 56rem) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.setup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-lg);
+  min-inline-size: 0;
+}
+
+.ask {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  min-inline-size: 0;
+  padding: var(--at-space-lg);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-surface-slate);
+}
+
+.askTitle {
+  @include tokens.role('heading-3');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.askNote {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
 }

@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { ApiRequestError, friendlyMessage, getTranscripts, type AnalysisRunResult } from '../../api/client'
 import { transcriptApi, useMe, useProject, useProjectLock, useTranscripts } from '../../api/hooks'
-import { LockNotice } from '../../components/LockNotice'
 import { useSaveFlow } from '../project/useSaveFlow'
 import { SAMPLE_TRANSCRIPTS } from './samples'
 import { errorFromField, fileToItem, formFromList, itemsChanged, toRequest, validateItems, type TranscriptErrors, type TranscriptItem } from './form'
@@ -104,7 +103,6 @@ export function TranscriptsPage() {
 
   return (
     <>
-      <LockNotice projectId={projectId} />
       <TranscriptsView
         state={state}
         project={project.data}

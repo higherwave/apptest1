@@ -1,7 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMapProjectStage, useMe, useProject, useProjectBlueprint, useProjectLock, useSetProjectWorkflow, useWorkflows } from '../../api/hooks'
-import { LockNotice } from '../../components/LockNotice'
 import { JourneyView } from './JourneyView'
 import { useThemeData } from './useThemeData'
 
@@ -21,7 +20,6 @@ export function JourneyPage() {
   const state = data.themes.isError ? 'error' : data.themes.isPending ? 'loading' : data.list.length === 0 ? 'empty' : 'ready'
   return (
     <>
-      <LockNotice projectId={projectId} />
       <JourneyView
         state={state}
         project={project.data}

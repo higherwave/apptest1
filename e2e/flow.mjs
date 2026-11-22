@@ -76,8 +76,8 @@ try {
   await page.waitForSelector('#project-description') // the form shows once the test methods have loaded
   await waitText('Test methods')
   ok('the app bar says New project and offers the way back', (await header()).includes('New project') && (await header()).includes('Projects'))
-  const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), participants: !!document.querySelector('#p-name-0') || /Add participant/i.test(document.body.innerText), tabs: [...document.querySelectorAll('[data-testid^="plan-tab-"]')].map((t) => `${t.innerText.trim()}${t.hasAttribute('disabled') || t.getAttribute('aria-disabled') === 'true' ? ' (waits)' : ''}`).join('|') }))
-  ok('a new test plan looks like an existing project’s Test Plan: its two tabs (the second waits until the plan is saved), the name, a description and the methods, and no participants table', plan.fields.every(Boolean) && plan.methods && !plan.participants && plan.tabs === 'What to test|What to ask or observe (waits)', JSON.stringify(plan))
+  const plan = await page.evaluate(() => ({ fields: ['#project-name', '#project-description'].map((sel) => !!document.querySelector(sel)), methods: document.body.innerText.includes('Test methods'), participants: !!document.querySelector('#p-name-0') || /Add participant/i.test(document.body.innerText), split: (() => { const a = document.querySelector('[data-testid="plan-setup"]'), b = document.querySelector('[data-testid="plan-ask"]'); return !!a && !!b && a.getBoundingClientRect().right <= b.getBoundingClientRect().left + 1 })(), tabs: document.querySelectorAll('[role="tab"]').length }))
+  ok('a new test plan looks like an existing project’s Test Plan: the setup on the left with the name, a description and the methods, What to ask or observe beside it (no tabs), and no participants table', plan.fields.every(Boolean) && plan.methods && !plan.participants && plan.split && plan.tabs === 0, JSON.stringify(plan))
   ok('the project menu shows with only Test Plan open', await page.evaluate(() => { const l = [...document.querySelectorAll('[data-nav] a')]; return l.find((a) => a.dataset.label === 'Test Plan')?.getAttribute('aria-disabled') !== 'true' && l.filter((a) => a.getAttribute('aria-disabled') === 'true').length === 9 }))
   ok('while a project is being set up the step to work on is marked current and the rest are locked', await page.evaluate(() => { const st = Object.fromEntries([...document.querySelectorAll('nav[aria-label="Project steps"] a:not([href="/projects"])')].map((a) => [a.dataset.label, a.dataset.state])); return st['Test Plan'] === 'current' && Object.entries(st).filter(([k]) => k !== 'Test Plan').every(([, v]) => v === 'locked') }))
   await clickText('Save test plan')
@@ -90,9 +90,9 @@ try {
   ok('the project description sits just below the project name and above the methods', await page.evaluate(() => { const n = document.querySelector('#project-name').getBoundingClientRect(); const d = document.querySelector('#project-description').getBoundingClientRect(); const m = document.querySelector('#methods-label').getBoundingClientRect(); return d.top >= n.bottom - 1 && d.bottom <= m.top + 1 && /project description/i.test(document.querySelector('label[for="project-description"]').innerText) }))
   await clickText('Save test plan')
 
-  // 4. Create lands on the Test Plan's What to ask or observe tab, and the project is in the list as a draft.
-  await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan\/ask$/.test(location.pathname), { timeout: 10000 })
-  ok('creating opens the new project’s What to ask or observe tab', true, page.url().replace(BASE, ''))
+  // 4. Create lands on the Test Plan, and the project is in the list as a draft.
+  await page.waitForFunction(() => /\/projects\/[0-9a-f-]{36}\/plan$/.test(location.pathname), { timeout: 10000 })
+  ok('creating opens the new project’s Test Plan', true, page.url().replace(BASE, ''))
   const createdId = page.url().match(/projects\/([0-9a-f-]{36})\//)[1]
   const created = await (await fetch(`${API}/api/v1/projects/${createdId}`, { headers: { authorization: `Bearer ${TOKEN}` } })).json()
   ok('a project is created with no participants: they are added on their own step', created.participants.length === 0)
@@ -158,7 +158,7 @@ try {
     JSON.stringify(navState['Themes']) + ' / ' + JSON.stringify(navState['Stories']))
   await page.waitForSelector('#project-name')
   ok('the plan loads the project’s data', await page.evaluate(() => document.querySelector('#project-name').value === 'New patient intake (draft)' && !document.querySelector('#p-name-0')))
-  ok('the Test Plan has two tabs, What to test and What to ask or observe, and the rail has no separate Task List', await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].map((t) => t.innerText.trim()).join('|') === 'What to test|What to ask or observe' && ![...document.querySelectorAll('[data-nav] a')].some((a) => a.dataset.label === 'Task List') && document.querySelector('[role="tab"][aria-selected="true"]').innerText.trim() === 'What to test'))
+  ok('the Test Plan is one split view, the setup at the left and What to ask or observe in a wider panel at the right, with no tabs and no separate Task List in the rail', await page.evaluate(() => { const a = document.querySelector('[data-testid="plan-setup"]').getBoundingClientRect(), b = document.querySelector('[data-testid="plan-ask"]').getBoundingClientRect(); return !document.querySelector('[role="tab"]') && a.right <= b.left + 1 && b.width > a.width && !!document.querySelector('#project-name') && !!document.querySelector('#task-0') && ![...document.querySelectorAll('[data-nav] a')].some((a) => a.dataset.label === 'Task List') }))
   ok('nothing is unsaved yet', (await text()).includes('All changes saved'))
 
   await retype('#project-name', 'Intake v2')
@@ -221,12 +221,10 @@ try {
   const after = (await apiGet()).participants
   ok('a new participant is added with their phone and session length, and the others keep their ids', after.length === 3 && after[2].name === 'Zed Zeta' && after[2].phone === '(555) 010-0000' && after[2].sessionMinutes === 45 && before.every((id, i) => after[i].id === id))
 
-  // What to ask or observe: the second tab of the Test Plan.
+  // What to ask or observe: the panel beside the setup on the Test Plan.
   await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].find((a) => a.dataset.label === 'Test Plan').click())
-  await page.waitForSelector('[data-testid="plan-tab-ask"]')
-  await page.click('[data-testid="plan-tab-ask"]')
-  await waitText('Question to Ask / Task to Observe')
-  ok('the tab has its own address and the old Task List address leads to it', await (async () => { const at = page.url(); await page.goto(`${BASE}/projects/${projectId}/tasks`, { waitUntil: 'networkidle0' }); await page.waitForSelector('#task-0'); return /\/plan\/ask$/.test(at) && /\/plan\/ask$/.test(page.url()) })())
+  await page.waitForSelector('#task-0')
+  ok('the old What to ask or observe and Task List addresses lead to the Test Plan', await (async () => { await page.goto(`${BASE}/projects/${projectId}/plan/ask`, { waitUntil: 'networkidle0' }); await page.waitForSelector('#task-0'); const a = /\/plan$/.test(page.url()); await page.goto(`${BASE}/projects/${projectId}/tasks`, { waitUntil: 'networkidle0' }); await page.waitForSelector('#task-0'); return a && /\/plan$/.test(page.url()) })())
   ok('What to ask or observe shows the template’s starter tasks', await page.evaluate(() => document.querySelector('#task-0').value.length > 0 && document.querySelector('#task-0-followup-0')?.value.length > 0))
   await clickText('Add question / task')
   await page.waitForSelector('#task-2')
@@ -234,14 +232,10 @@ try {
   await page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.innerText.trim() === 'Add follow-up').at(-1).click())
   await page.waitForSelector('#task-2-followup-0')
   await page.type('#task-2-followup-0', 'What made you choose that?')
-  ok('both tabs carry the one Save test plan button', await page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.innerText.trim() === 'Save test plan').length === 1))
-  // One set of edits across the two tabs: change the description on the first, then save from the second.
-  await page.click('[data-testid="plan-tab-test"]')
-  await page.waitForSelector('#project-description')
+  ok('the one Save test plan button covers both halves', await page.evaluate(() => [...document.querySelectorAll('button')].filter((b) => b.innerText.trim() === 'Save test plan').length === 1))
+  // One set of edits across both halves: change the description at the left, then save.
   await retype('#project-description', 'Edited across tabs')
-  await page.click('[data-testid="plan-tab-ask"]')
-  await page.waitForSelector('#task-2')
-  ok('edits on one tab are kept, and counted, while on the other', await page.evaluate(() => document.querySelector('#task-2').value === 'What would you do next?' && document.body.innerText.includes('Unsaved changes')))
+  ok('edits in both halves are kept, and counted, together', await page.evaluate(() => document.querySelector('#task-2').value === 'What would you do next?' && document.querySelector('#project-description').value === 'Edited across tabs' && document.body.innerText.includes('Unsaved changes')))
   await clickText('Save test plan')
   await waitText('All changes saved at')
   ok('one Save saved the description and the new question together', await (async () => { const g = await apiGet(); return g.description === 'Edited across tabs' && g.tasks.some((t) => t.prompt === 'What would you do next?' && t.followUps[0]?.prompt === 'What made you choose that?') })())
@@ -1009,8 +1003,8 @@ try {
   ok('Measure across projects includes this project’s requirements, each naming its project and team', await (async () => { const all = await (await fetch(`${API}/api/v1/measure`, { headers: { authorization: `Bearer ${TOKEN}` } })).json(); return all.projects.some((p) => p.id === projectId) && all.items.some((i) => i.projectId === projectId && i.key === 'R1' && i.projectName && i.teamName) })())
   ok('an old project Measure address lands on Measure narrowed to that project', await (async () => { const at = page.url(); await page.goto(`${BASE}/projects/${projectId}/measure`, { waitUntil: 'networkidle0' }); await page.waitForSelector('[data-testid^="measure-"]'); return at.includes(`/measure?project=${projectId}`) && page.url().includes(`/measure?project=${projectId}`) && !page.url().includes('/projects/') })())
   const cards = () => page.evaluate(() => [...document.querySelectorAll('[data-testid]')].filter((e) => /^measure-R\d+$/.test(e.dataset.testid)).map((e) => ({ key: e.dataset.testid.replace('measure-', ''), result: e.dataset.result, selected: e.dataset.selected, collapsed: e.dataset.collapsed })))
-  ok('Measure lists one card per requirement, all "Not measured yet", the first chosen, with a count of each result', await (async () => { const c = await cards(); const sum = await page.evaluate(() => document.querySelector('section[aria-label="Results so far"]').innerText); return c.length === preview.requirements && c.every((x) => x.result === 'none') && c[0].selected === 'true' && c.slice(1).every((x) => x.selected === 'false') && /Not measured yet/.test(sum) })())
-  ok('Measure has the same count cards as Platform Themes, with All measurements first and chosen', await page.evaluate(() => { const b = [...document.querySelectorAll('section[aria-label="Results so far"] button')]; return b.length === 5 && b[0].innerText.includes('All measurements') && b[0].getAttribute('aria-pressed') === 'true' && getComputedStyle(b[1]).borderRadius === getComputedStyle(b[0]).borderRadius }))
+  ok('Measure lists one card per requirement, all "Not measured yet", the first chosen', await (async () => { const c = await cards(); return c.length === preview.requirements && c.every((x) => x.result === 'none') && c[0].selected === 'true' && c.slice(1).every((x) => x.selected === 'false') })())
+  ok('Measure has a Result dropdown above the list, with All chosen and each result counted, and no count cards', await page.evaluate(() => { const d = document.querySelector('#measure-result'); const list = document.querySelector('ul[aria-label="Requirements and their measures"]'); return !!d && /^All \(\d+\)/.test(d.innerText.trim()) && d.getBoundingClientRect().bottom <= list.getBoundingClientRect().top && !document.querySelector('section[aria-label="Results so far"]') }))
   await page.waitForSelector('#measure-kind-R1', { visible: true })
   ok('the chosen requirement’s measure is one sentence, with its why it matters, a status and a Story link at the bottom', await page.evaluate(() => { const p = document.querySelector('[data-testid="measure-panel-R1"]'); const t = p.innerText; const story = [...p.querySelectorAll('a')].find((a) => a.innerText.trim().startsWith('Story')); const status = [...p.querySelectorAll('[aria-label="Status of R1"] button')].map((b) => b.innerText.trim()); return /We’ll know this worked when/.test(t) && !!p.querySelector('#measure-kind-R1') && !!p.querySelector('#measure-comparison-R1') && !!p.querySelector('#measure-detail-R1') && status.join('|') === 'Not measured yet|Too early to tell|Worked|Needs attention' && !!story && story.getBoundingClientRect().top > p.querySelector('[aria-label="Status of R1"]').getBoundingClientRect().bottom }))
   // Build the sentence: what, detail, how it is compared, the values and the unit.
@@ -1052,14 +1046,14 @@ try {
   ok('Collapse all folds the cards to their top line and the toggle says Expand all', await page.evaluate(() => !document.querySelector('[data-testid="measure-strip-R1"]') && [...document.querySelectorAll('button')].some((b) => b.innerText.trim() === 'Expand all')))
   await page.evaluate(() => [...document.querySelectorAll('button')].find((b) => b.innerText.trim() === 'Expand all').click())
   await page.waitForSelector('[data-testid="measure-strip-R1"]')
-  const statButton = (label) => page.evaluate((l) => [...document.querySelectorAll('section[aria-label="Results so far"] button')].find((b) => b.innerText.includes(l)).click(), label)
+  const statButton = async (label) => { await page.click('#measure-result'); await page.waitForSelector('[role="option"]'); await page.evaluate((l) => [...document.querySelectorAll('[role="option"]')].find((o) => o.innerText.trim().startsWith(l)).click(), label) }
   await statButton('Needs attention')
   await page.waitForFunction(() => [...document.querySelectorAll('[data-testid]')].filter((e) => /^measure-R\d+$/.test(e.dataset.testid)).length === 1, { timeout: 5000 })
-  ok('picking "Needs attention" lists only those requirements, the first chosen', await page.evaluate(() => { const r = document.querySelector('[data-testid="measure-R1"]'); return !!r && r.dataset.selected === 'true' && !!document.querySelector('[data-testid="measure-panel-R1"]') && document.querySelector('section[aria-label="Results so far"] button[aria-pressed="true"]').innerText.includes('Needs attention') }))
-  ok('a count of zero cannot be picked', await page.evaluate(() => [...document.querySelectorAll('section[aria-label="Results so far"] button')].filter((b) => /^0\b/.test(b.innerText.trim())).every((b) => b.disabled)))
-  await statButton('Needs attention')
+  ok('picking "Needs attention" lists only those requirements, the first chosen', await page.evaluate(() => { const r = document.querySelector('[data-testid="measure-R1"]'); return !!r && r.dataset.selected === 'true' && !!document.querySelector('[data-testid="measure-panel-R1"]') && document.querySelector('#measure-result').innerText.includes('Needs attention') }))
+  ok('a result with nothing behind it cannot be picked', await (async () => { await page.click('#measure-result'); await page.waitForSelector('[role="option"]'); const r = await page.evaluate(() => [...document.querySelectorAll('[role="option"]')].filter((o) => /\(0\)$/.test(o.innerText.trim())).every((o) => o.getAttribute('aria-disabled') === 'true' || o.classList.contains('cds--list-box__menu-item--disabled') || o.hasAttribute('disabled'))); await page.keyboard.press('Escape'); return r })())
+  await statButton('All')
   await page.waitForFunction((n) => [...document.querySelectorAll('[data-testid]')].filter((e) => /^measure-R\d+$/.test(e.dataset.testid)).length === n, { timeout: 5000 }, preview.requirements)
-  ok('picking it again shows every requirement', true)
+  ok('picking All shows every requirement', true)
   await page.evaluate(() => [...document.querySelectorAll('[aria-label="Status of R1"] button')].find((b) => b.innerText.trim() === 'Not measured yet').click())
   await page.waitForFunction(() => document.querySelector('[data-testid="measure-R1"]')?.dataset.result === 'none', { timeout: 8000 })
   ok('"Not measured yet" clears the reading and puts the requirement back', (await measureApi()).items.find((i) => i.key === 'R1').checkins.length === 0)

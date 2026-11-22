@@ -13,7 +13,8 @@ const emptyPlan: PlanForm = { name: '', description: '', methods: [], participan
 // questions and tasks against the version the first save returned.
 export function TestPlanTabsPage() {
   const { projectId = '' } = useParams()
-  const tab = useLocation().pathname.endsWith('/ask') ? 'ask' : 'test'
+  // The old second tab's address now opens the same page: the questions are beside the setup.
+  const asked = useLocation().pathname.endsWith('/ask')
   const navigate = useNavigate()
   const project = useProject(projectId)
   const templates = useTemplates() // only for the list of test methods
@@ -32,6 +33,9 @@ export function TestPlanTabsPage() {
   if (project.data && tasks === null) setTasks(taskFormFromProject(project.data))
 
   const saved = project.data
+  useEffect(() => {
+    if (asked) navigate(`/projects/${projectId}/plan`, { replace: true })
+  }, [asked, projectId, navigate])
   const planDirty = !!saved && !!form && planChanged(form, saved)
   const tasksDirty = !!saved && !!tasks && tasksChanged(tasks, saved)
   const dirty = planDirty || tasksDirty
@@ -50,7 +54,6 @@ export function TestPlanTabsPage() {
     const found = validate(form, 'test')
     setErrors(found)
     if (Object.keys(found).length) {
-      navigate(`/projects/${projectId}/plan`) // the problem is on the first tab
       return
     }
     const after = await flow.save(async (version) => {
@@ -70,7 +73,6 @@ export function TestPlanTabsPage() {
     <TestPlanTabsView
       state={state}
       project={saved}
-      tab={tab}
       form={form ?? emptyPlan}
       tasks={tasks ?? []}
       errors={errors}

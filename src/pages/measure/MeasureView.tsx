@@ -4,7 +4,6 @@ import { Button, Dropdown, InlineNotification, Loading, Tag } from '@carbon/reac
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import type { Checkin, MeasureAcross, MeasureAcrossItem, MeasureRequest } from '../../api/client'
 import { goalText, readingText, signalText } from '../../../shared/measure.mjs'
-import { FilterCards } from '../../components/FilterCards'
 import { PageHero } from '../../shell/PageHero'
 import { Sparkline } from '../insights/Sparkline'
 import { latestOf, MeasurePanel, readingSource } from './MeasurePanel'
@@ -144,13 +143,13 @@ export function MeasureView(props: MeasureViewProps) {
   }, [selected, selectedId])
   const toggleCard = (id: string) => setCollapsed((c) => { const n = new Set(c); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const allFolded = shown.length > 0 && shown.every((i) => collapsed.has(i.storyId))
-  const pick = (next: Verdict | 'none') => setOnly(only === next ? null : next)
-  const STATS: { key: string; label: string; count: number }[] = [
-    { key: 'all', label: 'All measurements', count: scoped.length },
-    { key: 'worked', label: 'Worked', count: s.worked },
-    { key: 'needs_attention', label: 'Needs attention', count: s.needsAttention },
-    { key: 'too_early', label: 'Too early to tell', count: s.tooEarly },
-    { key: 'none', label: 'Not measured yet', count: s.notMeasured },
+  // The result filter above the list: All first, each result with how many requirements it holds (one with none cannot be picked).
+  const RESULTS: { key: string; label: string; disabled?: boolean }[] = [
+    { key: 'all', label: `All (${scoped.length})` },
+    { key: 'worked', label: `Worked (${s.worked})`, disabled: s.worked === 0 && only !== 'worked' },
+    { key: 'needs_attention', label: `Needs attention (${s.needsAttention})`, disabled: s.needsAttention === 0 && only !== 'needs_attention' },
+    { key: 'too_early', label: `Too early to tell (${s.tooEarly})`, disabled: s.tooEarly === 0 && only !== 'too_early' },
+    { key: 'none', label: `Not measured yet (${s.notMeasured})`, disabled: s.notMeasured === 0 && only !== 'none' },
   ]
   const canEditAnywhere = !!data?.projects.some((p) => p.canEdit)
   const panel = (item: MeasureAcrossItem, showTitle: boolean) => (
@@ -206,12 +205,22 @@ export function MeasureView(props: MeasureViewProps) {
               />
             </section>
           )}
-          <FilterCards ariaLabel="Results so far" items={STATS} selected={only ?? 'all'} onSelect={(k) => (k === 'all' ? setOnly(null) : pick(k as Verdict | 'none'))} />
           {scoped.length === 0 ? (
             <p className={styles.muted}>Nothing here has any requirements to measure yet: a document with only open questions has nothing to measure.</p>
           ) : (
             <>
               <div className={styles.listTools}>
+                <Dropdown
+                  id="measure-result"
+                  titleText="Result"
+                  label="All"
+                  size="md"
+                  className={styles.resultFilter}
+                  items={RESULTS}
+                  itemToString={(c) => c?.label ?? ''}
+                  selectedItem={RESULTS.find((r) => r.key === (only ?? 'all')) ?? RESULTS[0]}
+                  onChange={({ selectedItem }) => setOnly(!selectedItem || selectedItem.key === 'all' ? null : (selectedItem.key as Verdict | 'none'))}
+                />
                 <Button kind="ghost" size="sm" onClick={() => setCollapsed(allFolded ? new Set() : new Set(shown.map((i) => i.storyId)))}>
                   {allFolded ? 'Expand all' : 'Collapse all'}
                 </Button>

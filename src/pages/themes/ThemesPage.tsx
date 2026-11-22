@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage, type ThemeCategory } from '../../api/client'
 import { useMe, useProject, useProjectLock } from '../../api/hooks'
-import { LockNotice } from '../../components/LockNotice'
 import { ThemesView } from './ThemesView'
 import { useThemeData } from './useThemeData'
 
@@ -25,7 +24,6 @@ export function ThemesPage() {
 
   return (
     <>
-      <LockNotice projectId={projectId} />
       <ThemesView
         state={state}
         project={project.data}

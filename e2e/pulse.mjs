@@ -138,10 +138,9 @@ try {
   await page.waitForSelector('[data-testid="from-pulse"]', { timeout: 10000 })
   ok('saving opens the new project\'s Test Plan, with a note saying which topics it came from', (await page.evaluate(() => document.querySelector('[data-testid="from-pulse"]').innerText)).includes('From Pulse: 2 topics'))
   ok('the description is under What to test', (await page.$eval('textarea', (el) => el.value)).includes('Frame the problem'))
-  await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].find((t) => /What to ask or observe/.test(t.innerText)).click())
-  await page.waitForFunction(() => /\/ask$/.test(location.pathname) && document.querySelector('[id^="task-"]'), { timeout: 8000 })
+  await page.waitForFunction(() => document.querySelector('[id^="task-"]'), { timeout: 8000 })
   const asked = await page.evaluate(() => [...document.querySelectorAll('input[id^="task-"]')].filter((i) => /^task-\d+$/.test(i.id)).map((i) => i.value))
-  ok('and the questions are under What to ask or observe, one fewer than drafted (one was removed)', asked.length === panel.qs - 1 && asked.every((v) => v.length > 15 && /[?.]$/.test(v.trim())), `${asked.length} of ${panel.qs - 1}`)
+  ok('and the questions are in What to ask or observe beside it, one fewer than drafted (one was removed)', asked.length === panel.qs - 1 && asked.every((v) => v.length > 15 && /[?.]$/.test(v.trim())), `${asked.length} of ${panel.qs - 1}`)
   const noteTopic = await page.evaluate(() => document.querySelector('[data-testid="from-pulse"] button')?.innerText)
   ok('the note links to the topics it came from', !!noteTopic)
 

@@ -1,7 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMe, useProject, useProjectLock } from '../../api/hooks'
-import { LockNotice } from '../../components/LockNotice'
 import { PrioritiesView } from './PrioritiesView'
 import { useThemeData } from './useThemeData'
 
@@ -16,7 +15,6 @@ export function PrioritiesPage() {
   const state = data.themes.isError ? 'error' : data.themes.isPending ? 'loading' : data.list.length === 0 ? 'empty' : 'ready'
   return (
     <>
-      <LockNotice projectId={projectId} />
       <PrioritiesView
         state={state}
         project={project.data}

@@ -51,7 +51,7 @@ function JourneyRedirect() {
 // The Task List is now the Test Plan's second tab.
 function TasksRedirect() {
   const { projectId = '' } = useParams()
-  return <Navigate to={`/projects/${projectId}/plan/ask`} replace />
+  return <Navigate to={`/projects/${projectId}/plan`} replace />
 }
 
 export function App() {

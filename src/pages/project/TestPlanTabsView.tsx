@@ -2,7 +2,6 @@ import { Button, InlineNotification, Loading } from '@carbon/react'
 import type { ProjectDetail } from '../../api/client'
 import type { FieldErrors, PlanForm, TaskForm } from '../testplan/form'
 import { TestPlanForm } from '../testplan/TestPlanForm'
-import { PlanTabs } from './PlanTabs'
 import { ProjectHeader } from './ProjectHeader'
 import { SaveAlerts, type SaveBarProps } from './SaveBar'
 import { TaskListBody } from './TaskListView'
@@ -11,7 +10,6 @@ import styles from './TestPlanView.module.scss'
 export type TestPlanTabsViewProps = {
   state: 'loading' | 'error' | 'ready'
   project?: ProjectDetail
-  tab: 'test' | 'ask'
   form: PlanForm
   tasks: TaskForm
   errors: FieldErrors
@@ -24,19 +22,14 @@ export type TestPlanTabsViewProps = {
   fromPulse?: { signals: number; topics: { id: string | null; title: string }[]; onOpenTopic: (id: string) => void }
 }
 
-const DESCRIPTIONS = {
-  test: 'What you are testing and what you expect to learn.',
-  ask: 'The questions to ask and the tasks to observe as you take participants through the session, with follow-ups.',
-}
-
-// Presentational: the Test Plan, one title and one Save over its two tabs.
-export function TestPlanTabsView({ state, project, tab, form, tasks, errors, methodOptions, errorText, save, onChangePlan, onChangeTasks, fromPulse }: TestPlanTabsViewProps) {
+// Presentational: the Test Plan, one title and one Save. The setup fields are on the left and the questions and tasks on the right, so what the test is,
+// what kind of test it is and what will be asked are all in one view.
+export function TestPlanTabsView({ state, project, form, tasks, errors, methodOptions, errorText, save, onChangePlan, onChangeTasks, fromPulse }: TestPlanTabsViewProps) {
   if (state === 'loading') return <Loading small withOverlay={false} description="Loading the test plan" />
   if (state === 'error' || !project) return <InlineNotification kind="warning" lowContrast hideCloseButton title="Test Plan" subtitle={errorText} />
   return (
     <div className={styles.page}>
-      <ProjectHeader title="Test Plan" description={DESCRIPTIONS[tab]} save={save} />
-      <PlanTabs projectId={project.id} active={tab} />
+      <ProjectHeader title="Test Plan" description="What you are testing, what you expect to learn, and the questions to ask and tasks to observe." save={save} />
       <SaveAlerts {...save} />
       {fromPulse && (
         <div className={styles.fromPulse} data-testid="from-pulse">
@@ -54,11 +47,16 @@ export function TestPlanTabsView({ state, project, tab, form, tasks, errors, met
           )}
         </div>
       )}
-      {tab === 'test' ? (
-        <TestPlanForm form={form} errors={errors} methodOptions={methodOptions} readOnly={!save.canEdit} show="test" onChange={onChangePlan} />
-      ) : (
-        <TaskListBody tasks={tasks} readOnly={!save.canEdit} onChange={onChangeTasks} />
-      )}
+      <div className={styles.split}>
+        <div className={styles.setup} data-testid="plan-setup">
+          <TestPlanForm form={form} errors={errors} methodOptions={methodOptions} readOnly={!save.canEdit} show="test" onChange={onChangePlan} />
+        </div>
+        <section className={styles.ask} aria-labelledby="ask-title" data-testid="plan-ask" data-tour="plan-ask">
+          <h2 id="ask-title" className={styles.askTitle}>What to ask or observe</h2>
+          <p className={styles.askNote}>The questions to ask and the tasks to observe as you take participants through the session, with follow-ups.</p>
+          <TaskListBody tasks={tasks} readOnly={!save.canEdit} onChange={onChangeTasks} />
+        </section>
+      </div>
     </div>
   )
 }

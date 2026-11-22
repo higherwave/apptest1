@@ -65,7 +65,14 @@
 
 .listTools {
   display: flex;
-  justify-content: flex-end;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.resultFilter {
+  inline-size: 16rem;
+  max-inline-size: 100%;
 }
 
 // The cards on the left; on a wide window the chosen requirement's measure sits beside them and stays in view as the list scrolls.
