@@ -34,3 +34,16 @@ which reads the goals from the brief and the measures from Measure. Code: `src/p
 - Telemetry and support readings arrive automatically; feedback readings come from new transcripts matched to the same themes.
 - The verdict (worked, needs attention, too early) is proposed from the readings against the target and confirmed by a person, then written back to the theme.
 - Integrations come from pilot feedback, not in advance.
+
+## Update (2026-11-23): expectations are set here as rolled-up measures; Measure shows the results (built)
+
+Decided with David (see README, "Measure and the launch's expectations", for how it works now):
+
+- **Measures belong to the launch, not to each requirement.** A short list (up to 12; the app suggests adoption, engagement and time-to-value), each in the one-sentence
+  format; a measure may name the requirements it covers, as optional context. Editable by the team's editors until the final decision is a go; then fixed.
+- **One shared schedule: 30, 60 and 90 days after the final approval** (not the target date).
+- **Readings are recorded on this tab after launch** (a value, a day, a note, how it went; the newest day is the result). The launch's owner is emailed at each point unless a
+  reading was recorded since the last.
+- **Measure (`/measure`) is the read-only results across projects, by theme**; nothing with no reading is shown.
+- The per-requirement measures, the "Where we will look" signal families and the old Measure endpoints are gone. Real data sources (telemetry, support, feedback) come later with
+  deeper integrations; until then readings are entered by hand, and the Anchor CX demo's are simulated.

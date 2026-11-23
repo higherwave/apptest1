@@ -3,8 +3,9 @@
 // Design to make the presentation themselves, so they control how it looks.
 import type { Queryable } from './db.js'
 import { getDesign } from './design.js'
-import { getMeasure } from './measure.js'
+import { getProjectMeasures } from './launch-measures.js'
 import { NoBoard } from './stories.js'
+import { compatFields, MEASURE_KINDS } from '../shared/measure.mjs'
 import { listThemes } from './themes.js'
 
 export type BriefQuote = { text: string; speaker: string; session: string; themeTitle: string | null }
@@ -111,10 +112,9 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
     }
   }
   let design: Awaited<ReturnType<typeof getDesign>> | null = null
-  let measure: Awaited<ReturnType<typeof getMeasure>> | null = null
+  const measures = await getProjectMeasures(db, workspaceId, projectId)
   try {
     design = await getDesign(db, workspaceId, projectId)
-    measure = await getMeasure(db, workspaceId, projectId)
   } catch (err) {
     if (!(err instanceof NoBoard)) throw err
   }
@@ -126,15 +126,23 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
       ? { reasoning: design.decisions.reasoning, requirements: design.items.map((i) => ({ key: i.key, title: i.title, priority: i.priority })), alternatives: design.decisions.alternatives }
       : null,
     designs: (design?.items ?? []).filter((i) => i.prototypeUrl || i.notes).map((i) => ({ key: i.key, title: i.title, prototypeUrl: i.prototypeUrl, notes: i.notes })),
-    results: measure
+    // What the launch's measures showed: one entry for each measure, in the order they were set.
+    results: measures && measures.items.length
       ? {
-          summary: { worked: measure.summary.worked, needsAttention: measure.summary.needsAttention, tooEarly: measure.summary.tooEarly, notMeasured: measure.summary.notMeasured },
-          items: measure.items
-            .filter((i) => i.metric || i.checkins.length)
-            .map((i) => {
-              const last = i.checkins[i.checkins.length - 1]
-              return { key: i.key, title: i.title, metric: i.metric, source: i.source, baseline: i.baseline, target: i.target, result: i.result, latest: last ? { on: last.on, value: last.value } : null }
-            }),
+          summary: {
+            worked: measures.items.filter((m) => m.result === 'worked').length,
+            needsAttention: measures.items.filter((m) => m.result === 'needs_attention').length,
+            tooEarly: measures.items.filter((m) => m.result === 'too_early').length,
+            notMeasured: measures.items.filter((m) => !m.result).length,
+          },
+          items: measures.items.map((m, i) => {
+            const last = m.checkins[m.checkins.length - 1]
+            const plain = compatFields(m)
+            return {
+              key: `M${i + 1}`, title: MEASURE_KINDS.find((k) => k.key === m.metricKind)?.label ?? 'Measure', metric: plain?.metric ?? null, source: null,
+              baseline: plain?.baseline ?? null, target: plain?.target ?? null, result: m.result, latest: last ? { on: last.on, value: last.value } : null,
+            }
+          }),
         }
       : null,
   }
@@ -144,8 +152,8 @@ export async function getCaseBrief(db: Queryable, workspaceId: string, projectId
   return { ...told, outcome, prompt: buildBriefPrompt(told) }
 }
 
-// A project is a case study once something it shipped worked (the newest finding on some requirement says so) and nothing it shipped needs
-// attention. The brief's counts are of the whole project.
+// A project is a case study once something it shipped worked (the newest reading of one of the launch's measures says so) and nothing it shipped
+// needs attention. The brief's counts are of all the launch's measures.
 export const isSuccess = (b: Pick<CaseBrief, 'results'>) => !!b.results && b.results.summary.worked >= 1 && b.results.summary.needsAttention === 0
 
 // A brief for every project that qualifies, newest project first.

@@ -21,7 +21,7 @@ export type ProjectSummary = {
   sessions: number
   themes: number
   highPriority: number
-  /** Requirements with a metric or a finding recorded in the Measure step. */
+  /** Measures set on the project's launch (how the release will be judged). */
   measurements: number
   createdAt: string
   version: number
@@ -38,10 +38,7 @@ const LIST_SQL = `
          (select count(*) from research.transcripts tr where tr.project_id = p.id)::int as sessions,
          coalesce(t.themes, 0)::int as themes,
          coalesce(t.high, 0)::int as high_priority,
-         (select count(*) from delivery.success_measures m
-            join delivery.stories s on s.id = m.story_id and s.kind = 'requirement'
-            join delivery.specs sp on sp.id = s.spec_id
-           where sp.project_id = p.id and (m.metric is not null or jsonb_array_length(m.checkins) > 0))::int as measurements
+         (select count(*) from delivery.launch_measures m join delivery.launches l on l.id = m.launch_id where l.project_id = p.id)::int as measurements
   from core.projects p
   left join core.templates tpl on tpl.id = p.template_id
   left join core.teams tm on tm.id = p.team_id

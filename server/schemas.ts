@@ -229,29 +229,30 @@ export const saveTeamSchema = z
   .object({ name: z.string().trim().min(1, 'Enter a team name.').max(60).optional(), slackChannel: z.string().max(80).nullable().optional(), members: teamRoles.optional(), moveProjects: z.record(z.uuid(), z.uuid()).optional() })
   .refine((v) => Object.values(v).some((x) => x !== undefined), 'Nothing to save.')
 
-// A measure row: how we will know a requirement worked, and the check-ins made since. Check-ins are kept oldest first.
-export const measureSchema = z.object({
-  metric: optionalText(300),
-  source: z.enum(['telemetry', 'kpi', 'support_tickets', 'research', 'other']).nullish().transform((v) => v ?? null),
-  baseline: optionalText(200),
-  target: optionalText(200),
-  // The sentence the row is entered as; when metricKind is sent, metric, baseline and target are written from these.
-  metricKind: z.enum(['tickets', 'adoption', 'engagement', 'time_to_value', 'retention', 'feedback', 'other']).nullish().transform((v) => v ?? null),
-  detail: optionalText(300),
-  comparison: z.enum(['change', 'below', 'above', 'between', 'reach']).nullish().transform((v) => v ?? null),
-  valueA: optionalText(60),
-  valueB: optionalText(60),
-  unit: optionalText(40),
-  checkins: z
+// A launch's list of measures, replaced as a whole. Each is the one-sentence measure; the requirement keys it covers are optional.
+export const launchMeasuresSchema = z.object({
+  measures: z
     .array(
       z.object({
-        on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the format YYYY-MM-DD.'),
-        value: text(2000),
-        verdict: z.enum(['worked', 'needs_attention', 'too_early']),
-        note: optionalText(1000),
+        id: z.string().nullish().transform((v) => v ?? null),
+        metricKind: z.enum(['tickets', 'adoption', 'engagement', 'time_to_value', 'retention', 'feedback', 'other']),
+        detail: optionalText(300),
+        comparison: z.enum(['change', 'below', 'above', 'between', 'reach']),
+        valueA: optionalText(60),
+        valueB: optionalText(60),
+        unit: optionalText(40),
+        requirementKeys: z.array(z.string().trim().min(1).max(20)).max(60).default([]),
       }),
     )
-    .max(60, 'There are too many check-ins for one requirement.'),
+    .max(12, 'A launch can have up to 12 measures. A short list is easier to follow up.'),
+})
+
+// One reading of a launch's measure: what was read, as of when, and how it went.
+export const launchReadingSchema = z.object({
+  on: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the format YYYY-MM-DD.'),
+  value: text(2000),
+  verdict: z.enum(['worked', 'needs_attention', 'too_early']),
+  note: optionalText(1000),
 })
 
 // A design row: where the prototype is, what it looks like, and the notes. The picture is a small downscaled image sent as base64

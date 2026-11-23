@@ -2,11 +2,11 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tansta
 import { useSyncExternalStore } from 'react'
 import {
   getAiStatus, getNotificationPreferences, saveNotificationPreferences, sendReminderNow, getStoryboard, generateStoryboard, listCaseBriefs, getCustomers, getPlatformJourney, getInsightsThemes, getPlatformTheme, listCaseStudies, markThemeReviewed, listMerges, undoMerge, assignPlatformThemeArea, clearPlatformThemeArea, renamePlatformTheme, mergePlatformTheme, findMergeSuggestions, acceptMergeSuggestion, dismissMergeSuggestion, writeRankRationales,
-  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, getProjectLaunch, getProjectLock, createLaunch, getLaunch, getLaunchSuccess, getSetup, markSetup, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureAcross, saveMeasureItem, getStory, moveStory, undoMove, patchStory, saveChecklist,
+  getMySlack, createSlackConnectCode, disconnectMySlack, requestLaunchAnswers, startLaunchSlackThread, getProjectLaunch, getProjectLock, createLaunch, getLaunch, getLaunchSuccess, saveLaunchMeasures, saveLaunchReading, getSetup, markSetup, listLaunches, setUpLaunch, answerLaunchStep, addLaunchLink, removeLaunchLink, getBoard, listTickets, createTicket, getJiraStatus, getDesign, saveDesignItem, captureDesignImage, getMeasureResults, getStory, moveStory, undoMove, patchStory, saveChecklist,
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MeasureRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
   getPulsePreview, setPulsePreview, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type SignalOrigin, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -84,6 +84,24 @@ export const useMarkSetup = () => {
   return useMutation({ mutationFn: ({ step, status, acknowledged }: { step: string; status: 'done' | 'skipped'; acknowledged?: boolean[] }) => markSetup(step, status, acknowledged), onSuccess: (data) => queryClient.setQueryData(['setup'], data) })
 }
 /** The launch's "How will we know it worked?" view (read-only). */
+export const useSaveLaunchMeasures = (launchId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { version: number; body: Parameters<typeof saveLaunchMeasures>[2] }) => saveLaunchMeasures(launchId, v.version, v.body),
+    onSuccess: (data) => queryClient.setQueryData(['launch-success', launchId], data),
+  })
+}
+export const useMeasureResults = () => useQuery({ queryKey: ['measure-results'], queryFn: getMeasureResults })
+export const useSaveLaunchReading = (launchId: string) => {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { measureId: string; body: Parameters<typeof saveLaunchReading>[2] }) => saveLaunchReading(launchId, v.measureId, v.body),
+    onSuccess: (data) => {
+      queryClient.setQueryData(['launch-success', launchId], data)
+      return queryClient.invalidateQueries({ queryKey: ['measure-results'] })
+    },
+  })
+}
 export const useLaunchSuccess = (launchId: string | undefined) => useQuery({ queryKey: ['launch-success', launchId], queryFn: () => getLaunchSuccess(launchId!), enabled: !!launchId })
 export const useProjectLock = (projectId: string | undefined) => useQuery({ queryKey: ['project-lock', projectId], queryFn: () => getProjectLock(projectId!), enabled: !!projectId })
 export const useProjectLaunch = (projectId: string | undefined) => useQuery({ queryKey: ['project-launch', projectId], queryFn: () => getProjectLaunch(projectId!), enabled: !!projectId })
@@ -333,14 +351,6 @@ export const useCaptureDesign = (projectId: string) => {
 
 // The Measure table of a project. A save returns the row as it is now; the cached table takes it and counts the results again.
 // Measure is a place of its own: the requirements of every project the person can see. Saving one row refreshes the list.
-export const useMeasureAcross = () => useQuery({ queryKey: ['measure'], queryFn: getMeasureAcross, retry: false })
-export const useSaveMeasure = () => {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (v: { storyId: string; version: number; body: MeasureRequest }) => saveMeasureItem(v.storyId, v.version, v.body),
-    onSuccess: () => Promise.all(['measure', 'projects'].map((key) => queryClient.invalidateQueries({ queryKey: [key] }))),
-  })
-}
 
 // The signed-in person's reminder settings. Saving refreshes them; sending a test reminder changes nothing here.
 export const useNotificationPreferences = (enabled = true) => useQuery({ queryKey: ['notification-preferences'], queryFn: getNotificationPreferences, enabled })

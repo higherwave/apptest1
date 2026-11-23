@@ -433,8 +433,9 @@ paths:
     get:
       operationId: getLaunchSuccess
       summary: >
-        "How will we know it worked?" for one launch, read-only: the goals from the product brief, the measure of each requirement with its latest reading (the same
-        measures as Measure), and review points counted from the launch's target date. 404 for a launch that is not theirs and for an external approver.
+        "How will we know it worked?" for one launch: the goals from the product brief, the launch's own measures (a short rolled-up list: how the release will be
+        judged), whether they are fixed yet, and the 30, 60 and 90 day review points counted from the final approval. 404 for a launch that is not theirs and for an
+        external approver.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
       responses:
@@ -445,6 +446,60 @@ paths:
               schema: { $ref: '#/components/schemas/LaunchSuccess' }
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
+  /launches/{id}/measures:
+    put:
+      operationId: saveLaunchMeasures
+      summary: >
+        Replaces the launch's list of measures (how the release will be judged) with the one sent, in that order. If-Match is `measuresVersion` from the success view
+        (0 before the first save). Editors of the project's team only. 409 `measures_locked` once the final decision is a go; 409 `version_conflict` when someone else
+        saved first.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/IfMatch' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LaunchMeasuresRequest' }
+      responses:
+        '200':
+          description: The success view as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchSuccess' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '428': { $ref: '#/components/responses/Error' }
+  /launches/{id}/measures/{measureId}/reading:
+    put:
+      operationId: saveLaunchReading
+      summary: >
+        Records a reading on one of the launch's measures: what was read, as of which day, and how it went. A reading for a day already read replaces it; otherwise it is
+        added, so the history is kept and the newest day is the result. Editors of the project's team only; 409 `not_launched` until the final decision is a go.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+        - { name: measureId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LaunchReadingRequest' }
+      responses:
+        '200':
+          description: The success view as it is now.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/LaunchSuccess' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '409': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /launches/{id}:
     get:
       operationId: getLaunch
@@ -1861,64 +1916,20 @@ paths:
             image/png: { schema: { type: string, format: binary } }
             image/webp: { schema: { type: string, format: binary } }
         '404': { $ref: '#/components/responses/Error' }
-  /measure:
+  /measure/results:
     get:
-      operationId: getMeasureAcross
+      operationId: getMeasureResults
       summary: >
-        Measure, across projects: one row per requirement of the latest published requirements document of every project the caller can see (the
-        same team rules as Platform Insights: workspace owners and the read-only demo viewer see every team, everyone else their teams'), with how
-        we will know it worked, the latest reading and its status. Each row names its project and team and says whether the caller may change it
-        (`canEdit`, true only in teams they edit in). The screen narrows by project, team and result. Open to read as the viewer.
+        What the launches' measures showed after launch, grouped by platform theme and project, across the projects the caller can see (the same team rules as Platform Insights).
+        Only measures with at least one reading are listed, so a theme with nothing read is not. A measure sits under the themes of the requirements it covers (every requirement of the
+        release when it names none); one that reaches no theme is under "Not yet in a theme" (id null).
       responses:
         '200':
-          description: The projects with a published document, and their measures.
+          description: The results.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/MeasureAcross' }
+              schema: { $ref: '#/components/schemas/MeasureResults' }
         '401': { $ref: '#/components/responses/Error' }
-  /projects/{id}/measure:
-    get:
-      operationId: getMeasure
-      summary: >
-        One project's measures (the same rows as in /measure, for one project): one row per requirement of the project's published document, with how we will know it worked (metric, source,
-        baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document
-        is published.
-      parameters:
-        - { $ref: '#/components/parameters/Id' }
-      responses:
-        '200':
-          description: The measures.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/Measure' }
-        '404': { $ref: '#/components/responses/Error' }
-  /stories/{id}/measure:
-    put:
-      operationId: saveMeasureItem
-      summary: >
-        Saves how one requirement will be measured and all of its check-ins (oldest first). If-Match is the row's version, 0 when nothing
-        has been saved yet. Needs the token.
-      parameters:
-        - { $ref: '#/components/parameters/Id' }
-        - { $ref: '#/components/parameters/IfMatch' }
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/MeasureRequest' }
-      responses:
-        '200':
-          description: The row as it is now.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/MeasureItem' }
-        '400': { $ref: '#/components/responses/Error' }
-        '401': { $ref: '#/components/responses/Error' }
-        '403': { $ref: '#/components/responses/Error' }
-        '404': { $ref: '#/components/responses/Error' }
-        '409': { $ref: '#/components/responses/Error' }
-        '422': { $ref: '#/components/responses/Error' }
-        '428': { $ref: '#/components/responses/Error' }
   /projects/{id}/lock:
     get:
       operationId: getProjectLock
@@ -4443,15 +4454,95 @@ components:
         done: { type: integer }
         total: { type: integer }
         complete: { type: boolean }
+    MeasureResults:
+      type: object
+      required: [themes]
+      properties:
+        themes:
+          type: array
+          items:
+            type: object
+            required: [id, title, projects]
+            properties:
+              id: { type: [string, 'null'], description: The platform theme; null for the group of measures that reach no theme. }
+              title: { type: string }
+              projects:
+                type: array
+                items:
+                  type: object
+                  required: [projectId, projectName, teamId, teamName, launchId, launchName, ownerId, ownerName, approvedOn, measures]
+                  properties:
+                    projectId: { type: string }
+                    projectName: { type: string }
+                    teamId: { type: [string, 'null'] }
+                    teamName: { type: [string, 'null'] }
+                    launchId: { type: string }
+                    launchName: { type: string }
+                    ownerId: { type: [string, 'null'] }
+                    ownerName: { type: [string, 'null'] }
+                    approvedOn: { type: [string, 'null'], description: The day of the final go. }
+                    measures: { type: array, items: { $ref: '#/components/schemas/LaunchMeasure' } }
+    LaunchReadingRequest:
+      type: object
+      required: [on, value, verdict]
+      properties:
+        on: { type: string, description: The day the reading is as of, YYYY-MM-DD. }
+        value: { type: string, maxLength: 2000 }
+        verdict: { type: string, enum: [worked, needs_attention, too_early] }
+        note: { type: [string, 'null'], maxLength: 1000 }
+    LaunchReading:
+      type: object
+      required: [on, value, verdict, note]
+      properties:
+        on: { type: string }
+        value: { type: string }
+        verdict: { type: string, enum: [worked, needs_attention, too_early] }
+        note: { type: [string, 'null'] }
+    LaunchMeasure:
+      type: object
+      required: [id, metricKind, detail, comparison, valueA, valueB, unit, requirementKeys, checkins, result]
+      properties:
+        checkins: { type: array, items: { $ref: '#/components/schemas/LaunchReading' }, description: The readings since launch, oldest first. }
+        result: { type: [string, 'null'], enum: [worked, needs_attention, too_early, null], description: The newest reading's verdict. }
+        id: { type: string }
+        metricKind: { type: string, enum: [tickets, adoption, engagement, time_to_value, retention, feedback, other] }
+        detail: { type: [string, 'null'] }
+        comparison: { type: string, enum: [change, below, above, between, reach] }
+        valueA: { type: [string, 'null'] }
+        valueB: { type: [string, 'null'] }
+        unit: { type: [string, 'null'] }
+        requirementKeys: { type: array, items: { type: string }, description: The requirements it covers (R1, R2, ...); empty when it is about the release as a whole. }
+    LaunchMeasuresRequest:
+      type: object
+      required: [measures]
+      properties:
+        measures:
+          type: array
+          maxItems: 12
+          items:
+            type: object
+            required: [metricKind, comparison]
+            properties:
+              id: { type: [string, 'null'], description: The id of a measure already on the launch, to keep it. }
+              metricKind: { type: string, enum: [tickets, adoption, engagement, time_to_value, retention, feedback, other] }
+              detail: { type: [string, 'null'], maxLength: 300 }
+              comparison: { type: string, enum: [change, below, above, between, reach] }
+              valueA: { type: [string, 'null'], maxLength: 60 }
+              valueB: { type: [string, 'null'], maxLength: 60 }
+              unit: { type: [string, 'null'], maxLength: 40 }
+              requirementKeys: { type: array, items: { type: string } }
     LaunchSuccess:
       type: object
-      required: [published, projectId, problem, goals, measures, reviewPoints, reviewer]
+      required: [published, projectId, problem, goals, measures, measuresVersion, locked, approvedOn, reviewPoints, reviewer]
       properties:
-        published: { type: boolean, description: False until the requirements are published; there are no measures before then. }
+        published: { type: boolean, description: False until the requirements are published; the measures are set once there is a brief to measure. }
         projectId: { type: string }
         problem: { type: [string, 'null'] }
         goals: { type: [array, 'null'], items: { type: string } }
-        measures: { type: array, items: { $ref: '#/components/schemas/MeasureItem' } }
+        measures: { type: array, items: { $ref: '#/components/schemas/LaunchMeasure' } }
+        measuresVersion: { type: integer, description: The version a save of the measures is checked against (If-Match). }
+        locked: { type: boolean, description: True once the final decision is a go; what was expected is then fixed. }
+        approvedOn: { type: [string, 'null'], description: The day of the final go; the clock for the review points starts there. Null before. }
         reviewPoints:
           type: array
           items:
@@ -4461,7 +4552,7 @@ components:
               key: { type: string }
               label: { type: string }
               days: { type: integer }
-              on: { type: [string, 'null'], description: The day, counted from the launch's target date; null when the launch has none. }
+              on: { type: [string, 'null'], description: The day, counted from the final approval; null until there is one. }
         reviewer: { type: [string, 'null'], description: The launch's owner. }
     ProjectLock:
       type: object
@@ -4804,115 +4895,6 @@ components:
           properties:
             type: { type: string, enum: [image/jpeg, image/png, image/webp] }
             data: { type: string }
-    Checkin:
-      type: object
-      required: [on, value, verdict, note]
-      properties:
-        on: { type: string, description: 'The day of the check-in, YYYY-MM-DD.' }
-        value: { type: string, maxLength: 2000, description: 'What was seen, in words or numbers; it can run to a few sentences.' }
-        verdict: { type: string, enum: [worked, needs_attention, too_early] }
-        note: { type: [string, 'null'] }
-    MeasureItem:
-      type: object
-      required: [storyId, key, title, priority, summary, whyItMatters, metric, source, baseline, target, metricKind, detail, comparison, valueA, valueB, unit, trend, checkins, result, version]
-      properties:
-        storyId: { type: string }
-        key: { type: string, description: 'R1, R2 ...' }
-        title: { type: string }
-        priority: { type: string, enum: [low, medium, high] }
-        summary: { type: [string, 'null'] }
-        whyItMatters: { type: [string, 'null'] }
-        metric: { type: [string, 'null'], description: How we will know it worked. }
-        source:
-          type: [string, 'null']
-          enum: [telemetry, kpi, support_tickets, research, other, null]
-        baseline: { type: [string, 'null'] }
-        target: { type: [string, 'null'] }
-        metricKind: { type: [string, 'null'], enum: [tickets, adoption, engagement, time_to_value, retention, feedback, other, null], description: 'What is measured, in the sentence the row is entered as. Null on a row saved before the sentence existed (it then has only metric, baseline and target).' }
-        detail: { type: [string, 'null'], description: 'Which tickets, which adoption: free text, completing the sentence.' }
-        comparison: { type: [string, 'null'], enum: [change, below, above, between, reach, null], description: 'go from (valueA to valueB), stay below, rise above, stay between (valueA and valueB) or reach valueA.' }
-        valueA: { type: [string, 'null'] }
-        valueB: { type: [string, 'null'] }
-        unit: { type: [string, 'null'], description: 'The unit or period, for example a month or %.' }
-        trend:
-          type: [array, 'null']
-          items: { type: number }
-          description: 'A short series of readings, oldest first, for a small chart. Read-only: sample data in the demo, to be filled by a connected data source later.'
-        checkins:
-          type: array
-          description: 'Oldest first. A requirement has one reading today, the latest, with its status (older rows may have several).'
-          items: { $ref: '#/components/schemas/Checkin' }
-        result:
-          type: [string, 'null']
-          enum: [worked, needs_attention, too_early, null]
-          description: The newest check-in's verdict, null before the first one.
-        version: { type: integer, description: '0 when nothing has been saved for this requirement yet.' }
-    MeasureAcrossItem:
-      allOf:
-        - $ref: '#/components/schemas/MeasureItem'
-        - type: object
-          required: [projectId, projectName, teamId, teamName, canEdit]
-          properties:
-            projectId: { type: string }
-            projectName: { type: string }
-            teamId: { type: [string, 'null'] }
-            teamName: { type: [string, 'null'] }
-            canEdit: { type: boolean, description: 'True when the caller edits in this project''s team; the row is read-only for them otherwise.' }
-    MeasureAcross:
-      type: object
-      required: [projects, items]
-      properties:
-        projects:
-          type: array
-          items:
-            type: object
-            required: [id, name, teamId, teamName, canEdit]
-            properties:
-              id: { type: string }
-              name: { type: string }
-              teamId: { type: [string, 'null'] }
-              teamName: { type: [string, 'null'] }
-              canEdit: { type: boolean }
-        items: { type: array, items: { $ref: '#/components/schemas/MeasureAcrossItem' } }
-    Measure:
-      type: object
-      required: [specId, specName, projectId, summary, items]
-      properties:
-        specId: { type: string }
-        specName: { type: string }
-        projectId: { type: string }
-        summary:
-          type: object
-          required: [total, worked, needsAttention, tooEarly, notMeasured]
-          properties:
-            total: { type: integer }
-            worked: { type: integer }
-            needsAttention: { type: integer }
-            tooEarly: { type: integer }
-            notMeasured: { type: integer }
-        items:
-          type: array
-          items: { $ref: '#/components/schemas/MeasureItem' }
-    MeasureRequest:
-      type: object
-      required: [checkins]
-      properties:
-        metricKind: { type: [string, 'null'], enum: [tickets, adoption, engagement, time_to_value, retention, feedback, other, null], description: 'When sent, metric, baseline and target are written from the sentence parts below.' }
-        detail: { type: [string, 'null'] }
-        comparison: { type: [string, 'null'], enum: [change, below, above, between, reach, null] }
-        valueA: { type: [string, 'null'] }
-        valueB: { type: [string, 'null'] }
-        unit: { type: [string, 'null'] }
-        metric: { type: [string, 'null'] }
-        source:
-          type: [string, 'null']
-          enum: [telemetry, kpi, support_tickets, research, other, null]
-        baseline: { type: [string, 'null'] }
-        target: { type: [string, 'null'] }
-        checkins:
-          type: array
-          maxItems: 60
-          items: { $ref: '#/components/schemas/Checkin' }
     Storyboard:
       type: object
       required: [facts, draft, autoFailed]

@@ -17,39 +17,6 @@
   @media (max-width: 40rem) { grid-template-columns: minmax(0, 1fr); }
 }
 
-// Which project (and team) a requirement belongs to, above its title, when the list spans projects.
-.project {
-  @include tokens.role('meta');
-  color: var(--at-muted);
-}
-
-.head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--at-space-md);
-}
-
-.saved {
-  @include tokens.role('label-md');
-  display: flex;
-  align-items: center;
-  gap: var(--at-space-xs);
-  margin: var(--at-space-xs) 0 0;
-  color: var(--at-muted);
-  font-weight: 400;
-  white-space: nowrap;
-}
-
-.savedDot {
-  inline-size: 0.75rem;
-  block-size: 0.75rem;
-  border-radius: var(--at-radius-full);
-  background: var(--at-signature-forest);
-
-  &[data-saving='true'] { background: var(--at-signature-mustard); }
-}
-
 .muted {
   @include tokens.role('body-md');
   margin: 0;
@@ -124,6 +91,7 @@
 
 .select {
   flex: 1;
+  inline-size: 100%;
   max-inline-size: none;
   min-block-size: 0;
   min-inline-size: 0;
@@ -166,14 +134,62 @@
   padding-block-start: var(--at-space-md);
 }
 
-// The latest reading under the top line: tinted by the status.
-.strip {
+
+.counts {
   display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--at-space-xs);
+  margin-block-start: var(--at-space-xxs);
+}
+
+// The chosen theme: its projects, each with the results of its launch's measures.
+.panel {
+  display: flex;
+  flex-direction: column;
   gap: var(--at-space-lg);
-  padding: var(--at-space-md) var(--at-space-lg);
-  border-block-start: 1px solid var(--at-hairline);
+  padding: var(--at-space-lg);
+}
+
+.panelTitle {
+  @include tokens.role('heading-2');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.project {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+.projectName {
+  @include tokens.role('heading-3');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.projectMeta {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+// One measure: what was expected beside what was read, tinted by how it went.
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md);
+  border-radius: var(--at-radius-lg);
   background: var(--at-surface-soft);
 
   &[data-result='worked'] { background: var(--at-tint-mint); }
@@ -181,31 +197,47 @@
   &[data-result='too_early'] { background: var(--at-tint-cream); }
 }
 
-.stripText {
+.resultHead {
   display: flex;
-  flex-direction: column;
-  gap: var(--at-space-xxs);
-  min-inline-size: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-sm);
 }
 
-.stripSource {
+.resultKind {
+  @include tokens.role('eyebrow');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.expected {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.reading {
+  // not-a-heading: a large reading
+  @include tokens.role('display-sm');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.asOf {
   @include tokens.role('meta');
   margin: 0;
   color: var(--at-muted);
 }
 
-.stripValue {
-  // not-a-heading: a reading
-  @include tokens.role('title-md');
-  margin: 0;
-  color: var(--at-ink);
-}
-
-// The chart of readings (64 by 64, set in Sparkline) keeps its size beside the text.
-.strip svg { flex: none; }
-
-.stripNote {
+.note {
   @include tokens.role('body-md');
   margin: 0;
   color: var(--at-body);
+}
+
+.earlier {
+  @include tokens.role('meta');
+  margin: 0;
+  padding-inline-start: var(--at-space-md);
+  color: var(--at-muted);
 }

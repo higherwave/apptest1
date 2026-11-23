@@ -113,25 +113,33 @@ test('study 1 is published with its board, designs and measured results, and sho
   const asEditor = await (await app.request(`/api/v1/specs/${specId}`, { headers: editor })).json()
   assert.equal(asEditor.boardChanges, 0, 'the board matches the document, so there is nothing to update')
   assert.deepEqual(asEditor.preview, { requirements: 6, openQuestions: 1 })
-  const measure = await get(`/projects/${id}/measure`)
-  const byKey = Object.fromEntries(measure.items.map((i: any) => [i.key, i]))
-  assert.equal(byKey.R1.result, 'worked')
-  assert.equal(byKey.R2.result, 'worked')
-  assert.equal(byKey.R4.result, 'too_early')
-  assert.equal(measure.items.filter((i: any) => i.result === 'needs_attention').length, 0)
+  const launchId = (await get(`/projects/${id}/launch`)).launch.id
+  const success = await get(`/launches/${launchId}/success`)
+  assert.equal(success.measures.length, 5, 'a short list for the release, not one for each requirement')
+  const result = (kind: string, detail: RegExp) => success.measures.find((m: any) => m.metricKind === kind && detail.test(m.detail ?? '')).result
+  assert.equal(result('tickets', /why a score changed/), 'worked')
+  assert.equal(result('engagement', /alerts/), 'too_early')
+  assert.equal(result('time_to_value', /renewal/), null, 'not read yet')
+  assert.equal(success.measures.filter((m: any) => m.result === 'needs_attention').length, 0)
+  assert.equal(success.locked, true)
+  assert.deepEqual(success.reviewPoints.map((p: any) => !!p.on), [true, true, true])
+  // Measure shows what was read, by theme; the measure with no reading is not there.
+  const results = await get('/measure/results')
+  const shown = results.themes.flatMap((t: any) => t.projects.flatMap((p: any) => p.measures.map((m: any) => m.id)))
+  assert.ok(shown.length >= 4 && !shown.includes(success.measures.find((m: any) => m.result === null).id))
   const briefs = (await get('/insights/case-briefs')).data
   assert.ok(briefs.some((c: any) => c.projectName === 'Health score trust'), 'a project with something that worked and nothing needing attention is a case study')
 })
 
-test('study 1 has a launch in progress: answers with reasons and links, one asking for changes, two waiting, and a reviewer for each step', async () => {
+test('study 1’s launch went ahead with conditions: answers with reasons and links, one asking for changes, two never answered, and a reviewer for each step', async () => {
   const { app, get } = await fixture()
   const project = (await get('/projects')).data.find((x: any) => x.name === 'Health score trust')
   const found = await get(`/projects/${project.id}/launch`)
   assert.equal(found.launch.name, 'Health score explanations: general availability')
   const launch = await get(`/launches/${found.launch.id}`)
   const state = (step: string) => launch.steps.find((s: any) => s.step === step).state
-  assert.deepEqual(['product_leadership', 'legal', 'documentation', 'marketing', 'sales', 'final_decision'].map(state), ['ready_with_conditions', 'ready', 'changes_needed', 'waiting', 'waiting', 'waiting'])
-  assert.equal(launch.summary.state, 'preparing')
+  assert.deepEqual(['product_leadership', 'legal', 'documentation', 'marketing', 'sales', 'final_decision'].map(state), ['ready_with_conditions', 'ready', 'changes_needed', 'waiting', 'waiting', 'go_with_conditions'])
+  assert.equal(launch.summary.state, 'go_with_conditions')
   assert.deepEqual(launch.summary.blocking.map((b: any) => b.step), ['documentation'])
   assert.match(launch.steps.find((s: any) => s.step === 'documentation').answer.rationale, /90-day window/)
   assert.equal(launch.steps.find((s: any) => s.step === 'legal').links.length, 1)

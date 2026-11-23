@@ -9,12 +9,14 @@
 //   launch.reopened         the brief changed after an answer: that step's approver is asked to confirm it
 //   launch.escalated        a request has waited: backups are asked to cover after 3 days, the owner is told after 6 (or 3 when there is no backup)
 //   launch.approver_missing a launch that was asked for has a step nobody covers: the owner is told, once a week
+//   launch.readings_due     30, 60 or 90 days after the final go: the launch's owner is asked to record what the measures show (skipped when a reading was recorded since the last point)
 import { baseUrlFor } from './workspace-urls.js'
 import { answerLabel } from '../shared/launch.mjs'
 import type { Db, Env } from './db.js'
 import { allLaunchIds, launchForSystem, type LaunchDetail, type LaunchStep, type Person } from './launches.js'
 import type { Mailer } from './mailer.js'
 import { remindersOnlyFor } from './notifications.js'
+import { launchSuccess } from './launch-success.js'
 import { linkCard, reply, settleCards, slackLines, upsertMessage } from './launch-slack.js'
 import { slackText, type SlackClient } from './slack.js'
 import { T } from '../shared/terms.mjs'
@@ -307,6 +309,44 @@ const tally = (r: SweepResult, o: Outcome) => {
   else if (o === 'failed') r.failed++
 }
 
+/** A look is only worth a message while it is fresh: a measure set up long after the point passed is not chased for it. */
+export const READINGS_WINDOW_DAYS = 14
+
+/**
+ * 30, 60 and 90 days after the final go, the launch's owner is asked, once per point, to record what the measures show. Only the latest point that has come due, and only
+ * when no reading has been recorded since the point before it (the first point counts from the approval). Nothing is sent for a launch with no measures. The message links to
+ * the launch's "How will we know it worked?" tab, where the readings are recorded.
+ */
+async function remindReadings(deps: Deps, launch: Launch, now: Date, result: SweepResult): Promise<void> {
+  if (!launch.createdBy) return
+  const s = await launchSuccess(deps.db, launch.workspaceId, launch.id)
+  if (!s || !s.locked || !s.approvedOn || s.measures.length === 0) return
+  const day = now.toISOString().slice(0, 10)
+  const due = s.reviewPoints.filter((p) => p.on && p.on <= day)
+  const point = due[due.length - 1]
+  if (!point || !point.on) return
+  if ((now.getTime() - new Date(`${point.on}T00:00:00Z`).getTime()) / 86400000 > READINGS_WINDOW_DAYS) return
+  const previous = due.length > 1 ? due[due.length - 2].on! : s.approvedOn
+  if (s.measures.some((m) => m.checkins.some((c) => c.on >= previous))) return
+  const to = launch.createdBy
+  const count = s.measures.length
+  tally(result, await deliver(deps, launch, {
+    to,
+    kind: 'launch.readings_due',
+    key: `readings:${launch.id}:${point.key}`,
+    payload: { point: point.key },
+    build: (link, allReviews) =>
+      compose({
+        name: to.name,
+        subject: `Signal Flow: time for the ${point.label} look at ${launch.name}`,
+        lines: [`${launch.name} was signed off ${point.days} days ago. ${plural(count, 'measure is', 'measures are')} waiting for a reading.`, 'Record what you are seeing, even if it is early: a "too early to tell" is a useful answer.'],
+        link: `${link.split('?')[0]}?tab=success`,
+        linkText: 'Record the readings',
+        allReviews,
+      }),
+  }))
+}
+
 /** One launch's due messages: reopened answers, requests that have waited, a step nobody covers. Each goes once (its dedupe key says which brief and step). */
 export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: string, result: SweepResult = { sent: 0, held: 0, failed: 0 }): Promise<SweepResult> {
   const launch = await load(deps, workspaceId, launchId)
@@ -373,6 +413,7 @@ export async function sweepLaunch(deps: Deps, workspaceId: string, launchId: str
       }))
     }
   }
+  await remindReadings(deps, launch, now, result)
   return result
 }
 

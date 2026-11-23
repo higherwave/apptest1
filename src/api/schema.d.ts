@@ -340,9 +340,43 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** "How will we know it worked?" for one launch, read-only: the goals from the product brief, the measure of each requirement with its latest reading (the same measures as Measure), and review points counted from the launch's target date. 404 for a launch that is not theirs and for an external approver. */
+        /** "How will we know it worked?" for one launch: the goals from the product brief, the launch's own measures (a short rolled-up list: how the release will be judged), whether they are fixed yet, and the 30, 60 and 90 day review points counted from the final approval. 404 for a launch that is not theirs and for an external approver. */
         get: operations["getLaunchSuccess"];
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}/measures": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Replaces the launch's list of measures (how the release will be judged) with the one sent, in that order. If-Match is `measuresVersion` from the success view (0 before the first save). Editors of the project's team only. 409 `measures_locked` once the final decision is a go; 409 `version_conflict` when someone else saved first. */
+        put: operations["saveLaunchMeasures"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/launches/{id}/measures/{measureId}/reading": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Records a reading on one of the launch's measures: what was read, as of which day, and how it went. A reading for a day already read replaces it; otherwise it is added, so the history is kept and the newest day is the result. Editors of the project's team only; 409 `not_launched` until the final decision is a go. */
+        put: operations["saveLaunchReading"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1415,50 +1449,16 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/measure": {
+    "/measure/results": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Measure, across projects: one row per requirement of the latest published requirements document of every project the caller can see (the same team rules as Platform Insights: workspace owners and the read-only demo viewer see every team, everyone else their teams'), with how we will know it worked, the latest reading and its status. Each row names its project and team and says whether the caller may change it (`canEdit`, true only in teams they edit in). The screen narrows by project, team and result. Open to read as the viewer. */
-        get: operations["getMeasureAcross"];
+        /** What the launches' measures showed after launch, grouped by platform theme and project, across the projects the caller can see (the same team rules as Platform Insights). Only measures with at least one reading are listed, so a theme with nothing read is not. A measure sits under the themes of the requirements it covers (every requirement of the release when it names none); one that reaches no theme is under "Not yet in a theme" (id null). */
+        get: operations["getMeasureResults"];
         put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/projects/{id}/measure": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** One project's measures (the same rows as in /measure, for one project): one row per requirement of the project's published document, with how we will know it worked (metric, source, baseline, target), the check-ins made since and the newest verdict, plus a count of each verdict. 404 no_board until a document is published. */
-        get: operations["getMeasure"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/stories/{id}/measure": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Saves how one requirement will be measured and all of its check-ins (oldest first). If-Match is the row's version, 0 when nothing has been saved yet. Needs the token. */
-        put: operations["saveMeasureItem"];
         post?: never;
         delete?: never;
         options?: never;
@@ -3426,13 +3426,89 @@ export interface components {
             total: number;
             complete: boolean;
         };
+        MeasureResults: {
+            themes: {
+                /** @description The platform theme; null for the group of measures that reach no theme. */
+                id: string | null;
+                title: string;
+                projects: {
+                    projectId: string;
+                    projectName: string;
+                    teamId: string | null;
+                    teamName: string | null;
+                    launchId: string;
+                    launchName: string;
+                    ownerId: string | null;
+                    ownerName: string | null;
+                    /** @description The day of the final go. */
+                    approvedOn: string | null;
+                    measures: components["schemas"]["LaunchMeasure"][];
+                }[];
+            }[];
+        };
+        LaunchReadingRequest: {
+            /** @description The day the reading is as of */
+            on: string;
+            value: string;
+            /** @enum {string} */
+            verdict: "worked" | "needs_attention" | "too_early";
+            note?: string | null;
+        };
+        LaunchReading: {
+            on: string;
+            value: string;
+            /** @enum {string} */
+            verdict: "worked" | "needs_attention" | "too_early";
+            note: string | null;
+        };
+        LaunchMeasure: {
+            /** @description The readings since launch */
+            checkins: components["schemas"]["LaunchReading"][];
+            /**
+             * @description The newest reading's verdict.
+             * @enum {string|null}
+             */
+            result: "worked" | "needs_attention" | "too_early" | null;
+            id: string;
+            /** @enum {string} */
+            metricKind: "tickets" | "adoption" | "engagement" | "time_to_value" | "retention" | "feedback" | "other";
+            detail: string | null;
+            /** @enum {string} */
+            comparison: "change" | "below" | "above" | "between" | "reach";
+            valueA: string | null;
+            valueB: string | null;
+            unit: string | null;
+            /** @description The requirements it covers (R1 */
+            requirementKeys: string[];
+        };
+        LaunchMeasuresRequest: {
+            measures: {
+                /** @description The id of a measure already on the launch */
+                id?: string | null;
+                /** @enum {string} */
+                metricKind: "tickets" | "adoption" | "engagement" | "time_to_value" | "retention" | "feedback" | "other";
+                detail?: string | null;
+                /** @enum {string} */
+                comparison: "change" | "below" | "above" | "between" | "reach";
+                valueA?: string | null;
+                valueB?: string | null;
+                unit?: string | null;
+                requirementKeys?: string[];
+            }[];
+        };
         LaunchSuccess: {
-            /** @description False until the requirements are published; there are no measures before then. */
+            /** @description False until the requirements are published; the measures are set once there is a brief to measure. */
             published: boolean;
             projectId: string;
             problem: string | null;
             goals: string[] | null;
-            measures: components["schemas"]["MeasureItem"][];
+            measures: components["schemas"]["LaunchMeasure"][];
+            /** @description The version a save of the measures is checked against (If-Match). */
+            measuresVersion: number;
+            /** @description True once the final decision is a go; what was expected is then fixed. */
+            locked: boolean;
+            /** @description The day of the final go; the clock for the review points starts there. Null before. */
+            approvedOn: string | null;
             reviewPoints: {
                 key: string;
                 label: string;
@@ -3743,108 +3819,6 @@ export interface components {
                 type: "image/jpeg" | "image/png" | "image/webp";
                 data: string;
             } | null;
-        };
-        Checkin: {
-            /** @description The day of the check-in, YYYY-MM-DD. */
-            on: string;
-            /** @description What was seen, in words or numbers; it can run to a few sentences. */
-            value: string;
-            /** @enum {string} */
-            verdict: "worked" | "needs_attention" | "too_early";
-            note: string | null;
-        };
-        MeasureItem: {
-            storyId: string;
-            /** @description R1, R2 ... */
-            key: string;
-            title: string;
-            /** @enum {string} */
-            priority: "low" | "medium" | "high";
-            summary: string | null;
-            whyItMatters: string | null;
-            /** @description How we will know it worked. */
-            metric: string | null;
-            /** @enum {string|null} */
-            source: "telemetry" | "kpi" | "support_tickets" | "research" | "other" | null;
-            baseline: string | null;
-            target: string | null;
-            /**
-             * @description What is measured, in the sentence the row is entered as. Null on a row saved before the sentence existed (it then has only metric, baseline and target).
-             * @enum {string|null}
-             */
-            metricKind: "tickets" | "adoption" | "engagement" | "time_to_value" | "retention" | "feedback" | "other" | null;
-            /** @description Which tickets, which adoption: free text, completing the sentence. */
-            detail: string | null;
-            /**
-             * @description go from (valueA to valueB), stay below, rise above, stay between (valueA and valueB) or reach valueA.
-             * @enum {string|null}
-             */
-            comparison: "change" | "below" | "above" | "between" | "reach" | null;
-            valueA: string | null;
-            valueB: string | null;
-            /** @description The unit or period, for example a month or %. */
-            unit: string | null;
-            /** @description A short series of readings, oldest first, for a small chart. Read-only: sample data in the demo, to be filled by a connected data source later. */
-            trend: number[] | null;
-            /** @description Oldest first. A requirement has one reading today, the latest, with its status (older rows may have several). */
-            checkins: components["schemas"]["Checkin"][];
-            /**
-             * @description The newest check-in's verdict, null before the first one.
-             * @enum {string|null}
-             */
-            result: "worked" | "needs_attention" | "too_early" | null;
-            /** @description 0 when nothing has been saved for this requirement yet. */
-            version: number;
-        };
-        MeasureAcrossItem: components["schemas"]["MeasureItem"] & {
-            projectId: string;
-            projectName: string;
-            teamId: string | null;
-            teamName: string | null;
-            /** @description True when the caller edits in this project's team; the row is read-only for them otherwise. */
-            canEdit: boolean;
-        };
-        MeasureAcross: {
-            projects: {
-                id: string;
-                name: string;
-                teamId: string | null;
-                teamName: string | null;
-                canEdit: boolean;
-            }[];
-            items: components["schemas"]["MeasureAcrossItem"][];
-        };
-        Measure: {
-            specId: string;
-            specName: string;
-            projectId: string;
-            summary: {
-                total: number;
-                worked: number;
-                needsAttention: number;
-                tooEarly: number;
-                notMeasured: number;
-            };
-            items: components["schemas"]["MeasureItem"][];
-        };
-        MeasureRequest: {
-            /**
-             * @description When sent, metric, baseline and target are written from the sentence parts below.
-             * @enum {string|null}
-             */
-            metricKind?: "tickets" | "adoption" | "engagement" | "time_to_value" | "retention" | "feedback" | "other" | null;
-            detail?: string | null;
-            /** @enum {string|null} */
-            comparison?: "change" | "below" | "above" | "between" | "reach" | null;
-            valueA?: string | null;
-            valueB?: string | null;
-            unit?: string | null;
-            metric?: string | null;
-            /** @enum {string|null} */
-            source?: "telemetry" | "kpi" | "support_tickets" | "research" | "other" | null;
-            baseline?: string | null;
-            target?: string | null;
-            checkins: components["schemas"]["Checkin"][];
         };
         Storyboard: {
             /** @description True when the storyboard failed to write itself after the latest analysis (cleared when one is written): the page then offers a retry. */
@@ -5413,6 +5387,75 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    saveLaunchMeasures: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchMeasuresRequest"];
+            };
+        };
+        responses: {
+            /** @description The success view as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchSuccess"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            428: components["responses"]["Error"];
+        };
+    };
+    saveLaunchReading: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                measureId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LaunchReadingRequest"];
+            };
+        };
+        responses: {
+            /** @description The success view as it is now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LaunchSuccess"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            422: components["responses"]["Error"];
         };
     };
     getLaunch: {
@@ -7460,7 +7503,7 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
-    getMeasureAcross: {
+    getMeasureResults: {
         parameters: {
             query?: never;
             header?: never;
@@ -7469,75 +7512,16 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The projects with a published document, and their measures. */
+            /** @description The results. */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["MeasureAcross"];
+                    "application/json": components["schemas"]["MeasureResults"];
                 };
             };
             401: components["responses"]["Error"];
-        };
-    };
-    getMeasure: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The measures. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Measure"];
-                };
-            };
-            404: components["responses"]["Error"];
-        };
-    };
-    saveMeasureItem: {
-        parameters: {
-            query?: never;
-            header: {
-                /** @description The version the person was looking at (the ETag of the last read), for example "3". */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["Id"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["MeasureRequest"];
-            };
-        };
-        responses: {
-            /** @description The row as it is now. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MeasureItem"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            409: components["responses"]["Error"];
-            422: components["responses"]["Error"];
-            428: components["responses"]["Error"];
         };
     };
     getProjectLock: {

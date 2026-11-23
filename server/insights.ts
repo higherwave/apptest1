@@ -4,6 +4,7 @@ import { matchThemes } from '../shared/providers.mjs'
 import { applyAreaRule, MAX_THEMES_PER_CALL, type Placement } from './ai-matching.js'
 import type { Db, Queryable } from './db.js'
 import { buildCaseStudyPrompt } from './case-briefs.js'
+import { requirementResults } from './launch-measures.js'
 import { insertMany } from './sql.js'
 import { originOf, type Origin } from './origin.js'
 
@@ -243,12 +244,11 @@ export async function getThemesOverview(db: Queryable, workspaceId: string, visi
       [workspaceId],
     ),
     db.query(
-      `select distinct s.platform_theme_id, st.id as story_id, st.key, st.title, sp.project_id, m.checkins
+      `select distinct s.platform_theme_id, st.id as story_id, st.key, st.title, sp.project_id
        from insights.platform_theme_sources s
        join (${currentThemes(visible)}) c on c.id = s.theme_id
        join delivery.stories st on st.theme_id = s.theme_id and st.kind = 'requirement'
        join delivery.specs sp on sp.id = st.spec_id
-       left join delivery.success_measures m on m.story_id = st.id
        where s.workspace_id = $1`,
       [workspaceId],
     ),
@@ -272,6 +272,10 @@ export async function getThemesOverview(db: Queryable, workspaceId: string, visi
     db.query(`select platform_theme_id, alias from insights.platform_theme_aliases where workspace_id = $1 order by created_at, alias`, [workspaceId]),
     db.query(`select id, keep_id, merge_id, reason, confidence::float8 as confidence from insights.merge_suggestions where workspace_id = $1 and status = 'pending' order by confidence desc nulls last, created_at`, [workspaceId]),
   ])
+  // What the launches' measures say about each requirement, by project and requirement key.
+  const keysOf = new Map<string, string[]>()
+  for (const r of storyRows.rows) keysOf.set(r.project_id, [...(keysOf.get(r.project_id) ?? []), r.key as string])
+  const results = await requirementResults(db, workspaceId, [...keysOf.keys()], keysOf)
   // theme -> project -> people
   const byTheme = new Map<string, Map<string, Set<string>>>()
   for (const r of people.rows) {
@@ -295,10 +299,7 @@ export async function getThemesOverview(db: Queryable, workspaceId: string, visi
     const sources = [...(byTheme.get(t.id) ?? [])].map(([projectId, set]) => ({ projectId, participantCount: set.size })).sort((a, b) => projects.findIndex((p) => p.id === a.projectId) - projects.findIndex((p) => p.id === b.projectId))
     const requirements = storyRows.rows
       .filter((r) => r.platform_theme_id === t.id)
-      .map((r) => {
-        const checkins: { verdict: 'worked' | 'needs_attention' | 'too_early' }[] = Array.isArray(r.checkins) ? r.checkins : []
-        return { key: r.key as string, title: r.title as string, projectId: r.project_id as string, result: checkins.length ? checkins[checkins.length - 1].verdict : null }
-      })
+      .map((r) => ({ key: r.key as string, title: r.title as string, projectId: r.project_id as string, result: (results.get(r.project_id)?.get(r.key) ?? null) as 'worked' | 'needs_attention' | 'too_early' | null }))
       .sort((a, b) => a.projectId.localeCompare(b.projectId) || (Number(a.key.replace(/\D/g, '')) || 0) - (Number(b.key.replace(/\D/g, '')) || 0))
     const status = statusOf(requirements.map((r) => r.result))
     const distinct = distinctRequirements(requirements)

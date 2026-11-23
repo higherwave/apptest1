@@ -2140,103 +2140,35 @@ test('only editors can save design rows; a visitor can read the table', async ()
   assert.equal((await app.request(`/api/v1/projects/${p1}/design`)).status, 200)
 })
 
-// The Measure step --------------------------------------------------------------------------------------------
+// Measures set on a launch -------------------------------------------------------------------------------------
+// (The launch's own measures, readings and Measure results are tested in launch-success.test.ts and measure-results.test.ts.)
 
-test('the measure table lists the requirements in order, none measured yet, with the count of each result', async () => {
-  const { app, p1 } = await boardFixture()
-  const res = await app.request(`/api/v1/projects/${p1}/measure`)
-  const body = await expectSpec(res, '/projects/{id}/measure')
-  assert.deepEqual(body.items.map((i: any) => i.key), ['R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7'])
-  assert.ok(body.items.every((i: any) => i.version === 0 && i.metric === null && i.checkins.length === 0 && i.result === null))
-  assert.deepEqual(body.summary, { total: 7, worked: 0, needsAttention: 0, tooEarly: 0, notMeasured: 7 })
-})
+type TestMeasure = { covers?: string[]; metricKind?: string; detail?: string | null; comparison?: string; valueA?: string | null; valueB?: string | null; unit?: string | null; checkins?: { on: string; value: string; verdict: string; note?: string | null }[] }
+/** Gives a project a launch whose measures are exactly these (each covers the whole release). Straight into the tables, so a test need not walk the approvals. */
+async function setMeasures(pg: { query: (sql: string, params?: unknown[]) => Promise<{ rows: any[] }> }, projectId: string, measures: TestMeasure[]) {
+  const ws = (await pg.query(`select workspace_id from core.projects where id = $1`, [projectId])).rows[0].workspace_id
+  const launch = (await pg.query(`select id from delivery.launches where project_id = $1`, [projectId])).rows[0] ?? (await pg.query(`insert into delivery.launches (workspace_id, project_id, name) values ($1, $2, 'Test launch') returning id`, [ws, projectId])).rows[0]
+  await pg.query(`delete from delivery.launch_measures where launch_id = $1`, [launch.id])
+  let position = 0
+  for (const m of measures) {
+    await pg.query(
+      `insert into delivery.launch_measures (workspace_id, launch_id, position, metric_kind, detail, comparison, value_a, value_b, unit, checkins, requirement_keys) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, $11)`,
+      [ws, launch.id, position++, m.metricKind ?? 'adoption', m.detail ?? null, m.comparison ?? 'reach', m.valueA ?? null, m.valueB ?? null, m.unit ?? null, JSON.stringify((m.checkins ?? []).map((c) => ({ note: null, ...c }))), m.covers ?? []],
+    )
+  }
+}
+/** One measure (about these requirements, or the whole release) with readings of these verdicts, oldest first. */
+const measureOn = (pg: Parameters<typeof setMeasures>[0], projectId: string, verdicts: string[], covers: string[] = []) => setMeasures(pg, projectId, [{ covers, checkins: verdicts.map((v, i) => ({ on: `2026-11-0${i + 1}`, value: 'x', verdict: v })) }])
 
-test('a project with no published document has no measures (404 no_board)', async () => {
-  const { app, pg } = await boardFixture()
-  const id = ((await pg.query<any>(`select id from core.projects where name = 'New patient intake (draft)'`)).rows[0] as { id: string }).id
-  const res = await app.request(`/api/v1/projects/${id}/measure`)
-  assert.equal(res.status, 404)
-  assert.equal((await expectSpec(res, '/projects/{id}/measure')).error.code, 'no_board')
-})
-
-test('saving a measure keeps its check-ins; the newest verdict is the result and the summary counts it', async () => {
-  const { app, p1, send } = await boardFixture()
-  const table = async () => (await (await app.request(`/api/v1/projects/${p1}/measure`)).json())
-  const r3 = (await table()).items.find((i: any) => i.key === 'R3')
-  const first = { metric: ' Support calls about fees ', source: 'telemetry', baseline: '120 a week', target: '60 a week', checkins: [] }
-  const res = await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, 0)
-  assert.equal(res.status, 200)
-  const saved = await expectSpec(res, '/stories/{id}/measure', 'put')
-  assert.deepEqual([saved.metric, saved.source, saved.version, saved.result], ['Support calls about fees', 'telemetry', 1, null])
-  const withCheckins = { ...first, checkins: [{ on: '2026-11-01', value: '100 a week', verdict: 'too_early', note: null }, { on: '2026-12-01', value: '55 a week', verdict: 'worked', note: 'Held for a month.' }] }
-  const second = await expectSpec(await send(app, 'PUT', `/stories/${r3.storyId}/measure`, withCheckins, 1), '/stories/{id}/measure', 'put')
-  assert.deepEqual([second.result, second.version, second.checkins.length], ['worked', 2, 2])
-  assert.deepEqual((await table()).summary, { total: 7, worked: 1, needsAttention: 0, tooEarly: 0, notMeasured: 6 })
-  const stale = await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, 1)
-  assert.equal(stale.status, 409)
-  assert.equal((await expectSpec(stale, '/stories/{id}/measure', 'put')).error.code, 'version_conflict')
-  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/measure`, first, undefined)).status, 428)
-})
-
-test('a measure is entered as a sentence: the parts are saved, the plain metric, baseline and target are written from them, and a reading can have no value', async () => {
-  const { app, pg, p1, send } = await boardFixture()
-  const items = async () => (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
-  const r1 = (await items()).find((i: any) => i.key === 'R1')
-  assert.deepEqual([r1.metricKind, r1.detail, r1.comparison, r1.valueA, r1.valueB, r1.unit, r1.trend], [null, null, null, null, null, null, null], 'nothing is made up for a requirement that has no measure')
-  const parts = { metricKind: 'tickets', detail: 'asking why a score changed', comparison: 'change', valueA: '48', valueB: '15', unit: 'a month', source: 'support_tickets', checkins: [] }
-  const saved = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, parts, 0), '/stories/{id}/measure', 'put')
-  assert.deepEqual([saved.metricKind, saved.detail, saved.comparison, saved.valueA, saved.valueB, saved.unit], ['tickets', 'asking why a score changed', 'change', '48', '15', 'a month'])
-  assert.deepEqual([saved.metric, saved.baseline, saved.target], ['Support tickets asking why a score changed', '48 a month', '15 a month'], 'what Platform Insights and the case studies read')
-  // One status with one reading; a status can come with no reading yet.
-  const withReading = { ...parts, checkins: [{ on: '2027-01-05', value: '11 a month', verdict: 'worked', note: 'Below the goal.' }] }
-  assert.equal((await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, withReading, 1), '/stories/{id}/measure', 'put')).result, 'worked')
-  const noValue = { ...parts, comparison: 'below', valueB: null, checkins: [{ on: '2027-01-06', value: '', verdict: 'too_early', note: null }] }
-  const second = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, noValue, 2), '/stories/{id}/measure', 'put')
-  assert.deepEqual([second.result, second.target, second.baseline, second.checkins[0].value], ['too_early', 'below 48 a month', null, ''])
-  // The series for the small chart is not written by a save, and a save does not lose it.
-  await pg.query(`update delivery.success_measures set trend = '[48, 44, 40]'::jsonb where story_id = $1`, [r1.storyId])
-  const current = (await items()).find((i: any) => i.key === 'R1')
-  const third = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { ...noValue, trend: [1, 2] }, current.version), '/stories/{id}/measure', 'put')
-  assert.deepEqual(third.trend, [48, 44, 40])
-  // A save without the parts (an older client) keeps the metric it was given and clears the parts, so the two never disagree.
-  const legacy = await expectSpec(await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { metric: 'Calls about fees', source: 'kpi', baseline: '120 a week', target: '60 a week', checkins: [] }, third.version), '/stories/{id}/measure', 'put')
-  assert.deepEqual([legacy.metric, legacy.metricKind, legacy.detail, legacy.comparison, legacy.valueA], ['Calls about fees', null, null, null, null])
-  assert.equal((await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { ...parts, metricKind: 'bogus' }, legacy.version)).status, 422)
-  assert.equal((await send(app, 'PUT', `/stories/${r1.storyId}/measure`, { ...parts, comparison: 'sideways' }, legacy.version)).status, 422)
-})
-
-test('a measure rejects a bad date, an unknown verdict or source; open questions have no measure', async () => {
-  const { app, story, send } = await boardFixture()
-  const r1 = await story('R1')
-  const q1 = await story('Q1')
-  const put = (id: string, body: unknown) => send(app, 'PUT', `/stories/${id}/measure`, body, 0)
-  assert.equal((await put(r1.id, { checkins: [{ on: '1 Nov', value: 'x', verdict: 'worked', note: null }] })).status, 422)
-  assert.equal((await put(r1.id, { checkins: [{ on: '2026-11-01', value: 'x', verdict: 'great', note: null }] })).status, 422)
-  assert.equal((await put(r1.id, { source: 'rumour', checkins: [] })).status, 422)
-  assert.equal((await put(q1.id, { checkins: [] })).status, 404)
-})
-
-test('only editors can save measures; a visitor can read them', async () => {
-  const { app, p1, story } = await boardFixture()
-  const r1 = await story('R1')
-  const anon = await app.request(`/api/v1/stories/${r1.id}/measure`, { method: 'PUT', headers: { 'content-type': 'application/json', 'if-match': '0' }, body: JSON.stringify({ checkins: [] }) })
-  assert.ok([401, 403].includes(anon.status))
-  assert.equal((await app.request(`/api/v1/projects/${p1}/measure`)).status, 200)
-})
-
-test('a project counts the requirements that have a measurement (a metric or a finding), and support tickets are a source', async () => {
-  const { app, p1, send } = await boardFixture()
+test('a project counts the measures set on its launch', async () => {
+  const { app, p1, pg } = await boardFixture()
   const count = async () => (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === p1).measurements
   assert.equal(await count(), 0)
-  const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
-  const save = (key: string, body: unknown) => send(app, 'PUT', `/stories/${items.find((i: any) => i.key === key).storyId}/measure`, body, 0)
-  assert.equal((await save('R1', { metric: 'Calls about fees', source: 'support_tickets', checkins: [] })).status, 200)
-  assert.equal((await save('R2', { checkins: [{ on: '2026-11-01', value: 'Seen', verdict: 'worked', note: null }] })).status, 200)
-  assert.equal((await save('R3', { checkins: [] })).status, 200, 'saved with nothing in it')
-  assert.equal(await count(), 2)
+  await measureOn(pg, p1, [])
+  assert.equal(await count(), 1)
 })
 
-test('themes say what became of them: not addressed (an opportunity when it keeps coming up), in progress, then the newest finding', async () => {
+test('themes say what became of them: not addressed (an opportunity when it keeps coming up), in progress, then the newest reading', async () => {
   const { app, titled, d, ws } = await insightsFixture()
   const row = async (t: string) => titled(t)
   const availability = await row('Provider availability is hard to see')
@@ -2249,12 +2181,9 @@ test('themes say what became of them: not addressed (an opportunity when it keep
   const prep = await row('A prep checklist before the visit is valued')
   assert.equal(prep.opportunity, false, 'a delight is never an opportunity')
   // A finding on the fees requirement moves it on; the newest one counts.
-  const story = (await d.query(`select st.id from delivery.stories st join insights.platform_theme_sources s on s.theme_id = st.theme_id where st.kind = 'requirement' and s.platform_theme_id = $1 limit 1`, [fees.id])).rows[0] as { id: string }
-  const save = async (verdicts: string[]) => {
-    await d.query(`delete from delivery.success_measures where story_id = $1`, [story.id])
-    const checkins = verdicts.map((v, i) => ({ on: `2026-11-0${i + 1}`, value: 'x', verdict: v, note: null }))
-    await d.query(`insert into delivery.success_measures (workspace_id, story_id, checkins) values ($1, $2, $3::jsonb)`, [ws, story.id, JSON.stringify(checkins)])
-  }
+  const story = (await d.query(`select sp.project_id, st.key from delivery.stories st join delivery.specs sp on sp.id = st.spec_id join insights.platform_theme_sources s on s.theme_id = st.theme_id where st.kind = 'requirement' and s.platform_theme_id = $1 limit 1`, [fees.id])).rows[0] as { project_id: string; key: string }
+  const save = (verdicts: string[]) => measureOn(d, story.project_id, verdicts, [story.key])
+  void ws
   await save(['too_early'])
   assert.equal((await row('Fees appear late at checkout')).status, 'too_early')
   await save(['too_early', 'worked'])
@@ -2315,13 +2244,13 @@ test('the platform journey folds every project’s stages into one, with each th
 })
 
 test('a case study brief gathers a project’s problem, words, decisions, designs and results, with a prompt for an AI tool', async () => {
-  const { app, p1, send } = await boardFixture()
+  const { app, p1, send, pg } = await boardFixture()
   const none = await app.request('/api/v1/projects/00000000-0000-4000-8000-000000000000/case-study-brief')
   assert.equal(none.status, 404)
-  const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
+  const items = (await (await app.request(`/api/v1/projects/${p1}/board`)).json()).stories
   const r3 = items.find((i: any) => i.key === 'R3')
-  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/design`, { prototypeUrl: 'https://example.com/fees', notes: 'Fees on the card.' }, 0)).status, 200)
-  assert.equal((await send(app, 'PUT', `/stories/${r3.storyId}/measure`, { metric: 'Calls about fees', source: 'support_tickets', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-12-01', value: '55 a week', verdict: 'worked', note: null }] }, 0)).status, 200)
+  assert.equal((await send(app, 'PUT', `/stories/${r3.id}/design`, { prototypeUrl: 'https://example.com/fees', notes: 'Fees on the card.' }, 0)).status, 200)
+  await setMeasures(pg, p1, [{ metricKind: 'tickets', detail: 'asking about fees', comparison: 'change', valueA: '120', valueB: '60', unit: 'a week', checkins: [{ on: '2026-12-01', value: '55', verdict: 'worked' }] }, { metricKind: 'adoption', valueA: '40', unit: '%' }])
   const res = await app.request(`/api/v1/projects/${p1}/case-study-brief`)
   const body = await expectSpec(res, '/projects/{id}/case-study-brief')
   assert.equal(body.projectName, 'Clinic booking, usability round 1')
@@ -2329,10 +2258,10 @@ test('a case study brief gathers a project’s problem, words, decisions, design
   assert.ok(body.evidence.length >= 1 && body.evidence.length <= 4 && body.evidence.every((q: any) => q.text && q.speaker))
   assert.equal(body.decisions.requirements.length, 7)
   assert.deepEqual(body.designs.map((d: any) => [d.key, d.prototypeUrl]), [['R3', 'https://example.com/fees']])
-  assert.deepEqual(body.results.summary, { worked: 1, needsAttention: 0, tooEarly: 0, notMeasured: 6 })
-  assert.deepEqual(body.results.items.map((r: any) => [r.key, r.result, r.latest.value]), [['R3', 'worked', '55 a week']])
+  assert.deepEqual(body.results.summary, { worked: 1, needsAttention: 0, tooEarly: 0, notMeasured: 1 })
+  assert.deepEqual(body.results.items.map((r: any) => [r.key, r.result, r.latest?.value ?? null]), [['M1', 'worked', '55'], ['M2', null, null]].slice(0, 1), 'only what worked is told')
   // The prompt is the same material as a request, and tells the tool not to invent anything.
-  for (const part of ['Clinic booking, usability round 1', 'Do not invent', body.evidence[0].text, 'R3', 'Calls about fees', 'support tickets', '55 a week', 'https://example.com/fees']) {
+  for (const part of ['Clinic booking, usability round 1', 'Do not invent', body.evidence[0].text, 'M1', 'asking about fees', '55', 'https://example.com/fees']) {
     assert.ok(body.prompt.includes(part), `the prompt includes ${part}`)
   }
 })
@@ -2377,29 +2306,27 @@ test('the same requirement written in several projects is one, with how many wro
 })
 
 test('case studies are the projects where something worked and nothing needs attention; the outcome line follows the measurements', async () => {
-  const { app, p1, send } = await boardFixture()
+  const { app, p1, pg } = await boardFixture()
   const list = async () => (await expectSpec(await app.request('/api/v1/insights/case-briefs'), '/insights/case-briefs')).data
   const brief = async () => (await expectSpec(await app.request(`/api/v1/projects/${p1}/case-study-brief`), '/projects/{id}/case-study-brief'))
-  const items = (await (await app.request(`/api/v1/projects/${p1}/measure`)).json()).items
-  const [r1, r3] = [items.find((i: any) => i.key === 'R1'), items.find((i: any) => i.key === 'R3')]
-  const put = (item: any, body: unknown, v: number) => send(app, 'PUT', `/stories/${item.storyId}/measure`, body, v)
+  const fees = { metricKind: 'tickets', detail: 'asking about fees', comparison: 'change', valueA: '120', valueB: '60', unit: 'a week' }
   // Nothing measured: no case study, and the brief says where the project stands.
   assert.deepEqual(await list(), [])
   assert.match((await brief()).outcome, /7 requirements decided\. Nothing measured yet\./)
-  await put(r3, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [] }, 0)
+  await setMeasures(pg, p1, [fees])
   assert.deepEqual(await list(), [])
-  assert.match((await brief()).outcome, /Measuring Calls about fees, goal 60 a week/)
+  assert.match((await brief()).outcome, /Measuring Support tickets asking about fees, goal/)
   // Too early to tell is not a success yet.
-  await put(r3, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-11-01', value: '100 a week', verdict: 'too_early', note: null }] }, 1)
+  await setMeasures(pg, p1, [{ ...fees, checkins: [{ on: '2026-11-01', value: '100', verdict: 'too_early' }] }])
   assert.deepEqual(await list(), [])
-  // The newest finding says Worked: it is a case study, and only what worked is in What happened.
-  await put(r3, { metric: 'Calls about fees', baseline: '120 a week', target: '60 a week', checkins: [{ on: '2026-11-01', value: '100 a week', verdict: 'too_early', note: null }, { on: '2026-12-01', value: '55 a week', verdict: 'worked', note: null }] }, 2)
+  // The newest reading says Worked: it is a case study, and only what worked is in What happened.
+  await setMeasures(pg, p1, [{ ...fees, checkins: [{ on: '2026-11-01', value: '100', verdict: 'too_early' }, { on: '2026-12-01', value: '55', verdict: 'worked' }] }])
   const won = await list()
   assert.deepEqual(won.map((b: any) => b.projectId), [p1])
-  assert.equal(won[0].outcome, 'Calls about fees: 120 a week → 55 a week')
-  assert.deepEqual(won[0].results.items.map((r: any) => [r.key, r.result]), [['R3', 'worked']])
-  // Another requirement that needs attention takes it out again.
-  await put(r1, { metric: 'Form completion', checkins: [{ on: '2026-12-02', value: 'down', verdict: 'needs_attention', note: null }] }, 0)
+  assert.match(won[0].outcome, /Support tickets asking about fees: 120 a week → 55/)
+  assert.deepEqual(won[0].results.items.map((r: any) => [r.key, r.result]), [['M1', 'worked']])
+  // Another measure that needs attention takes it out again.
+  await setMeasures(pg, p1, [{ ...fees, checkins: [{ on: '2026-12-01', value: '55', verdict: 'worked' }] }, { metricKind: 'engagement', checkins: [{ on: '2026-12-02', value: 'down', verdict: 'needs_attention' }] }])
   assert.deepEqual(await list(), [])
   // A project that never published has no results at all.
   assert.match((await expectSpec(await app.request(`/api/v1/projects/${((await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.name === 'Clinic booking, round 2')).id}/case-study-brief`), '/projects/{id}/case-study-brief')).outcome, /themes? from \d+ sessions?\. No requirements published yet\./)

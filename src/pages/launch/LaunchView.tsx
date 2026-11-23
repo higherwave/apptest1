@@ -467,7 +467,7 @@ export function LaunchView(p: LaunchViewProps) {
               </TabPanel>
               {launch.you.kind !== 'external' && (
                 <TabPanel className={styles.tabPanel}>
-                  <SuccessTab launchId={launch.id} />
+                  <SuccessTab launchId={launch.id} canEdit={launch.you.canSetUp} requirements={launch.brief.requirements.map((r) => ({ key: r.key, title: r.title }))} />
                 </TabPanel>
               )}
             </TabPanels>

@@ -8,8 +8,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, extname } from 'node:path';
 import { parseTranscript, scoreTheme } from '../../../shared/providers.mjs';
-import { compatFields } from '../../../shared/measure.mjs';
-import { reviewersFor } from '../../../shared/launch.mjs';
+import { reviewersFor, stepLabel } from '../../../shared/launch.mjs';
 import * as D from './data.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -148,7 +147,7 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
     built[proj.key] = { P, themes, people };
   }
 
-  // Study 1's requirements document, published, with its board, designs and measured results -------
+  // Study 1's requirements document, published, with its board and designs -------
   {
     const proj = D.PROJECTS[0], { P, themes, people } = built.a1;
     const byKey = Object.fromEntries(themes.map((t) => [t.tk, t]));
@@ -175,7 +174,7 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
     await insert(db, 'core.agent_step_alternatives', altRows);
     await insert(db, 'delivery.spec_step_evidence', evRows);
 
-    const reqRows = [], storyRows = [], checkRows = [], designRows = [], measureRows = [];
+    const reqRows = [], storyRows = [], checkRows = [], designRows = [];
     const perStatus = {};
     for (const s of D.STORIES) {
       const th = byKey[s.theme];
@@ -189,22 +188,12 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
       });
       s.criteria.forEach(([kind, text, met], i) => checkRows.push({ id: aid(`check:${s.key}:${i}`), workspace_id: WS, story_id: STORY, kind, text, met, position: i }));
       if (s.design) designRows.push({ id: aid('design:' + s.key), workspace_id: WS, story_id: STORY, notes: s.design, created_by: USER, updated_by: USER });
-      if (s.measure) {
-        const m = s.measure;
-        // The plain metric, baseline and target are written from the sentence's parts, as the app does when a row is saved.
-        const plain = compatFields(m);
-        measureRows.push({
-          id: aid('measure:' + s.key), workspace_id: WS, story_id: STORY, metric: plain.metric, source: m.source, baseline: plain.baseline, target: plain.target, checkins: JSON.stringify(m.checkins),
-          metric_kind: m.metricKind, detail: m.detail, comparison: m.comparison, value_a: m.valueA, value_b: m.valueB, unit: m.unit || null, trend: m.trend ? JSON.stringify(m.trend) : null, created_by: USER, updated_by: USER,
-        });
-      }
     }
     await insert(db, 'delivery.requirements', reqRows);
     await insert(db, 'delivery.stories', storyRows);
     await insert(db, 'delivery.story_checklist', checkRows);
     await q(`update delivery.specs set status = 'published' where id = $1`, [SPEC]);
     await insert(db, 'delivery.design_items', designRows);
-    await insert(db, 'delivery.success_measures', measureRows);
   }
 
   // Study 1's launch: answered by the reviewers the workspace already has (their own setup is never touched); a workspace with none gets a few, so the demo reads ---
@@ -237,8 +226,19 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
       answerRows.push({ id: aid('launch-answer:' + a.step), launch_id: LAUNCH, step: a.step, answer: a.answer, rationale: a.rationale, brief_key: briefKey, answered_by: who, answered_at: new Date(Date.now() - a.daysAgo * 86400000) });
       for (const [i, l] of a.links.entries()) linkRows.push({ id: aid(`launch-link:${a.step}:${i}`), launch_id: LAUNCH, step: a.step, title: l.title, url: l.url, added_by: who });
     }
+    // The final decision, by the final approver, with the steps it went past.
+    const final = L.final;
+    const finalBy = reviewersFor(cover, team, final.step).primary[0];
+    if (finalBy) answerRows.push({ id: aid('launch-answer:' + final.step), launch_id: LAUNCH, step: final.step, answer: final.answer, rationale: final.rationale, brief_key: briefKey, open_items: JSON.stringify(final.open.map((o) => ({ ...o, label: stepLabel(o.step) }))), answered_by: finalBy, answered_at: new Date(Date.now() - final.daysAgo * 86400000) });
     await insert(db, 'delivery.launch_answers', answerRows);
     await insert(db, 'delivery.launch_links', linkRows);
+    // The launch's measures, with the readings the review points have produced so far (simulated).
+    const day = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().slice(0, 10);
+    await insert(db, 'delivery.launch_measures', L.measures.map((m, i) => ({
+      id: aid('launch-measure:' + i), workspace_id: WS, launch_id: LAUNCH, position: i, metric_kind: m.metricKind, detail: m.detail, comparison: m.comparison, value_a: m.valueA, value_b: m.valueB, unit: m.unit || null,
+      requirement_keys: m.covers, checkins: JSON.stringify(m.readings.map((r) => ({ on: day(r.daysAgo), value: r.value, verdict: r.verdict, note: r.note }))), created_by: USER, updated_by: USER,
+    })));
+    await q('update delivery.launches set measures_version = 1 where id = $1', [LAUNCH]);
   }
 
   // Platform Insights: the same seven problems, rolled up across the three studies --------------
@@ -268,7 +268,7 @@ export async function summarize(db) {
     themes: await count('select count(*)::int n from research.themes where project_id = any($1::uuid[])', [ids]),
     stories: await count('select count(*)::int n from delivery.stories st join delivery.specs sp on sp.id = st.spec_id where sp.project_id = any($1::uuid[])', [ids]),
     launches: await count('select count(*)::int n from delivery.launches where project_id = any($1::uuid[])', [ids]),
-    measures: await count('select count(*)::int n from delivery.success_measures m join delivery.stories st on st.id = m.story_id join delivery.specs sp on sp.id = st.spec_id where sp.project_id = any($1::uuid[])', [ids]),
+    measures: await count('select count(*)::int n from delivery.launch_measures m join delivery.launches l on l.id = m.launch_id where l.project_id = any($1::uuid[])', [ids]),
     platformThemes: await count('select count(*)::int n from insights.platform_themes where id = any($1::uuid[])', [PLATFORM_IDS]),
     recommendations: await count('select count(*)::int n from insights.recommendations where id = any($1::uuid[])', [REC_IDS]),
   };

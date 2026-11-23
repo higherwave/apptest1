@@ -214,7 +214,7 @@ test('an external reviewer sees only their own steps and the brief notes, and th
   assert.equal(answered.status, 200)
   assert.equal((await call(them, 'PUT', `/launches/${launch.id}/steps/marketing`, { answer: 'ready' })).status, 403)
   // Everything else is closed to them.
-  for (const path of ['/projects', `/projects/${project}/launch`, '/measure']) assert.equal((await call(them, 'GET', path)).status, 403, path)
+  for (const path of ['/projects', `/projects/${project}/launch`, '/measure/results']) assert.equal((await call(them, 'GET', path)).status, 403, path)
   // Another team's launch is not theirs.
   const ws = (await pg.query<any>(`select id from core.workspaces limit 1`)).rows[0].id
   const other = (await pg.query<any>(`insert into core.teams (workspace_id, name) values ($1, 'Other') returning id`, [ws])).rows[0].id

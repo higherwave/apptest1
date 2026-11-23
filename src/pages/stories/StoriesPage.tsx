@@ -94,7 +94,6 @@ export function StoriesPage() {
       }}
       onGoRequirements={() => navigate(`/projects/${projectId}/requirements`)}
       onViewDesign={(story: BoardStory) => navigate(`/projects/${projectId}/design?open=${encodeURIComponent(story.key)}`)}
-      onViewMeasure={(story: BoardStory) => navigate(`/measure?project=${projectId}&open=${encodeURIComponent(story.key)}`)}
     />
   )
 }

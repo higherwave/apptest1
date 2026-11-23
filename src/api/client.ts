@@ -88,16 +88,9 @@ export const saveDesignItem = (storyId: string, version: number, body: DesignReq
 export const captureDesignImage = (storyId: string, replace = false) => request<DesignItem>(`/stories/${storyId}/design/capture`, { method: 'POST', body: replace ? { replace: true } : {} })
 export const designImageUrl = (storyId: string, version: number) => `/api/v1/stories/${storyId}/design/image?v=${version}`
 
-export type Measure = components['schemas']['Measure']
-export type MeasureItem = components['schemas']['MeasureItem']
-export type MeasureAcross = components['schemas']['MeasureAcross']
-export type MeasureAcrossItem = components['schemas']['MeasureAcrossItem']
-export type MeasureRequest = components['schemas']['MeasureRequest']
-export type Checkin = components['schemas']['Checkin']
-export const getMeasure = (projectId: string) => request<Measure>(`/projects/${projectId}/measure`)
-export const getMeasureAcross = () => request<MeasureAcross>('/measure')
+export type MeasureResults = components['schemas']['MeasureResults']
+export const getMeasureResults = () => request<MeasureResults>('/measure/results')
 // The row's version is 0 when nothing has been saved for the requirement yet.
-export const saveMeasureItem = (storyId: string, version: number, body: MeasureRequest) => request<MeasureItem>(`/stories/${storyId}/measure`, { method: 'PUT', body, version })
 
 export type NotificationPreferences = components['schemas']['NotificationPreferences']
 export const getNotificationPreferences = () => request<NotificationPreferences>('/notifications/preferences')
@@ -211,6 +204,11 @@ export const checkPulseSource = (id: string) => request<{ added: number; error: 
 export const updatePulseSignal = (id: string, body: { status?: PulseStatus; kind?: PulseSignal['kind']; channel?: PulseChannel }) => request<PulseSignal>(`/pulse/signals/${id}`, { method: 'PATCH', body })
 export type LaunchSuccess = components['schemas']['LaunchSuccess']
 export const getLaunchSuccess = (id: string) => request<LaunchSuccess>(`/launches/${id}/success`)
+export type LaunchMeasure = components['schemas']['LaunchMeasure']
+export type LaunchMeasuresRequest = components['schemas']['LaunchMeasuresRequest']
+export type LaunchReadingRequest = components['schemas']['LaunchReadingRequest']
+export const saveLaunchReading = (id: string, measureId: string, body: LaunchReadingRequest) => request<LaunchSuccess>(`/launches/${id}/measures/${measureId}/reading`, { method: 'PUT', body })
+export const saveLaunchMeasures = (id: string, version: number, body: LaunchMeasuresRequest) => request<LaunchSuccess>(`/launches/${id}/measures`, { method: 'PUT', body, version })
 export const startLaunchSlackThread = (id: string) => request<LaunchSlackResult>(`/launches/${id}/slack`, { method: 'POST' })
 export type SlackConnection = components['schemas']['SlackConnection']
 export type SlackConnectCode = components['schemas']['SlackConnectCode']

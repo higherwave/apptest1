@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, measureSchema, createLaunchSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, updateSourceSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -44,13 +44,14 @@ import { getPlatformJourney, getWorkflowJourney } from './journey.js'
 import { addSampleWorkflows, createWorkflow, deleteWorkflow, listWorkflows, mapProjectStage, projectBlueprint, sampleMissing, saveWorkflow, setProjectWorkflow, StageMissing, WorkflowConflict, WorkflowDuplicate, WorkflowMissing } from './workflows.js'
 import { getUsage } from './usage.js'
 import { AUDIT_GROUPS, BadCursor, listAudit, type AuditGroup } from './audit.js'
-import { MeasureConflict, getMeasure, getMeasureAcross, getMeasureItem, saveMeasureItem } from './measure.js'
 import { acceptProposal, dismissProposal, ProposalMissing, proposeAreas } from './area-proposals.js'
 import { AreaConflict, AreaDuplicate, AreaMissing, AreaSimilar, createArea, listAreas, mergeAreas, retireArea, updateArea } from './areas.js'
 import { CaptureError, capturePreflight, makeCapture, type CaptureService } from './capture.js'
 import { exportFileName, launchRecordHtml } from './launch-export.js'
 import { requirementsHtml, storyboardHtml } from './launch-documents.js'
 import { launchSuccess } from './launch-success.js'
+import { getMeasureResults } from './measure-results.js'
+import { MeasureNotFound, MeasuresConflict, MeasuresLocked, NotLaunched, saveLaunchMeasures, saveReading } from './launch-measures.js'
 import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import type { SalesforceFetch } from './salesforce.js'
@@ -392,6 +393,41 @@ export function createApp(options: AppOptions = {}) {
     if (!data) throw new ApiError(404, 'not_found', 'No such launch.')
     c.header('Cache-Control', 'private, no-store')
     return c.json(data)
+  })
+  // The launch's expectations, replaced as a whole. Editors of the project's team only, and only until the final decision is a go.
+  app.put('/launches/:id/measures', withContext, async (c) => {
+    const id = launchId(c)
+    const launch = await oneLaunch(c, id)
+    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can change how the launch will be measured.')
+    const expected = expectedVersion(c)
+    const input = parseBody(launchMeasuresSchema, await readJson(c))
+    try {
+      await saveLaunchMeasures(getDb(), c.get('ctx'), id, expected, launch.summary.state, input.measures)
+    } catch (err) {
+      if (err instanceof MeasuresLocked) throw new ApiError(409, 'measures_locked', 'The final decision is a go, so what was expected is fixed.')
+      if (err instanceof MeasuresConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed these measures since you opened them.', undefined, { current: { version: err.current } })
+      throw err
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json((await launchSuccess(getDb(), c.get('ctx').workspaceId, id))!)
+  })
+  // A reading on one of the launch's measures: after the final go, by an editor of the project's team.
+  app.put('/launches/:id/measures/:measureId/reading', withContext, async (c) => {
+    const id = launchId(c)
+    const measureId = c.req.param('measureId') ?? ''
+    if (!UUID.test(measureId)) throw new ApiError(404, 'not_found', 'No such measure.')
+    const launch = await oneLaunch(c, id)
+    if (!launch.you.canSetUp) throw new ApiError(403, 'forbidden', 'Only an editor of the project’s team can record a reading.')
+    const input = parseBody(launchReadingSchema, await readJson(c))
+    try {
+      await saveReading(getDb(), c.get('ctx'), id, measureId, launch.summary.state, input)
+    } catch (err) {
+      if (err instanceof NotLaunched) throw new ApiError(409, 'not_launched', 'Readings can be recorded once the final decision is a go.')
+      if (err instanceof MeasureNotFound) throw new ApiError(404, 'not_found', 'No such measure.')
+      throw err
+    }
+    c.header('Cache-Control', 'no-store')
+    return c.json((await launchSuccess(getDb(), c.get('ctx').workspaceId, id))!)
   })
   app.patch('/launches/:id', withContext, async (c) => {
     const id = launchId(c)
@@ -1695,45 +1731,13 @@ export function createApp(options: AppOptions = {}) {
 
   // Measure -----------------------------------------------------------------------------------------------------
 
-  // Measure is a place of its own: every requirement of every project the caller can see (the same team rules as Platform Insights), which the
-  // screen narrows by project, team and result.
-  app.get('/measure', withReadContext, async (c) => {
+  // Measure's results: what the launches' measures showed after launch, by theme, across the projects the caller can see. Only measures that have a reading.
+  app.get('/measure/results', withReadContext, async (c) => {
     const ctx = c.get('ctx')
-    const body = await getMeasureAcross(getDb(), ctx.workspaceId, visibleTeamIds(ctx), ctx.anonymous ? [] : editableTeamIds(ctx))
+    const body = await getMeasureResults(getDb(), ctx.workspaceId, visibleTeamIds(ctx))
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
     return c.json(body)
-  })
-
-  app.get('/projects/:id/measure', withReadContext, async (c) => {
-    const id = projectId(c)
-    const ctx = c.get('ctx')
-    if (!(await getProjectDetail(getDb(), ctx.workspaceId, id))) throw new ApiError(404, 'not_found', 'No such project.')
-    let measure
-    try {
-      measure = await getMeasure(getDb(), ctx.workspaceId, id)
-    } catch (err) {
-      if (err instanceof NoBoard) throw new ApiError(404, 'no_board', 'Publish a requirements document first: the measures are made from it.')
-      throw err
-    }
-    cacheHeaders(c)
-    c.header('Vary', 'Authorization')
-    return c.json(measure)
-  })
-
-  app.put('/stories/:id/measure', withContext, async (c) => {
-    requireEditor(c)
-    const id = storyId(c)
-    const expected = expectedVersion(c)
-    const input = parseBody(measureSchema, await readJson(c))
-    try {
-      await saveMeasureItem(getDb(), c.get('ctx'), id, expected, input)
-    } catch (err) {
-      if (err instanceof MeasureConflict) throw new ApiError(409, 'version_conflict', 'Someone else changed this row since you opened it.', undefined, { current: { version: err.current } })
-      return storyError(err)
-    }
-    c.header('Cache-Control', 'no-store')
-    return c.json((await getMeasureItem(getDb(), c.get('ctx').workspaceId, id))!)
   })
 
   // Platform Insights ------------------------------------------------------------------------------------
