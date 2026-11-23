@@ -99,7 +99,7 @@ function ThemePanel({ theme, onCopy }: { theme: Theme; onCopy: MeasureViewProps[
           <h2 className={styles.panelTitle}>{theme.title}</h2>
           <p className={styles.summaryLine} data-testid="theme-summary">{themeSummaryLine(theme)}</p>
         </div>
-        <Button kind="tertiary" size="sm" renderIcon={Copy} data-testid="copy-summary" onClick={() => void copy()}>Copy summary</Button>
+        <Button kind="ghost" size="sm" hasIconOnly renderIcon={Copy} iconDescription="Copy summary" tooltipPosition="left" data-testid="copy-summary" onClick={() => void copy()} />
       </div>
       <p className={styles.copyStatus} role="status">{copied === 'copied' ? 'Copied: paste it into a report or a message.' : copied === 'failed' ? 'Your browser would not copy it.' : ''}</p>
       {[...theme.projects].sort((a, b) => worked(b) - worked(a) || a.projectName.localeCompare(b.projectName, undefined, { sensitivity: 'base' })).map((p) => (
