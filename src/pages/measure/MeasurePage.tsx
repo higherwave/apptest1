@@ -22,5 +22,5 @@ export function MeasurePage() {
     else p.delete(key)
     setParams(p, { replace: true })
   }
-  return <MeasureView state={state} data={data} team={team} owner={owner} result={result} errorText={results.isError ? friendlyMessage(results.error) : undefined} onTeam={(id) => set('team', id)} onOwner={(id) => set('owner', id)} onResult={(r) => set('result', r)} />
+  return <MeasureView state={state} data={data} team={team} owner={owner} result={result} errorText={results.isError ? friendlyMessage(results.error) : undefined} onTeam={(id) => set('team', id)} onOwner={(id) => set('owner', id)} onResult={(r) => set('result', r)} onCopy={(text) => navigator.clipboard.writeText(text).then(() => true, () => false)} />
 }

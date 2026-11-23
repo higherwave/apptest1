@@ -241,3 +241,42 @@
   padding-inline-start: var(--at-space-md);
   color: var(--at-muted);
 }
+
+// The theme's title and one-line summary, with the button that copies it as text.
+.panelHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+}
+
+.summaryLine {
+  @include tokens.role('body-md');
+  margin: var(--at-space-xxs) 0 0;
+  color: var(--at-body);
+}
+
+.copyStatus {
+  @include tokens.role('meta');
+  margin: 0;
+  min-block-size: 1em;
+  color: var(--at-muted);
+}
+
+// A project that is a case study: a tag and the link to it.
+.caseLine {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-sm);
+  margin: 0;
+
+  a { @include tokens.role('label-md'); color: var(--at-link); text-decoration: none; &:hover { color: var(--at-link-active); text-decoration: underline; } }
+}
+
+// How many need attention, and a way to look at only those.
+.attention {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-xs);
+  margin: 0;
+}

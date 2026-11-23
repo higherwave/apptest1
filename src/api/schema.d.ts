@@ -3442,6 +3442,8 @@ export interface components {
                     ownerName: string | null;
                     /** @description The day of the final go. */
                     approvedOn: string | null;
+                    /** @description True when the project is a case study (something worked and nothing needs attention). */
+                    caseStudy: boolean;
                     measures: components["schemas"]["LaunchMeasure"][];
                 }[];
             }[];

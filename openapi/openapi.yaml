@@ -4470,7 +4470,7 @@ components:
                 type: array
                 items:
                   type: object
-                  required: [projectId, projectName, teamId, teamName, launchId, launchName, ownerId, ownerName, approvedOn, measures]
+                  required: [projectId, projectName, teamId, teamName, launchId, launchName, ownerId, ownerName, approvedOn, caseStudy, measures]
                   properties:
                     projectId: { type: string }
                     projectName: { type: string }
@@ -4481,6 +4481,7 @@ components:
                     ownerId: { type: [string, 'null'] }
                     ownerName: { type: [string, 'null'] }
                     approvedOn: { type: [string, 'null'], description: The day of the final go. }
+                    caseStudy: { type: boolean, description: True when the project is a case study (something worked and nothing needs attention). }
                     measures: { type: array, items: { $ref: '#/components/schemas/LaunchMeasure' } }
     LaunchReadingRequest:
       type: object

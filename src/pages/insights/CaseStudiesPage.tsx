@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useCaseBriefs, useCaseStudies } from '../../api/hooks'
 import { useGrouping } from './GroupBy'
@@ -7,6 +7,7 @@ import { CaseStudiesView } from './CaseStudiesView'
 // Container: a row for each analysed project (its brief) and for each case study written by hand. A theme chip opens that theme.
 export function CaseStudiesPage() {
   const navigate = useNavigate()
+  const [params] = useSearchParams()
   const cases = useCaseStudies()
   const briefs = useCaseBriefs()
   const [groupBy, setGroupBy] = useGrouping()
@@ -17,6 +18,7 @@ export function CaseStudiesPage() {
       state={state}
       cases={cases.data ?? []}
       briefs={briefs.data ?? []}
+      focusProject={params.get('project')}
       groupBy={groupBy}
       onGroupBy={setGroupBy}
       errorText={error ? friendlyMessage(error) : undefined}

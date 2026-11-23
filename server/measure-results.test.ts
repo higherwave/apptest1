@@ -49,4 +49,10 @@ test('Measure lists only measures that have a reading, under the themes of the r
   assert.deepEqual([p0.projectName, p0.launchName, p0.ownerName], ['Clinic booking, usability round 1', 'Spring release', 'Alex Rivera'])
   assert.ok(p0.approvedOn)
   assert.ok(themes[0].projects[0].measures[0].checkins.length >= 1 && themes[0].projects[0].measures[0].result)
+
+  // A project is a case study once something worked and nothing needs attention: here one measure needs attention, so it is not; when it is read as worked, it is.
+  const flags = async () => (await (await call(owner, 'GET', '/measure/results')).json()).themes.flatMap((t: any) => t.projects.map((p: any) => p.caseStudy))
+  assert.ok((await flags()).length > 0 && (await flags()).every((f: boolean) => f === false))
+  await call(alex, 'PUT', `/launches/${launch.id}/measures/${engagement.id}/reading`, { on: '2027-03-02', value: '4', verdict: 'worked' })
+  assert.ok((await flags()).every((f: boolean) => f === true))
 })

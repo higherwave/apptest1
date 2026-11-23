@@ -17,6 +17,8 @@ export type ResultProject = {
   ownerName: string | null
   /** The day of the final go; the readings are counted from it. */
   approvedOn: string | null
+  /** True when the project is a case study (Platform Insights > Case studies): something worked and nothing needs attention. */
+  caseStudy: boolean
   measures: LaunchMeasure[]
 }
 export type ResultTheme = { id: string | null; title: string; projects: ResultProject[] }
@@ -71,6 +73,13 @@ export async function getMeasureResults(db: Queryable, workspaceId: string, visi
     themesOfReq.set(r.project_id, byKey)
   }
 
+  // A project is a case study once something worked and nothing needs attention (the same rule as the case studies page), and it has an analysis behind it.
+  const analysed = new Set((await db.query(`select distinct r.project_id from core.agent_runs r join core.projects p on p.id = r.project_id where r.project_id = any($1::uuid[]) and p.kind = 'research' and r.kind = 'analysis' and r.status = 'complete' and r.superseded_at is null`, [projectIds])).rows.map((r) => r.project_id as string))
+  const isCase = (projectId: string, launchId: string) => {
+    const results = (measuresOf.get(launchId) ?? []).map((m) => m.result)
+    return analysed.has(projectId) && results.includes('worked') && !results.includes('needs_attention')
+  }
+
   const groups = new Map<string | null, Map<string, ResultProject>>()
   for (const l of launches) {
     const byKey = themesOfReq.get(l.project_id) ?? new Map<string, Set<string | null>>()
@@ -81,7 +90,7 @@ export async function getMeasureResults(db: Queryable, workspaceId: string, visi
       if (!themes.size) themes.add(null)
       for (const t of themes) {
         const projects = groups.get(t) ?? new Map<string, ResultProject>()
-        const entry: ResultProject = projects.get(l.launch_id) ?? { projectId: l.project_id, projectName: l.project_name, teamId: l.team_id ?? null, teamName: l.team_name ?? null, launchId: l.launch_id, launchName: l.launch_name, ownerId: l.owner_id ?? null, ownerName: l.owner_name ?? null, approvedOn: l.approved_on ?? null, measures: [] }
+        const entry: ResultProject = projects.get(l.launch_id) ?? { projectId: l.project_id, projectName: l.project_name, teamId: l.team_id ?? null, teamName: l.team_name ?? null, launchId: l.launch_id, launchName: l.launch_name, ownerId: l.owner_id ?? null, ownerName: l.owner_name ?? null, approvedOn: l.approved_on ?? null, caseStudy: isCase(l.project_id, l.launch_id), measures: [] }
         entry.measures.push(m)
         projects.set(l.launch_id, entry)
         groups.set(t, projects)

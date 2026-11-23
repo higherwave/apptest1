@@ -1,9 +1,12 @@
+import { Copy } from '@carbon/icons-react'
 import { Button, Dropdown, Loading, Tag } from '@carbon/react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
+import { Link } from 'react-router-dom'
 import type { LaunchMeasure, MeasureResults } from '../../api/client'
 import { MEASURE_KINDS, readingText, sentenceText } from '../../../shared/measure.mjs'
 import { PageHero } from '../../shell/PageHero'
 import { dayText } from '../launch/launchText'
+import { themeSummaryLine, themeSummaryText } from './summaryText'
 import styles from './MeasureView.module.scss'
 
 export type MeasureViewProps = {
@@ -17,6 +20,8 @@ export type MeasureViewProps = {
   onTeam: (id: string | null) => void
   onOwner: (id: string | null) => void
   onResult: (r: Result | null) => void
+  /** Puts text on the clipboard; false when the browser would not. */
+  onCopy: (text: string) => Promise<boolean>
 }
 
 export type Result = NonNullable<LaunchMeasure['result']>
@@ -41,7 +46,11 @@ type Theme = Omit<MeasureResults['themes'][number], 'projects'> & { projects: Pr
 
 const kindLabel = (m: LaunchMeasure) => MEASURE_KINDS.find((k) => k.key === m.metricKind)?.label ?? 'Reading'
 const latestOf = (m: LaunchMeasure) => m.checkins[m.checkins.length - 1] ?? null
+// What is immediately useful comes first: what worked, then what needs attention, then what is too early to tell.
+const ORDER: Record<Result, number> = { worked: 0, needs_attention: 1, too_early: 2 }
+const worked = (p: Project) => p.measures.filter((m) => m.result === 'worked').length
 const countOf = (t: Theme, r: Result) => t.projects.reduce((n, p) => n + p.measures.filter((m) => m.result === r).length, 0)
+const sortedMeasures = (list: LaunchMeasure[]) => [...list].sort((a, b) => (a.result ? ORDER[a.result] : 3) - (b.result ? ORDER[b.result] : 3))
 const totalOf = (t: Theme) => t.projects.reduce((n, p) => n + p.measures.length, 0)
 
 // One measure with its result: what was expected (the sentence) beside what was read, tinted by how it went; earlier readings below.
@@ -75,17 +84,36 @@ function ResultRow({ m }: { m: LaunchMeasure }) {
   )
 }
 
-// The chosen theme: each project that reached it, with its launch's measures and what they showed.
-function ThemePanel({ theme }: { theme: Theme }) {
+// The chosen theme: a one-line summary (and a button that copies the theme as text for a report), then each project that reached it with its launch's measures and what
+// they showed. A project that is a case study says so and links to it.
+function ThemePanel({ theme, onCopy }: { theme: Theme; onCopy: MeasureViewProps['onCopy'] }) {
+  const [copied, setCopied] = useState<'copied' | 'failed' | null>(null)
+  const copy = async () => {
+    setCopied((await onCopy(themeSummaryText(theme))) ? 'copied' : 'failed')
+    window.setTimeout(() => setCopied(null), 2500)
+  }
   return (
     <div className={styles.panel} data-testid={`measure-panel-${theme.id ?? 'none'}`}>
-      <h2 className={styles.panelTitle}>{theme.title}</h2>
-      {theme.projects.map((p) => (
+      <div className={styles.panelHead}>
+        <div>
+          <h2 className={styles.panelTitle}>{theme.title}</h2>
+          <p className={styles.summaryLine} data-testid="theme-summary">{themeSummaryLine(theme)}</p>
+        </div>
+        <Button kind="tertiary" size="sm" renderIcon={Copy} data-testid="copy-summary" onClick={() => void copy()}>Copy summary</Button>
+      </div>
+      <p className={styles.copyStatus} role="status">{copied === 'copied' ? 'Copied: paste it into a report or a message.' : copied === 'failed' ? 'Your browser would not copy it.' : ''}</p>
+      {[...theme.projects].sort((a, b) => worked(b) - worked(a) || a.projectName.localeCompare(b.projectName, undefined, { sensitivity: 'base' })).map((p) => (
         <section key={p.launchId} className={styles.project} aria-label={p.projectName}>
           <h3 className={styles.projectName}>{p.projectName}</h3>
           <p className={styles.projectMeta}>{[p.teamName, p.ownerName, p.approvedOn ? `Signed off ${dayText(p.approvedOn)}` : null].filter(Boolean).join(' · ')}</p>
+          {p.caseStudy && (
+            <p className={styles.caseLine} data-testid={`case-study-${p.projectId}`}>
+              <Tag size="sm" type="green">Case study</Tag>
+              <Link to={`/insights/case-studies?project=${p.projectId}`}>View the case study</Link>
+            </p>
+          )}
           <ul className={styles.results} aria-label={`Results for ${p.projectName}`}>
-            {p.measures.map((m) => <ResultRow key={m.id} m={m} />)}
+            {sortedMeasures(p.measures).map((m) => <ResultRow key={m.id} m={m} />)}
           </ul>
         </section>
       ))}
@@ -130,6 +158,8 @@ export function MeasureView(props: MeasureViewProps) {
   const shown: Theme[] = scoped
     .map((t) => ({ ...t, projects: t.projects.map((p) => ({ ...p, measures: result ? p.measures.filter((m) => m.result === result) : p.measures })).filter((p) => p.measures.length > 0) }))
     .filter((t) => t.projects.length > 0)
+    // The themes with the most that worked first, then alphabetical; the group that is not a theme stays last.
+    .sort((a, b) => (a.id === null ? 1 : b.id === null ? -1 : countOf(b, 'worked') - countOf(a, 'worked') || a.title.localeCompare(b.title, undefined, { sensitivity: 'base' })))
   const selected = shown.find((t) => t.id === selectedId) ?? shown[0]
   useEffect(() => {
     if (selected && selected.id !== selectedId) setSelectedId(selected.id)
@@ -160,16 +190,27 @@ export function MeasureView(props: MeasureViewProps) {
               )}
               <Dropdown id="measure-result" titleText="Result" label="All" size="md" items={options} itemToString={(c) => c?.label ?? ''} selectedItem={options.find((r) => r.key === (result ?? 'all')) ?? options[0]} onChange={({ selectedItem }) => props.onResult(!selectedItem || selectedItem.key === 'all' ? null : (selectedItem.key as Result))} />
           </section>
+          {countAll('needs_attention') > 0 && result !== 'needs_attention' && (
+            <p className={styles.attention} data-testid="needs-attention-callout">
+              <Tag size="sm" type="red">{countAll('needs_attention')} need attention</Tag>
+              <Button kind="ghost" size="sm" onClick={() => props.onResult('needs_attention')}>Show only these</Button>
+            </p>
+          )}
+          {result === 'needs_attention' && (
+            <p className={styles.attention}>
+              <Button kind="ghost" size="sm" onClick={() => props.onResult(null)}>Show everything again</Button>
+            </p>
+          )}
           {shown.length === 0 ? (
             <p className={styles.muted}>Nothing matches those choices.</p>
           ) : (
             <div className={styles.layout} data-wide={wide}>
               <ul className={styles.list} aria-label="Themes with results">
                 {shown.map((t) => (
-                  <ThemeCard key={t.id ?? 'none'} theme={t} selected={t.id === selected?.id} onSelect={() => setSelectedId(t.id)} inlinePanel={!wide && t.id === selected?.id ? <ThemePanel theme={t} /> : undefined} />
+                  <ThemeCard key={t.id ?? 'none'} theme={t} selected={t.id === selected?.id} onSelect={() => setSelectedId(t.id)} inlinePanel={!wide && t.id === selected?.id ? <ThemePanel theme={t} onCopy={props.onCopy} /> : undefined} />
                 ))}
               </ul>
-              {wide && selected && <aside className={styles.aside}><ThemePanel theme={selected} /></aside>}
+              {wide && selected && <aside className={styles.aside}><ThemePanel theme={selected} onCopy={props.onCopy} /></aside>}
             </div>
           )}
         </>

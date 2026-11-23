@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { startOpen } from '../../shell/startOpen'
 import { Button, InlineNotification, Loading, Tag, TextArea } from '@carbon/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { CaseBrief, CaseStudy } from '../../api/client'
 import { groupByArea } from './areaGroups'
 import { GroupBy, type Grouping } from './GroupBy'
@@ -17,6 +17,8 @@ export type CaseStudiesViewProps = {
   /** Puts text on the clipboard; false when the browser would not. */
   onCopy: (text: string) => Promise<boolean>
   onOpenTheme: (id: string) => void
+  /** A project to open and bring into view (from a link in Measure), instead of the usual starting rows. */
+  focusProject?: string | null
   /** How the themes in each row are divided: one list, or under each experience category. */
   groupBy?: Grouping
   onGroupBy?: (g: Grouping) => void
@@ -208,14 +210,19 @@ function StudyBody({ study, onOpenTheme, groupBy }: { study: CaseStudy; onOpenTh
 }
 
 // Presentational: a row for each analysed project and for each case study written by hand. Each row opens to the same layout.
-export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpenTheme, groupBy = 'none', onGroupBy }: CaseStudiesViewProps) {
+export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpenTheme, focusProject, groupBy = 'none', onGroupBy }: CaseStudiesViewProps) {
   const [opened, setOpened] = useState<Set<string>>(new Set())
   const [started, setStarted] = useState(false)
   // The rows start closed, unless there is only one.
   if (!started && state === 'ready' && (briefs[0] || cases[0])) {
     setStarted(true)
-    setOpened(startOpen([...briefs.map((b) => `p-${b.projectId}`), ...cases.map((c) => `c-${c.id}`)]))
+    const rows = [...briefs.map((b) => `p-${b.projectId}`), ...cases.map((c) => `c-${c.id}`)]
+    setOpened(focusProject && rows.includes(`p-${focusProject}`) ? new Set([`p-${focusProject}`]) : startOpen(rows))
   }
+  // A link from Measure brings its project's row into view.
+  useEffect(() => {
+    if (state === 'ready' && focusProject) document.querySelector(`[data-testid="case-row-p-${CSS.escape(focusProject)}"]`)?.scrollIntoView({ block: 'start' })
+  }, [state, focusProject])
   const toggle = (id: string) => setOpened((o) => { const n = new Set(o); if (n.has(id)) n.delete(id); else n.add(id); return n })
   const all = [...briefs.map((b) => `p-${b.projectId}`), ...cases.map((c) => `c-${c.id}`)]
   return (
@@ -223,7 +230,7 @@ export function CaseStudiesView({ state, cases, briefs, errorText, onCopy, onOpe
       <InsightsHeader title="Platform Insights" description="What the team changed because of what it learned" />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading small withOverlay={false} description="Loading case studies" />}
-      {state === 'empty' && <p className={styles.small}>No case studies yet. A project appears here once something it shipped has worked: the newest finding on a requirement in Measure says Worked, and none needs attention.</p>}
+      {state === 'empty' && <p className={styles.small}>No case studies yet. A project appears here once something it shipped has worked: the latest reading of one of its launch’s measures says Worked, and none needs attention.</p>}
       {state === 'ready' && (
         <>
           <div className={styles.listTools}>
