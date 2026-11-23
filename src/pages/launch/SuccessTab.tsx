@@ -144,7 +144,7 @@ function Expectation({ m, index, requirements, editable, onChange, onRemove, chi
   )
 }
 
-// The launch's "How will we know it worked?": what the release is expected to do, set before it goes out. The goals from the brief, when we will look (30, 60 and 90
+// The launch's "How will we know it worked?": what the release is expected to do, set before it goes out. When we will look (30, 60 and 90
 // days after the final approval), and the measures: a short list for the whole release. They change freely until the final decision is a go; then they are the record.
 export function SuccessTab({ launchId, canEdit, requirements }: { launchId: string; canEdit: boolean; requirements: Requirement[] }) {
   const q = useLaunchSuccess(launchId)
@@ -182,20 +182,6 @@ export function SuccessTab({ launchId, canEdit, requirements }: { launchId: stri
   }
   return (
     <div className={styles.page} data-testid="success-tab">
-      {data.published && (
-        <section className={styles.section} aria-labelledby="success-goal">
-          <p className={styles.group}>What success looks like</p>
-          <h2 id="success-goal" className={styles.heading}>{data.goals && data.goals.length ? 'What the brief set out to do' : 'No goals written yet'}</h2>
-          {data.problem && <p className={styles.problem}>{data.problem}</p>}
-          {data.goals && data.goals.length > 0 && (
-            <ul className={styles.goals}>
-              {data.goals.map((g, i) => <li key={i}>{g}</li>)}
-            </ul>
-          )}
-          <p className={styles.meta}>From the product brief, step 3: goals and success metrics.</p>
-        </section>
-      )}
-
       <section className={styles.section} aria-labelledby="success-when">
         <p className={styles.group}>When we will look</p>
         <h2 id="success-when" className={styles.heading}>30, 60 and 90 days after the final approval</h2>

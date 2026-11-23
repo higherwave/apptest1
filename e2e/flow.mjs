@@ -983,7 +983,7 @@ try {
   await page.goto(`${BASE}/launches/${launchId}`, { waitUntil: 'networkidle0' })
   await tid('tab-success')
   await page.waitForSelector('[data-testid="success-tab"]', { timeout: 8000 })
-  ok('the launch has a How will we know it worked? tab: the goals, the 30, 60 and 90 day review points, and a list of measures for the whole release', await page.evaluate(() => { const t = document.querySelector('[data-testid="success-tab"]'); return !!t && /What success looks like/.test(t.innerText) && ['d30', 'd60', 'd90'].every((k) => !!t.querySelector(`[data-testid="review-point-${k}"]`)) && !!t.querySelector('[data-testid="expectation-add"]') && !t.querySelector('[data-testid^="success-measure-"]') }))
+  ok('the launch has a How will we know it worked? tab: the 30, 60 and 90 day review points and a list of measures for the whole release, without repeating the brief’s goals', await page.evaluate(() => { const t = document.querySelector('[data-testid="success-tab"]'); return !!t && !/What success looks like/.test(t.innerText) && /When we will look/.test(t.innerText) && ['d30', 'd60', 'd90'].every((k) => !!t.querySelector(`[data-testid="review-point-${k}"]`)) && !!t.querySelector('[data-testid="expectation-add"]') && !t.querySelector('[data-testid^="success-measure-"]') }))
   await tid('expectation-starter')
   ok('the starter set adds adoption, engagement and time-to-value, and Save measures turns on', await page.evaluate(() => [...document.querySelectorAll('[data-testid^="expectation-"]')].filter((e) => /^expectation-\d+$/.test(e.dataset.testid)).length === 3 && !document.querySelector('[data-testid="expectation-save"]').disabled))
   await tid('expectation-save')
