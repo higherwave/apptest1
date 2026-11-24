@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Information } from '@carbon/icons-react'
-import { Button, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { friendlyMessage, type PulseTopic } from '../../api/client'
 import { useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
@@ -145,6 +145,11 @@ export function TopicsPage() {
                   <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
                     <TableHead>
                       <TableRow>
+                        {canStart && (
+                          <TableHeader className={styles.checkCol}>
+                            <span className={styles.srOnly}>Select</span>
+                          </TableHeader>
+                        )}
                         <TableHeader className={styles.rankCol}>#</TableHeader>
                         <TableHeader>Topic</TableHeader>
                         {CHANNELS.map((c) => (
@@ -165,6 +170,11 @@ export function TopicsPage() {
                       {orderedTopics.map((t, position) => (
                         <Fragment key={t.id}>
                           <TableRow data-testid={`topic-${t.id}`} data-rank={t.rank} data-open={open === t.id}>
+                            {canStart && (
+                              <TableCell className={styles.checkCol}>
+                                <Checkbox id={`pick-${t.id}`} data-testid={`pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
+                              </TableCell>
+                            )}
                             <TableCell className={styles.rankCol}>{position + 1}</TableCell>
                             <TableCell>
                               <div className={styles.topic}>
@@ -230,7 +240,7 @@ export function TopicsPage() {
                           </TableRow>
                           {open === t.id && (
                             <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                              <TableCell colSpan={CHANNELS.length + 5 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
+                              <TableCell colSpan={CHANNELS.length + (canStart ? 6 : 5) + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
                                 <Why topic={t} />
                               </TableCell>
                             </TableRow>
