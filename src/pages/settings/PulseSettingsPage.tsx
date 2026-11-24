@@ -10,7 +10,7 @@ import { PulseTopicsUpdate } from './PulseTopicsUpdate'
 import { PulseViewers } from './PulseViewers'
 import styles from './NotificationsPage.module.scss'
 
-// Settings, Pulse (owners, while the preview is on): what a signal from each channel counts for in a topic's ranking. A change re-ranks the topics at once, because the score is
+// Settings, Pulse (owners, while Pulse is switched on): what a signal from each channel counts for in a topic's ranking. A change re-ranks the topics at once, because the score is
 // worked out from the signals and these weights every time it is read. The designated feedback sources are listed below the weights.
 export function PulseSettingsPage() {
   const me = useMe()
@@ -25,7 +25,7 @@ export function PulseSettingsPage() {
   if (me.data && !me.data.features.pulse) {
     return (
       <div className={styles.page}>
-        <p className={styles.text}>Pulse is not switched on for this workspace. Turn it on under Previews.</p>
+        <p className={styles.text}>Pulse is not switched on for this workspace. Turn it on under Apps.</p>
       </div>
     )
   }

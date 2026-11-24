@@ -32,12 +32,12 @@ export const SETTINGS_SECTIONS = [
   { key: 'data', label: 'Data' },
   { key: 'audit', label: 'Audit log' },
   { key: 'pulse', label: 'Pulse' },
-  { key: 'preview', label: 'Previews' },
+  { key: 'apps', label: 'Apps' },
 ]
 
 // The Settings menu (the horizontal one under the title bar, like a project's): groups of views. Each view is a section's page (/settings/<section>), and where a section has views of its own the
 // choice is in the address (?tab=...), the first being the default. A group is for owners only where `ownerOnly` says so (editors see Experience Categories and Communication), and the Pulse group
-// shows only while the Pulse preview is on. The terms for the sign-off roles come from shared/terms.mjs.
+// shows only while Pulse is switched on for the workspace. The terms for the sign-off roles come from shared/terms.mjs.
 export type AdminItem = { key: string; label: string; section: string; tab?: string; testId?: string }
 export type AdminGroup = { label: string; items: AdminItem[]; ownerOnly?: boolean; needsPulse?: boolean }
 export const ADMIN_GROUPS: AdminGroup[] = [
@@ -46,8 +46,8 @@ export const ADMIN_GROUPS: AdminGroup[] = [
   { label: 'Communication', items: [{ key: 'notifications', label: 'Notifications', section: 'notifications' }] },
   { label: 'User Access', ownerOnly: true, items: [{ key: 'people', label: 'People', section: 'access', tab: 'people', testId: 'tab-people' }, { key: 'teams', label: 'Teams', section: 'access', tab: 'teams', testId: 'tab-teams' }, { key: 'approvals', label: T.Approvals, section: 'access', tab: 'approvals', testId: 'tab-approvals' }] },
   { label: 'Data and Compliance', ownerOnly: true, items: [{ key: 'data', label: 'Data', section: 'data' }, { key: 'audit', label: 'Audit log', section: 'audit' }] },
+  { label: 'Apps', ownerOnly: true, items: [{ key: 'apps', label: 'Apps', section: 'apps' }] },
   { label: 'Pulse', ownerOnly: true, needsPulse: true, items: [{ key: 'pulse', label: 'Pulse', section: 'pulse' }] },
-  { label: 'Previews', ownerOnly: true, items: [{ key: 'preview', label: 'Previews', section: 'preview' }] },
 ]
 
 export const SECTION_TITLES: Record<string, string> = Object.fromEntries([

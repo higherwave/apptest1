@@ -29,7 +29,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.workspaces': 'Workspace data',
   'core.legal_holds': 'Legal hold',
   'core.workspace_setup': 'Workspace setup',
-  'core.workspace_features': 'Preview feature',
+  'core.workspace_features': 'App',
   'core.pulse_weights': 'Pulse weights',
   'core.pulse_topics': 'Pulse topic',
   'insights.workflows': 'Journey',

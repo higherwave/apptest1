@@ -1,4 +1,4 @@
-// Pulse (preview): invisible until an owner switches it on in Settings, Previews; then an owner sees it in the menu and can add signals and notes, keep and dismiss them;
+// Pulse: invisible until an owner switches it on in Settings, Apps; then an owner sees it in the menu and can add signals and notes, keep and dismiss them;
 // a read-only visitor never sees it, and switching it off hides it again. Started by e2e/run.mjs against the main test API.
 import puppeteer from 'puppeteer-core'
 const BASE = process.env.E2E_BASE || 'http://localhost:5198'
@@ -41,17 +41,17 @@ const open = async (token, path) => {
 try {
   // Off by default: not in the menu, and the address shows a page that does not exist.
   let page = await open(TOKEN, '/projects')
-  ok('Pulse is not in the launcher while the preview is off', !(await menu(page)).includes('Pulse'))
+  ok('Pulse is not in the launcher while Pulse is switched off', !(await menu(page)).includes('Pulse'))
   await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   ok('and /pulse is a page that does not exist', (await text(page)).includes('Page not found'))
 
-  // An owner switches it on in Settings, Previews.
-  await page.goto(`${BASE}/settings/preview`, { waitUntil: 'networkidle0' })
-  await waitText(page, 'Show Pulse (preview)')
-  ok('Settings has a Previews tab with the Pulse switch, off', await page.evaluate(() => document.querySelector('[data-testid="preview-pulse"]').getAttribute('aria-checked') === 'false' && !!document.querySelector('[aria-label="Settings sections"]').innerText.includes('Previews')))
-  ok('under the Pulse card the Previews tab has a Workspace setup card that opens the setup', await (async () => { const order = await page.evaluate(() => { const a = document.querySelector('[data-testid="preview-pulse-card"]').getBoundingClientRect(), b = document.querySelector('[data-testid="preview-setup-card"]').getBoundingClientRect(); return b.top >= a.bottom - 1 }); await click(page, 'preview-setup-open'); await page.waitForFunction(() => location.pathname === '/setup' && !!document.querySelector('[data-testid="setup-progress"]'), { timeout: 8000 }); await page.goBack(); await page.waitForSelector('[data-testid="preview-pulse"]'); return order })())
-  await click(page, 'preview-pulse')
-  await page.waitForFunction(() => document.querySelector('[data-testid="preview-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })
+  // An owner switches it on in Settings, Apps.
+  await page.goto(`${BASE}/settings/apps`, { waitUntil: 'networkidle0' })
+  await waitText(page, 'Use Pulse in this workspace')
+  ok('Settings has an Apps tab with the Pulse switch, off', await page.evaluate(() => document.querySelector('[data-testid="app-pulse"]').getAttribute('aria-checked') === 'false' && !!document.querySelector('[aria-label="Settings sections"]').innerText.includes('Apps')))
+  ok('under the Pulse card the Apps tab has a Workspace setup card that opens the setup', await (async () => { const order = await page.evaluate(() => { const a = document.querySelector('[data-testid="app-pulse-card"]').getBoundingClientRect(), b = document.querySelector('[data-testid="apps-setup-card"]').getBoundingClientRect(); return b.top >= a.bottom - 1 }); await click(page, 'apps-setup-open'); await page.waitForFunction(() => location.pathname === '/setup' && !!document.querySelector('[data-testid="setup-progress"]'), { timeout: 8000 }); await page.goBack(); await page.waitForSelector('[data-testid="app-pulse"]'); return order })())
+  await click(page, 'app-pulse')
+  await page.waitForFunction(() => document.querySelector('[data-testid="app-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   ok('with it on, Pulse is in the launcher for the owner', (await menu(page)).includes('Pulse'))
 
@@ -301,10 +301,10 @@ try {
   ok('and the address is a page that does not exist for them', (await text(visitor)).includes('Page not found'))
 
   // Switched off again: gone for the owner too.
-  await page.goto(`${BASE}/settings/preview`, { waitUntil: 'networkidle0' })
-  await page.waitForFunction(() => document.querySelector('[data-testid="preview-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })
-  await click(page, 'preview-pulse')
-  await page.waitForFunction(() => document.querySelector('[data-testid="preview-pulse"]')?.getAttribute('aria-checked') === 'false', { timeout: 8000 })
+  await page.goto(`${BASE}/settings/apps`, { waitUntil: 'networkidle0' })
+  await page.waitForFunction(() => document.querySelector('[data-testid="app-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })
+  await click(page, 'app-pulse')
+  await page.waitForFunction(() => document.querySelector('[data-testid="app-pulse"]')?.getAttribute('aria-checked') === 'false', { timeout: 8000 })
   await page.goto(`${BASE}/projects`, { waitUntil: 'networkidle0' })
   ok('switched off, Pulse leaves the launcher again', !(await menu(page)).includes('Pulse'))
 } catch (err) {

@@ -1222,7 +1222,7 @@ export function createApp(options: AppOptions = {}) {
     }
   })
 
-  // Pulse (preview): customer signals for early problem framing. For owners only, and only while an owner has switched the preview on (pulse.ts, `pulseOn`). Anyone
+  // Pulse: customer signals for early problem framing. Only while an owner has switched Pulse on for the workspace (pulse.ts, `pulseOn`). Anyone
   // else gets the answer a page that does not exist would give, so a viewer cannot tell it is there. The switch itself is an owner's setting in Settings.
   // `need` is what the route asks for: view (default), edit (owners and editors), or owner (settings). Someone with no access at all gets the not-found answer; someone who can
   // see Pulse but not do this gets a plain refusal.

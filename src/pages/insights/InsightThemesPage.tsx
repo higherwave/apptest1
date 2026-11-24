@@ -1,4 +1,3 @@
-import { SHOW_SUITE } from '../../shell/suite'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
@@ -33,7 +32,7 @@ export function InsightThemesPage() {
     <InsightThemesView
       state={state}
       overview={overview.data}
-      pulseTopics={SHOW_SUITE && me.data?.features.pulse ? pulse.data?.topics : undefined}
+      pulseTopics={me.data?.features.pulse ? pulse.data?.topics : undefined}
       openId={openId}
       groupBy={params.get('group') === 'area' ? 'area' : 'none'}
       onGroupBy={(g) => {

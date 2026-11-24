@@ -22,7 +22,7 @@ import { MeasurePage } from './pages/measure/MeasurePage'
 import { TopicsPage } from './pages/pulse/TopicsPage'
 import { TopicDetailPage } from './pages/pulse/TopicDetailPage'
 import { PulseSettingsPage } from './pages/settings/PulseSettingsPage'
-import { PreviewsPage } from './pages/settings/PreviewsPage'
+import { AppsPage } from './pages/settings/AppsPage'
 import { LaunchPage } from './pages/launch/LaunchPage'
 import { LaunchByIdPage } from './pages/launch/LaunchByIdPage'
 import { LaunchesPage } from './pages/launch/LaunchesPage'
@@ -99,7 +99,8 @@ export function App() {
           <Route path="categories" element={<AreasPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="pulse" element={<PulseSettingsPage />} />
-          <Route path="preview" element={<PreviewsPage />} />
+          <Route path="apps" element={<AppsPage />} />
+          <Route path="preview" element={<Navigate to="/settings/apps" replace />} />
           <Route path="usage" element={<UsageAndCostsPage />} />
           <Route path="status" element={<Navigate to="/settings/usage?tab=ai" replace />} />
           <Route path="teams" element={<Navigate to="/settings/access?tab=teams" replace />} />

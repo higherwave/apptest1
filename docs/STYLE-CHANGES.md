@@ -149,3 +149,8 @@ To undo: restore the previous `--at-panel-aurora` (two radial glows over a 115de
 - **Where:** Recommendations, Themes across projects, Heard in Pulse, Recent merges (Platform Insights); What is left to do (the resume panel, on dark); Test methods and Participants (Test Plan); Themes used, Agent reasoning and Output (Requirements); Where topics were heard (Pulse). Each has a `.sectionHeading` class beside its `.label`.
 - **How:** `heading-section` maps to `title-sm` in `src/tokens.scss`, so a later change to the level is one edit. Registered in the design-system repo (`registry/tokens.json`, named in the `heading-roles` message, with a test).
 - **To undo:** point `heading-section` back at `eyebrow` in `src/tokens.scss`.
+
+## 2026-11-24: Settings, Previews becomes Settings, Apps; the app switcher is no longer hidden
+- **What:** the "Previews" group in Settings is now "Apps" (`/settings/apps`; `/settings/preview` redirects). It has a plain "Use Pulse in this workspace" switch, in place of "Show Pulse (preview)", and the Workspace setup card. The Pulse group follows it while Pulse is on.
+- **Launcher:** the build flag `VITE_SHOW_SUITE` is gone. The launcher in the header and the "Heard in Pulse" strip on Platform Insights are always there (the strip only for people who can use Pulse). The launcher also holds the Prototype gallery and Decision Guides links, so it stays even for a workspace with one app.
+- **Platform Insights** is Signal Flow's home (where people land after signing in, and on switching to Signal Flow), so it no longer has a launcher card.

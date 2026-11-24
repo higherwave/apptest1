@@ -71,7 +71,7 @@ export function AppShell() {
     }),
   }))
 
-  // Settings: the groups this person may open. Editors have Experience Categories and Communication; owners have them all (Pulse only while its preview is on).
+  // Settings: the groups this person may open. Editors have Experience Categories and Communication; owners have them all (Pulse only while it is switched on).
   const owner = me.data?.role === 'owner'
   const setup = useSetup(admin && owner)
   const proposals = useAreaProposals(admin && !!me.data)

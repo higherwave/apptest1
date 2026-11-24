@@ -1,5 +1,5 @@
 // The suite's apps and where each one's navigation goes. One config drives the header, the launcher and the narrow-screen menu.
-// Platform Insights is the suite home (the page people land on after signing in): it is in the launcher, and also stays a top item of Signal Flow.
+// Platform Insights is Signal Flow's home (the page people land on after signing in, and on switching to Signal Flow from another app): it is the first item of Signal Flow, not a card of its own in the launcher.
 import brand from '../../brand/brand.json'
 
 export type AppKey = 'signal-flow' | 'pulse'
@@ -44,5 +44,5 @@ export const APPS: Record<AppKey, AppDef> = {
 
 export const appFor = (path: string): AppDef => (APPS.pulse.owns(path) ? APPS.pulse : APPS['signal-flow'])
 
-/** The suite home: the page people land on after signing in. */
+/** Where people land after signing in: Platform Insights, Signal Flow's home. Not an app of its own, so it has no launcher card. */
 export const HOME = { to: '/insights/themes', label: 'Platform Insights', blurb: 'Everything the suite has learned', icon: '/app-icons/platform-insights-128.png' }

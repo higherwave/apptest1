@@ -1,4 +1,3 @@
-import { SHOW_SUITE } from './suite'
 import { ChevronDown, Help, Launch } from '@carbon/icons-react'
 import { Button, Popover, PopoverContent } from '@carbon/react'
 import { useState, type MouseEvent } from 'react'
@@ -8,7 +7,7 @@ import { AccessBar } from '../auth/AccessBar'
 import { AiBadge } from '../auth/AiBadge'
 import { useTour } from '../tour/tourContext'
 import { AppMark, LauncherDots } from './AppIcons'
-import { APPS, appFor, HOME, type AppDef } from './apps'
+import { APPS, appFor, type AppDef } from './apps'
 import styles from './AppHeader.module.scss'
 import brand from '../../brand/brand.json'
 
@@ -28,7 +27,7 @@ export function AppHeader() {
   const app = appFor(pathname)
   const settings = pathname.startsWith('/settings')
 
-  // Pulse is a preview: the server says whether this person may see it, and nobody else gets even a launcher card.
+  // Pulse is an app an owner switches on for the workspace: the server says whether this person may use it, and nobody else gets even a launcher card.
   const apps: AppDef[] = [APPS['signal-flow'], ...(me.data?.features.pulse ? [APPS.pulse] : [])]
   const items = app.items.map((i) => ({ ...i, active: !settings && i.match(pathname) }))
   const current = settings ? 'Settings' : (items.find((i) => i.active)?.label ?? app.name)
@@ -47,7 +46,6 @@ export function AppHeader() {
 
   return (
     <header className={styles.bar}>
-      {SHOW_SUITE && (
       <div className={styles.launcherWrap} onKeyDown={(e) => e.key === 'Escape' && setLauncherOpen(false)}>
         <Popover open={launcherOpen} align="bottom-start" dropShadow onRequestClose={() => setLauncherOpen(false)}>
           <Button kind="ghost" size="md" className={cx(styles.launcher, launcherOpen && styles.launcherOpen)} aria-label="All apps" aria-haspopup="true" aria-expanded={launcherOpen} data-testid="app-launcher" onClick={() => setLauncherOpen((o) => !o)}>
@@ -57,11 +55,6 @@ export function AppHeader() {
             <div data-testid="launcher-panel">
               <p className={styles.panelTitle}>Your apps</p>
               <div className={styles.cards}>
-                <a href={HOME.to} data-label="Platform Insights home" className={styles.card} onClick={go(HOME.to)}>
-                  <img className={styles.cardIcon} src={HOME.icon} alt="" width={44} height={44} />
-                  <span className={styles.cardName}>{HOME.label}</span>
-                  <span className={styles.cardBlurb}>{HOME.blurb}</span>
-                </a>
                 {apps.map((a) => (
                   <a key={a.key} href={a.items[0].to} data-label={a.name} aria-current={a.key === app.key ? 'true' : undefined} className={cx(styles.card, a.key === app.key && styles.cardCurrent)} onClick={go(a.items[0].to)}>
                     <img className={styles.cardIcon} src={a.icon} alt="" width={44} height={44} />
@@ -85,7 +78,6 @@ export function AppHeader() {
           </PopoverContent>
         </Popover>
       </div>
-      )}
 
       <a href={app.items[0].to} className={styles.appBrand} data-testid="app-brand" aria-label={`${app.name} home`} onClick={go(app.items[0].to)}>
         <span className={styles.mark}>

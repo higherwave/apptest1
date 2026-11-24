@@ -233,10 +233,10 @@ $stack: 56.25rem; // below this the map goes above the cards
   box-sizing: border-box;
 }
 
-.qQuietCostly { fill: color-mix(in srgb, var(--at-tint-sand) 28%, var(--at-canvas)); }
-.qLoudCostly { fill: color-mix(in srgb, var(--at-tint-coral) 28%, var(--at-canvas)); }
-.qQuietContained { fill: color-mix(in srgb, var(--at-tint-mint) 28%, var(--at-canvas)); }
-.qLoudContained { fill: color-mix(in srgb, var(--at-tint-yellow) 28%, var(--at-canvas)); }
+.qQuietCostly { fill: color-mix(in srgb, var(--at-tint-sand) 40%, var(--at-canvas)); }
+.qLoudCostly { fill: color-mix(in srgb, var(--at-tint-coral) 40%, var(--at-canvas)); }
+.qQuietContained { fill: color-mix(in srgb, var(--at-tint-mint) 40%, var(--at-canvas)); }
+.qLoudContained { fill: color-mix(in srgb, var(--at-tint-yellow) 40%, var(--at-canvas)); }
 .divider { stroke: var(--at-canvas); stroke-width: 2; }
 .axis { stroke: var(--at-muted); stroke-width: 1; }
 

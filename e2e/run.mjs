@@ -27,7 +27,7 @@ async function waitFor(url, label, ms = 60_000) {
 
 // CAPTURE_TEST: thumbnails from links start switched off (the flow turns them on for its own section) and use this machine's Chrome.
 start('npx', ['tsx', 'server/dev-memory.ts'], { DEV_TOKEN: TOKEN, API_PORT: '8791', CAPTURE_TEST: 'true', SLACK_DEMO: 'true', SALESFORCE_DEMO: 'true', CHROME_PATH: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' })
-start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791', VITE_SHOW_ACCESS_CONTROLS: 'true', VITE_SHOW_SUITE: 'true' }) // the tests lock and unlock editing, so the controls are shown
+start('npx', ['vite', '--port', '5198', '--strictPort'], { API_PORT: '8791', VITE_SHOW_ACCESS_CONTROLS: 'true' }) // the tests lock and unlock editing, so the controls are shown
 await waitFor('http://localhost:8791/api/v1/health', 'The API')
 await waitFor('http://localhost:5198/', 'The app')
 
@@ -43,7 +43,7 @@ code = (await run('e2e/tour.mjs', { E2E_BASE: 'http://localhost:5198' })) || cod
 console.log('\nPulse preview')
 code = (await run('e2e/pulse.mjs', { E2E_BASE: 'http://localhost:5198', E2E_TOKEN: TOKEN, E2E_API: 'http://localhost:8791' })) || code
 start('npx', ['tsx', 'server/dev-memory.ts'], { API_PORT: '8792', AUTH_TEST: 'true' })
-start('npx', ['vite', '--port', '5199', '--strictPort'], { API_PORT: '8792', VITE_SHOW_SUITE: 'true' })
+start('npx', ['vite', '--port', '5199', '--strictPort'], { API_PORT: '8792' })
 await waitFor('http://localhost:8792/api/v1/health', 'The sign-in test API')
 await waitFor('http://localhost:5199/', 'The sign-in test app')
 console.log('\nSign-in and roles')
