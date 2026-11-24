@@ -1,24 +1,19 @@
 import { Fragment, useEffect, useState } from 'react'
-import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, Checkbox, ContentSwitcher, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Switch, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
-import { Link, useNavigate } from 'react-router-dom'
+import { ChevronDown, ChevronUp, Information } from '@carbon/icons-react'
+import { Button, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { friendlyMessage, type PulseTopic } from '../../api/client'
 import { useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
-import { CHANNEL_LABEL, CHANNELS } from './channels'
+import { CHANNELS } from './channels'
 import { CreateProjectPanel } from './CreateProjectPanel'
-import { ImpactMap, type MapBy } from './ImpactMap'
 import { money, moneyFull } from './money'
 import { PulseNotFound } from './PulseNotFound'
+import { Why } from './Why'
 import { useTopicSelection } from './selection'
+import { TopPriorities } from './TopPriorities'
+import { TREND } from './trend'
 import styles from './TopicsPage.module.scss'
-
-const TREND: Record<PulseTopic['trend'], { label: string; type: 'red' | 'blue' | 'gray' | 'green' }> = {
-  new: { label: 'New', type: 'blue' },
-  rising: { label: 'Rising', type: 'red' },
-  steady: { label: 'Steady', type: 'gray' },
-  fading: { label: 'Fading', type: 'green' },
-}
 
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : null)
@@ -34,7 +29,8 @@ export function TopicsPage() {
   const [renaming, setRenaming] = useState<PulseTopic | null>(null)
   const [merging, setMerging] = useState<PulseTopic | null>(null)
   const [creating, setCreating] = useState(false)
-  const [by, setBy] = useState<MapBy>('accounts')
+  const [params, setParams] = useSearchParams()
+  const tab = params.get('tab') === 'all' ? 1 : 0
   const [rankBy, setRankBy] = useState<'score' | 'arr' | 'play'>('score')
   const { selected, toggle, clear, keepOnly } = useTopicSelection()
   // A topic that was merged away or regrouped can no longer be picked.
@@ -47,10 +43,8 @@ export function TopicsPage() {
   const total = list?.topics.reduce((a, t) => a + t.signals, 0) ?? 0
   const max = Math.max(1, ...(list?.topics.flatMap((t) => CHANNELS.map((c) => t.channels[c.key] ?? 0)) ?? [1]))
   const level = (n: number) => (n === 0 ? 0 : Math.min(4, 1 + Math.floor((n / max) * 3.999)))
-  const isOwner = me.data.role === 'owner'
   // ARR shows only once accounts have been copied from Salesforce (the server sends null otherwise).
   const hasArr = !!list?.topics.some((t) => t.arr !== null)
-  const mapBy: MapBy = hasArr ? by : 'accounts'
   // Opportunity notes put a figure on what is in play; "Rank by" orders the list by it. The score order stays the default, and the score is always shown.
   const hasPlay = !!list?.topics.some((t) => t.inPlay)
   const playOf = (t: PulseTopic) => t.inPlay?.open.amount ?? 0
@@ -65,26 +59,20 @@ export function TopicsPage() {
   const canStart = me.data.features.pulseEdit
   const picked = list?.topics.filter((t) => selected.includes(t.id)) ?? []
   const pickedSignals = picked.reduce((a, t) => a + t.signals, 0)
+  // On Top Priorities the label sits at the left of the card list and the dropdown stretches to its right edge; above the table it keeps its own width, at the right.
+  const rankBarFor = (stretch: boolean) => hasArr || hasPlay ? (
+    <div className={styles.rankBy} data-stretch={stretch} data-testid="rank-by">
+      <Select id="rank-by-select" data-testid="rank-by-select" size="sm" inline labelText="Rank by" value={rankBy} onChange={(e) => setRankBy(e.target.value as 'score' | 'arr' | 'play')}>
+        {rankOptions.map((o) => (
+          <SelectItem key={o.key} value={o.key} text={o.label} />
+        ))}
+      </Select>
+    </div>
+  ) : null
 
   return (
     <div className={styles.page}>
-      <PageHero title="Topics" description="What customers keep raising, grouped from the signals you have kept and ranked by how much each counts" glow="left" variant="wave" graphic="pulse">
-        <Tag type="purple" size="md" data-testid="pulse-preview-tag">
-          Preview
-        </Tag>
-      </PageHero>
-
-      <div className={styles.status} data-testid="topics-status">
-        <p className={styles.statusText}>
-          {list ? `${plural(list.topics.length, 'topic')} from ${plural(total, 'kept signal')}` : 'Loading topics…'}
-          {list?.updatedAt ? ` · updated ${when(list.updatedAt)}` : list ? ' · not updated yet' : ''}
-        </p>
-        {canStart && (
-          <Button kind="tertiary" size="sm" data-testid="topics-update" disabled={update.isPending} onClick={() => update.mutate('attach')}>
-            {update.isPending ? 'Updating…' : 'Update topics'}
-          </Button>
-        )}
-      </div>
+      <PageHero title="Topics" description="What customers keep raising, grouped from the signals you have kept and ranked by how much each counts" glow="left" variant="wave" graphic="pulse" />
 
       {topics.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics could not be loaded" subtitle={friendlyMessage(topics.error)} />}
       {update.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics were not updated" subtitle={friendlyMessage(update.error)} />}
@@ -111,7 +99,7 @@ export function TopicsPage() {
         <section className={styles.empty} data-testid="topics-empty">
           <p className={styles.text}>No topics yet. Topics form when at least two kept signals are about the same thing. Keep some signals, then update topics.</p>
           {canStart && <div className={styles.emptyActions}>
-            <Button kind="primary" size="md" disabled={update.isPending} onClick={() => update.mutate('regroup')}>
+            <Button kind="primary" size="md" data-testid="topics-update" disabled={update.isPending} onClick={() => update.mutate('regroup')}>
               Update topics
             </Button>
             <Button kind="ghost" size="md" onClick={() => navigate('/pulse/signals')}>
@@ -122,137 +110,143 @@ export function TopicsPage() {
       )}
 
       {list && list.topics.length > 0 && (
-        <section className={styles.mapSection} aria-label="Impact map">
-          <h2 className={styles.mapHead}>Impact map</h2>
-          <p className={styles.text}>Topics heard in more channels by more accounts sit higher and further right; a bigger circle is more signals. Choose circles (or rows below) to start a project from them.</p>
-          {hasArr && (
-            <ContentSwitcher size="sm" selectedIndex={mapBy === 'arr' ? 1 : 0} onChange={(e) => setBy(e.name as MapBy)} className={styles.mapSwitch}>
-              <Switch name="accounts" text="Accounts" data-testid="map-by-accounts" />
-              <Switch name="arr" text="ARR" data-testid="map-by-arr" />
-            </ContentSwitcher>
-          )}
-          {mapBy === 'arr' && <p className={styles.text}>ARR adds up each account once, using only the accounts found in Salesforce. Open a topic to see any that were not found.</p>}
-          <ImpactMap topics={list.topics} selected={selected} onToggle={toggle} by={mapBy} />
-        </section>
-      )}
-
-      {list && list.topics.length > 0 && (hasArr || hasPlay) && (
-        <div className={styles.rankBy} data-testid="rank-by">
-          <span className={styles.statusText}>Rank by</span>
-          <ContentSwitcher size="sm" selectedIndex={Math.max(0, rankOptions.findIndex((o) => o.key === rankBy))} onChange={(e) => setRankBy(e.name as 'score' | 'arr' | 'play')}>
-            {rankOptions.map((o) => (
-              <Switch key={o.key} name={o.key} text={o.label} data-testid={`rank-${o.key}`} />
-            ))}
-          </ContentSwitcher>
+        <div className={styles.tabsWrap}>
+        <p className={styles.statusText} data-testid="topics-status">
+          <span>{`${plural(list.topics.length, 'topic')} from ${plural(total, 'kept signal')}`}</span>
+          <span>{list.updatedAt ? `Updated ${when(list.updatedAt)}` : 'Not updated yet'}</span>
+        </p>
+        <Tabs selectedIndex={tab} onChange={({ selectedIndex }) => setParams(selectedIndex === 1 ? { tab: 'all' } : {}, { replace: true })}>
+          <TabList aria-label="Topics views">
+            <Tab data-testid="tab-top">Top Priorities</Tab>
+            <Tab data-testid="tab-all">All Topics</Tab>
+          </TabList>
+          <TabPanels>
+            <TabPanel className={styles.tabPanel}>
+              {tab === 0 && (
+                <>
+                  <TopPriorities rankBar={rankBarFor(true)} topics={list.topics} ordered={orderedTopics} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} />
+                </>
+              )}
+            </TabPanel>
+            <TabPanel className={styles.tabPanel}>
+              {tab === 1 && (
+                <>
+                <div className={styles.tableGroup}>
+                  <div className={styles.tableHead} data-testid="table-toolbar">
+                    <div>
+                      <h2 className={styles.tableTitle}>
+                        Where topics were heard
+                        <Button kind="ghost" size="sm" hasIconOnly renderIcon={Information} iconDescription="Signals per channel. Darker means more. Open “Why it ranks here” to see the weights behind the score." tooltipPosition="bottom" tooltipAlignment="start" className={styles.info} data-testid="table-info" />
+                      </h2>
+                    </div>
+                    {rankBarFor(false)}
+                  </div>
+                <TableContainer className={styles.table}>
+                  <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
+                    <TableHead>
+                      <TableRow>
+                        <TableHeader className={styles.rankCol}>#</TableHeader>
+                        <TableHeader>Topic</TableHeader>
+                        {CHANNELS.map((c) => (
+                          <TableHeader key={c.key} className={styles.chCol}>
+                            {c.label}
+                          </TableHeader>
+                        ))}
+                        <TableHeader className={styles.numCol}>Heard in</TableHeader>
+                        {hasArr && <TableHeader className={styles.numCol}>ARR</TableHeader>}
+                        {hasPlay && <TableHeader className={styles.numCol}>In play</TableHeader>}
+                        <TableHeader className={styles.numCol}>Score</TableHeader>
+                        <TableHeader className={styles.menuCol}>
+                          <span className={styles.srOnly}>Actions</span>
+                        </TableHeader>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {orderedTopics.map((t, position) => (
+                        <Fragment key={t.id}>
+                          <TableRow data-testid={`topic-${t.id}`} data-rank={t.rank} data-open={open === t.id}>
+                            <TableCell className={styles.rankCol}>{position + 1}</TableCell>
+                            <TableCell>
+                              <div className={styles.topic}>
+                                <Link to={`/pulse/topics/${t.id}`} className={styles.title} data-testid="topic-title">
+                                  {t.title}
+                                </Link>
+                                <span className={styles.meta}>
+                                  {plural(t.signals, 'signal')} · {plural(t.reach, 'account')}
+                                  <Tag type={TREND[t.trend].type} size="sm">
+                                    {TREND[t.trend].label}
+                                  </Tag>
+                                  {t.researched.length > 0 && (
+                                    <Tag type="teal" size="sm" data-testid={`researched-${t.id}`}>
+                                      Researched
+                                    </Tag>
+                                  )}
+                                  {t.projects.length > 0 && (
+                                    <Tag type="cyan" size="sm" data-testid={`in-project-${t.id}`}>
+                                      {plural(t.projects.length, 'project')}
+                                    </Tag>
+                                  )}
+                                </span>
+                                <Button kind="ghost" size="sm" className={styles.why} renderIcon={open === t.id ? ChevronUp : ChevronDown} aria-expanded={open === t.id} data-testid={`why-${t.id}`} onClick={() => setOpen(open === t.id ? null : t.id)}>
+                                  Why it ranks here
+                                </Button>
+                              </div>
+                            </TableCell>
+                            {CHANNELS.map((c) => {
+                              const n = t.channels[c.key] ?? 0
+                              return (
+                                <TableCell key={c.key} className={styles.chCol}>
+                                  <span className={styles.heat} data-level={level(n)} aria-label={`${c.label}: ${n}`}>
+                                    {n || '–'}
+                                  </span>
+                                </TableCell>
+                              )
+                            })}
+                            <TableCell className={styles.numCol}>
+                              {t.channelCount} of {CHANNELS.length}
+                            </TableCell>
+                            {hasArr && (
+                              <TableCell className={styles.numCol} data-testid={`topic-arr-${t.id}`} title={t.arr !== null ? `${moneyFull(t.arr)}${t.arrUnmatched ? `; ${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce` : ''}` : undefined}>
+                                {t.arr !== null ? money(t.arr) : '–'}
+                                {t.arrUnmatched > 0 && <span className={styles.srOnly}>, {t.arrUnmatched} accounts not found in Salesforce</span>}
+                              </TableCell>
+                            )}
+                            {hasPlay && (
+                              <TableCell className={styles.numCol} data-testid={`topic-play-${t.id}`}>
+                                {t.inPlay && t.inPlay.open.count > 0 ? money(t.inPlay.open.amount) : '–'}
+                                {t.inPlay && t.inPlay.open.count > 0 && <span className={styles.srOnly}>, {t.inPlay.open.count} open opportunities</span>}
+                                {t.inPlay && t.inPlay.lost.count > 0 && <span className={styles.meta}> · lost {money(t.inPlay.lost.amount)}</span>}
+                              </TableCell>
+                            )}
+                            <TableCell className={styles.numCol} data-testid="topic-score">
+                              {t.score}
+                            </TableCell>
+                            <TableCell className={styles.menuCol}>
+                              {canStart && <OverflowMenu size="sm" flipped aria-label={`Actions for ${t.title}`} data-testid={`topic-menu-${t.id}`}>
+                                <OverflowMenuItem itemText="Rename" data-testid={`rename-${t.id}`} onClick={() => setRenaming(t)} />
+                                <OverflowMenuItem itemText="Merge into another topic" data-testid={`merge-${t.id}`} disabled={list.topics.length < 2} onClick={() => setMerging(t)} />
+                              </OverflowMenu>}
+                            </TableCell>
+                          </TableRow>
+                          {open === t.id && (
+                            <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
+                              <TableCell colSpan={CHANNELS.length + 5 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
+                                <Why topic={t} />
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </Fragment>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                </div>
+                </>
+              )}
+            </TabPanel>
+          </TabPanels>
+        </Tabs>
         </div>
-      )}
-
-      {list && list.topics.length > 0 && (
-        <TableContainer title="Where topics were heard" description="Signals per channel. Darker means more. Open “Why it ranks here” to see the weights behind the score." className={styles.table}>
-          <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
-            <TableHead>
-              <TableRow>
-                <TableHeader className={styles.checkCol}>
-                  <span className={styles.srOnly}>Select</span>
-                </TableHeader>
-                <TableHeader className={styles.rankCol}>#</TableHeader>
-                <TableHeader>Topic</TableHeader>
-                {CHANNELS.map((c) => (
-                  <TableHeader key={c.key} className={styles.chCol}>
-                    {c.label}
-                  </TableHeader>
-                ))}
-                <TableHeader className={styles.numCol}>Heard in</TableHeader>
-                {hasArr && <TableHeader className={styles.numCol}>ARR</TableHeader>}
-                {hasPlay && <TableHeader className={styles.numCol}>In play</TableHeader>}
-                <TableHeader className={styles.numCol}>Score</TableHeader>
-                <TableHeader className={styles.menuCol}>
-                  <span className={styles.srOnly}>Actions</span>
-                </TableHeader>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {orderedTopics.map((t, position) => (
-                <Fragment key={t.id}>
-                  <TableRow data-testid={`topic-${t.id}`} data-rank={t.rank}>
-                    <TableCell className={styles.checkCol}>
-                      <Checkbox id={`pick-${t.id}`} data-testid={`pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
-                    </TableCell>
-                    <TableCell className={styles.rankCol}>{position + 1}</TableCell>
-                    <TableCell>
-                      <div className={styles.topic}>
-                        <Link to={`/pulse/topics/${t.id}`} className={styles.title} data-testid="topic-title">
-                          {t.title}
-                        </Link>
-                        <span className={styles.meta}>
-                          {plural(t.signals, 'signal')} · {plural(t.reach, 'account')}
-                          <Tag type={TREND[t.trend].type} size="sm">
-                            {TREND[t.trend].label}
-                          </Tag>
-                          {t.researched.length > 0 && (
-                            <Tag type="teal" size="sm" data-testid={`researched-${t.id}`}>
-                              Researched
-                            </Tag>
-                          )}
-                          {t.projects.length > 0 && (
-                            <Tag type="cyan" size="sm" data-testid={`in-project-${t.id}`}>
-                              {plural(t.projects.length, 'project')}
-                            </Tag>
-                          )}
-                        </span>
-                        <Button kind="ghost" size="sm" className={styles.why} renderIcon={open === t.id ? ChevronUp : ChevronDown} aria-expanded={open === t.id} data-testid={`why-${t.id}`} onClick={() => setOpen(open === t.id ? null : t.id)}>
-                          Why it ranks here
-                        </Button>
-                      </div>
-                    </TableCell>
-                    {CHANNELS.map((c) => {
-                      const n = t.channels[c.key] ?? 0
-                      return (
-                        <TableCell key={c.key} className={styles.chCol}>
-                          <span className={styles.heat} data-level={level(n)} aria-label={`${c.label}: ${n}`}>
-                            {n || '–'}
-                          </span>
-                        </TableCell>
-                      )
-                    })}
-                    <TableCell className={styles.numCol}>
-                      {t.channelCount} of {CHANNELS.length}
-                    </TableCell>
-                    {hasArr && (
-                      <TableCell className={styles.numCol} data-testid={`topic-arr-${t.id}`} title={t.arr !== null ? `${moneyFull(t.arr)}${t.arrUnmatched ? `; ${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce` : ''}` : undefined}>
-                        {t.arr !== null ? money(t.arr) : '–'}
-                        {t.arrUnmatched > 0 && <span className={styles.srOnly}>, {t.arrUnmatched} accounts not found in Salesforce</span>}
-                      </TableCell>
-                    )}
-                    {hasPlay && (
-                      <TableCell className={styles.numCol} data-testid={`topic-play-${t.id}`}>
-                        {t.inPlay && t.inPlay.open.count > 0 ? money(t.inPlay.open.amount) : '–'}
-                        {t.inPlay && t.inPlay.open.count > 0 && <span className={styles.srOnly}>, {t.inPlay.open.count} open opportunities</span>}
-                        {t.inPlay && t.inPlay.lost.count > 0 && <span className={styles.meta}> · lost {money(t.inPlay.lost.amount)}</span>}
-                      </TableCell>
-                    )}
-                    <TableCell className={styles.numCol} data-testid="topic-score">
-                      {t.score}
-                    </TableCell>
-                    <TableCell className={styles.menuCol}>
-                      {canStart && <OverflowMenu size="sm" flipped aria-label={`Actions for ${t.title}`} data-testid={`topic-menu-${t.id}`}>
-                        <OverflowMenuItem itemText="Rename" data-testid={`rename-${t.id}`} onClick={() => setRenaming(t)} />
-                        <OverflowMenuItem itemText="Merge into another topic" data-testid={`merge-${t.id}`} disabled={list.topics.length < 2} onClick={() => setMerging(t)} />
-                      </OverflowMenu>}
-                    </TableCell>
-                  </TableRow>
-                  {open === t.id && (
-                    <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                      <TableCell colSpan={CHANNELS.length + 6 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
-                        <Why topic={t} isOwner={isOwner} onEdit={() => navigate('/settings/pulse')} />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
       )}
 
       {list && list.unsorted > 0 && (
@@ -283,35 +277,6 @@ export function TopicsPage() {
 }
 
 const useTopics = usePulseTopics
-
-function Why({ topic, isOwner, onEdit }: { topic: PulseTopic; isOwner: boolean; onEdit: () => void }) {
-  return (
-    <div className={styles.whyBox}>
-      <p className={styles.whyIntro}>
-        “{topic.title}” ranks #{topic.rank} because its {plural(topic.signals, 'kept signal')} count for different amounts depending on where they were heard. The score is the total of signals × weight, channel by channel.
-      </p>
-      <dl className={styles.sum}>
-        {topic.breakdown.map((b) => (
-          <div key={b.channel} className={styles.sumRow}>
-            <dt>{CHANNEL_LABEL[b.channel]}</dt>
-            <dd>
-              {b.count} × {b.weight} = {b.subtotal}
-            </dd>
-          </div>
-        ))}
-        <div className={styles.sumTotal}>
-          <dt>Score</dt>
-          <dd>{topic.score}</dd>
-        </div>
-      </dl>
-      {isOwner && (
-        <Button kind="ghost" size="sm" onClick={onEdit}>
-          Edit weights
-        </Button>
-      )}
-    </div>
-  )
-}
 
 function RenameModal({ topic, onClose }: { topic: PulseTopic | null; onClose: () => void }) {
   const rename = useRenamePulseTopic()

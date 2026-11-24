@@ -586,17 +586,28 @@ body {
 .cds--modal-close:focus:not(:focus-visible),
 .cds--btn:focus:not(:focus-visible),
 .cds--tabs .cds--tabs__nav-link:focus:not(:focus-visible),
-.cds--tabs .cds--tabs__nav-item:focus:not(:focus-visible) {
+.cds--tabs .cds--tabs__nav-item:focus:not(:focus-visible),
+// ...and while the last input was a pointer (src/inputMode.ts), also when script moved the focus there (a modal's close button, a drawer's first control).
+html[data-input='pointer'] .cds--accordion__heading:focus,
+html[data-input='pointer'] .cds--modal-close:focus,
+html[data-input='pointer'] .cds--btn:focus,
+html[data-input='pointer'] .cds--tabs .cds--tabs__nav-link:focus,
+html[data-input='pointer'] .cds--tabs .cds--tabs__nav-item:focus {
   outline: none;
   box-shadow: none;
 }
 
 // Carbon also recolours the border on :focus: put each kind's own border back (the modal close, a primary button in Carbon, goes last).
-.cds--btn--primary:focus:not(:focus-visible) { border-color: var(--at-primary); }
+.cds--btn--primary:focus:not(:focus-visible),
+html[data-input='pointer'] .cds--btn--primary:focus { border-color: var(--at-primary); }
 .cds--btn--ghost:focus:not(:focus-visible),
-.cds--modal-close:focus:not(:focus-visible) { border-color: transparent; }
+.cds--modal-close:focus:not(:focus-visible),
+html[data-input='pointer'] .cds--btn--ghost:focus,
+html[data-input='pointer'] .cds--modal-close:focus { border-color: transparent; }
 .cds--btn--secondary:focus:not(:focus-visible):not(:hover),
-.cds--btn--tertiary:focus:not(:focus-visible):not(:hover) { border-color: var(--at-hairline); }
+.cds--btn--tertiary:focus:not(:focus-visible):not(:hover),
+html[data-input='pointer'] .cds--btn--secondary:focus:not(:hover),
+html[data-input='pointer'] .cds--btn--tertiary:focus:not(:hover) { border-color: var(--at-hairline); }
 
 // A soft fill, not a black box, for the focused menu entry.
 .cds--overflow-menu-options__btn:focus {

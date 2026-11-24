@@ -13,10 +13,13 @@ $weight-medium: 475;
   // The heading ladder (decided 2026-11-18, taken from the Themes page): each level is one place to change, and a change reaches every heading of that level.
   //   heading-1 the page title (h1)        heading-2 a detail pane's heading (h2): 22px     heading-3 a card title (h3)
   //   heading-4 a smaller heading (h4): the paragraph size in the medium weight      page-description the line under a page title
+  //   heading-section the heading of a section or table on a page (h2): 18px medium, between the detail pane's heading and a card title (added 2026-11-24)
   @if $name == 'heading-1' {
     @include role('display-md');
   } @else if $name == 'heading-2' {
     @include role('panel-title');
+  } @else if $name == 'heading-section' {
+    @include role('title-sm');
   } @else if $name == 'heading-3' {
     @include role('label-md');
   } @else if $name == 'heading-4' {

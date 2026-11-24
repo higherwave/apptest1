@@ -51,7 +51,7 @@ export function RecentMerges({ curation }: { curation: Curation }) {
   if (!merges.length && !curation.canEdit) return null
   return (
     <section className={styles.recent} aria-label="Recent merges" data-testid="recent-merges">
-      <h2 className={styles.label}>Recent merges</h2>
+      <h2 className={styles.sectionHeading}>Recent merges</h2>
       {!merges.length && <p className={styles.text}>None yet. When two themes say the same thing, the clear pairs are merged here on their own, and you can undo any of them.</p>}
       <ul className={styles.matches}>
         {merges.map((m) => (

@@ -6,6 +6,7 @@ import { CHANNELS } from '../pulse/channels'
 import { PulseOpportunities } from './PulseOpportunities'
 import { PulseSalesforce } from './PulseSalesforce'
 import { PulseSources } from './PulseSources'
+import { PulseTopicsUpdate } from './PulseTopicsUpdate'
 import { PulseViewers } from './PulseViewers'
 import styles from './NotificationsPage.module.scss'
 
@@ -76,6 +77,7 @@ export function PulseSettingsPage() {
           </Button>
         </div>
       </section>
+      <PulseTopicsUpdate />
       <PulseViewers />
       <PulseSources />
       <PulseSalesforce />

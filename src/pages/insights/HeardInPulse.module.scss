@@ -70,3 +70,10 @@
   color: var(--at-muted);
   margin-inline-end: auto;
 }
+
+// The heading of a section (h2): the heading-section level of the ladder.
+.sectionHeading {
+  @include tokens.role('heading-section');
+  margin: 0;
+  color: var(--at-ink);
+}

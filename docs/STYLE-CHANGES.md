@@ -143,3 +143,9 @@ To undo: restore the previous `--at-panel-aurora` (two radial glows over a 115de
   groups as a list. The page's padding narrows with the window (`--at-content-pad`), and the page's title area follows it. On a phone the app header also drops "Take a tour" and the app mark.
 - The Platform Insights launcher card uses its own full-colour icon (design-handoff/app-icons/platform-insights) instead of the plain tile.
 - To undo: restore `AppShell.tsx`, `StepNav.*` and `SettingsHeader.tsx` from git (commit before this entry).
+
+## 2026-11-24: a section heading level on the ladder
+- **What:** new type role `heading-section` (18px medium, `--at-ink`) for the heading of a section or table on a page (h2). Section headings used the small `eyebrow` label (14px, the same size as body text), so they barely read as headings and sat below the 16px row titles under them. `eyebrow` is unchanged and stays for fields and group labels (about 54 uses).
+- **Where:** Recommendations, Themes across projects, Heard in Pulse, Recent merges (Platform Insights); What is left to do (the resume panel, on dark); Test methods and Participants (Test Plan); Themes used, Agent reasoning and Output (Requirements); Where topics were heard (Pulse). Each has a `.sectionHeading` class beside its `.label`.
+- **How:** `heading-section` maps to `title-sm` in `src/tokens.scss`, so a later change to the level is one edit. Registered in the design-system repo (`registry/tokens.json`, named in the `heading-roles` message, with a test).
+- **To undo:** point `heading-section` back at `eyebrow` in `src/tokens.scss`.

@@ -243,7 +243,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
           <RecommendationStrip recs={overview.recommendations} selectedId={recId} onSelect={setRecId} />
 
           <div className={styles.group}>
-            <h2 id="themes-heading" className={styles.label}>Themes across projects</h2>
+            <h2 id="themes-heading" className={styles.sectionHeading}>Themes across projects</h2>
 
             <div className={styles.controls}>
               <div className={styles.search}>

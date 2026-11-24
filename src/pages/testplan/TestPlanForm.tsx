@@ -51,7 +51,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, sh
       />
 
       <section className={styles.section} aria-labelledby="methods-label">
-        <h2 id="methods-label" className={styles.label}>Test methods</h2>
+        <h2 id="methods-label" className={styles.sectionHeading}>Test methods</h2>
         <div className={styles.chips}>
           {methodOptions.map((method) => {
             const on = form.methods.includes(method)
@@ -77,7 +77,7 @@ export function TestPlanForm({ form, errors, methodOptions, readOnly = false, sh
 
       {participants && (
       <section className={styles.section} aria-labelledby="participants-label">
-        {show === 'all' ? <h2 id="participants-label" className={styles.label}>Participants</h2> : <h2 id="participants-label" className={styles.srOnly}>Participants</h2>}
+        {show === 'all' ? <h2 id="participants-label" className={styles.sectionHeading}>Participants</h2> : <h2 id="participants-label" className={styles.srOnly}>Participants</h2>}
         <div className={styles.tableWrap}>
           <div className={styles.table} role="table" aria-label="Participants">
             <div className={styles.row} role="row">

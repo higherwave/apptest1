@@ -42,7 +42,7 @@ try {
   // Off by default: not in the menu, and the address shows a page that does not exist.
   let page = await open(TOKEN, '/projects')
   ok('Pulse is not in the launcher while the preview is off', !(await menu(page)).includes('Pulse'))
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   ok('and /pulse is a page that does not exist', (await text(page)).includes('Page not found'))
 
   // An owner switches it on in Settings, Previews.
@@ -56,12 +56,12 @@ try {
   ok('with it on, Pulse is in the launcher for the owner', (await menu(page)).includes('Pulse'))
 
   // The page: empty, then a signal typed in (kept at once), then notes (wait for review), then keep and dismiss.
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   await waitText(page, 'No topics yet')
   ok('/pulse opens Topics, with Pulse as the app in the header and Topics and Signals as its items', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Settings').join('|'))) === 'Topics|Signals')
   await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
   await waitText(page, 'Nothing waiting for review')
-  ok('Signals opens on Auto-discovered, with Manual and All beside it, a preview tag and an empty review list', (await text(page)).includes('Preview') && !!(await page.$('[data-testid="pulse-empty"]')) && await page.evaluate(() => document.querySelector('[data-testid="signals-filter-auto"]').getAttribute('aria-selected') === 'true' && !!document.querySelector('[data-testid="signals-filter-manual"]') && !!document.querySelector('[data-testid="signals-filter-all"]') && !document.querySelector('#signal-body')))
+  ok('Signals opens on Auto-discovered, with Manual and All beside it, no preview tag and an empty review list', !(await page.$('[data-testid="pulse-preview-tag"]')) && !!(await page.$('[data-testid="pulse-empty"]')) && await page.evaluate(() => document.querySelector('[data-testid="signals-filter-auto"]').getAttribute('aria-selected') === 'true' && !!document.querySelector('[data-testid="signals-filter-manual"]') && !!document.querySelector('[data-testid="signals-filter-all"]') && !document.querySelector('#signal-body')))
   await click(page, 'add-notes-toggle')
   await page.waitForSelector('#signal-body', { timeout: 8000 })
   ok('"Add call notes or a signal" opens the two forms on the page', await page.evaluate(() => !!document.querySelector('#notes-text') && !!document.querySelector('[data-testid="pulse-add"]')))
@@ -102,7 +102,7 @@ try {
     ['When a hard case moves to my queue I redo the whole investigation, the handoff loses the history.', 'call_notes', 'Northwind Logistics'],
     ['We need the context carried over with every handoff to success.', 'slack', 'Tailspin Travel'],
   ]) await api('POST', '/pulse/signals', { body, channel, account })
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   await waitText(page, 'No topics yet')
   await click(page, 'topics-update')
   await waitText(page, 'Trust and accuracy')
@@ -110,19 +110,27 @@ try {
   ok('Update topics groups the kept signals into topics, ranked, with a count for each channel', grid.includes('Trust and accuracy') && grid.includes('Handoffs and lost context') && (await page.evaluate(() => document.querySelectorAll('[data-testid^="topic-"][data-rank]').length)) >= 2)
   const first = await page.evaluate(() => { const r = document.querySelector('[data-testid^="topic-"][data-rank="1"]'); return { id: r.dataset.testid.slice(6), score: r.querySelector('[data-testid="topic-score"]').innerText.trim(), title: r.querySelector('[data-testid="topic-title"]').innerText.trim() } })
   await click(page, `why-${first.id}`)
-  await waitText(page, 'Edit weights')
+  await waitText(page, 'signals × weight')
   ok('"Why it ranks here" shows signals times weight for each channel, adding up to the score shown', await page.evaluate((score) => { const box = document.querySelector('[data-testid^="why-row-"]').innerText; return /×/.test(box) && box.includes('Score') && box.replace(/\s+/g, ' ').includes(score) }, first.score))
   ok('and the grid says who is behind it: accounts, and how many channels it was heard in', /accounts?/.test(grid) && /\d of 3/.test(grid))
 
-  // The impact map and picking topics: a circle for each topic; picked ones show on the map, in the grid and in a bar at the foot of the page.
+  // Top Priorities: ranked cards beside the impact map; a dot and its card are one thing. Picking topics works from the cards and from the table, and shows in a bar at the foot of the page.
   const topicIds = await page.evaluate(() => [...document.querySelectorAll('[data-testid^="topic-"][data-rank]')].map((r) => r.dataset.testid.slice(6)))
-  ok('the impact map has a circle for each topic, with its name', (await page.evaluate(() => document.querySelectorAll('[data-testid^="bubble-"]').length)) === topicIds.length && (await text(page)).includes('Channels it was heard in'))
+  await click(page, 'tab-top')
+  await page.waitForSelector('[data-testid="top-priorities"]', { timeout: 5000 })
+  ok('Topics has two tabs, Top Priorities and All Topics, and Top Priorities has a card and a map circle for each topic', (await page.evaluate(() => [...document.querySelectorAll('[role="tab"]')].map((t) => t.innerText.trim()).join('|'))) === 'Top Priorities|All Topics' && (await page.evaluate(() => document.querySelectorAll('[data-testid^="bubble-"]').length)) === topicIds.length && (await page.evaluate(() => document.querySelectorAll('[data-testid^="card-"][data-rank]').length)) === topicIds.length && (await page.evaluate(() => /Quiet & costly/.test(document.querySelector('[data-testid="impact-map"]').textContent))))
   await page.evaluate((id) => document.querySelector(`[data-testid="bubble-${id}"] circle`).dispatchEvent(new MouseEvent('click', { bubbles: true })), topicIds[0])
+  await page.waitForSelector(`[data-testid="card-${topicIds[0]}"][data-open="true"]`, { timeout: 5000 })
+  ok('choosing a circle opens its card, with the sources and "Why it ranks here" inside, and darkens the circle', await page.evaluate((id) => { const c = document.querySelector(`[data-testid="card-${id}"]`).innerText; return /Heard in \d of 3/.test(c) && c.includes('Score') && /×/.test(c) && document.querySelector(`[data-testid="bubble-${id}"]`).getAttribute('data-active') === 'true' }, topicIds[0]))
+  await click(page, `card-toggle-${topicIds[0]}`)
+  await page.waitForSelector(`[data-testid="card-${topicIds[0]}"][data-open="false"]`, { timeout: 5000 })
+  ok('and choosing the card closes it again', true)
+  await page.evaluate((id) => document.querySelector(`#card-pick-${id}`).click(), topicIds[0])
   await page.waitForSelector('[data-testid="pick-bar"]', { timeout: 5000 })
-  ok('choosing a circle selects the topic: the bar says so, and the row is ticked in the grid', (await text(page)).includes('1 topic selected') && (await page.evaluate((id) => document.querySelector(`#pick-${id}`).checked, topicIds[0])))
-  await page.evaluate((id) => document.querySelector(`#pick-${id}`).click(), topicIds[1])
+  ok('ticking a card selects the topic and the bar says so', (await text(page)).includes('1 topic selected'))
+  await page.evaluate((id) => document.querySelector(`#card-pick-${id}`).click(), topicIds[1])
   await page.waitForFunction(() => document.body.innerText.includes('2 topics selected'), { timeout: 5000 })
-  ok('and ticking a row in the grid selects it too, shown on the map', await page.evaluate((id) => document.querySelector(`[data-testid="bubble-${id}"]`).getAttribute('aria-checked') === 'true', topicIds[1]))
+  ok('the All Topics table has no selection column, and Rank by sits in the row above it', await (async () => { await click(page, 'tab-all'); await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 5000 }); const r = await page.evaluate(() => ({ boxes: document.querySelectorAll('[data-testid="topics-grid"] input[type="checkbox"]').length, rank: !document.querySelector('[data-testid="rank-by"]') || !!document.querySelector('[data-testid="table-toolbar"] [data-testid="rank-by"]') })); await click(page, 'tab-top'); await page.waitForSelector('[data-testid="top-priorities"]', { timeout: 5000 }); return r.boxes === 0 && r.rank })())
 
   // Start a project from them: the panel drafts a name, a description and questions from what customers said; save fills the Test Plan.
   await click(page, 'create-project')
@@ -146,7 +154,7 @@ try {
   ok('the note links to the topics it came from', !!noteTopic)
 
   // Topic details: the quotes and accounts behind one topic, and a one-click start for just that topic.
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="topic-title"]', { timeout: 8000 })
   await page.evaluate(() => document.querySelector('[data-testid="topic-title"]').click())
   await page.waitForSelector('[data-testid="topic-quotes"]', { timeout: 8000 })
@@ -161,6 +169,7 @@ try {
   await page.keyboard.press('Escape')
   await wait(500)
   await click(page, 'topic-back')
+  await click(page, 'tab-all') // back lands on Top Priorities, the default tab
   await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 8000 })
 
   // Rename: opens with the current name; saving changes it.
@@ -198,7 +207,7 @@ try {
   await page.keyboard.type('5')
   await click(page, 'weights-save')
   await waitText(page, 'Weights saved')
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="topic-score"]', { timeout: 8000 })
   const after = await page.evaluate(() => document.querySelector('[data-testid="topic-score"]').innerText.trim())
   ok("raising Slack's weight raises the topic score at once", Number(after) > Number(before), `${before} to ${after}`)
@@ -249,12 +258,14 @@ try {
   await click(page, 'salesforce-sync')
   await page.waitForFunction(() => /4 accounts copied/.test(document.querySelector('[data-testid="salesforce-status"]')?.innerText ?? ''), { timeout: 8000 })
   ok('Salesforce accounts are copied on request and counted', true)
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
-  await page.waitForSelector('[data-testid="map-by-arr"]', { timeout: 8000 })
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 8000 })
   ok('the topics table has an ARR column once Salesforce is copied', await page.evaluate(() => [...document.querySelectorAll('[data-testid="topics-grid"] th')].some((th) => th.innerText.trim() === 'ARR') && /\$[\d.]+[KM]/.test(document.querySelector('[data-testid^="topic-arr-"]').innerText)))
-  await click(page, 'map-by-arr')
-  await page.waitForFunction(() => document.querySelector('[data-testid="impact-map"]').innerText.includes('ARR of the accounts raising it'), { timeout: 4000 })
-  ok('the impact map can show height as ARR instead of accounts', await page.evaluate(() => /\$\d+[KM]/.test(document.querySelector('[data-testid="impact-map"]').innerText)))
+  await click(page, 'tab-top')
+  await page.waitForSelector('[data-testid="impact-map"]', { timeout: 4000 })
+  ok('Top Priorities shows ARR on the map (height) and on each card', await page.evaluate(() => /ARR at risk/.test(document.querySelector('[data-testid="impact-map"]').textContent) && /\$\d+[KM]/.test(document.querySelector('[data-testid="impact-map"]').textContent) && /Score [\d.]+ · \$[\d.]+[KM] ARR/.test(document.querySelector('[data-testid="top-priorities"]').innerText)))
+  await click(page, 'tab-all')
+  await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 4000 })
   await page.evaluate(() => document.querySelector('[data-testid="topic-title"]').click())
   await page.waitForSelector('[data-testid="topic-accounts"]', { timeout: 8000 })
   ok("a topic's page shows each account's ARR, and says which were not found", await page.evaluate(() => /ARR · /.test(document.querySelector('[data-testid="topic-accounts"]').innerText) && /ARR/.test(document.querySelector('h1').closest('div').parentElement.innerText)))
@@ -269,11 +280,11 @@ try {
   await click(page, 'source-check-opportunities')
   await page.waitForFunction(() => /\d+ new messages/.test(document.querySelector('[data-testid="source-note"]')?.innerText ?? ''), { timeout: 10000 })
   ok('Check now reads the opportunity notes', true)
-  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
-  await click(page, 'topics-update')
-  await page.waitForSelector('[data-testid="rank-play"]', { timeout: 10000 })
-  ok('topics gain an In play column and a Rank by switch', await page.evaluate(() => [...document.querySelectorAll('[data-testid="topics-grid"] th')].some((th) => th.innerText.trim() === 'In play') && !!document.querySelector('[data-testid="rank-arr"]')))
-  await click(page, 'rank-play')
+  await api('POST', '/pulse/topics/update', {}) // the button now lives in Settings, Pulse; Pulse also does this by itself every hour
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="rank-by-select"]', { timeout: 10000 })
+  ok('topics gain an In play column and a Rank by dropdown', await page.evaluate(() => [...document.querySelectorAll('[data-testid="topics-grid"] th')].some((th) => th.innerText.trim() === 'In play') && [...document.querySelectorAll('[data-testid="rank-by-select"] option')].some((o) => o.value === 'arr')))
+  await page.select('#rank-by-select', 'play')
   await wait(400)
   ok('ranking by what is in play orders the list by it', await page.evaluate(() => { const v = [...document.querySelectorAll('[data-testid^="topic-play-"]')].map((c) => { const m = /\$([\d.]+)([KM]?)/.exec(c.innerText); return m ? Number(m[1]) * (m[2] === 'M' ? 1e6 : m[2] === 'K' ? 1e3 : 1) : 0 }); return v.length > 0 && v.every((x, i) => i === 0 || v[i - 1] >= x) }))
   await page.evaluate(() => document.querySelector('[data-testid^="topic-play-"]').closest('tr').querySelector('[data-testid="topic-title"]').click())
@@ -306,7 +317,7 @@ try {
   // A read-only visitor never sees it.
   const visitor = await open(null, '/projects')
   ok('a read-only visitor has no Pulse in the launcher', !(await menu(visitor)).includes('Pulse'))
-  await visitor.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await visitor.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   ok('and the address is a page that does not exist for them', (await text(visitor)).includes('Page not found'))
 
   // Switched off again: gone for the owner too.

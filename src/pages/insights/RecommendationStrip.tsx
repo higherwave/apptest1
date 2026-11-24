@@ -23,7 +23,7 @@ export function RecommendationStrip({ recs, selectedId, onSelect }: { recs: Rec[
   return (
     <section className={styles.strip} aria-labelledby="recs-heading">
       <div className={styles.head}>
-        <h2 id="recs-heading" className={styles.label}>Recommendations</h2>
+        <h2 id="recs-heading" className={styles.sectionHeading}>Recommendations</h2>
         <div className={styles.controls}>
           <span className={styles.count} role="status">
             {all ? `All ${sorted.length}` : `Showing ${view.first}–${view.last} of ${sorted.length}`}

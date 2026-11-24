@@ -7,9 +7,15 @@ import { createDemoDatabase, fakeAuth } from './test-utils.js'
 import { makeSlack, type SlackClient } from './slack.js'
 // @ts-expect-error plain ESM helper
 import { setIntegration } from '../db/set-integration.mjs'
+import { fillDemoSignals } from '../scripts/demo-pulse-signals.js'
 
 // ANCHOR_CX=true also loads the Anchor CX demo story (db/seed/anchor-cx/README.md).
 const { db, pglite } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
+// PULSE_SAMPLES=true fills Pulse with the Anchor CX sample signals (scripts/demo-pulse-signals.ts) so the pages have something to show.
+if (process.env.PULSE_SAMPLES === 'true') {
+  const slug = ((await pglite.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  console.log(`Pulse samples: ${(await fillDemoSignals(db, slug, true)).added} added`)
+}
 const port = Number(process.env.API_PORT || 8787)
 const env = { ...process.env }
 // AUTH_TEST=true switches on sign-in with the stand-in service (see fakeAuth), for the browser tests of sign-in. It also
@@ -77,4 +83,24 @@ if (testAuth) {
   })
 }
 root.route('/', app)
-serve({ fetch: root.fetch, port }, () => console.log(`In-memory API on http://localhost:${port}/api/v1/health`))
+serve({ fetch: root.fetch, port }, () => {
+  console.log(`In-memory API on http://localhost:${port}/api/v1/health`)
+  if (process.env.PULSE_SAMPLES === 'true') void setUpPulseDemo()
+})
+
+// With PULSE_SAMPLES=true, once the server is listening: switch Pulse on, copy the stand-in Salesforce accounts, designate opportunity notes as a source,
+// read them, and group everything into topics, so the Pulse pages open with the full story (ARR, In play, Rank by).
+async function setUpPulseDemo() {
+  const call = async (method: string, path: string, body: unknown = {}) => {
+    const res = await fetch(`http://localhost:${port}/api/v1/pulse${path}`, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    return res.ok ? res.json().catch(() => null) : null
+  }
+  await call('PUT', '/preview', { enabled: true })
+  if (process.env.SALESFORCE_DEMO === 'true') {
+    await call('POST', '/salesforce/sync')
+    const src = await call('POST', '/sources/opportunities', { fields: ['NextStep', 'Description'], scope: 'both', mode: 'keep' })
+    if (src?.id) await call('POST', `/sources/${src.id}/check`)
+  }
+  await call('POST', '/topics/update')
+  console.log('Pulse demo set up: preview on, samples, Salesforce, topics')
+}

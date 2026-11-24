@@ -8,17 +8,22 @@
   @include body.below-hero;
 }
 
-.status {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--at-space-md);
-}
+// The tabs, with what the list is made of at the right of the tab row: two short lines, close together.
+.tabsWrap { position: relative; }
 
 .statusText {
-  @include tokens.role('body-md');
+  @include tokens.role('meta');
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-end: 0;
+  z-index: var(--at-z-raised);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  block-size: 3rem;
   margin: 0;
-  color: var(--at-body);
+  color: var(--at-muted);
 }
 
 .notes {
@@ -61,17 +66,52 @@
   max-inline-size: 40rem;
 }
 
+.tableGroup {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+}
+
+// One white table with a hairline outline, like Platform Insights > Themes across projects: quiet column heads, hairline rows, and the open row off-white together with its details.
 .table {
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
   background: var(--at-canvas);
+  overflow: hidden;
 
   // Tighter cells than the library's, so the five channels, the count and the score fit a tablet in portrait.
   :global(.cds--data-table) th,
   :global(.cds--data-table) td {
     padding-inline: var(--at-space-xs);
   }
+
+  :global(.cds--data-table) th:first-child,
+  :global(.cds--data-table) td:first-child { padding-inline-start: var(--at-space-lg); }
+  :global(.cds--data-table) th:last-child,
+  :global(.cds--data-table) td:last-child { padding-inline-end: var(--at-space-lg); }
+
+  :global(.cds--data-table) thead th {
+    @include tokens.role('eyebrow');
+    padding-block: var(--at-space-md);
+    background: var(--at-canvas);
+    color: var(--at-muted);
+    border-block-end: 1px solid var(--at-hairline);
+  }
+
+  :global(.cds--data-table) tbody tr td {
+    background: var(--at-canvas);
+    border-block: 0;
+    border-block-start: 1px solid var(--at-hairline);
+  }
+
+  :global(.cds--data-table) tbody tr:first-child td { border-block-start: 0; }
+  :global(.cds--data-table) tbody tr:hover td { background: var(--at-surface-soft); }
+  :global(.cds--data-table) tbody tr[data-open='true'] td,
+  :global(.cds--data-table) tbody tr[data-open='true'] + tr td { background: var(--at-surface-soft); }
+  :global(.cds--data-table) tbody tr[data-open='true'] .title { font-weight: 600; }
+  :global(.cds--data-table) tbody tr[data-open='true'] + tr td { border-block-start: 0; }
 }
 
-.checkCol { inline-size: 2.5rem; padding-inline: var(--at-space-sm); }
 .rankCol { inline-size: 2.25rem; padding-inline: var(--at-space-sm); }
 .chCol { inline-size: 4.25rem; padding-inline: var(--at-space-xxs); text-align: center; }
 .numCol { inline-size: 4.5rem; padding-inline: var(--at-space-xxs); text-align: center; white-space: nowrap; }
@@ -86,8 +126,7 @@
 }
 
 .title {
-  @include tokens.role('body-md');
-  font-weight: 500;
+  @include tokens.role('heading-3');
   color: var(--at-ink);
   text-decoration: none;
 
@@ -116,13 +155,12 @@
   color: var(--at-ink);
 
   &[data-level='0'] { background: var(--at-surface-slate); color: var(--at-muted); }
-  &[data-level='1'] { background: color-mix(in srgb, var(--at-link) 14%, var(--at-canvas)); }
-  &[data-level='2'] { background: color-mix(in srgb, var(--at-link) 30%, var(--at-canvas)); }
-  &[data-level='3'] { background: color-mix(in srgb, var(--at-link) 55%, var(--at-canvas)); color: var(--at-on-primary); }
-  &[data-level='4'] { background: var(--at-link-active); color: var(--at-on-primary); }
+  &[data-level='1'] { background: var(--at-tint-mint); }
+  &[data-level='2'] { background: color-mix(in srgb, var(--at-signature-mint) 55%, var(--at-canvas)); }
+  &[data-level='3'] { background: var(--at-signature-mint); }
+  &[data-level='4'] { background: var(--at-signature-forest); color: var(--at-on-primary); }
 }
 
-.whyRow td { background: var(--at-surface-slate); }
 
 .whyBox {
   display: flex;
@@ -191,11 +229,46 @@
   gap: var(--at-space-sm);
 }
 
+// The row above the table: the title and what it shows at the left, the Rank by control at the right.
+.tableHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+  flex-wrap: wrap;
+}
+
+.tableTitle {
+  @include tokens.role('heading-section');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.tableTitle { display: flex; align-items: center; gap: var(--at-space-xxs); }
+
+// The information icon after the title: the description opens on hover or keyboard focus.
+.info.info {
+  min-inline-size: 0;
+  min-block-size: 0;
+  padding: var(--at-space-xxs);
+  color: var(--at-muted);
+
+  &:hover { color: var(--at-ink); background: transparent; }
+}
+
 .rankBy {
   display: flex;
+  justify-content: flex-end; // the right edge of the list it orders
   align-items: center;
   gap: var(--at-space-sm);
   flex-wrap: wrap;
+
+  > :global(.cds--form-item) { flex: none; } // the library lets a form item grow to fill the row, which would put the dropdown at the left
+
+  // Stretched: the label stays at the left edge and the dropdown fills the rest of the row, to the right edge.
+  &[data-stretch='true'] > :global(.cds--form-item) { flex: 1; }
+  &[data-stretch='true'] :global(.cds--select--inline) { inline-size: 100%; }
+  &[data-stretch='true'] :global(.cds--select-input__wrapper) { flex: 1; }
 }
 
 .mapSwitch {
@@ -227,4 +300,11 @@
   @include tokens.role('body-md');
   margin: 0 auto 0 0;
   color: var(--at-ink);
+}
+
+.tabPanel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  padding: var(--at-space-xl) 0 0; // 32px: the content sits a little below the tab row
 }

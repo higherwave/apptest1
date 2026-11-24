@@ -201,7 +201,7 @@ export function WriterView(p: WriterViewProps) {
       {spec.themes.length > 0 && (
         <section className={styles.context} aria-label="Themes used">
           <div className={styles.contextHead}>
-            <h2 className={styles.label}>Themes used</h2>
+            <h2 className={styles.sectionHeading}>Themes used</h2>
             <span className={styles.count}>
               {spec.themes.filter((t) => t.included).length} of {spec.themes.length} {spec.themes.length === 1 ? 'theme' : 'themes'} included
             </span>
@@ -246,7 +246,7 @@ export function WriterView(p: WriterViewProps) {
 
       <div className={styles.columns}>
         <section className={styles.steps} aria-label="Agent reasoning">
-          <h2 className={styles.label}>Agent reasoning</h2>
+          <h2 className={styles.sectionHeading}>Agent reasoning</h2>
           {spec.steps.map((step) => (
             <StepCard
               key={step.id}
@@ -272,7 +272,7 @@ export function WriterView(p: WriterViewProps) {
 
         <aside className={styles.output} aria-label="Output">
           <div className={styles.outputHead}>
-            <h2 className={styles.label}>Output</h2>
+            <h2 className={styles.sectionHeading}>Output</h2>
             <div className={styles.tabs} role="tablist" aria-label="Output" onKeyDown={onTabKeys}>
               {OUTPUTS.map((o) => (
                 <Button key={o.key} id={`output-tab-${o.key}`} role="tab" kind={output === o.key ? 'primary' : 'ghost'} size="sm" aria-selected={output === o.key} aria-controls={`output-panel-${o.key}`} tabIndex={output === o.key ? 0 : -1} onClick={() => setOutput(o.key)}>

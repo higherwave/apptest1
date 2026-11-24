@@ -7,6 +7,7 @@ import './index.scss'
 import { App } from './App'
 import { ProblemBanner } from './shell/ProblemBanner'
 import { watchPage } from './shell/problems'
+import './inputMode'
 
 // Reads are cached by the CDN for a minute; keep the browser from refetching on every focus.
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 60_000, refetchOnWindowFocus: false, retry: 1 } } })

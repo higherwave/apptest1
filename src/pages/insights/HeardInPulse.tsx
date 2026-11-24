@@ -12,7 +12,7 @@ export function HeardInPulse({ topics }: { topics: PulseTopic[] }) {
   return (
     <section className={styles.strip} aria-label="Heard in Pulse" data-testid="heard-in-pulse">
       <div className={styles.head}>
-        <h2 className={styles.label}>Heard in Pulse</h2>
+        <h2 className={styles.sectionHeading}>Heard in Pulse</h2>
         <Link to="/pulse" className={styles.more}>
           Open Pulse
         </Link>

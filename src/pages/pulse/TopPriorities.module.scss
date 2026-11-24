@@ -1,0 +1,273 @@
+@use '../../tokens' as tokens;
+
+$stack: 56.25rem; // below this the map goes above the cards
+
+.layout {
+  display: grid;
+  grid-template-columns: minmax(17.5rem, 21.25rem) minmax(0, 1fr);
+  gap: var(--at-space-lg);
+  align-items: start;
+
+  @media (max-width: $stack) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.listCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+
+  @media (max-width: $stack) { order: 2; }
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.card {
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  overflow: hidden;
+  transition: border-color 0.2s, background 0.2s;
+
+  // Open: a dark outline and a soft tint, like the reference design.
+  &[data-open='true'] { border: 0.125rem solid var(--at-signature-forest); background: color-mix(in srgb, var(--at-tint-mint) 40%, var(--at-canvas)); }
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--at-space-xs);
+  padding: var(--at-space-md) var(--at-space-md) var(--at-space-sm) var(--at-space-xs);
+}
+
+.pick { flex: none; }
+
+.head .headMain.headMain {
+  display: flex;
+  flex: 1 1 0;
+  inline-size: auto;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--at-space-xxs);
+  min-inline-size: 0;
+  min-block-size: 0;
+  max-inline-size: none;
+  block-size: auto;
+  padding: 0 !important; // the library's button padding, which would push the text away from the edge
+  text-align: start;
+  white-space: normal;
+  background: transparent;
+
+  &:hover { background: transparent; }
+  &:focus-visible { outline: 0.125rem solid var(--at-link); outline-offset: 0.125rem; }
+}
+
+.title {
+  @include tokens.role('heading-4');
+  color: var(--at-ink);
+  text-wrap: pretty;
+}
+
+.meta {
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--at-space-xxs);
+  margin-inline-start: calc(-1 * var(--at-space-xxs));
+}
+
+.chev {
+  flex: none;
+  display: flex;
+  padding-block-start: var(--at-space-xxs);
+  color: var(--at-muted);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-xs) var(--at-space-md) var(--at-space-md);
+}
+
+// The explanation sits under the sources, set off by a hairline, in the same calm type as the rest of the card.
+.whyWrap {
+  padding-block-start: var(--at-space-md);
+  border-block-start: 1px solid var(--at-hairline);
+
+  > div { padding: 0; gap: var(--at-space-md); }
+
+  p { color: var(--at-muted); }
+
+  dl {
+    inline-size: 100%;
+    min-inline-size: 0;
+    gap: var(--at-space-xs);
+    @include tokens.role('body-md');
+  }
+
+  dt { color: var(--at-muted); }
+  dd { font-weight: 500; }
+
+  > div > dl > div:last-child {
+    padding-block-start: var(--at-space-xs);
+    dt, dd { color: var(--at-ink); font-weight: 600; }
+  }
+}
+
+.sources { display: flex; flex-direction: column; gap: var(--at-space-xs); }
+
+.sourcesHead {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  @include tokens.role('body-md');
+  color: var(--at-muted);
+
+  strong { font-weight: 500; color: var(--at-ink); }
+}
+
+.cells {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: var(--at-space-xs);
+}
+
+.cell { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
+
+.cellLabel {
+  @include tokens.role('meta');
+  color: var(--at-muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// The same shading as the All Topics table: the number is always written in the cell.
+.heat {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 3.25rem;
+  border-radius: var(--at-radius-md);
+  @include tokens.role('heading-4');
+  color: var(--at-ink);
+
+  // A green range from existing tokens, as in the reference: dark text on every shade but the darkest, which takes white (all above 4.5:1).
+  &[data-level='0'] { background: var(--at-surface-slate); color: var(--at-muted); }
+  &[data-level='1'] { background: var(--at-tint-mint); }
+  &[data-level='2'] { background: color-mix(in srgb, var(--at-signature-mint) 55%, var(--at-canvas)); }
+  &[data-level='3'] { background: var(--at-signature-mint); }
+  &[data-level='4'] { background: var(--at-signature-forest); color: var(--at-on-primary); }
+}
+
+.open {
+  @include tokens.role('button-sm');
+  align-self: flex-start;
+  color: var(--at-link);
+  text-decoration: none;
+
+  &:hover { color: var(--at-link-active); text-decoration: underline; }
+}
+
+.body > .open { padding-block-start: var(--at-space-xxs); }
+
+// ---- the map ---------------------------------------------------------------------------------------------------------------------------------
+.mapPanel {
+  position: sticky;
+  inset-block-start: calc(4rem + var(--at-space-lg));
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-md);
+  background: var(--at-canvas);
+  overflow: hidden;
+
+  @media (max-width: $stack) { position: static; order: 1; }
+}
+
+.mapHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--at-space-md);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border-block-end: 1px solid var(--at-hairline);
+}
+
+.mapTitle {
+  @include tokens.role('heading-3');
+  margin: 0;
+  color: var(--at-ink);
+}
+
+.mapNote {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-muted);
+}
+
+.svg {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  padding: var(--at-space-md);
+  box-sizing: border-box;
+}
+
+.qQuietCostly { fill: color-mix(in srgb, var(--at-tint-sand) 28%, var(--at-canvas)); }
+.qLoudCostly { fill: color-mix(in srgb, var(--at-tint-coral) 28%, var(--at-canvas)); }
+.qQuietContained { fill: color-mix(in srgb, var(--at-tint-mint) 28%, var(--at-canvas)); }
+.qLoudContained { fill: color-mix(in srgb, var(--at-tint-yellow) 28%, var(--at-canvas)); }
+.divider { stroke: var(--at-canvas); stroke-width: 2; }
+.axis { stroke: var(--at-muted); stroke-width: 1; }
+
+.quad {
+  @include tokens.role('caption');
+}
+.quadCostly { fill: var(--at-on-tint-coral); }
+.quadContained { fill: var(--at-signature-forest); }
+
+.axisLabel {
+  @include tokens.role('meta');
+  fill: var(--at-muted);
+}
+
+.dot {
+  cursor: pointer;
+  outline: none;
+
+  circle {
+    fill: var(--at-canvas);
+    stroke: var(--at-ink);
+    stroke-width: 2;
+    transition: fill 0.2s;
+  }
+
+  &:hover circle { fill: color-mix(in srgb, var(--at-link) 22%, var(--at-canvas)); }
+  &[data-active='true'] circle { fill: var(--at-ink); }
+  &:focus-visible circle { stroke: var(--at-link); stroke-width: 4; }
+}
+
+.dotName {
+  @include tokens.role('body-md');
+  fill: var(--at-ink);
+  .dot[data-active='true'] & { font-weight: 600; }
+}
+
+.dotMeta {
+  @include tokens.role('meta');
+  fill: var(--at-muted);
+}

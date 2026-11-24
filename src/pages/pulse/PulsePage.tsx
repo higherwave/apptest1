@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Button, ContentSwitcher, Switch, Tag } from '@carbon/react'
+import { Button, ContentSwitcher, Switch } from '@carbon/react'
 import { useSearchParams } from 'react-router-dom'
 import type { PulseStatus, SignalOrigin } from '../../api/client'
 import { useMe, usePulseSignals } from '../../api/hooks'
@@ -41,11 +41,7 @@ export function PulsePage() {
 
   return (
     <div className={styles.page}>
-      <PageHero title="Signals" description="What customers are telling you, grouped into topics you can start a project from" glow="left" variant="wave" graphic="pulse">
-        <Tag type="purple" size="md" data-testid="pulse-preview-tag">
-          Preview
-        </Tag>
-      </PageHero>
+      <PageHero title="Signals" description="What customers are telling you, grouped into topics you can start a project from" glow="left" variant="wave" graphic="pulse" />
 
       <div className={styles.filterRow}>
         <div className={styles.filterGroup}>

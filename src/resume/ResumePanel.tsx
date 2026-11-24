@@ -54,7 +54,7 @@ export function ResumePanel() {
         )}
       </div>
       <div className={styles.right}>
-        <h2 className={styles.label}>What is left to do</h2>
+        <h2 className={styles.sectionHeading}>What is left to do</h2>
         {todos.length === 0 ? (
           <p className={styles.done} role="status">All caught up: every project is analyzed and measured.</p>
         ) : (
