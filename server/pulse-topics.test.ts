@@ -61,7 +61,7 @@ test('a topic score is the weighted sum of its signals per channel, shown in ful
   assert.deepEqual(stats.channels, { call_notes: 2, slack: 2 })
   assert.equal(stats.channelCount, 2)
   assert.equal(stats.reach, 3, 'Northwind (twice, any capitals), Contoso and Dana, who has no account')
-  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 2, weight: 1, subtotal: 2 }, { channel: 'slack', count: 2, weight: 0.5, subtotal: 1 }])
+  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 2, praise: 0, weight: 1, subtotal: 2 }, { channel: 'slack', count: 2, praise: 0, weight: 0.5, subtotal: 1 }])
   assert.equal(stats.score, 3)
   assert.equal(stats.trend, 'rising', 'three in the last 14 days, one in the 14 before')
   assert.equal(topicStats([{ channel: 'slack', account: null, saidBy: null, occurredOn: '2026-11-19', createdAt: '2026-11-19T00:00:00Z' }], DEFAULT_WEIGHTS, today).trend, 'new')

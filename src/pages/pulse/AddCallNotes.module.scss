@@ -1,0 +1,24 @@
+@use '../../tokens' as tokens;
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+.text {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-body);
+}
+
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--at-space-md);
+}
+
+.actions {
+  display: flex;
+  gap: var(--at-space-sm);
+}

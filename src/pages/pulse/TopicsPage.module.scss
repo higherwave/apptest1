@@ -239,6 +239,14 @@
   flex-wrap: wrap;
 }
 
+// Rank by and Add call notes, together at the right of the row above the table.
+.toolbarRight {
+  display: flex;
+  align-items: center;
+  gap: var(--at-space-md);
+  flex-wrap: wrap;
+}
+
 .tableTitle {
   @include tokens.role('heading-section');
   margin: 0;

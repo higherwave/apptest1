@@ -160,8 +160,11 @@ export function bestTopic(body: string, topics: { id: string; bodies: string[] }
 
 // Ranking ----------------------------------------------------------------------------------------------------------------------
 
-export type RankSignal = { channel: Channel; account: string | null; saidBy: string | null; occurredOn: string | null; createdAt: string }
-export type Breakdown = { channel: Channel; count: number; weight: number; subtotal: number }
+export type RankSignal = { channel: Channel; kind?: string; account: string | null; saidBy: string | null; occurredOn: string | null; createdAt: string }
+/** `count` is every signal from the channel; `praise` is how many of those are praise, which count a quarter. `subtotal` is the weighted sum. */
+export type Breakdown = { channel: Channel; count: number; praise: number; weight: number; subtotal: number }
+/** Praise says what keeps customers happy: worth logging, but not a problem to fix, so it counts a little. */
+export const PRAISE_FACTOR = 0.25
 export type TopicStats = {
   signals: number
   channels: Partial<Record<Channel, number>>
@@ -180,7 +183,12 @@ const clean = (s: string | null) => (s && s.trim() && !/^unknown$/i.test(s.trim(
 export function topicStats(signals: RankSignal[], weights: Record<Channel, number>, today: Date = new Date()): TopicStats {
   const channels: Partial<Record<Channel, number>> = {}
   for (const s of signals) channels[s.channel] = (channels[s.channel] ?? 0) + 1
-  const breakdown = CHANNELS.filter((c) => channels[c]).map((c) => ({ channel: c, count: channels[c]!, weight: weights[c], subtotal: round2(channels[c]! * weights[c]) }))
+  const praised: Partial<Record<Channel, number>> = {}
+  for (const s of signals) if (s.kind === 'praise') praised[s.channel] = (praised[s.channel] ?? 0) + 1
+  const breakdown = CHANNELS.filter((c) => channels[c]).map((c) => {
+    const praise = praised[c] ?? 0
+    return { channel: c, count: channels[c]!, praise, weight: weights[c], subtotal: round2((channels[c]! - praise + praise * PRAISE_FACTOR) * weights[c]) }
+  })
   const who = new Set<string>()
   for (const s of signals) {
     const k = clean(s.account) ?? (clean(s.saidBy) ? `person:${clean(s.saidBy)}` : null)

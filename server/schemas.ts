@@ -119,6 +119,8 @@ export const importNotesSchema = z.object({
   text: z.string().trim().min(1, 'Paste some notes first.').max(200_000, 'That is too much to import at once.'),
   channel: channel.optional(),
   sourceLabel: optionalText(200),
+  sourceUrl: optionalText(1000).refine((u) => u === null || /^https?:\/\//i.test(u), 'A link must start with http:// or https://.'),
+  saidBy: optionalText(200),
   account: optionalText(200),
   occurredOn: isoDate.nullish().transform((v) => v ?? null),
 })

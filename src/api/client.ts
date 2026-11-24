@@ -176,10 +176,11 @@ const query = (params: Record<string, string | undefined>) => {
 }
 export const listPulseSignals = (status?: PulseStatus, origin?: SignalOrigin) => request<PulseSignalList>(`/pulse/signals${query({ status, origin })}`)
 export const addPulseSignal = (body: NewPulseSignal) => request<PulseSignal>('/pulse/signals', { method: 'POST', body })
-export const importPulseNotes = (body: { text: string; channel?: PulseChannel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }) => request<{ created: number; skipped: number; duplicates: number }>('/pulse/signals/import', { method: 'POST', body })
+export const importPulseNotes = (body: { text: string; channel?: PulseChannel; sourceLabel?: string | null; sourceUrl?: string | null; saidBy?: string | null; account?: string | null; occurredOn?: string | null }) => request<{ created: number; skipped: number; duplicates: number }>('/pulse/signals/import', { method: 'POST', body })
 export const listPulseTopics = (origin?: SignalOrigin) => request<PulseTopicList>(`/pulse/topics${query({ origin })}`)
 export const updatePulseTopics = (mode: 'attach' | 'regroup' = 'attach') => request<PulseTopicList>('/pulse/topics/update', { method: 'POST', body: { mode } })
 export const renamePulseTopic = (id: string, title: string) => request<PulseTopicList>(`/pulse/topics/${id}`, { method: 'PATCH', body: { title } })
+export const dismissPulseTopic = (id: string) => request<PulseTopicList>(`/pulse/topics/${id}/dismiss`, { method: 'POST' })
 export const mergePulseTopic = (id: string, intoId: string) => request<PulseTopicList>(`/pulse/topics/${id}/merge`, { method: 'POST', body: { intoId } })
 export const getPulseTopic = (id: string, origin?: SignalOrigin) => request<PulseTopicDetail>(`/pulse/topics/${id}${query({ origin })}`)
 export const suggestPulseQuestions = (topicIds: string[], method: string) => request<{ questions: PulseQuestion[] }>('/pulse/questions', { method: 'POST', body: { topicIds, method } })

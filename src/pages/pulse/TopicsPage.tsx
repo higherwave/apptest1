@@ -1,10 +1,11 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Information } from '@carbon/icons-react'
 import { Button, Checkbox, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { friendlyMessage, type PulseTopic } from '../../api/client'
-import { useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
+import { useDismissPulseTopic, useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
+import { AddCallNotes } from './AddCallNotes'
 import { CHANNELS } from './channels'
 import { CreateProjectPanel } from './CreateProjectPanel'
 import { money, moneyFull } from './money'
@@ -12,9 +13,11 @@ import { PulseNotFound } from './PulseNotFound'
 import { Why } from './Why'
 import { useTopicSelection } from './selection'
 import { TopPriorities } from './TopPriorities'
-import { TREND } from './trend'
+import { trendTag } from './trend'
 import styles from './TopicsPage.module.scss'
 
+/** Top Priorities shows this many topics; All Topics has them all. */
+const TOP_N = 6
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : null)
 
@@ -24,11 +27,12 @@ export function TopicsPage() {
   const me = useMe()
   const topics = useTopics()
   const update = useUpdatePulseTopics()
-  const navigate = useNavigate()
   const [open, setOpen] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<PulseTopic | null>(null)
   const [merging, setMerging] = useState<PulseTopic | null>(null)
   const [creating, setCreating] = useState(false)
+  const [dismissing, setDismissing] = useState<PulseTopic | null>(null)
+  const [adding, setAdding] = useState(false)
   const [params, setParams] = useSearchParams()
   const tab = params.get('tab') === 'all' ? 1 : 0
   const [rankBy, setRankBy] = useState<'score' | 'arr' | 'play'>('score')
@@ -72,38 +76,28 @@ export function TopicsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHero title="Topics" description="What customers keep raising, grouped from the signals you have kept and ranked by how much each counts" glow="left" variant="wave" graphic="pulse" />
+      <PageHero title="Topics" description="What customers keep raising, found by Pulse in Slack, Salesforce and call notes, and ranked by how much each counts" glow="left" variant="wave" graphic="pulse" />
 
       {topics.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics could not be loaded" subtitle={friendlyMessage(topics.error)} />}
       {update.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics were not updated" subtitle={friendlyMessage(update.error)} />}
 
-      {list && (list.toReview > 0 || list.sinceUpdate > 0) && (
+      {list && list.sinceUpdate > 0 && (
         <ul className={styles.notes} aria-label="Waiting">
-          {list.toReview > 0 && (
-            <li data-testid="topics-review">
-              {plural(list.toReview, 'signal')} {list.toReview === 1 ? 'is' : 'are'} waiting for review and not counted yet.{' '}
-              <Button kind="ghost" size="sm" onClick={() => navigate('/pulse/signals')}>
-                Review signals
-              </Button>
-            </li>
-          )}
-          {list.sinceUpdate > 0 && (
-            <li data-testid="topics-since">
-              {plural(list.sinceUpdate, 'signal')} kept since topics were last updated. Topics also update by themselves every hour.
-            </li>
-          )}
+          <li data-testid="topics-since">
+            {plural(list.sinceUpdate, 'signal')} added since topics were last updated. Topics update by themselves every hour.
+          </li>
         </ul>
       )}
 
       {list && !list.topics.length && (
         <section className={styles.empty} data-testid="topics-empty">
-          <p className={styles.text}>No topics yet. Topics form when at least two kept signals are about the same thing. Keep some signals, then update topics.</p>
+          <p className={styles.text}>No topics yet. A topic forms when at least two signals are about the same thing. Pulse reads the Slack channels and Salesforce notes set up in Settings; you can also add call notes.</p>
           {canStart && <div className={styles.emptyActions}>
             <Button kind="primary" size="md" data-testid="topics-update" disabled={update.isPending} onClick={() => update.mutate('regroup')}>
               Update topics
             </Button>
-            <Button kind="ghost" size="md" onClick={() => navigate('/pulse/signals')}>
-              Go to signals
+            <Button kind="ghost" size="md" data-testid="empty-add-notes" onClick={() => setAdding(true)}>
+              Add call notes
             </Button>
           </div>}
         </section>
@@ -124,7 +118,7 @@ export function TopicsPage() {
             <TabPanel className={styles.tabPanel}>
               {tab === 0 && (
                 <>
-                  <TopPriorities rankBar={rankBarFor(true)} topics={list.topics} ordered={orderedTopics} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} />
+                  <TopPriorities rankBar={rankBarFor(true)} topics={orderedTopics.slice(0, TOP_N)} ordered={orderedTopics.slice(0, TOP_N)} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} />
                 </>
               )}
             </TabPanel>
@@ -139,7 +133,14 @@ export function TopicsPage() {
                         <Button kind="ghost" size="sm" hasIconOnly renderIcon={Information} iconDescription="Signals per channel. Darker means more. Open “Why it ranks here” to see the weights behind the score." tooltipPosition="bottom" tooltipAlignment="start" className={styles.info} data-testid="table-info" />
                       </h2>
                     </div>
-                    {rankBarFor(false)}
+                    <div className={styles.toolbarRight}>
+                      {rankBarFor(false)}
+                      {canStart && (
+                        <Button kind="tertiary" size="sm" data-testid="add-notes" onClick={() => setAdding(true)}>
+                          Add call notes
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 <TableContainer className={styles.table}>
                   <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
@@ -183,8 +184,8 @@ export function TopicsPage() {
                                 </Link>
                                 <span className={styles.meta}>
                                   {plural(t.signals, 'signal')} · {plural(t.reach, 'account')}
-                                  <Tag type={TREND[t.trend].type} size="sm">
-                                    {TREND[t.trend].label}
+                                  <Tag type={trendTag(t).type} size="sm" data-testid={`trend-${t.id}`}>
+                                    {trendTag(t).label}
                                   </Tag>
                                   {t.researched.length > 0 && (
                                     <Tag type="teal" size="sm" data-testid={`researched-${t.id}`}>
@@ -235,6 +236,7 @@ export function TopicsPage() {
                               {canStart && <OverflowMenu size="sm" flipped aria-label={`Actions for ${t.title}`} data-testid={`topic-menu-${t.id}`}>
                                 <OverflowMenuItem itemText="Rename" data-testid={`rename-${t.id}`} onClick={() => setRenaming(t)} />
                                 <OverflowMenuItem itemText="Merge into another topic" data-testid={`merge-${t.id}`} disabled={list.topics.length < 2} onClick={() => setMerging(t)} />
+                                <OverflowMenuItem itemText="Dismiss topic" isDelete hasDivider data-testid={`dismiss-${t.id}`} onClick={() => setDismissing(t)} />
                               </OverflowMenu>}
                             </TableCell>
                           </TableRow>
@@ -280,6 +282,8 @@ export function TopicsPage() {
       )}
 
       <CreateProjectPanel topics={picked} open={creating && picked.length > 0} onClose={() => setCreating(false)} />
+      <AddCallNotes open={adding} onClose={() => setAdding(false)} />
+      <DismissModal topic={dismissing} onClose={() => setDismissing(null)} />
       <RenameModal topic={renaming} onClose={() => setRenaming(null)} />
       <MergeModal topic={merging} others={list?.topics.filter((t) => t.id !== merging?.id) ?? []} onClose={() => setMerging(null)} />
     </div>
@@ -312,6 +316,28 @@ function RenameModal({ topic, onClose }: { topic: PulseTopic | null; onClose: ()
       <TextInput id="rename-title" data-testid="rename-title" labelText="Topic name" value={title} onChange={(e) => setTitle(e.target.value)} />
       <p className={styles.modalNote}>A topic you rename is left alone when topics are regrouped.</p>
       {rename.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(rename.error)} />}
+    </Modal>
+  )
+}
+
+// Dismissing a topic hides it from everyone, so it asks first. Nothing needs tidying afterwards: the signals stay, and the topic comes back by itself if three or more new ones join it.
+function DismissModal({ topic, onClose }: { topic: PulseTopic | null; onClose: () => void }) {
+  const dismiss = useDismissPulseTopic()
+  const run = async () => {
+    if (!topic) return
+    try {
+      await dismiss.mutateAsync(topic.id)
+      onClose()
+    } catch {
+      /* shown below */
+    }
+  }
+  return (
+    <Modal open={!!topic} danger modalHeading="Dismiss this topic?" primaryButtonText={dismiss.isPending ? 'Dismissing…' : 'Dismiss topic'} secondaryButtonText="Cancel" primaryButtonDisabled={dismiss.isPending} onRequestClose={onClose} onRequestSubmit={run} data-testid="dismiss-modal">
+      <p className={styles.modalNote}>
+        “{topic?.title}” leaves the lists for everyone. Its signals are kept, and the topic comes back by itself if three or more new signals join it.
+      </p>
+      {dismiss.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not dismissed" subtitle={friendlyMessage(dismiss.error)} />}
     </Modal>
   )
 }

@@ -9,10 +9,6 @@ const SCOPES = [
   { key: 'open', label: 'Open opportunities only' },
   { key: 'lost', label: 'Lost in the last 90 days only' },
 ] as const
-const MODES = [
-  { key: 'review', label: 'Wait for review' },
-  { key: 'keep', label: 'Count at once' },
-] as const
 
 // Settings, Pulse: the notes on Salesforce opportunities as a source. The owner names the fields (their API names) and which opportunities; only those fields are read. The source then
 // appears in "Where Pulse listens" with the rest, where it is checked, switched off or removed.
@@ -22,15 +18,14 @@ export function PulseOpportunities() {
   const [fields, setFields] = useState('NextStep, Description')
   const [amountField, setAmountField] = useState('Amount')
   const [scope, setScope] = useState<(typeof SCOPES)[number]['key']>('both')
-  const [mode, setMode] = useState<(typeof MODES)[number]['key']>('review')
   if (sources.data?.sources.some((s) => s.kind === 'salesforce_opportunity')) return null
   const list = fields.split(',').map((f) => f.trim()).filter(Boolean)
   return (
     <section className={styles.card} aria-label="Opportunity notes" data-testid="pulse-opportunities-card">
       <h2 className={styles.head}>Salesforce opportunity notes</h2>
       <p className={styles.text}>
-        Read the notes on opportunities as customer signals, with the opportunity's amount, stage and close date, so topics can show how much is at stake. Name the fields to read by their API names. Only those fields are read, nothing is
-        written back, and "Wait for review" keeps anything sensitive from counting until someone has looked at it.
+        Read the notes on opportunities as customer signals, with the opportunity's amount, stage and close date, so topics can show how much is at stake. Name the fields to read by their API names. Only those fields are read, and nothing is
+        written back. Name only fields that are fine to read: everything in them counts at once.
       </p>
       <div className={styles.add}>
         <TextInput id="opp-fields" data-testid="opp-fields" labelText="Fields to read (up to five)" helperText="For example NextStep, Description, Loss_Reason__c" value={fields} onChange={(e) => setFields(e.target.value)} />
@@ -42,15 +37,10 @@ export function PulseOpportunities() {
             <SelectItem key={s.key} value={s.key} text={s.label} />
           ))}
         </Select>
-        <Select id="opp-mode" data-testid="opp-mode" labelText="New notes" value={mode} onChange={(e) => setMode(e.target.value as typeof mode)}>
-          {MODES.map((m) => (
-            <SelectItem key={m.key} value={m.key} text={m.label} />
-          ))}
-        </Select>
       </div>
       {add.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not added" subtitle={friendlyMessage(add.error)} data-testid="opp-add-error" />}
       <div>
-        <Button kind="primary" size="md" data-testid="opp-add" disabled={!list.length || list.length > 5 || !amountField.trim() || add.isPending} onClick={() => add.mutate({ fields: list, scope, amountField: amountField.trim(), mode })}>
+        <Button kind="primary" size="md" data-testid="opp-add" disabled={!list.length || list.length > 5 || !amountField.trim() || add.isPending} onClick={() => add.mutate({ fields: list, scope, amountField: amountField.trim() })}>
           {add.isPending ? 'Adding…' : 'Add opportunity notes'}
         </Button>
       </div>

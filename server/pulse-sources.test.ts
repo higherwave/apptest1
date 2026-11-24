@@ -65,7 +65,7 @@ test('sources: owners only, while the preview is on; a channel must exist; each 
   assert.deepEqual(verbs, ['added', 'changed', 'removed'])
 })
 
-test('reading a channel: review mode waits, keep mode counts, a second read adds nothing, bots and joins are left out', async () => {
+test('reading a channel: everything counts at once, a second read adds nothing, bots and joins are left out', async () => {
   const { call, owner, rec, pg } = await fixture()
   rec.feeds['C_customer-feedback'] = [
     msg(1, 'Customers keep asking where the weekly digest went'),
@@ -78,7 +78,7 @@ test('reading a channel: review mode waits, keep mode counts, a second read adds
   assert.deepEqual(res, { added: 2, error: null, duplicates: 0 })
   let rows = (await pg.query<any>(`select status, source, source_label, channel from core.pulse_signals where source = 'slack'`)).rows
   assert.equal(rows.length, 2)
-  assert.ok(rows.every((r: any) => r.status === 'new' && r.source_label === '#customer-feedback' && r.channel === 'slack'))
+  assert.ok(rows.every((r: any) => r.status === 'kept' && r.source_label === '#customer-feedback' && r.channel === 'slack'))
 
   assert.deepEqual(await (await call(owner, 'POST', `/pulse/sources/${review.id}/check`)).json(), { added: 0, error: null, duplicates: 0 }, 'the same messages are never read twice')
   rec.feeds['C_customer-feedback'].push(msg(5, 'Support says the handoff notes get lost between teams'))

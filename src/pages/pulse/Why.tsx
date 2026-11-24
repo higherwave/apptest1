@@ -9,14 +9,14 @@ export function Why({ topic }: { topic: PulseTopic }) {
   return (
     <div className={styles.whyBox}>
       <p className={styles.whyIntro}>
-        “{topic.title}” ranks #{topic.rank} because its {plural(topic.signals, 'kept signal')} count for different amounts depending on where they were heard. The score is the total of signals × weight, channel by channel.
+        “{topic.title}” ranks #{topic.rank} because its {plural(topic.signals, 'kept signal')} count for different amounts depending on where they were heard. The score is the total of signals × weight, channel by channel. Praise counts a quarter: it says what keeps customers happy, which is worth knowing, but it is not a problem to fix.
       </p>
       <dl className={styles.sum}>
         {topic.breakdown.map((b) => (
           <div key={b.channel} className={styles.sumRow}>
             <dt>{CHANNEL_LABEL[b.channel]}</dt>
             <dd>
-              {b.count} × {b.weight} = {b.subtotal}
+              {b.praise > 0 ? `${b.count - b.praise} + ${b.praise} praise × ¼` : b.count} × {b.weight} = {b.subtotal}
             </dd>
           </div>
         ))}

@@ -56,7 +56,7 @@ import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopi
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import type { SalesforceFetch } from './salesforce.js'
 import { addOpportunitySource, addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
-import { addSignal, BadSplit, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
+import { addSignal, BadSplit, dismissTopic, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
@@ -1352,6 +1352,15 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(renameTopicSchema, await readJson(c))
     try {
       await renameTopic(getDb(), c.get('ctx'), id, input.title)
+    } catch (err) {
+      topicError(err)
+    }
+    return c.json(await listTopics(getDb(), c.get('ctx')))
+  })
+  app.post('/pulse/topics/:id/dismiss', withContext, limited('pulse_dismiss', 60), async (c) => {
+    await pulseOnly(c, 'edit')
+    try {
+      await dismissTopic(getDb(), c.get('ctx'), signalId(c))
     } catch (err) {
       topicError(err)
     }

@@ -177,8 +177,8 @@ export function splitNotes(text: string): string[] {
 
 export const MAX_IMPORT = 200
 
-/** Splits notes into signals that wait for review (status new). Returns how many were made, and how many paragraphs were left out when over the cap. */
-export async function importNotes(db: Db, ctx: RequestContext, input: { text: string; channel?: Channel; sourceLabel?: string | null; account?: string | null; occurredOn?: string | null }): Promise<{ created: number; skipped: number; duplicates: number }> {
+/** Splits notes into signals that count at once (status kept). Returns how many were made, and how many paragraphs were left out when over the cap. */
+export async function importNotes(db: Db, ctx: RequestContext, input: { text: string; channel?: Channel; sourceLabel?: string | null; sourceUrl?: string | null; saidBy?: string | null; account?: string | null; occurredOn?: string | null }): Promise<{ created: number; skipped: number; duplicates: number }> {
   const all = splitNotes(input.text)
   const seen = await loadSeen(db, ctx.workspaceId)
   const capped = all.slice(0, MAX_IMPORT)
@@ -190,7 +190,7 @@ export async function importNotes(db: Db, ctx: RequestContext, input: { text: st
     await insertMany(
       tx,
       'core.pulse_signals',
-      parts.map((body) => ({ workspace_id: ctx.workspaceId, body, kind: 'other', channel: input.channel ?? 'call_notes', source: 'notes', source_label: clean(input.sourceLabel), account: clean(input.account), occurred_on: input.occurredOn ?? null, status: 'new', created_by: ctx.userId })),
+      parts.map((body) => ({ workspace_id: ctx.workspaceId, body, kind: 'other', channel: input.channel ?? 'call_notes', source: 'notes', source_label: clean(input.sourceLabel), source_url: clean(input.sourceUrl), said_by: clean(input.saidBy), account: clean(input.account), occurred_on: input.occurredOn ?? null, status: 'kept', kept_at: new Date().toISOString(), created_by: ctx.userId })),
     )
   })
   return { created: parts.length, skipped: all.length - capped.length, duplicates }
@@ -300,6 +300,13 @@ export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup
         attached++
       } else rest.push(sig)
     }
+    // A dismissed topic comes back once three or more new signals have joined it since it was dismissed.
+    await tx.query(
+      `update core.pulse_topics t set dismissed_at = null, dismissed_signal_count = null, dismissed_by = null, updated_at = now()
+        where t.workspace_id = $1 and t.status = 'active' and t.dismissed_at is not null
+          and (select count(*) from core.pulse_topic_signals s where s.topic_id = t.id) >= coalesce(t.dismissed_signal_count, 0) + $2`,
+      [ws, RESURFACE_AFTER],
+    )
     let created = 0
     for (const g of groupSignals(rest)) {
       const topic = (await tx.query(`insert into core.pulse_topics (workspace_id, title, created_by) values ($1, $2, $3) returning id`, [ws, g.title, who.userId])).rows[0]
@@ -320,10 +327,10 @@ export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup
 export async function listTopics(db: Queryable, ctx: RequestContext, today: Date = new Date(), origin?: Origin): Promise<TopicList> {
   const ws = ctx.workspaceId
   const weights = await getWeights(db, ws)
-  const topicRows = (await db.query(`select id, title, edited from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows
+  const topicRows = (await db.query(`select id, title, edited from core.pulse_topics where workspace_id = $1 and status = 'active' and dismissed_at is null`, [ws])).rows
   const sigRows = (
     await db.query(
-      `select ts.topic_id, s.body, s.channel, s.account, s.account_sf_id, s.opp_id, s.opp_amount, s.opp_state, to_char(s.opp_close_date, 'YYYY-MM-DD') as opp_close_date, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
+      `select ts.topic_id, s.body, s.kind, s.channel, s.account, s.account_sf_id, s.opp_id, s.opp_amount, s.opp_state, to_char(s.opp_close_date, 'YYYY-MM-DD') as opp_close_date, s.said_by, to_char(s.occurred_on, 'YYYY-MM-DD') as occurred_on, s.created_at
          from core.pulse_topic_signals ts join core.pulse_signals s on s.id = ts.signal_id where ts.workspace_id = $1 and s.status = 'kept' and ($2::text[] is null or s.source = any($2::text[]))`,
       [ws, origin ? ORIGIN_SOURCES[origin] : null],
     )
@@ -339,7 +346,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
         id: t.id as string,
         title: t.title as string,
         edited: !!t.edited,
-        ...topicStats(rows.map((r) => ({ channel: r.channel as Channel, account: r.account, saidBy: r.said_by, occurredOn: r.occurred_on, createdAt: new Date(r.created_at).toISOString() })), weights, today),
+        ...topicStats(rows.map((r) => ({ channel: r.channel as Channel, kind: r.kind as string, account: r.account, saidBy: r.said_by, occurredOn: r.occurred_on, createdAt: new Date(r.created_at).toISOString() })), weights, today),
         arr: known.size ? money.arr : null,
         arrMatched: money.matched,
         arrUnmatched: money.unmatched,
@@ -365,6 +372,23 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
     )
   ).rows[0]
   return { topics: ranked, weights, updatedAt: state ? new Date(state.updated_at).toISOString() : null, unsorted: counts.unsorted, toReview: counts.to_review, sinceUpdate: counts.since }
+}
+
+/** How many new signals bring a dismissed topic back. */
+export const RESURFACE_AFTER = 3
+
+/**
+ * Dismisses a topic for everyone. It stays out of the lists until RESURFACE_AFTER or more new signals have joined it (updates still attach them), so a mistake costs little and nobody has to tidy up.
+ * The topic counts as edited, so the daily regrouping does not drop the dismissal. The audit log records who did it and how strong the topic was.
+ */
+export async function dismissTopic(db: Db, ctx: RequestContext, id: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const t = (await tx.query(`select title from core.pulse_topics where id = $1 and workspace_id = $2 and status = 'active' and dismissed_at is null`, [id, ctx.workspaceId])).rows[0]
+    if (!t) throw new TopicNotFound()
+    const signals = Number((await tx.query(`select count(*)::int as n from core.pulse_topic_signals where topic_id = $1`, [id])).rows[0].n)
+    await tx.query(`update core.pulse_topics set dismissed_at = now(), dismissed_signal_count = $2, dismissed_by = $3, edited = true, updated_at = now() where id = $1`, [id, signals, ctx.userId])
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.pulse_topics', entity_id: id, verb: 'dismissed', before: null, after: { topic: t.title, signals, returnsAfter: `${RESURFACE_AFTER} new signals` } }])
+  })
 }
 
 export async function renameTopic(db: Queryable, ctx: RequestContext, id: string, title: string): Promise<void> {

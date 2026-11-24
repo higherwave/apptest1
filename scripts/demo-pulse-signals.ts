@@ -33,9 +33,9 @@ export const SAMPLES: Sample[] = [
   // Praise and questions
   { body: 'The Customer 360 timeline is the first thing I open every morning. It saves me real time.', kind: 'praise', source: 'slack', label: '#cs-feedback', by: 'Lucia Ferreira', account: 'Tailspin Travel', daysAgo: 14 },
   { body: 'Is there a way to see which of our accounts have an open renewal opportunity and a falling health score together?', kind: 'question', source: 'notes', label: 'Renewal call with Contoso', by: 'Priya Raman', account: 'Contoso Health', daysAgo: 5 },
-  // New ones waiting for review, as if the channel brought them in today
-  { body: 'Heads up, the score on Northwind went red again and the factor list is still missing.', kind: 'complaint', source: 'slack', label: '#cs-feedback', by: 'Marcus Bell', account: 'Northwind Logistics', daysAgo: 0, status: 'new' },
-  { body: 'lol the new dashboard is fine i guess', kind: 'other', source: 'slack', label: '#cs-feedback', by: 'Samir Qureshi', account: 'Wide World Importers', daysAgo: 0, status: 'new' },
+  // Brought in today by the channel (everything counts at once; nothing waits for review)
+  { body: 'Heads up, the score on Northwind went red again and the factor list is still missing.', kind: 'complaint', source: 'slack', label: '#cs-feedback', by: 'Marcus Bell', account: 'Northwind Logistics', daysAgo: 0 },
+  { body: 'lol the new dashboard is fine i guess', kind: 'other', source: 'slack', label: '#cs-feedback', by: 'Samir Qureshi', account: 'Wide World Importers', daysAgo: 0 },
 ]
 
 /** Where each sample was heard, from the fixed channel list. */

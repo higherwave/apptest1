@@ -19,7 +19,6 @@ import { InsightThemesPage } from './pages/insights/InsightThemesPage'
 import { PlatformJourneyPage } from './pages/insights/PlatformJourneyPage'
 import { DesignPage } from './pages/design/DesignPage'
 import { MeasurePage } from './pages/measure/MeasurePage'
-import { PulsePage } from './pages/pulse/PulsePage'
 import { TopicsPage } from './pages/pulse/TopicsPage'
 import { TopicDetailPage } from './pages/pulse/TopicDetailPage'
 import { PulseSettingsPage } from './pages/settings/PulseSettingsPage'
@@ -84,7 +83,7 @@ export function App() {
         <Route path="measure" element={<MeasurePage />} />
         <Route path="pulse" element={<TopicsPage />} />
         <Route path="pulse/topics/:id" element={<TopicDetailPage />} />
-        <Route path="pulse/signals" element={<PulsePage />} />
+        <Route path="pulse/signals" element={<Navigate to="/pulse?tab=all" replace />} />
         <Route path="projects/:projectId/:section" element={<Placeholder />} />
         <Route path="members" element={<Navigate to="/settings/access?tab=people" replace />} />
         <Route path="insights/themes" element={<InsightThemesPage />} />

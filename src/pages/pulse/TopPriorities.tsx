@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import type { PulseTopic } from '../../api/client'
 import { CHANNELS } from './channels'
 import { money } from './money'
-import { TREND } from './trend'
+import { trendTag } from './trend'
 import styles from './TopPriorities.module.scss'
 import { Why } from './Why'
 
@@ -21,7 +21,7 @@ const PLOT_H = H - PAD.top - PAD.bottom
 
 // Top Priorities: the topics ranked as cards on the left, and the impact map beside them. A dot and its card are one thing: choosing either opens the card, and an open card
 // darkens its dot. With Salesforce connected the height is the ARR behind a topic and the size is its accounts; without it the height is accounts and the size is signals.
-export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, selected, onToggle }: {
+export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, selected, onToggle, onDismiss }: {
   rankBar: ReactNode
   topics: PulseTopic[]
   ordered: PulseTopic[]
@@ -29,6 +29,7 @@ export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, sele
   canStart: boolean
   selected: string[]
   onToggle: (id: string) => void
+  onDismiss: (topic: PulseTopic) => void
 }) {
   const [open, setOpen] = useState<string[]>([])
   const max = Math.max(1, ...topics.flatMap((t) => CHANNELS.map((c) => t.channels[c.key] ?? 0)))
@@ -78,8 +79,8 @@ export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, sele
                     Score {t.score} · {unit(t)}
                   </span>
                   <span className={styles.tags}>
-                    <Tag type={TREND[t.trend].type} size="sm">
-                      {TREND[t.trend].label}
+                    <Tag type={trendTag(t).type} size="sm">
+                      {trendTag(t).label}
                     </Tag>
                     {t.researched.length > 0 && (
                       <Tag type="teal" size="sm">
@@ -123,9 +124,16 @@ export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, sele
                   <div className={styles.whyWrap}>
                     <Why topic={t} />
                   </div>
-                  <Link to={`/pulse/topics/${t.id}`} className={styles.open}>
-                    Open topic
-                  </Link>
+                  <div className={styles.actions}>
+                    <Link to={`/pulse/topics/${t.id}`} className={styles.open}>
+                      Open topic
+                    </Link>
+                    {canStart && (
+                      <Button kind="ghost" size="sm" data-testid={`card-dismiss-${t.id}`} onClick={() => onDismiss(t)}>
+                        Dismiss topic
+                      </Button>
+                    )}
+                  </div>
                 </div>
               )}
             </li>

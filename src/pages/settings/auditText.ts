@@ -31,6 +31,7 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.workspace_setup': 'Workspace setup',
   'core.workspace_features': 'Preview feature',
   'core.pulse_weights': 'Pulse weights',
+  'core.pulse_topics': 'Pulse topic',
   'insights.workflows': 'Journey',
   'delivery.story_tickets': 'Jira ticket',
 }

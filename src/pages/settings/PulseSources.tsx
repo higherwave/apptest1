@@ -5,11 +5,6 @@ import { useAddPulseSource, useCheckPulseSource, usePulseSources, useRemovePulse
 import { CHANNELS } from '../pulse/channels'
 import styles from './PulseSources.module.scss'
 
-const MODES = [
-  { key: 'review', label: 'Wait for review' },
-  { key: 'keep', label: 'Count at once' },
-] as const
-
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'not yet')
 
 // Settings, Pulse: the places Pulse may read customer feedback from. Only a channel listed here is ever read.
@@ -20,12 +15,11 @@ export function PulseSources() {
   const remove = useRemovePulseSource()
   const check = useCheckPulseSource()
   const [name, setName] = useState('')
-  const [mode, setMode] = useState<'keep' | 'review'>('review')
   const [note, setNote] = useState<{ id: string; text: string; error: boolean } | null>(null)
 
   const submit = async () => {
     try {
-      await add.mutateAsync({ name, mode })
+      await add.mutateAsync({ name })
       setName('')
     } catch {
       /* shown below */
@@ -46,7 +40,7 @@ export function PulseSources() {
       <h2 className={styles.head}>Where Pulse listens</h2>
       <p className={styles.text}>
         Pulse reads only the Slack channels you list here, never the rest of Slack. Pick channels set up for customer feedback and pain points. Each is read about once an hour. Messages from bots and joins are left out, and a message is never read twice.
-        With "Wait for review", messages wait in the Signals list until someone keeps or dismisses them. With "Count at once" they join the topics at the next update.
+        Everything read counts at once and joins the topics at the next update; a person dismisses a topic that is not useful.
       </p>
       {list.data && !list.data.slackConnected && (
         <InlineNotification hideCloseButton lowContrast kind="info" title="Slack is not connected" subtitle="You can list channels now. They are read once Slack is connected with the channel-reading permissions." data-testid="sources-no-slack" />
@@ -74,11 +68,6 @@ export function PulseSources() {
                 <SelectItem key={c.key} value={c.key} text={c.label} />
               ))}
             </Select>
-            <Select id={`source-mode-${s.id}`} data-testid={`source-mode-${s.name}`} size="sm" labelText="New messages" value={s.mode} onChange={(e) => update.mutate({ id: s.id, patch: { mode: e.target.value as PulseSource['mode'] } })}>
-              {MODES.map((m) => (
-                <SelectItem key={m.key} value={m.key} text={m.label} />
-              ))}
-            </Select>
           </div>
           <div className={styles.actions}>
             <Button kind="tertiary" size="sm" data-testid={`source-check-${s.name}`} disabled={check.isPending} onClick={() => run(s)}>
@@ -96,11 +85,6 @@ export function PulseSources() {
       ))}
       <div className={styles.add}>
         <TextInput id="source-name" data-testid="source-name" labelText="Slack channel" placeholder="customer-feedback" value={name} onChange={(e) => setName(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) void submit() }} />
-        <Select id="source-new-mode" data-testid="source-new-mode" labelText="New messages" value={mode} onChange={(e) => setMode(e.target.value as 'keep' | 'review')}>
-          {MODES.map((m) => (
-            <SelectItem key={m.key} value={m.key} text={m.label} />
-          ))}
-        </Select>
         <Button kind="primary" size="md" data-testid="source-add" disabled={!name.trim() || add.isPending} onClick={submit}>
           {add.isPending ? 'Adding…' : 'Add channel'}
         </Button>

@@ -71,7 +71,7 @@ export async function addSource(db: Db, ctx: RequestContext, slack: SlackClient,
     const row = (
       await tx.query(`insert into core.pulse_sources (workspace_id, kind, name, ref, channel, mode, created_by) values ($1, 'slack', $2, $3, $4, $5, $6) returning id`, [ctx.workspaceId, name, ref, input.channel ?? 'slack', input.mode ?? 'review', ctx.userId])
     ).rows[0]
-    await audit(tx, ctx, 'added', { id: row.id, name, mode: input.mode ?? 'review' })
+    await audit(tx, ctx, 'added', { id: row.id, name, mode: input.mode ?? 'keep' })
     return toSource((await tx.query(`${SELECT} where id = $1`, [row.id])).rows[0])
   })
 }
@@ -88,7 +88,7 @@ export async function addOpportunitySource(db: Db, ctx: RequestContext, input: {
     const row = (
       await tx.query(`insert into core.pulse_sources (workspace_id, kind, name, channel, mode, config, created_by) values ($1, 'salesforce_opportunity', 'opportunities', $2, $3, $4::jsonb, $5) returning id`, [ctx.workspaceId, input.channel ?? 'salesforce', input.mode ?? 'review', JSON.stringify(config), ctx.userId])
     ).rows[0]
-    await audit(tx, ctx, 'added', { id: row.id, name: 'Salesforce opportunity notes', mode: input.mode ?? 'review' })
+    await audit(tx, ctx, 'added', { id: row.id, name: 'Salesforce opportunity notes', mode: input.mode ?? 'keep' })
     return toSource((await tx.query(`${SELECT} where id = $1`, [row.id])).rows[0])
   })
 }
@@ -161,7 +161,7 @@ async function readSlack(db: Db, who: Who, slack: SlackClient, src: Row, now: Da
           duplicates++
           return []
         }
-        const kept = src.mode === 'keep'
+        const kept = true // nothing waits for review: every signal counts at once, and a person dismisses a topic instead
         return [{ workspace_id: who.workspaceId, body, kind: 'other', channel: src.channel, source: 'slack', source_label: `#${src.name}`, occurred_on: new Date(Number(m.ts) * 1000).toISOString().slice(0, 10), status: kept ? 'kept' : 'new', kept_at: kept ? now.toISOString() : null, external_id: `${ref}:${m.ts}` }]
       })
       if (rows.length) {
@@ -213,7 +213,7 @@ async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null |
     if (!cfg) throw new SalesforceError('INVALID_FIELD')
     const since = cursor ?? soqlTime(new Date(now.getTime() - FIRST_LOOK_OPP_DAYS * 86_400_000))
     const opps = await sf.fetchOpportunities({ fields: cfg.fields, scope: cfg.scope, amountField: cfg.amountField, since })
-    const kept = src.mode === 'keep'
+    const kept = true // nothing waits for review: every signal counts at once, and a person dismisses a topic instead
     const rows = opps.flatMap((o) =>
       cfg.fields.flatMap((f) => {
         const body = plainSlackText(o.notes[f] ?? '').slice(0, 4000)

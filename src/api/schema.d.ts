@@ -1605,6 +1605,23 @@ export interface paths {
         patch: operations["renamePulseTopic"];
         trace?: never;
     };
+    "/pulse/topics/{id}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Dismisses a topic for everyone (owners and editors). It stays out of the lists until three or more new signals have joined it, so a mistake costs little. The audit log records who did it. Returns the topics. */
+        post: operations["dismissPulseTopic"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pulse/topics/{id}/merge": {
         parameters: {
             query?: never;
@@ -3300,7 +3317,10 @@ export interface components {
             breakdown: {
                 /** @enum {string} */
                 channel: "slack" | "call_notes" | "salesforce";
+                /** @description Every signal from this channel. */
                 count: number;
+                /** @description How many of those are praise, which count a quarter in the score. */
+                praise: number;
                 weight: number;
                 subtotal: number;
             }[];
@@ -7674,6 +7694,10 @@ export interface operations {
                     channel?: "slack" | "call_notes" | "salesforce";
                     /** @description What the notes are, for example "Renewal call with Northwind". */
                     sourceLabel?: string | null;
+                    /** @description A link to the transcript or recording (http or https). */
+                    sourceUrl?: string | null;
+                    /** @description Who said it */
+                    saidBy?: string | null;
                     account?: string | null;
                     /** @description YYYY-MM-DD */
                     occurredOn?: string | null;
@@ -7850,6 +7874,30 @@ export interface operations {
             401: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    dismissPulseTopic: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The topics after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseTopicList"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     mergePulseTopic: {

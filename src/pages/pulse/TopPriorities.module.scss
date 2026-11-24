@@ -184,7 +184,13 @@ $stack: 56.25rem; // below this the map goes above the cards
   &:hover { color: var(--at-link-active); text-decoration: underline; }
 }
 
-.body > .open { padding-block-start: var(--at-space-xxs); }
+.actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--at-space-sm);
+  padding-block-start: var(--at-space-xxs);
+}
 
 // ---- the map ---------------------------------------------------------------------------------------------------------------------------------
 .mapPanel {

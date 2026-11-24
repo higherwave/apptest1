@@ -2030,6 +2030,8 @@ paths:
                 text: { type: string }
                 channel: { type: string, enum: [slack, call_notes, salesforce], description: 'Defaults to call_notes.' }
                 sourceLabel: { type: [string, 'null'], description: 'What the notes are, for example "Renewal call with Northwind".' }
+                sourceUrl: { type: [string, 'null'], description: 'A link to the transcript or recording (http or https).' }
+                saidBy: { type: [string, 'null'], description: Who said it, when the notes are one person's words. }
                 account: { type: [string, 'null'] }
                 occurredOn: { type: [string, 'null'], description: 'YYYY-MM-DD' }
       responses:
@@ -2154,6 +2156,21 @@ paths:
         '401': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /pulse/topics/{id}/dismiss:
+    post:
+      operationId: dismissPulseTopic
+      summary: >
+        Dismisses a topic for everyone (owners and editors). It stays out of the lists until three or more new signals have joined it, so a mistake costs little. The audit log records who did it. Returns the topics.
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: The topics after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseTopicList' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /pulse/topics/{id}/merge:
     post:
       operationId: mergePulseTopic
@@ -4291,10 +4308,11 @@ components:
           type: array
           items:
             type: object
-            required: [channel, count, weight, subtotal]
+            required: [channel, count, praise, weight, subtotal]
             properties:
               channel: { type: string, enum: [slack, call_notes, salesforce] }
-              count: { type: integer }
+              count: { type: integer, description: 'Every signal from this channel.' }
+              praise: { type: integer, description: 'How many of those are praise, which count a quarter in the score.' }
               weight: { type: number }
               subtotal: { type: number }
         trend: { type: string, enum: [new, rising, steady, fading] }
