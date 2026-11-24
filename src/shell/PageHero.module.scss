@@ -75,3 +75,12 @@
 .stopBlue { stop-color: var(--at-link); }
 .stopViolet { stop-color: var(--at-glow-violet); }
 .stopLilac { stop-color: var(--at-ribbon-lilac); }
+
+// The Pulse picture: six strands, each its own colour. (It is drawn at full strength, so it does not take the bars' opacity.)
+.art[data-graphic='pulse'] .wave { opacity: 1; }
+.strandMint { stroke: var(--at-signature-mint); }
+.strandTeal { stroke: var(--at-ribbon-teal); }
+.strandSky { stroke: var(--at-ribbon-sky); }
+.strandBlue { stroke: var(--at-link); }
+.strandViolet { stroke: var(--at-glow-violet); }
+.strandLilac { stroke: var(--at-ribbon-lilac); }

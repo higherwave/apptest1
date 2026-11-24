@@ -68,7 +68,7 @@ export function TopicsPage() {
 
   return (
     <div className={styles.page}>
-      <PageHero title="Topics" description="What customers keep raising, grouped from the signals you have kept and ranked by how much each counts" glow="left" variant="wave">
+      <PageHero title="Topics" description="What customers keep raising, grouped from the signals you have kept and ranked by how much each counts" glow="left" variant="wave" graphic="pulse">
         <Tag type="purple" size="md" data-testid="pulse-preview-tag">
           Preview
         </Tag>

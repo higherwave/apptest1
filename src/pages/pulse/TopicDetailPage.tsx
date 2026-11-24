@@ -34,7 +34,7 @@ export function TopicDetailPage() {
 
   return (
     <div className={styles.page}>
-      <PageHero title={t?.title ?? 'Topic'} description={t ? `${plural(t.signals, 'kept signal')} from ${plural(t.reach, 'account')}, heard in ${t.channelCount} of ${CHANNELS.length} channels${t.arr !== null ? ` · ${moneyFull(t.arr)} ARR${t.arrUnmatched ? ` (${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce)` : ''}` : ''}` : 'Loading…'} glow="left" variant="wave">
+      <PageHero title={t?.title ?? 'Topic'} description={t ? `${plural(t.signals, 'kept signal')} from ${plural(t.reach, 'account')}, heard in ${t.channelCount} of ${CHANNELS.length} channels${t.arr !== null ? ` · ${moneyFull(t.arr)} ARR${t.arrUnmatched ? ` (${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce)` : ''}` : ''}` : 'Loading…'} glow="left" variant="wave" graphic="pulse">
         {t && (
           <Tag type="purple" size="md">
             Rank #{t.rank} · score {t.score}

@@ -4,7 +4,7 @@ import { PageHero } from '../../shell/PageHero'
 export function PulseNotFound() {
   return (
     <div>
-      <PageHero title="Page not found" description="There is nothing at this address." variant="wave" />
+      <PageHero title="Page not found" description="There is nothing at this address." variant="wave" graphic="pulse" />
     </div>
   )
 }
