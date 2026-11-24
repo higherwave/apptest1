@@ -56,7 +56,7 @@ import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopi
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import type { SalesforceFetch } from './salesforce.js'
 import { addOpportunitySource, addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
-import { addSignal, BadSplit, dismissTopic, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
+import { addSignal, BadSplit, dismissTopic, pulseDemoEnabled, setPulseDemo, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
 import { assertUnlocked, mayReopen, PERMANENT_LOCK_MESSAGE, projectLock, projectOfTheme } from './lock.js'
@@ -1247,6 +1247,19 @@ export function createApp(options: AppOptions = {}) {
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change previews.')
     const input = parseBody(pulsePreviewSchema, await readJson(c))
     await setPulsePreview(getDb(), c.get('ctx'), input.enabled)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ enabled: input.enabled })
+  })
+  // Whether the read-only demo visitor may see Pulse (look only). An owner's setting, off unless chosen.
+  app.get('/pulse/demo', withContext, async (c) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change this.')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ enabled: await pulseDemoEnabled(getDb(), c.get('ctx').workspaceId) })
+  })
+  app.put('/pulse/demo', withContext, async (c) => {
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change this.')
+    const input = parseBody(pulsePreviewSchema, await readJson(c))
+    await setPulseDemo(getDb(), c.get('ctx'), input.enabled)
     c.header('Cache-Control', 'private, no-store')
     return c.json({ enabled: input.enabled })
   })

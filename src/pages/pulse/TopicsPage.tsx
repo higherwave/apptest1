@@ -61,6 +61,7 @@ export function TopicsPage() {
     : []
   // Owners and editors change things; a member who was only given view sees the topics, quotes and numbers.
   const canStart = me.data.features.pulseEdit
+  // Anyone who can see Pulse can pick topics and look at what a project would start from; only an editor can create it, add notes, rename, merge or dismiss.
   const picked = list?.topics.filter((t) => selected.includes(t.id)) ?? []
   const pickedSignals = picked.reduce((a, t) => a + t.signals, 0)
   // On Top Priorities the label sits at the left of the card list and the dropdown stretches to its right edge; above the table it keeps its own width, at the right.
@@ -146,11 +147,9 @@ export function TopicsPage() {
                   <Table size="lg" aria-label="Topics by channel" data-testid="topics-grid">
                     <TableHead>
                       <TableRow>
-                        {canStart && (
-                          <TableHeader className={styles.checkCol}>
-                            <span className={styles.srOnly}>Select</span>
-                          </TableHeader>
-                        )}
+                        <TableHeader className={styles.checkCol}>
+                          <span className={styles.srOnly}>Select</span>
+                        </TableHeader>
                         <TableHeader className={styles.rankCol}>#</TableHeader>
                         <TableHeader>Topic</TableHeader>
                         {CHANNELS.map((c) => (
@@ -171,11 +170,9 @@ export function TopicsPage() {
                       {orderedTopics.map((t, position) => (
                         <Fragment key={t.id}>
                           <TableRow data-testid={`topic-${t.id}`} data-rank={t.rank} data-open={open === t.id}>
-                            {canStart && (
-                              <TableCell className={styles.checkCol}>
-                                <Checkbox id={`pick-${t.id}`} data-testid={`pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
-                              </TableCell>
-                            )}
+                            <TableCell className={styles.checkCol}>
+                              <Checkbox id={`pick-${t.id}`} data-testid={`pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => toggle(t.id)} />
+                            </TableCell>
                             <TableCell className={styles.rankCol}>{position + 1}</TableCell>
                             <TableCell>
                               <div className={styles.topic}>
@@ -242,7 +239,7 @@ export function TopicsPage() {
                           </TableRow>
                           {open === t.id && (
                             <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                              <TableCell colSpan={CHANNELS.length + (canStart ? 6 : 5) + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
+                              <TableCell colSpan={CHANNELS.length + 6 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
                                 <Why topic={t} />
                               </TableCell>
                             </TableRow>
@@ -267,10 +264,11 @@ export function TopicsPage() {
         </p>
       )}
 
-      {canStart && picked.length > 0 && (
+      {picked.length > 0 && (
         <div className={styles.pickBar} role="region" aria-label="Selected topics" data-testid="pick-bar">
           <p className={styles.pickText}>
             {plural(picked.length, 'topic')} selected · {plural(pickedSignals, 'signal')}
+            {!canStart && <span className={styles.pickNote}> · Read-only: starting a project needs an editor</span>}
           </p>
           <Button kind="ghost" size="sm" onClick={clear}>
             Clear

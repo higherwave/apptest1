@@ -305,6 +305,8 @@
   box-shadow: var(--at-ring);
 }
 
+.pickNote { color: var(--at-muted); }
+
 .pickText {
   @include tokens.role('body-md');
   margin: 0 auto 0 0;

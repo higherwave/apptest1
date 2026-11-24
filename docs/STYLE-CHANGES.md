@@ -152,5 +152,8 @@ To undo: restore the previous `--at-panel-aurora` (two radial glows over a 115de
 
 ## 2026-11-24: Settings, Previews becomes Settings, Apps; the app switcher is no longer hidden
 - **What:** the "Previews" group in Settings is now "Apps" (`/settings/apps`; `/settings/preview` redirects). It has a plain "Use Pulse in this workspace" switch, in place of "Show Pulse (preview)", and the Workspace setup card. The Pulse group follows it while Pulse is on.
-- **Launcher:** the build flag `VITE_SHOW_SUITE` is gone. The launcher in the header and the "Heard in Pulse" strip on Platform Insights are always there (the strip only for people who can use Pulse). The launcher also holds the Prototype gallery and Decision Guides links, so it stays even for a workspace with one app.
+- **Launcher:** the build flag `VITE_SHOW_SUITE` is gone. The launcher in the header is always there. The launcher also holds the Prototype gallery and Decision Guides links, so it stays even for a workspace with one app.
 - **Platform Insights** is Signal Flow's home (where people land after signing in, and on switching to Signal Flow), so it no longer has a launcher card.
+
+## 2026-11-24: the "Heard in Pulse" table is removed from Platform Insights
+- Pulse stays in its own app. A theme that Pulse also heard still says "Also heard in Pulse" when opened.

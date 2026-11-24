@@ -1,7 +1,7 @@
 import { Button, InlineNotification, Toggle } from '@carbon/react'
 import { useNavigate } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
-import { usePulsePreview, useSetPulsePreview, useSetup } from '../../api/hooks'
+import { usePulseDemo, usePulsePreview, useSetPulseDemo, useSetPulsePreview, useSetup } from '../../api/hooks'
 import { T } from '../../../shared/terms.mjs'
 import styles from './NotificationsPage.module.scss'
 
@@ -10,6 +10,8 @@ import styles from './NotificationsPage.module.scss'
 export function AppsPage() {
   const pulse = usePulsePreview()
   const set = useSetPulsePreview()
+  const demo = usePulseDemo()
+  const setDemo = useSetPulseDemo()
   const setup = useSetup()
   const navigate = useNavigate()
   return (
@@ -31,6 +33,21 @@ export function AppsPage() {
           onToggle={(on: boolean) => set.mutate(on)}
         />
         {(pulse.isError || set.isError) && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(set.error ?? pulse.error)} />}
+        <p className={styles.text}>
+          The read-only demo is what people see when they look at Signal Flow without signing in. Show Pulse there and they can look through the topics, quotes and numbers, but cannot change anything or start a project. Turn this on only when what
+          Pulse holds is fine for anyone to see.
+        </p>
+        <Toggle
+          id="app-pulse-demo"
+          data-testid="app-pulse-demo"
+          labelText="Show Pulse in the read-only demo"
+          labelA="Off"
+          labelB="On"
+          toggled={!!demo.data?.enabled}
+          disabled={!demo.data || !pulse.data?.enabled || setDemo.isPending}
+          onToggle={(on: boolean) => setDemo.mutate(on)}
+        />
+        {(demo.isError || setDemo.isError) && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(setDemo.error ?? demo.error)} />}
       </section>
       <section className={styles.card} aria-label="Workspace setup" data-testid="apps-setup-card">
         <h2 className={styles.head}>Workspace setup</h2>

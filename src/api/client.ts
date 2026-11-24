@@ -167,6 +167,8 @@ export type PulseTopicDetail = components['schemas']['PulseTopicDetail']
 export type PulseQuestion = components['schemas']['PulseQuestion']
 export type PulseOrigin = components['schemas']['PulseOrigin']
 export type PulseWeights = components['schemas']['PulseWeights']['weights']
+export const getPulseDemo = () => request<PulsePreview>('/pulse/demo')
+export const setPulseDemo = (enabled: boolean) => request<PulsePreview>('/pulse/demo', { method: 'PUT', body: { enabled } })
 export const getPulsePreview = () => request<PulsePreview>('/pulse/preview')
 export const setPulsePreview = (enabled: boolean) => request<PulsePreview>('/pulse/preview', { method: 'PUT', body: { enabled } })
 export type SignalOrigin = 'auto' | 'manual'

@@ -1948,6 +1948,35 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /pulse/demo:
+    get:
+      operationId: getPulseDemo
+      summary: Whether Pulse is shown, read-only, to the public demo visitor. Owners only (403 otherwise). Off unless an owner turns it on.
+      responses:
+        '200':
+          description: The switch.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulsePreview' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: setPulseDemo
+      summary: An owner shows Pulse to the read-only demo visitor (who can only look), or stops. Only has an effect while Pulse is on for the workspace. Recorded in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PulsePreview' }
+      responses:
+        '200':
+          description: The switch after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulsePreview' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
   /pulse/preview:
     get:
       operationId: getPulsePreview

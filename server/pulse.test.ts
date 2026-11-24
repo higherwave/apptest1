@@ -330,3 +330,39 @@ test('praise counts a quarter in a topic score, and the breakdown says how many 
   assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 4, praise: 2, weight: 1, subtotal: 2.5 }], 'two in full and two at a quarter')
   assert.equal(stats.score, 2.5)
 })
+
+test('the read-only demo visitor sees Pulse only when an owner chooses to show it, and can only look', async () => {
+  const { call, owner, alex, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  const visitor = createApp({ env: { DEV_TOKEN: 's3cret', PUBLIC_VIEW: 'true', WORKSPACE_SLUG: slug }, getDb: () => db })
+  const look = (path: string) => visitor.request(`/api/v1${path}`)
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  await fillDemoSignals(db, slug, true)
+  await call(owner, 'POST', '/pulse/topics/update', {})
+
+  assert.equal((await look('/pulse/topics')).status, 404, 'Pulse is on, but the demo switch is off: the visitor sees nothing')
+  assert.deepEqual((await (await look('/me')).json()).features, { pulse: false, pulseEdit: false })
+  assert.equal((await call(alex, 'PUT', '/pulse/demo', { enabled: true })).status, 403, 'only an owner chooses')
+  assert.deepEqual(await (await call(owner, 'GET', '/pulse/demo')).json(), { enabled: false })
+  assert.equal((await call(owner, 'PUT', '/pulse/demo', { enabled: 'yes' })).status, 422)
+
+  assert.deepEqual(await (await call(owner, 'PUT', '/pulse/demo', { enabled: true })).json(), { enabled: true })
+  const topics = await look('/pulse/topics')
+  assert.equal(topics.status, 200, 'with the switch on, the visitor can look')
+  assert.ok((await topics.json()).topics.length >= 3)
+  assert.deepEqual((await (await look('/me')).json()).features, { pulse: true, pulseEdit: false }, 'to look, not to change')
+  assert.equal((await look('/pulse/signals')).status, 200)
+  const first = (await (await look('/pulse/topics')).json()).topics[0]
+  assert.equal((await look(`/pulse/topics/${first.id}`)).status, 200, 'including a topic and its quotes')
+  const write = (method: string, path: string, body: unknown = {}) => visitor.request(`/api/v1${path}`, { method, headers: { 'content-type': 'application/json' }, body: method === 'GET' ? undefined : JSON.stringify(body) })
+  for (const [m, path, body] of [['POST', '/pulse/topics/update', {}], ['POST', `/pulse/topics/${first.id}/dismiss`, {}], ['POST', '/pulse/signals/import', { text: 'A note that is long enough.' }], ['POST', '/pulse/projects', { name: 'x', topicIds: [first.id], questions: [] }], ['PUT', '/pulse/weights', { weights: { slack: 1 } }], ['GET', '/pulse/viewers', undefined], ['GET', '/pulse/sources', undefined]] as const) {
+    const r = await write(m, path, body)
+    assert.ok([401, 403, 404].includes(r.status), `${m} ${path}: the visitor cannot ${r.status}`)
+  }
+  assert.equal((await visitor.request('/api/v1/pulse/demo')).status === 200, false, 'and cannot read or change the switch')
+
+  await call(owner, 'PUT', '/pulse/preview', { enabled: false })
+  assert.equal((await look('/pulse/topics')).status, 404, 'with Pulse itself off, the demo switch shows nothing')
+  const audit = (await pg.query<any>(`select verb, after from core.audit_log where entity = 'core.workspace_features' order by created_at`)).rows
+  assert.ok(audit.some((r: any) => r.verb === 'turned on' && /read-only demo/.test(r.after.feature)), 'the demo switch is audited')
+})

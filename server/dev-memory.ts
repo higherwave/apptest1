@@ -92,10 +92,11 @@ serve({ fetch: root.fetch, port }, () => {
 // read them, and group everything into topics, so the Pulse pages open with the full story (ARR, In play, Rank by).
 async function setUpPulseDemo() {
   const call = async (method: string, path: string, body: unknown = {}) => {
-    const res = await fetch(`http://localhost:${port}/api/v1/pulse${path}`, { method, headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    const res = await fetch(`http://localhost:${port}/api/v1/pulse${path}`, { method, headers: { 'content-type': 'application/json', ...(process.env.DEV_TOKEN ? { authorization: `Bearer ${process.env.DEV_TOKEN}` } : {}) }, body: JSON.stringify(body) })
     return res.ok ? res.json().catch(() => null) : null
   }
   await call('PUT', '/preview', { enabled: true })
+  await call('PUT', '/demo', { enabled: true }) // shown to the read-only visitor too, so the demo mode can be tried (PUBLIC_VIEW=true with a DEV_TOKEN)
   if (process.env.SALESFORCE_DEMO === 'true') {
     await call('POST', '/salesforce/sync')
     const src = await call('POST', '/sources/opportunities', { fields: ['NextStep', 'Description'], scope: 'both', mode: 'keep' })

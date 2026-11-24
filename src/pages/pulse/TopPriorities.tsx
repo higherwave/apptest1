@@ -72,7 +72,7 @@ export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, sele
           return (
             <li key={t.id} className={styles.card} data-open={on} data-testid={`card-${t.id}`} data-rank={t.rank}>
               <div className={styles.head}>
-                {canStart && <span className={styles.pick}><Checkbox id={`card-pick-${t.id}`} data-testid={`card-pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => onToggle(t.id)} /></span>}
+                <span className={styles.pick}><Checkbox id={`card-pick-${t.id}`} data-testid={`card-pick-${t.id}`} labelText={`Select ${t.title}`} hideLabel checked={selected.includes(t.id)} onChange={() => onToggle(t.id)} /></span>
                 <Button kind="ghost" className={styles.headMain} aria-expanded={on} data-testid={`card-toggle-${t.id}`} onClick={() => toggle(t.id)}>
                   <span className={styles.title}>{t.title}</span>
                   <span className={styles.meta}>

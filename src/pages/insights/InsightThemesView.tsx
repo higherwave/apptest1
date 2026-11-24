@@ -8,7 +8,6 @@ import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
 import { ResumePanel } from '../../resume/ResumePanel'
 import { Sparkline } from './Sparkline'
-import { HeardInPulse } from './HeardInPulse'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
 import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
@@ -234,7 +233,6 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
     <div className={styles.page}>
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
       <ResumePanel />
-      {pulseTopics && pulseTopics.length > 0 && <HeardInPulse topics={pulseTopics} />}
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
       {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}

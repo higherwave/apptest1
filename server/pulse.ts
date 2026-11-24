@@ -51,6 +51,12 @@ export async function pulseEnabled(db: Queryable, workspaceId: string): Promise<
   return !!row?.enabled
 }
 
+/** Whether an owner has chosen to show Pulse, read-only, to the public demo visitor (the person who is not signed in). Off unless an owner turns it on. */
+export async function pulseDemoEnabled(db: Queryable, workspaceId: string): Promise<boolean> {
+  const row = (await db.query(`select enabled from core.workspace_features where workspace_id = $1 and feature = 'pulse_demo'`, [workspaceId])).rows[0]
+  return !!row?.enabled
+}
+
 /** Where signals come from, for the two views of the Signals page: found by Pulse itself (Slack channels, Salesforce opportunity notes), or put in by a person (typed, or call notes pasted in). */
 export type Origin = 'auto' | 'manual'
 export const ORIGIN_SOURCES: Record<Origin, string[]> = { auto: ['slack', 'salesforce'], manual: ['manual', 'notes'] }
@@ -60,12 +66,14 @@ export type PulseAccess = 'edit' | 'view'
 
 /**
  * What this caller may do in Pulse: nothing (null: the answer is the one a page that does not exist would give), view, or edit. Owners and editors (platform editors) edit; any other
- * signed-in member sees Pulse only when an owner has granted them view (a department leader, for example), and a grant never lets them change anything. The read-only visitor and
- * external members never see it, and nobody does while the workspace has the preview off. ONE place decides; every /pulse route and the menu (through /me) ask it.
+ * signed-in member sees Pulse only when an owner has granted them view (a department leader, for example), and a grant never lets them change anything. The read-only demo visitor
+ * sees it (view only) when an owner has chosen to show it in the demo; external members never see it, and nobody does while the workspace has Pulse off. ONE place decides; every /pulse route and the menu (through /me) ask it.
  */
 export async function pulseAccess(db: Queryable, ctx: RequestContext): Promise<PulseAccess | null> {
-  if (ctx.anonymous || ctx.external) return null
+  if (ctx.external) return null
   if (!(await pulseEnabled(db, ctx.workspaceId))) return null
+  // The read-only demo visitor sees Pulse only when an owner has chosen to show it, and can only look.
+  if (ctx.anonymous) return (await pulseDemoEnabled(db, ctx.workspaceId)) ? 'view' : null
   if (ctx.role === 'owner' || ctx.role === 'editor') return 'edit'
   const granted = (await db.query(`select 1 from core.pulse_viewers where workspace_id = $1 and user_id = $2`, [ctx.workspaceId, ctx.userId])).rows[0]
   return granted ? 'view' : null
@@ -109,6 +117,19 @@ export async function setViewer(db: Db, ctx: RequestContext, userId: string, can
 }
 
 /** An owner turns the preview on or off. Recorded in the audit log. */
+/** An owner shows Pulse to the read-only demo visitor, or stops. Recorded in the audit log. */
+export async function setPulseDemo(db: Db, ctx: RequestContext, enabled: boolean): Promise<void> {
+  await db.transaction(async (tx) => {
+    const was = await pulseDemoEnabled(tx, ctx.workspaceId)
+    await tx.query(
+      `insert into core.workspace_features (workspace_id, feature, enabled, updated_by) values ($1, 'pulse_demo', $2, $3)
+       on conflict (workspace_id, feature) do update set enabled = excluded.enabled, updated_by = excluded.updated_by, updated_at = now()`,
+      [ctx.workspaceId, enabled, ctx.userId],
+    )
+    if (was !== enabled) await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.workspace_features', entity_id: null, verb: enabled ? 'turned on' : 'turned off', after: { feature: 'pulse in the read-only demo' } }])
+  })
+}
+
 export async function setPulsePreview(db: Db, ctx: RequestContext, enabled: boolean): Promise<void> {
   await db.transaction(async (tx) => {
     const was = await pulseEnabled(tx, ctx.workspaceId)

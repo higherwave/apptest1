@@ -50,21 +50,18 @@ export function TopicDetailPage() {
       {t && (
         <>
           <div className={styles.actions}>
-            {canStart && (
-              <Button kind="primary" size="md" data-testid="dig-in" onClick={() => setCreating(true)}>
-                Dig into this
-              </Button>
-            )}
-            {canStart && (
-              <Button kind="tertiary" size="md" data-testid="toggle-pick" onClick={() => toggle(t.id)}>
-                {selected.includes(t.id) ? 'Remove from selection' : 'Add to selection'}
-              </Button>
-            )}
-            {canStart && selected.length > (selected.includes(t.id) ? 1 : 0) && (
+            <Button kind="primary" size="md" data-testid="dig-in" disabled={!canStart} onClick={() => setCreating(true)}>
+              Dig into this
+            </Button>
+            <Button kind="tertiary" size="md" data-testid="toggle-pick" onClick={() => toggle(t.id)}>
+              {selected.includes(t.id) ? 'Remove from selection' : 'Add to selection'}
+            </Button>
+            {selected.length > (selected.includes(t.id) ? 1 : 0) && (
               <Button kind="ghost" size="md" onClick={() => navigate('/pulse')}>
                 Go to the {plural(selected.length, 'selected topic')}
               </Button>
             )}
+            {!canStart && <span className={styles.note}>Read-only: starting a Signal Flow project needs an editor.</span>}
           </div>
 
           {t.inPlay && (
