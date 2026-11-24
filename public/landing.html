@@ -35,8 +35,8 @@ a{color:#1b61c9;text-decoration:none}a:hover{color:#1a3866;text-decoration:under
 .brand{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:500;color:#181d26}
 .brand img{width:32px;height:32px;display:block}
 .hero{position:relative;overflow:hidden}
-.ribbons{position:absolute;inset:0 0 0 46%;pointer-events:none;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 35%),linear-gradient(to bottom,#000 60%,transparent 100%);-webkit-mask-composite:source-in;mask-image:linear-gradient(to right,transparent 0%,#000 35%),linear-gradient(to bottom,#000 60%,transparent 100%);mask-composite:intersect}
-.ribbons div{position:absolute;top:-30%;height:160%;border-radius:50%;filter:blur(12px)}
+.eq{position:absolute;inset:0 0 0 56%;pointer-events:none;display:flex;align-items:center;justify-content:space-between;padding-right:24px;-webkit-mask-image:linear-gradient(to right,transparent 0%,#000 45%);mask-image:linear-gradient(to right,transparent 0%,#000 60%)}
+.eq i{display:block;width:8px;border-radius:8px;opacity:.75;flex:none}
 .copy{position:relative;padding:120px max(48px,calc((100% - 960px)/2));display:flex;flex-direction:column;gap:24px}
 h1{margin:0;font-family:"Inter Tight",Inter,sans-serif;font-weight:400;font-size:48px;line-height:1.1;color:#181d26;max-width:780px}
 h1 span{color:#41454d;font-size:42px}
@@ -76,18 +76,14 @@ footer{background:#e4e5e8;padding:48px}.foot{max-width:960px;margin:0 auto}
 @media(max-width:1024px){.row{gap:32px}.art{height:260px}.art>.z{zoom:1.1}.row h3{font-size:24px}.row p{font-size:16px}}
 @media(max-width:900px){.steps{grid-template-columns:repeat(3,minmax(0,1fr));gap:32px 24px}}
 @media(max-width:600px){.steps{grid-template-columns:minmax(0,1fr);gap:0}.step{display:grid;grid-template-columns:28px minmax(0,1fr);column-gap:16px;padding:20px 0}.step .dot{margin:0;grid-row:1 / span 2}.step h3,.step p{grid-column:2}.step p{margin-top:4px}}
-@media(max-width:720px){.row{grid-template-columns:minmax(0,1fr);gap:24px}.row .art{order:2}.row .txt{order:1}.art>.z{zoom:1.2}.nav,.copy,footer{padding-left:24px;padding-right:24px}.copy{padding-top:72px;padding-bottom:72px}h1{font-size:34px}h1 span{font-size:30px}.ribbons{inset:0 0 0 20%;opacity:.5}.what,.does,.about{padding-left:24px;padding-right:24px}.rows{gap:48px}}
+@media(max-width:1100px){.eq{inset:0 0 0 30%;opacity:.4;padding-right:16px}.eq i{width:6px}}
+@media(max-width:720px){.row{grid-template-columns:minmax(0,1fr);gap:24px}.row .art{order:2}.row .txt{order:1}.art>.z{zoom:1.2}.nav,.copy,footer{padding-left:24px;padding-right:24px}.copy{padding-top:72px;padding-bottom:72px}h1{font-size:34px}h1 span{font-size:30px}.eq{inset:0 0 0 30%;opacity:.5;padding-right:12px}.eq i{width:4px}.what,.does,.about{padding-left:24px;padding-right:24px}.rows{gap:48px}}
 </style>
 </head>
 <body>
 <header class="nav"><div class="brand"><img src="/landing-icon.png" alt="">{{appName}}</div></header>
 <main class="hero">
-<div class="ribbons" aria-hidden="true">
-<div data-ribbon style="left:8%;width:30%;background:linear-gradient(180deg,#a8d8c4 0%,#1b61c9 70%,#a8d8c4 100%);transform:rotate(-32deg);opacity:.85"></div>
-<div data-ribbon style="left:30%;width:34%;background:linear-gradient(180deg,#8ec5f0 0%,#7c5cd6 50%,#1b61c9 100%);transform:rotate(-32deg);opacity:.9"></div>
-<div data-ribbon style="left:52%;width:26%;background:linear-gradient(180deg,#c3b5f2 0%,#2a9d8f 55%,#a8d8c4 100%);transform:rotate(-26deg);opacity:.85"></div>
-<div data-ribbon style="left:70%;width:24%;background:linear-gradient(180deg,#1b61c9 0%,#a8d8c4 60%,#c3b5f2 100%);transform:rotate(-36deg);opacity:.8"></div>
-</div>
+<div class="eq" aria-hidden="true" data-eq></div>
 <div class="copy">
 <h1>An AI-driven unified framework for end-to-end product discovery and delivery. <span>Drive decisions and insights with customer themes.</span></h1>
 <p>{{appName}} helps teams plan a research study, upload interview transcripts, and leverage AI to turn those customer themes into requirements, stories, and insights.</p>
