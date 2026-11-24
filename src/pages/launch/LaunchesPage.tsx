@@ -15,7 +15,7 @@ export function LaunchesPage({ title = `My ${T.approvals}`, description = 'The l
   const items = list.data?.data ?? []
   return (
     <div className={styles.page}>
-      <PageHero title={title} description={description} glow="left" />
+      <PageHero title={title} description={description} glow="left" variant="wave" />
       {list.isPending && <Loading small withOverlay={false} description="Loading launches" />}
       {list.isError && <p className={styles.muted}>{friendlyMessage(list.error)}</p>}
       {list.isSuccess && items.length === 0 && <p className={styles.muted} data-testid="no-launches">No launches yet. When you are asked to review one, it appears here.</p>}

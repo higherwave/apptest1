@@ -36,10 +36,20 @@
 // The "wave" look: a white region with a hairline below, and a row of signal bars behind its right side that fades out toward the text.
 .hero[data-variant='wave'] {
   overflow: hidden;
+  display: grid;
+  align-content: center;
+  min-block-size: 11rem; // one height on every page that uses it: what Measure's three-line description needs, with the text centred in it
   background: var(--at-canvas);
   border-block-end: 1px solid var(--at-hairline);
 
-  .inner { align-items: center; }
+  .inner { align-items: center; inline-size: 100%; }
+
+  &[data-flush='true'] {
+    margin: 0;
+    padding: var(--at-space-xl) var(--at-space-lg); // the sides line up with the section menu under it
+
+    @media (max-width: 56.25rem) { padding: var(--at-space-lg) var(--at-space-md); }
+  }
   .title { font-weight: 400; }
 }
 

@@ -6,6 +6,7 @@ import { useAreaProposals, useMe, useProject, useProjectStage, useSetup } from '
 import type { StepKey } from '../api/client'
 import { ADMIN_GROUPS, STEP_GROUPS, STEPS, stepStates } from './nav'
 import { SectionNav, type NavGroup } from './SectionNav'
+import { PageHero } from './PageHero'
 import { TitleBar } from './TitleBar'
 import { AppHeader } from './AppHeader'
 import { SiteFooter } from './SiteFooter'
@@ -108,14 +109,13 @@ export function AppShell() {
         )}
         {admin && (
           <>
-            <TitleBar data-admin-title>
-              <h1 className={styles.adminTitle}>Settings</h1>
+            <PageHero title="Settings" description="Categories, usage, notifications and who can do what in your workspace" variant="wave" flush>
               {owner && setup.data && !setup.data.complete && (
                 <Button kind="tertiary" size="sm" className={styles.setup} onClick={() => navigate('/setup')} data-testid="open-setup">
                   Set up your workspace · {setup.data.done} of {setup.data.total}
                 </Button>
               )}
-            </TitleBar>
+            </PageHero>
             <SectionNav label="Settings sections" groups={adminGroups} onGo={navigate} />
           </>
         )}

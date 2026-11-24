@@ -41,7 +41,7 @@ export function PulsePage() {
 
   return (
     <div className={styles.page}>
-      <PageHero title="Signals" description="What customers are telling you, grouped into topics you can start a project from" glow="left">
+      <PageHero title="Signals" description="What customers are telling you, grouped into topics you can start a project from" glow="left" variant="wave">
         <Tag type="purple" size="md" data-testid="pulse-preview-tag">
           Preview
         </Tag>
