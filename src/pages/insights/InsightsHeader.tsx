@@ -19,7 +19,7 @@ export function InsightsHeader({ title, description }: { title: string; descript
   }
   const current = Math.max(0, INSIGHT_SECTIONS.findIndex((s) => pathname === `/insights/${s.key}`))
   return (
-    <PageHero title={title} description={description} glow="left">
+    <PageHero title={title} description={description} glow="left" variant="wave">
       <nav className={styles.switch} aria-label="Platform Insights sections">
         {INSIGHT_SECTIONS.map((s, i) => (
           <Button key={s.key} kind={i === current ? 'primary' : 'ghost'} size="sm" data-label={s.label} data-current={i === current} aria-current={i === current ? 'page' : undefined} onClick={() => navigate(`/insights/${s.key}`)}>

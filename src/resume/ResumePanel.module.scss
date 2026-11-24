@@ -7,7 +7,7 @@
   gap: var(--at-space-xl);
   padding: var(--at-space-xl);
   border-radius: var(--at-radius-lg);
-  background: var(--at-panel-aurora);
+  background: var(--at-rail); // solid, the app header's gray, so the moving title graphic above is the only motion and colour
   color: var(--at-on-dark);
 
   @media (max-width: 56rem) { grid-template-columns: 1fr; }

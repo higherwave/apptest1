@@ -32,3 +32,36 @@
   margin: 0;
   color: var(--at-body);
 }
+
+// The "wave" look: a white region with a hairline below, and a row of signal bars behind its right side that fades out toward the text.
+.hero[data-variant='wave'] {
+  overflow: hidden;
+  background: var(--at-canvas);
+  border-block-end: 1px solid var(--at-hairline);
+
+  .inner { align-items: center; }
+  .title { font-weight: 400; }
+}
+
+.art {
+  position: absolute;
+  inset-block: 0;
+  inset-inline: 38% 0;
+  pointer-events: none;
+  mask-image: linear-gradient(to right, transparent 0%, var(--at-ribbon-mask) 40%);
+
+  @media (max-width: 56.25rem) { inset-inline-start: 55%; }
+}
+
+.wave {
+  display: block;
+  inline-size: 100%;
+  block-size: 100%;
+  opacity: 0.75;
+}
+
+.stopMint { stop-color: var(--at-signature-mint); }
+.stopSky { stop-color: var(--at-ribbon-sky); }
+.stopBlue { stop-color: var(--at-link); }
+.stopViolet { stop-color: var(--at-glow-violet); }
+.stopLilac { stop-color: var(--at-ribbon-lilac); }

@@ -171,7 +171,7 @@ export function MeasureView(props: MeasureViewProps) {
 
   return (
     <div className={styles.page}>
-      <PageHero title="Measure" description="Did it work? What each launch's measures showed after it went out, by theme, so the next study starts from results. Only what has been read is here." glow="left" />
+      <PageHero title="Measure" description="Did it work? What each launch's measures showed after it went out, by theme, so the next study starts from results. Only what has been read is here." glow="left" variant="wave" />
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the results" />}
       {state === 'error' && <p className={styles.muted}>{errorText ?? 'The results could not be loaded.'}</p>}
       {state === 'empty' && (

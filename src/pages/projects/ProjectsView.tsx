@@ -68,7 +68,7 @@ export function ProjectsView({ state, projects, errorText, readOnly, onOpen, onG
 
   return (
     <div className={styles.page}>
-      <PageHero title="Projects" description="From research to release">
+      <PageHero title="Projects" description="From research to release" variant="wave">
         <Button kind="primary" disabled={readOnly} onClick={onNew}>
           New project
         </Button>
