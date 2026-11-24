@@ -25,6 +25,7 @@ export function TrashPage() {
         title="My deleted items"
         description={owner ? `Everything deleted in this workspace in the last ${days} days. Put it back, or remove it for good.` : `What you deleted in the last ${days} days. Put it back any time before then.`}
         glow="left"
+        variant="wave"
       />
       {trash.isPending && <Loading small withOverlay={false} description="Loading deleted items" />}
       {trash.isError && <p className={styles.muted}>{friendlyMessage(trash.error)}</p>}
