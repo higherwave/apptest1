@@ -9,6 +9,7 @@ import { makeSlack, type SlackClient } from './slack.js'
 import { setIntegration } from '../db/set-integration.mjs'
 import { fillDemoSignals } from '../scripts/demo-pulse-signals.js'
 import { demoHubspotFetch } from './hubspot-demo.js'
+import { demoJiraFetch, demoSlackFetch } from './connect-demo.js'
 
 // ANCHOR_CX=true also loads the Anchor CX demo story (db/seed/anchor-cx/README.md).
 const { db, pglite } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
@@ -74,7 +75,10 @@ if (process.env.HUBSPOT_DEMO === 'true') {
   await setIntegration(pglite, env, { slug, kind: 'hubspot', secret: 'demo-hubspot-service-key-123456', portalId: '4455667' })
   hubspotFetch = demoHubspotFetch(undefined, 'demo-hubspot-service-key-123456')
 }
-const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack, salesforceFetch, hubspotFetch })
+// CONNECT_DEMO=true stands in for Slack's and Jira's APIs, so the connect forms in Settings, Apps can be tried (see server/connect-demo.ts for the credentials they accept).
+const connectDemo = process.env.CONNECT_DEMO === 'true'
+if (connectDemo) env.SETTINGS_ENCRYPTION_KEY = env.SETTINGS_ENCRYPTION_KEY ?? Buffer.from('0123456789abcdef0123456789abcdef').toString('base64')
+const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack, salesforceFetch, hubspotFetch, ...(connectDemo ? { slackFetch: demoSlackFetch, jiraFetch: demoJiraFetch } : {}) })
 const root = new Hono()
 if (testCapture) {
   // CAPTURE_TEST=true: thumbnails can be switched on and off while the server runs, and may visit this machine's own pages.

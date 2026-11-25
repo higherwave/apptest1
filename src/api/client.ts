@@ -203,6 +203,12 @@ export const listPulseSources = () => request<PulseSourceList>('/pulse/sources')
 export const addPulseSource = (body: components['schemas']['NewPulseSource']) => request<PulseSource>('/pulse/sources', { method: 'POST', body })
 export const addPulseOpportunitySource = (body: components['schemas']['NewPulseOpportunitySource']) => request<PulseSource>('/pulse/sources/opportunities', { method: 'POST', body })
 export type PulseHubspot = components['schemas']['PulseHubspot']
+export type Connections = components['schemas']['Connections']
+export const getConnections = () => request<Connections>('/connections')
+export const connectSlack = (body: components['schemas']['ConnectSlack']) => request<Connections>('/connections/slack', { method: 'PUT', body })
+export const connectJira = (body: components['schemas']['ConnectJira']) => request<Connections>('/connections/jira', { method: 'PUT', body })
+export const connectSalesforce = (body: components['schemas']['ConnectSalesforce']) => request<Connections>('/connections/salesforce', { method: 'PUT', body })
+export const disconnectConnection = (kind: 'slack' | 'jira' | 'salesforce') => request<Connections>(`/connections/${kind}`, { method: 'DELETE' })
 export const getPulseHubspot = () => request<PulseHubspot>('/pulse/hubspot')
 export const connectPulseHubspot = (body: components['schemas']['ConnectPulseHubspot']) => request<PulseHubspot>('/pulse/hubspot', { method: 'PUT', body })
 export const disconnectPulseHubspot = () => request<PulseHubspot>('/pulse/hubspot', { method: 'DELETE' })

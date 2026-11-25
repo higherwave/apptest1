@@ -17,7 +17,7 @@ import { getMailer, type Mailer } from './mailer.js'
 import { startThread } from './launch-slack.js'
 import { handleCommand, handleInteraction } from './slack-interact.js'
 import { createConnectCode, disconnectSlack, rememberRequest, slackStatus } from './slack-link.js'
-import { cleanChannel, makeSlack, verifySlackSignature, type SlackClient } from './slack.js'
+import { cleanChannel, makeSlack, verifySlackSignature, type SlackClient, type SlackFetch } from './slack.js'
 import { DIGEST, runDigest, unsubscribeValid, validTimeZone } from './notifications.js'
 import { timingSafeEqual } from 'node:crypto'
 import {
@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, newTicketSourceSchema, connectHubspotSchema, dismissTopicSchema, updateSourceSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, newTicketSourceSchema, connectHubspotSchema, connectSlackSchema, connectJiraSchema, connectSalesforceSchema, dismissTopicSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -56,6 +56,7 @@ import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopi
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import { HubspotError, type HubspotFetch } from './hubspot.js'
 import { BadHubspotKey, connectHubspot, disconnectHubspot, hubspotPortalId, NoEncryptionKey } from './hubspot-connect.js'
+import { connectJira, connectionStatus, connectSalesforce, connectSlack, disconnect as disconnectConnection } from './connections.js'
 import type { SalesforceFetch } from './salesforce.js'
 import { addOpportunitySource, addSource, addTicketSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
 import { addSignal, BadSplit, dismissTopic, pulseDemoEnabled, setPulseDemo, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
@@ -73,7 +74,7 @@ import { createTeam, deleteTeam, listTeams, MembersManagedBySso, moveProject, Pe
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 import { T } from '../shared/terms.mjs'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService; salesforceFetch?: SalesforceFetch; hubspotFetch?: HubspotFetch }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService; salesforceFetch?: SalesforceFetch; hubspotFetch?: HubspotFetch; slackFetch?: SlackFetch }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -94,7 +95,7 @@ export function createApp(options: AppOptions = {}) {
   const slack = options.slack ?? makeSlack(env)
   const pdf = options.pdf ?? makePdf(env)
   // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
-  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch, salesforceFetch: options.salesforceFetch, hubspotFetch: options.hubspotFetch })
+  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch, salesforceFetch: options.salesforceFetch, hubspotFetch: options.hubspotFetch, slackFetch: options.slackFetch })
   // This workspace's own Slack client for the request (a workspace with no connection of its own gets one that is not live).
   const slackOf = async (c: Context) => (await integrations(c.get('ctx').workspaceId)).slack
   // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
@@ -1550,6 +1551,69 @@ export function createApp(options: AppOptions = {}) {
       return c.json({ connected: true, error: err instanceof HubspotError ? err.message : 'HubSpot could not be reached.', portalId })
     }
   })
+
+  // Connections: what this workspace is connected to, and (owners) connecting Slack, Jira and Salesforce from inside the app. A secret is tried against the service first, then stored encrypted; it is never returned or
+  // logged, and nothing in these handlers logs the request. HubSpot connects through /pulse/hubspot. Removing a connection falls back to the deployment's own settings, where there are any.
+  const connectionError = (err: unknown): never => {
+    if (err instanceof BadHubspotKey) throw new ApiError(422, 'validation_failed', err.message)
+    if (err instanceof NoEncryptionKey) throw new ApiError(503, 'unavailable', err.message)
+    throw err
+  }
+  app.get('/connections', withContext, async (c) => {
+    requireOwner(c)
+    c.header('Cache-Control', 'private, no-store')
+    const ws = c.get('ctx').workspaceId
+    return c.json(await connectionStatus(getDb(), ws, await integrations(ws)))
+  })
+  app.put('/connections/slack', withContext, limited('connect_slack', 10), async (c) => {
+    requireOwner(c)
+    const ctx = c.get('ctx')
+    const input = parseBody(connectSlackSchema, await readJson(c))
+    try {
+      const { team } = await connectSlack(getDb(), env, ctx, input, options.slackFetch)
+      integrations.forget(ctx.workspaceId)
+      c.header('Cache-Control', 'private, no-store')
+      return c.json({ ...(await connectionStatus(getDb(), ctx.workspaceId, await integrations(ctx.workspaceId))), team })
+    } catch (err) {
+      return connectionError(err)
+    }
+  })
+  app.put('/connections/jira', withContext, limited('connect_jira', 10), async (c) => {
+    requireOwner(c)
+    const ctx = c.get('ctx')
+    const input = parseBody(connectJiraSchema, await readJson(c))
+    try {
+      await connectJira(getDb(), env, ctx, input, options.jiraFetch)
+      integrations.forget(ctx.workspaceId)
+      c.header('Cache-Control', 'private, no-store')
+      return c.json(await connectionStatus(getDb(), ctx.workspaceId, await integrations(ctx.workspaceId)))
+    } catch (err) {
+      return connectionError(err)
+    }
+  })
+  app.put('/connections/salesforce', withContext, limited('connect_salesforce', 10), async (c) => {
+    requireOwner(c)
+    const ctx = c.get('ctx')
+    const input = parseBody(connectSalesforceSchema, await readJson(c))
+    try {
+      await connectSalesforce(getDb(), env, ctx, input, options.salesforceFetch)
+      integrations.forget(ctx.workspaceId)
+      c.header('Cache-Control', 'private, no-store')
+      return c.json(await connectionStatus(getDb(), ctx.workspaceId, await integrations(ctx.workspaceId)))
+    } catch (err) {
+      return connectionError(err)
+    }
+  })
+  for (const kind of ['slack', 'jira', 'salesforce'] as const) {
+    app.delete(`/connections/${kind}`, withContext, limited(`connect_${kind}`, 10), async (c) => {
+      requireOwner(c)
+      const ctx = c.get('ctx')
+      await disconnectConnection(getDb(), ctx, kind)
+      integrations.forget(ctx.workspaceId)
+      c.header('Cache-Control', 'private, no-store')
+      return c.json(await connectionStatus(getDb(), ctx.workspaceId, await integrations(ctx.workspaceId)))
+    })
+  }
 
   // The Stories board ---------------------------------------------------------------------------------------
 

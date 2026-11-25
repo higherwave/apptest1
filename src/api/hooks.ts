@@ -7,7 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type DismissReason, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
-  getPulsePreview, setPulsePreview, getPulseDemo, setPulseDemo, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, dismissPulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, getPulseHubspot, checkPulseHubspot, connectPulseHubspot, disconnectPulseHubspot, addPulseTicketSource, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type SignalOrigin, type NewPulseSignal, type PulseSignal, type PulseStatus,
+  getPulsePreview, setPulsePreview, getPulseDemo, setPulseDemo, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, dismissPulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, getConnections, type Connections, connectSlack, connectJira, connectSalesforce, disconnectConnection, getPulseHubspot, checkPulseHubspot, connectPulseHubspot, disconnectPulseHubspot, addPulseTicketSource, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type SignalOrigin, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -479,6 +479,16 @@ export const useAddPulseSource = () => useSourceMutation((v: Parameters<typeof a
 export const useAddPulseOpportunitySource = () => useSourceMutation((v: Parameters<typeof addPulseOpportunitySource>[0]) => addPulseOpportunitySource(v))
 export const useAddPulseTicketSource = () => useSourceMutation((v: Parameters<typeof addPulseTicketSource>[0]) => addPulseTicketSource(v))
 export const usePulseHubspot = (enabled = true) => useQuery({ queryKey: ['pulse', 'hubspot'], queryFn: getPulseHubspot, enabled, retry: false })
+export const useConnections = (enabled = true) => useQuery({ queryKey: ['connections'], queryFn: getConnections, enabled, retry: false })
+// Connecting or removing one changes what several screens show (the Pulse cards, Jira buttons, notifications), so everything is asked again.
+const useConnectionChange = <V,>(fn: (v: V) => Promise<Connections>) => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: fn, onSuccess: (data) => { queryClient.setQueryData(['connections'], data); void queryClient.invalidateQueries({ queryKey: ['pulse'] }); void queryClient.invalidateQueries({ queryKey: ['integrations'] }) } })
+}
+export const useConnectSlack = () => useConnectionChange((v: Parameters<typeof connectSlack>[0]) => connectSlack(v))
+export const useConnectJira = () => useConnectionChange((v: Parameters<typeof connectJira>[0]) => connectJira(v))
+export const useConnectSalesforce = () => useConnectionChange((v: Parameters<typeof connectSalesforce>[0]) => connectSalesforce(v))
+export const useDisconnect = () => useConnectionChange((kind: 'slack' | 'jira' | 'salesforce') => disconnectConnection(kind))
 export const useConnectPulseHubspot = () => {
   const queryClient = useQueryClient()
   return useMutation({ mutationFn: (v: Parameters<typeof connectPulseHubspot>[0]) => connectPulseHubspot(v), onSuccess: (data) => { queryClient.setQueryData(['pulse', 'hubspot'], data); void queryClient.invalidateQueries({ queryKey: ['pulse', 'sources'] }) } })

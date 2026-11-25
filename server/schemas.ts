@@ -149,6 +149,19 @@ export const dismissTopicSchema = z
   .superRefine((v, ctx) => {
     if (v.reason === 'other' && !v.comment) ctx.addIssue({ code: 'custom', path: ['comment'], message: 'Say why, in a few words.' })
   })
+export const connectSlackSchema = z.object({ token: z.string().trim().min(1, 'Paste the Slack bot token.').max(400, 'That is too long to be a Slack token.') })
+export const connectJiraSchema = z.object({
+  baseUrl: z.string().trim().min(1, 'Enter the Jira address.').max(200),
+  email: z.string().trim().min(1, 'Enter the Jira account email.').max(200),
+  token: z.string().trim().min(1, 'Paste the Jira API token.').max(400),
+  projectKey: z.string().trim().min(1, 'Enter the Jira project key.').max(20),
+})
+export const connectSalesforceSchema = z.object({
+  instanceUrl: z.string().trim().min(1, 'Enter the Salesforce address.').max(200),
+  clientId: z.string().trim().min(1, 'Paste the consumer key.').max(300),
+  clientSecret: z.string().trim().min(1, 'Paste the consumer secret.').max(400),
+  arrField: z.string().trim().min(1, 'Enter the ARR field.').max(80),
+})
 export const connectHubspotSchema = z.object({ token: z.string().trim().min(1, 'Paste the HubSpot service key.').max(400, 'That is too long to be a HubSpot service key.'), portalId: optionalText(20) })
 export const updateSourceSchema = z
   .object({ channel: channel.optional(), mode: z.enum(['keep', 'review']).optional(), enabled: z.boolean().optional() })

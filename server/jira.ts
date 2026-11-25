@@ -127,6 +127,12 @@ export function makeJira(config: JiraConfig, doFetch: JiraFetch = fetch) {
     return value
   }
 
+  /** Whether the sign-in works and the project can be seen: two tiny reads. Throws what Jira said (an ApiError). */
+  async function check(): Promise<void> {
+    await call('/myself')
+    await call(`/project/${encodeURIComponent(config.projectKey)}`)
+  }
+
   async function create(issue: NewIssue): Promise<CreatedIssue> {
     const fields: Record<string, unknown> = {
       project: { key: config.projectKey },
@@ -143,6 +149,6 @@ export function makeJira(config: JiraConfig, doFetch: JiraFetch = fetch) {
     return { key: String(made.key), url: `${config.baseUrl}/browse/${made.key}`, project: name ? `${config.projectKey} · ${name}` : config.projectKey }
   }
 
-  return { config, status, create }
+  return { config, status, create, check }
 }
 export type Jira = ReturnType<typeof makeJira>

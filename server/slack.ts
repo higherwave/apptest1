@@ -26,6 +26,8 @@ export type SlackClient = {
   findChannel(name: string): Promise<string>
   /** Messages in a channel after `oldest` (a Slack timestamp), oldest first, at most `limit`. Needs the channels:history scope (groups:history for private channels). */
   history(channel: string, oldest: string | undefined, limit: number): Promise<SlackMessage[]>
+  /** Whether the token works, and the name of the Slack workspace it belongs to (Slack's auth.test). A stand-in that cannot check leaves this out. */
+  check?(): Promise<{ team: string | null }>
 }
 
 export type SlackMessage = { ts: string; text: string; user: string | null; bot: boolean; subtype: string | null }
@@ -82,6 +84,10 @@ export function makeSlack(env: Env, fetchImpl: SlackFetch = fetch): SlackClient 
   const ids = new Map<string, string>()
   return {
     live: !!token,
+    async check() {
+      const body = await call('auth.test', {}, true)
+      return { team: typeof body.team === 'string' ? body.team : null }
+    },
     async channelId(name) {
       const known = ids.get(name)
       if (known) return known

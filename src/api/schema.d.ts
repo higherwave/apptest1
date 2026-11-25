@@ -1483,6 +1483,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/connections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** What this workspace is connected to (Slack, Jira, Salesforce, HubSpot), with the details that are not secret. Owners only. Never holds a token or key. */
+        get: operations["getConnections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/slack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** An owner connects the workspace's own Slack by pasting a bot token. The token is tried against Slack first (a wrong token is a 422 that says so, and nothing is stored), then stored encrypted. It is never returned or logged. Recorded in the audit log without the token. */
+        put: operations["connectSlack"];
+        post?: never;
+        /** An owner removes the workspace's own Slack token. The deployment's own Slack applies again where there is one. Recorded in the audit log. */
+        delete: operations["disconnectSlack"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/jira": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** An owner connects the workspace's own Jira (address, account email, API token and project key). The sign-in and the project are tried first; a refusal is a 422 that says what to fix and nothing is stored. The token is stored encrypted and never returned. Recorded in the audit log without it. */
+        put: operations["connectJira"];
+        post?: never;
+        /** An owner removes the workspace's own Jira connection. The deployment's own Jira applies again where there is one. Recorded in the audit log. */
+        delete: operations["disconnectJira"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/connections/salesforce": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** An owner connects Salesforce (read only, for Pulse) with the org address, the External Client App's consumer key and secret, and the ARR field on Account. Signing in and reading the field are tried first; a refusal is a 422 that says what to fix and nothing is stored. The secret is stored encrypted and never returned. Recorded in the audit log without it. */
+        put: operations["connectSalesforce"];
+        post?: never;
+        /** An owner removes the stored Salesforce secret. What Pulse already read stays. Recorded in the audit log. */
+        delete: operations["disconnectSalesforce"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pulse/demo": {
         parameters: {
             query?: never;
@@ -3300,6 +3371,59 @@ export interface components {
             syncedAt: string | null;
             /** @description Why the last copy failed, if it did. */
             error: string | null;
+        };
+        Connections: {
+            /** @description Only after connecting Slack: the Slack workspace the token belongs to. */
+            team?: string | null;
+            slack: {
+                connected: boolean;
+                /**
+                 * @description own: this workspace has its own token. deployment: the home workspace uses the deployment settings.
+                 * @enum {string}
+                 */
+                source: "own" | "deployment" | "none";
+            };
+            jira: {
+                connected: boolean;
+                /** @enum {string} */
+                source: "own" | "deployment" | "none";
+                siteUrl: string | null;
+                projectKey: string | null;
+                email: string | null;
+            };
+            salesforce: {
+                connected: boolean;
+                instanceUrl: string | null;
+                arrField: string | null;
+            };
+            hubspot: {
+                connected: boolean;
+                portalId: string | null;
+            };
+        };
+        ConnectSlack: {
+            /** @description The Slack app's Bot User OAuth Token (starts with xoxb-). Tried first, then stored encrypted, never returned. */
+            token: string;
+        };
+        ConnectJira: {
+            /** @description For example https://yourcompany.atlassian.net. */
+            baseUrl: string;
+            /** @description The Jira account the API token belongs to. */
+            email: string;
+            /** @description A Jira API token. Tried first, then stored encrypted, never returned. */
+            token: string;
+            /** @description For example ACME. */
+            projectKey: string;
+        };
+        ConnectSalesforce: {
+            /** @description For example https://yourcompany.my.salesforce.com. */
+            instanceUrl: string;
+            /** @description The External Client App's consumer key. */
+            clientId: string;
+            /** @description The consumer secret. Tried first, then stored encrypted, never returned. */
+            clientSecret: string;
+            /** @description The API name of the ARR field on Account, such as ARR__c. */
+            arrField: string;
         };
         ConnectPulseHubspot: {
             /** @description A HubSpot service key with read scopes. It is tried against HubSpot first, then stored encrypted. It is never returned. */
@@ -7668,6 +7792,178 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getConnections: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connections. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    connectSlack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectSlack"];
+            };
+        };
+        responses: {
+            /** @description The connections after the change, with the Slack workspace's name. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    disconnectSlack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connections after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    connectJira: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectJira"];
+            };
+        };
+        responses: {
+            /** @description The connections after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    disconnectJira: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connections after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    connectSalesforce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectSalesforce"];
+            };
+        };
+        responses: {
+            /** @description The connections after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    disconnectSalesforce: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connections after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connections"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     getPulseDemo: {

@@ -67,6 +67,8 @@ export type SfOpportunity = {
 }
 export type OpportunityQuery = { fields: string[]; scope: OpportunityScope; amountField: string; since: string }
 export type SalesforceClient = {
+  /** Whether the app can sign in and read the ARR field on Account: one tiny query. Throws a SalesforceError that says what is wrong. */
+  check(): Promise<void>
   fetchAccounts(): Promise<SfAccount[]>
   fetchOpportunities(q: OpportunityQuery): Promise<SfOpportunity[]>
   /** The current amount, stage and state of opportunities already read (their ids), so a deal that closed since stops counting as in play. */
@@ -120,6 +122,10 @@ export function makeSalesforce(cfg: SalesforceConfig, fetchImpl: SalesforceFetch
     return records
   }
   return {
+    async check() {
+      if (!isFieldName(cfg.arrField)) throw new SalesforceError('INVALID_FIELD')
+      await query(`SELECT Id, ${cfg.arrField} FROM Account WHERE ${cfg.arrField} != null LIMIT 1`, 1)
+    },
     async fetchAccounts() {
       if (!isFieldName(cfg.arrField)) throw new SalesforceError('bad_instance')
       const rows = await query(`SELECT Id, Name, ${cfg.arrField} FROM Account WHERE ${cfg.arrField} != null`, MAX_ACCOUNTS)

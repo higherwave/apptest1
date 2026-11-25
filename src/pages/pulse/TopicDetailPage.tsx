@@ -163,14 +163,6 @@ export function TopicDetailPage() {
                   <p className={styles.meta}>
                     {[CHANNEL_LABEL[q.channel], q.sourceLabel, q.saidBy, q.account, q.occurredOn].filter(Boolean).join(' · ')}
                     {q.opportunity && <span data-testid="quote-opportunity"> · {oppLine(q.opportunity)}</span>}
-                    {q.sourceUrl && (
-                      <>
-                        {' · '}
-                        <a href={q.sourceUrl} target="_blank" rel="noopener noreferrer">
-                          Open the source<span className={styles.srOnly}> (opens in a new tab)</span>
-                        </a>
-                      </>
-                    )}
                   </p>
                 </li>
               ))}

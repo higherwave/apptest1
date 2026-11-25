@@ -1948,6 +1948,108 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '503': { $ref: '#/components/responses/Error' }
+  /connections:
+    get:
+      operationId: getConnections
+      summary: What this workspace is connected to (Slack, Jira, Salesforce, HubSpot), with the details that are not secret. Owners only. Never holds a token or key.
+      responses:
+        '200':
+          description: The connections.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /connections/slack:
+    put:
+      operationId: connectSlack
+      summary: An owner connects the workspace's own Slack by pasting a bot token. The token is tried against Slack first (a wrong token is a 422 that says so, and nothing is stored), then stored encrypted. It is never returned or logged. Recorded in the audit log without the token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectSlack' }
+      responses:
+        '200':
+          description: The connections after the change, with the Slack workspace's name.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: disconnectSlack
+      summary: An owner removes the workspace's own Slack token. The deployment's own Slack applies again where there is one. Recorded in the audit log.
+      responses:
+        '200':
+          description: The connections after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /connections/jira:
+    put:
+      operationId: connectJira
+      summary: An owner connects the workspace's own Jira (address, account email, API token and project key). The sign-in and the project are tried first; a refusal is a 422 that says what to fix and nothing is stored. The token is stored encrypted and never returned. Recorded in the audit log without it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectJira' }
+      responses:
+        '200':
+          description: The connections after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: disconnectJira
+      summary: An owner removes the workspace's own Jira connection. The deployment's own Jira applies again where there is one. Recorded in the audit log.
+      responses:
+        '200':
+          description: The connections after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+  /connections/salesforce:
+    put:
+      operationId: connectSalesforce
+      summary: An owner connects Salesforce (read only, for Pulse) with the org address, the External Client App's consumer key and secret, and the ARR field on Account. Signing in and reading the field are tried first; a refusal is a 422 that says what to fix and nothing is stored. The secret is stored encrypted and never returned. Recorded in the audit log without it.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectSalesforce' }
+      responses:
+        '200':
+          description: The connections after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: disconnectSalesforce
+      summary: An owner removes the stored Salesforce secret. What Pulse already read stays. Recorded in the audit log.
+      responses:
+        '200':
+          description: The connections after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Connections' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
   /pulse/demo:
     get:
       operationId: getPulseDemo
@@ -4339,6 +4441,60 @@ components:
         accounts: { type: integer, description: 'Accounts with an ARR copied from Salesforce.' }
         syncedAt: { type: [string, 'null'], format: date-time }
         error: { type: [string, 'null'], description: 'Why the last copy failed, if it did.' }
+    Connections:
+      type: object
+      required: [slack, jira, salesforce, hubspot]
+      properties:
+        team: { type: [string, 'null'], description: 'Only after connecting Slack: the Slack workspace the token belongs to.' }
+        slack:
+          type: object
+          required: [connected, source]
+          properties:
+            connected: { type: boolean }
+            source: { type: string, enum: [own, deployment, none], description: 'own: this workspace has its own token. deployment: the home workspace uses the deployment settings.' }
+        jira:
+          type: object
+          required: [connected, source, siteUrl, projectKey, email]
+          properties:
+            connected: { type: boolean }
+            source: { type: string, enum: [own, deployment, none] }
+            siteUrl: { type: [string, 'null'] }
+            projectKey: { type: [string, 'null'] }
+            email: { type: [string, 'null'] }
+        salesforce:
+          type: object
+          required: [connected, instanceUrl, arrField]
+          properties:
+            connected: { type: boolean }
+            instanceUrl: { type: [string, 'null'] }
+            arrField: { type: [string, 'null'] }
+        hubspot:
+          type: object
+          required: [connected, portalId]
+          properties:
+            connected: { type: boolean }
+            portalId: { type: [string, 'null'] }
+    ConnectSlack:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, description: 'The Slack app''s Bot User OAuth Token (starts with xoxb-). Tried first, then stored encrypted, never returned.' }
+    ConnectJira:
+      type: object
+      required: [baseUrl, email, token, projectKey]
+      properties:
+        baseUrl: { type: string, description: 'For example https://yourcompany.atlassian.net.' }
+        email: { type: string, description: 'The Jira account the API token belongs to.' }
+        token: { type: string, description: 'A Jira API token. Tried first, then stored encrypted, never returned.' }
+        projectKey: { type: string, description: 'For example ACME.' }
+    ConnectSalesforce:
+      type: object
+      required: [instanceUrl, clientId, clientSecret, arrField]
+      properties:
+        instanceUrl: { type: string, description: 'For example https://yourcompany.my.salesforce.com.' }
+        clientId: { type: string, description: 'The External Client App''s consumer key.' }
+        clientSecret: { type: string, description: 'The consumer secret. Tried first, then stored encrypted, never returned.' }
+        arrField: { type: string, description: 'The API name of the ARR field on Account, such as ARR__c.' }
     ConnectPulseHubspot:
       type: object
       required: [token]

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { usePulseDemo, usePulsePreview, useSetPulseDemo, useSetPulsePreview, useSetup } from '../../api/hooks'
 import { T } from '../../../shared/terms.mjs'
+import { ConnectionsSection } from './ConnectionsSection'
 import styles from './NotificationsPage.module.scss'
 
 // Settings, Apps: which apps of the suite this workspace uses, and the owner setup flow so it can be shown any time. An owner switches Pulse on or off for the whole workspace; while it is off nobody sees it,
@@ -49,6 +50,7 @@ export function AppsPage() {
         />
         {(demo.isError || setDemo.isError) && <InlineNotification hideCloseButton lowContrast kind="error" title="Not saved" subtitle={friendlyMessage(setDemo.error ?? demo.error)} />}
       </section>
+      <ConnectionsSection />
       <section className={styles.card} aria-label="Workspace setup" data-testid="apps-setup-card">
         <h2 className={styles.head}>Workspace setup</h2>
         <p className={styles.text}>

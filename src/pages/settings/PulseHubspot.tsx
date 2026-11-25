@@ -54,7 +54,7 @@ export function PulseHubspot() {
       <h2 className={styles.head}>HubSpot support tickets</h2>
       <p className={styles.text}>
         Pulse can read the support tickets in HubSpot, read only: the subject, description and category of each ticket, and the company it belongs to. Agent notes, conversations and contact details are never read, and nothing is ever
-        written to HubSpot. Tickets count as their own channel, Support tickets.
+        written to HubSpot. Tickets count as their own channel, HubSpot Support.
       </p>
       {connected && (
         <div className={styles.top}>
