@@ -12,6 +12,8 @@ export type AppDef = {
   /** The full-colour icon, for the launcher. */
   icon: string
   items: NavItem[]
+  /** Whether the app has a guided tour. The header's Take a tour button, and the welcome screen a read-only visitor sees first, are only for an app that does. */
+  hasTour: boolean
   owns: (path: string) => boolean
 }
 
@@ -28,6 +30,7 @@ export const APPS: Record<AppKey, AppDef> = {
       { to: '/projects', label: 'Projects', match: (p) => startsWith('/projects')(p) || startsWith('/requirements')(p) || startsWith('/launches')(p) },
       { to: '/measure', label: 'Measure', match: startsWith('/measure') },
     ],
+    hasTour: true,
     owns: (p) => !startsWith('/pulse')(p),
   },
   pulse: {
@@ -38,6 +41,7 @@ export const APPS: Record<AppKey, AppDef> = {
     items: [
       { to: '/pulse', label: 'Topics', match: (p) => p === '/pulse' || startsWith('/pulse/topics')(p) },
     ],
+    hasTour: false, // no Pulse tour yet
     owns: startsWith('/pulse'),
   },
 }

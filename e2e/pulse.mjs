@@ -60,6 +60,7 @@ try {
   await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   await waitText(page, 'No topics yet')
   ok('/pulse opens Topics, with Pulse as the app in the header and Topics as its only item', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Settings').join('|'))) === 'Topics')
+  ok('Pulse has no Take a tour button in its header: there is no Pulse tour yet', !(await page.$('[data-testid="take-a-tour"]')))
   await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => location.pathname === '/pulse' && location.search === '?tab=all', { timeout: 8000 })
   ok('the old Signals address leads to All Topics: there is no Signals page', true)

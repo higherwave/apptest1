@@ -125,9 +125,11 @@ export function AppHeader() {
         <span className={styles.aiBadge}>
           <AiBadge />
         </span>
-        <Button kind="ghost" size="sm" className={styles.tour} renderIcon={Help} aria-label="Take a tour" data-testid="take-a-tour" onClick={tour.openWelcome}>
-          <span className={styles.tourText}>Take a tour</span>
-        </Button>
+        {app.hasTour && (
+          <Button kind="ghost" size="sm" className={styles.tour} renderIcon={Help} aria-label="Take a tour" data-testid="take-a-tour" onClick={tour.openWelcome}>
+            <span className={styles.tourText}>Take a tour</span>
+          </Button>
+        )}
         <div className={styles.access}>
           <AccessBar />
         </div>

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { getProjectStage, listProjects } from '../api/client'
+import { appFor } from '../shell/apps'
 import { useMe } from '../api/hooks'
 import { TourOverlay } from './TourOverlay'
 import { readMemory, writeMemory, type TourMemory } from './storage'
@@ -43,8 +44,8 @@ export function TourProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-  // The first visit of a read-only visitor (anonymous or signed in as a viewer) opens the welcome screen. People who can edit ask for it.
-  const firstVisit = me.data?.role === 'viewer' && !memory.welcomed && !pathname.startsWith('/sign-in')
+  // The first visit of a read-only visitor (anonymous or signed in as a viewer) opens the welcome screen, unless they landed in an app with no tour (Pulse). People who can edit ask for it.
+  const firstVisit = me.data?.role === 'viewer' && !memory.welcomed && !pathname.startsWith('/sign-in') && appFor(pathname).hasTour
   const welcome = (asked || firstVisit) && !running
 
   const closeWelcome = useCallback(() => {
