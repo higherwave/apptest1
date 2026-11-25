@@ -33,12 +33,12 @@ async function fixture(connected = true, tickets: DemoTicket[] = DEMO_TICKETS) {
 
 test('the connection is checked with one tiny read, and says plainly when it is missing or refused', async () => {
   const none = await fixture(false)
-  assert.deepEqual(await (await none.call('GET', '/pulse/hubspot')).json(), { connected: false, error: null })
-  assert.deepEqual(await (await none.call('POST', '/pulse/hubspot/check')).json(), { connected: false, error: null })
+  assert.deepEqual(await (await none.call('GET', '/pulse/hubspot')).json(), { connected: false, error: null, portalId: null })
+  assert.deepEqual(await (await none.call('POST', '/pulse/hubspot/check')).json(), { connected: false, error: null, portalId: null })
 
   const ok = await fixture()
-  assert.deepEqual(await (await ok.call('GET', '/pulse/hubspot')).json(), { connected: true, error: null })
-  assert.deepEqual(await (await ok.call('POST', '/pulse/hubspot/check')).json(), { connected: true, error: null })
+  assert.deepEqual(await (await ok.call('GET', '/pulse/hubspot')).json(), { connected: true, error: null, portalId: '4455667' })
+  assert.deepEqual(await (await ok.call('POST', '/pulse/hubspot/check')).json(), { connected: true, error: null, portalId: '4455667' })
 
   // The same workspace with a key HubSpot refuses.
   await setIntegration(ok.pg, ok.env, { slug: ok.slug, kind: 'hubspot', secret: 'pat-na1-a-different-key-that-is-wrong-12345' })
@@ -121,4 +121,62 @@ test('the setup command checks a HubSpot key and portal id before it touches any
   assert.deepEqual(buildRow(env, { kind: 'hubspot', secret: SERVICE_KEY }).config, {})
   assert.throws(() => buildRow(env, { kind: 'hubspot', secret: 'short' }), /service key/)
   assert.throws(() => buildRow(env, { kind: 'hubspot', secret: SERVICE_KEY, portalId: 'abc' }), /portal-id/)
+})
+
+test('an owner connects HubSpot from the app: the key is tried first, stored encrypted, never sent back, and the connection works at once', async () => {
+  const { call, pg, db, env } = await fixture(false)
+  assert.deepEqual(await (await call('GET', '/pulse/hubspot')).json(), { connected: false, error: null, portalId: null })
+
+  // A malformed key, a wrong key and a bad account number are refused with plain words, and nothing is stored.
+  assert.equal((await call('PUT', '/pulse/hubspot', { token: 'short' })).status, 422)
+  const wrong = await call('PUT', '/pulse/hubspot', { token: 'pat-na1-this-key-is-wrong-0123456789abcdef' })
+  assert.equal(wrong.status, 422)
+  assert.match((await wrong.json()).error.message, /refused the key/)
+  assert.equal((await call('PUT', '/pulse/hubspot', { token: SERVICE_KEY, portalId: 'abc' })).status, 422)
+  assert.equal((await pg.query<any>(`select count(*)::int as n from core.workspace_integrations where kind = 'hubspot'`)).rows[0].n, 0, 'nothing stored for any of them')
+
+  const ok = await call('PUT', '/pulse/hubspot', { token: SERVICE_KEY, portalId: '4455667' })
+  assert.equal(ok.status, 200)
+  const text = await ok.text()
+  assert.deepEqual(JSON.parse(text), { connected: true, error: null, portalId: '4455667' })
+  assert.ok(!text.includes(SERVICE_KEY), 'the key is not in the answer')
+  // The connection is live at once (no waiting for a cache), and no answer ever holds the key.
+  const status = await call('GET', '/pulse/hubspot')
+  assert.deepEqual(await status.json(), { connected: true, error: null, portalId: '4455667' })
+  const checked = await (await call('POST', '/pulse/hubspot/check')).json()
+  assert.deepEqual(checked, { connected: true, error: null, portalId: '4455667' })
+  const stored = (await pg.query<any>(`select config, secret_enc from core.workspace_integrations where kind = 'hubspot'`)).rows[0]
+  assert.match(stored.secret_enc, /^v1\./)
+  assert.ok(!JSON.stringify(stored).includes(SERVICE_KEY), 'the database holds only the encrypted value')
+  // And tickets can be read straight away.
+  const src = await (await call('POST', '/pulse/sources/tickets', {})).json()
+  assert.equal((await (await call('POST', `/pulse/sources/${src.id}/check`)).json()).added, DEMO_TICKETS.length)
+  void db
+  void env
+})
+
+test('replacing and disconnecting are audited without the key, shown in the Audit log, owner only, and a server with no encryption key says so', async () => {
+  const { call, pg, db, env } = await fixture(false)
+  await call('PUT', '/pulse/hubspot', { token: SERVICE_KEY })
+  await call('PUT', '/pulse/hubspot', { token: SERVICE_KEY, portalId: '4455667' })
+  const gone = await call('DELETE', '/pulse/hubspot')
+  assert.deepEqual(await gone.json(), { connected: false, error: null, portalId: null })
+  assert.deepEqual(await (await call('GET', '/pulse/hubspot')).json(), { connected: false, error: null, portalId: null }, 'gone at once')
+  assert.equal((await pg.query<any>(`select count(*)::int as n from core.workspace_integrations where kind = 'hubspot'`)).rows[0].n, 0)
+
+  const rows = (await pg.query<any>(`select verb, after from core.audit_log where entity = 'core.workspace_integrations' order by created_at, id`)).rows
+  assert.deepEqual(rows.map((r: any) => r.verb), ['connected', 'replaced key', 'disconnected'])
+  assert.ok(!JSON.stringify(rows).includes(SERVICE_KEY), 'the audit log never holds the key')
+  const shown = await (await call('GET', '/audit?group=apps')).json()
+  assert.deepEqual(shown.data.map((e: any) => [e.group, e.entity, e.verb]).filter((e: any) => e[1] === 'core.workspace_integrations').map((e: any) => e[2]).sort(), ['connected', 'disconnected', 'replaced key'], 'the Audit log lists them, in the Apps and connections group')
+
+  const alex = createApp({ env: { ...env, DEV_USER_EMAIL: 'alex@demo.signalflow.example' }, getDb: () => db, hubspotFetch: demoHubspotFetch(DEMO_TICKETS, SERVICE_KEY) })
+  const as = (method: string, path: string, body?: unknown) => alex.request(`/api/v1${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) })
+  assert.equal((await as('PUT', '/pulse/hubspot', { token: SERVICE_KEY })).status, 403, 'an editor cannot connect')
+  assert.equal((await as('DELETE', '/pulse/hubspot')).status, 403, 'or disconnect')
+
+  const bare = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => db, hubspotFetch: demoHubspotFetch(DEMO_TICKETS, SERVICE_KEY) })
+  const refused = await bare.request('/api/v1/pulse/hubspot', { method: 'PUT', headers, body: JSON.stringify({ token: SERVICE_KEY }) })
+  assert.equal(refused.status, 503)
+  assert.match((await refused.json()).error.message, /no encryption key/)
 })

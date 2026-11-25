@@ -12,6 +12,7 @@ export const GROUP_LABEL: Record<AuditGroup, string> = {
   workflows: 'Journeys',
   jira: 'Jira hand-offs',
   data: 'Data downloads',
+  apps: 'Apps and connections',
 }
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -31,6 +32,9 @@ const ENTITY_LABEL: Record<string, string> = {
   'core.workspace_setup': 'Workspace setup',
   'core.workspace_features': 'App',
   'core.pulse_weights': 'Pulse weights',
+  'core.workspace_integrations': 'Connection',
+  'core.pulse_sources': 'Pulse source',
+  'core.pulse_viewers': 'Pulse access',
   'core.pulse_topics': 'Pulse topic',
   'insights.workflows': 'Journey',
   'delivery.story_tickets': 'Jira ticket',

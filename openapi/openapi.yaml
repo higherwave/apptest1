@@ -1183,7 +1183,7 @@ paths:
         Owners only (403 otherwise). What changed in the workspace and who changed it, newest first: people and roles, experience categories,
         projects, workflows and Jira hand-offs. Pass `nextCursor` back as `cursor` for the next page.
       parameters:
-        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data] } }
+        - { name: group, in: query, required: false, schema: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data, apps] } }
         - { name: teamId, in: query, required: false, schema: { type: string }, description: 'Only changes about this team: its people, its projects and the team itself.' }
         - { name: since, in: query, required: false, schema: { type: string, format: date-time }, description: 'Only changes made at or after this moment (the date filter). 422 when it is not a date and time.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
@@ -2515,6 +2515,37 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/PulseHubspot' }
         '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+    put:
+      operationId: connectPulseHubspot
+      summary: An owner connects HubSpot by pasting a read-only service key. The key is tried against HubSpot first (a refused key or a missing permission is a 422 that says what to fix, and nothing is stored), then stored encrypted. It is never returned or logged. Recorded in the audit log without the key.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ConnectPulseHubspot' }
+      responses:
+        '200':
+          description: The connection after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseHubspot' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+        '503': { $ref: '#/components/responses/Error' }
+    delete:
+      operationId: disconnectPulseHubspot
+      summary: An owner removes the stored HubSpot key. Tickets already read stay. Recorded in the audit log.
+      responses:
+        '200':
+          description: The connection after the change.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseHubspot' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
   /pulse/hubspot/check:
     post:
@@ -4298,10 +4329,17 @@ components:
         accounts: { type: integer, description: 'Accounts with an ARR copied from Salesforce.' }
         syncedAt: { type: [string, 'null'], format: date-time }
         error: { type: [string, 'null'], description: 'Why the last copy failed, if it did.' }
+    ConnectPulseHubspot:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, description: 'A HubSpot service key with read scopes. It is tried against HubSpot first, then stored encrypted. It is never returned.' }
+        portalId: { type: [string, 'null'], description: 'Optional HubSpot account number (digits), only used to link each ticket back to HubSpot.' }
     PulseHubspot:
       type: object
       required: [connected, error]
       properties:
+        portalId: { type: [string, 'null'], description: 'The account number kept with the connection, if one was given.' }
         connected: { type: boolean }
         error: { type: [string, 'null'], description: 'Why the last test failed, if it did.' }
     NewPulseTicketSource:
@@ -5516,7 +5554,7 @@ components:
           properties:
             id: { type: string }
             name: { type: string }
-        group: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data] }
+        group: { type: string, enum: [members, teams, reviewers, launches, categories, projects, workflows, jira, data, apps] }
         entity: { type: string, description: 'What changed, for example insights.feature_areas.' }
         entityId: { type: [string, 'null'] }
         verb: { type: string, description: 'For example created, edited, merged, retired.' }

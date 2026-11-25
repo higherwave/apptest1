@@ -63,11 +63,14 @@ export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?:
     return { slack, jira, salesforce, hubspot, source }
   }
 
-  return async (workspaceId: string): Promise<Integrations> => {
+  const get = async (workspaceId: string): Promise<Integrations> => {
     const hit = cache.get(workspaceId)
     if (hit && Date.now() - hit.at < 60_000) return hit.value
     const value = await load(workspaceId)
     cache.set(workspaceId, { at: Date.now(), value })
     return value
   }
+  // A connection that was just saved or removed must show at once, not after the minute the answer is kept for.
+  get.forget = (workspaceId: string) => void cache.delete(workspaceId)
+  return get
 }

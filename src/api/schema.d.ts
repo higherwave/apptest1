@@ -1872,9 +1872,11 @@ export interface paths {
         };
         /** Whether HubSpot is connected for this workspace. Owners only. The connection is set by the operator, never typed into the app. */
         get: operations["getPulseHubspot"];
-        put?: never;
+        /** An owner connects HubSpot by pasting a read-only service key. The key is tried against HubSpot first (a refused key or a missing permission is a 422 that says what to fix, and nothing is stored), then stored encrypted. It is never returned or logged. Recorded in the audit log without the key. */
+        put: operations["connectPulseHubspot"];
         post?: never;
-        delete?: never;
+        /** An owner removes the stored HubSpot key. Tickets already read stay. Recorded in the audit log. */
+        delete: operations["disconnectPulseHubspot"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3299,7 +3301,15 @@ export interface components {
             /** @description Why the last copy failed, if it did. */
             error: string | null;
         };
+        ConnectPulseHubspot: {
+            /** @description A HubSpot service key with read scopes. It is tried against HubSpot first, then stored encrypted. It is never returned. */
+            token: string;
+            /** @description Optional HubSpot account number (digits), only used to link each ticket back to HubSpot. */
+            portalId?: string | null;
+        };
         PulseHubspot: {
+            /** @description The account number kept with the connection, if one was given. */
+            portalId?: string | null;
             connected: boolean;
             /** @description Why the last test failed, if it did. */
             error: string | null;
@@ -4358,7 +4368,7 @@ export interface components {
                 name: string;
             } | null;
             /** @enum {string} */
-            group: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data";
+            group: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data" | "apps";
             /** @description What changed, for example insights.feature_areas. */
             entity: string;
             entityId: string | null;
@@ -6558,7 +6568,7 @@ export interface operations {
     listAudit: {
         parameters: {
             query?: {
-                group?: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data";
+                group?: "members" | "teams" | "reviewers" | "launches" | "categories" | "projects" | "workflows" | "jira" | "data" | "apps";
                 /** @description Only changes about this team: its people, its projects and the team itself. */
                 teamId?: string;
                 /** @description Only changes made at or after this moment (the date filter). 422 when it is not a date and time. */
@@ -8476,6 +8486,58 @@ export interface operations {
                 };
             };
             401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    connectPulseHubspot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ConnectPulseHubspot"];
+            };
+        };
+        responses: {
+            /** @description The connection after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseHubspot"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    disconnectPulseHubspot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseHubspot"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
             404: components["responses"]["Error"];
         };
     };

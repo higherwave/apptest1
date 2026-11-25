@@ -13,6 +13,8 @@ export const AUDIT_GROUPS = {
   workflows: ['insights.workflows'],
   jira: ['delivery.story_tickets'],
   data: ['core.workspaces', 'core.legal_holds', 'core.workspace_setup'],
+  // The apps a workspace uses and what they are connected to (never a key): Pulse on or off, its sources and weights, who may view it, topics dismissed, HubSpot connected.
+  apps: ['core.workspace_integrations', 'core.workspace_features', 'core.pulse_weights', 'core.pulse_sources', 'core.pulse_topics', 'core.pulse_viewers'],
 } as const
 export type AuditGroup = keyof typeof AUDIT_GROUPS
 

@@ -203,6 +203,8 @@ export const addPulseSource = (body: components['schemas']['NewPulseSource']) =>
 export const addPulseOpportunitySource = (body: components['schemas']['NewPulseOpportunitySource']) => request<PulseSource>('/pulse/sources/opportunities', { method: 'POST', body })
 export type PulseHubspot = components['schemas']['PulseHubspot']
 export const getPulseHubspot = () => request<PulseHubspot>('/pulse/hubspot')
+export const connectPulseHubspot = (body: components['schemas']['ConnectPulseHubspot']) => request<PulseHubspot>('/pulse/hubspot', { method: 'PUT', body })
+export const disconnectPulseHubspot = () => request<PulseHubspot>('/pulse/hubspot', { method: 'DELETE' })
 export const checkPulseHubspot = () => request<PulseHubspot>('/pulse/hubspot/check', { method: 'POST' })
 export const addPulseTicketSource = (body: components['schemas']['NewPulseTicketSource']) => request<PulseSource>('/pulse/sources/tickets', { method: 'POST', body })
 export const updatePulseSource = (id: string, body: components['schemas']['UpdatePulseSource']) => request<PulseSource>(`/pulse/sources/${id}`, { method: 'PATCH', body })

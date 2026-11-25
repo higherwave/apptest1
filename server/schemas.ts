@@ -143,6 +143,7 @@ export const newOpportunitySourceSchema = z.object({
 export const newTicketSourceSchema = z.object({
   categories: z.array(z.string().trim().min(1).max(100)).max(10, 'Up to ten categories.').default([]),
 })
+export const connectHubspotSchema = z.object({ token: z.string().trim().min(1, 'Paste the HubSpot service key.').max(400, 'That is too long to be a HubSpot service key.'), portalId: optionalText(20) })
 export const updateSourceSchema = z
   .object({ channel: channel.optional(), mode: z.enum(['keep', 'review']).optional(), enabled: z.boolean().optional() })
   .refine((v) => v.channel !== undefined || v.mode !== undefined || v.enabled !== undefined, 'Say what to change.')

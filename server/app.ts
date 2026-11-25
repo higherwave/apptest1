@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, newTicketSourceSchema, updateSourceSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, newTicketSourceSchema, connectHubspotSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -55,6 +55,7 @@ import { MeasureNotFound, MeasuresConflict, MeasuresLocked, NotLaunched, saveLau
 import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
 import { HubspotError, type HubspotFetch } from './hubspot.js'
+import { BadHubspotKey, connectHubspot, disconnectHubspot, hubspotPortalId, NoEncryptionKey } from './hubspot-connect.js'
 import type { SalesforceFetch } from './salesforce.js'
 import { addOpportunitySource, addSource, addTicketSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
 import { addSignal, BadSplit, dismissTopic, pulseDemoEnabled, setPulseDemo, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
@@ -1503,7 +1504,34 @@ export function createApp(options: AppOptions = {}) {
   app.get('/pulse/hubspot', withReadContext, async (c) => {
     await pulseOnly(c, 'owner')
     c.header('Cache-Control', 'private, no-store')
-    return c.json({ connected: !!(await integrations(c.get('ctx').workspaceId)).hubspot, error: null })
+    const ws = c.get('ctx').workspaceId
+    return c.json({ connected: !!(await integrations(ws)).hubspot, error: null, portalId: await hubspotPortalId(getDb(), ws) })
+  })
+  // An owner connects HubSpot from here: the key is tried first, then stored encrypted. It is never sent back, and nothing in this handler logs the request.
+  app.put('/pulse/hubspot', withContext, limited('pulse_hubspot_connect', 10), async (c) => {
+    await pulseOnly(c, 'owner')
+    const ctx = c.get('ctx')
+    if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can connect HubSpot.')
+    const input = parseBody(connectHubspotSchema, await readJson(c))
+    try {
+      const { portalId } = await connectHubspot(getDb(), env, ctx, input, options.hubspotFetch)
+      integrations.forget(ctx.workspaceId)
+      c.header('Cache-Control', 'private, no-store')
+      return c.json({ connected: true, error: null, portalId })
+    } catch (err) {
+      if (err instanceof BadHubspotKey || err instanceof HubspotError) throw new ApiError(422, 'validation_failed', err.message, 'token')
+      if (err instanceof NoEncryptionKey) throw new ApiError(503, 'unavailable', err.message)
+      throw err
+    }
+  })
+  app.delete('/pulse/hubspot', withContext, limited('pulse_hubspot_connect', 10), async (c) => {
+    await pulseOnly(c, 'owner')
+    const ctx = c.get('ctx')
+    if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can disconnect HubSpot.')
+    await disconnectHubspot(getDb(), ctx)
+    integrations.forget(ctx.workspaceId)
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ connected: false, error: null, portalId: null })
   })
   app.post('/pulse/hubspot/check', withContext, limited('pulse_hubspot', 10), async (c) => {
     await pulseOnly(c, 'owner')
@@ -1511,12 +1539,13 @@ export function createApp(options: AppOptions = {}) {
     if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can test the HubSpot connection.')
     const hs = (await integrations(ctx.workspaceId)).hubspot
     c.header('Cache-Control', 'private, no-store')
-    if (!hs) return c.json({ connected: false, error: null })
+    const portalId = await hubspotPortalId(getDb(), ctx.workspaceId)
+    if (!hs) return c.json({ connected: false, error: null, portalId: null })
     try {
       await hs.check()
-      return c.json({ connected: true, error: null })
+      return c.json({ connected: true, error: null, portalId })
     } catch (err) {
-      return c.json({ connected: true, error: err instanceof HubspotError ? err.message : 'HubSpot could not be reached.' })
+      return c.json({ connected: true, error: err instanceof HubspotError ? err.message : 'HubSpot could not be reached.', portalId })
     }
   })
 
