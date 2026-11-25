@@ -12,6 +12,7 @@ import { isRepeat, loadSeen } from './pulse-clean.js'
 import { linksFor } from './pulse-links.js'
 import { accountRows, arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
 import type { SalesforceClient } from './salesforce.js'
+import type { HubspotClient } from './hubspot.js'
 import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, playStats, topicStats, type Channel, type InPlay, type TopicStats } from './pulse-topics.js'
 
 export { CHANNELS, isChannel, type Channel }
@@ -19,7 +20,7 @@ export { CHANNELS, isChannel, type Channel }
 export const SIGNAL_KINDS = ['complaint', 'request', 'praise', 'question', 'other'] as const
 export type SignalKind = (typeof SIGNAL_KINDS)[number]
 export type SignalStatus = 'new' | 'kept' | 'dismissed'
-export type SignalSource = 'manual' | 'notes' | 'slack' | 'salesforce'
+export type SignalSource = 'manual' | 'notes' | 'slack' | 'salesforce' | 'hubspot'
 
 /** The Salesforce opportunity a signal came from, when it did. */
 export type Opportunity = { id: string; name: string; amount: number | null; stage: string | null; closeDate: string | null; state: 'open' | 'lost' | 'won' }
@@ -59,7 +60,7 @@ export async function pulseDemoEnabled(db: Queryable, workspaceId: string): Prom
 
 /** Where signals come from, for the two views of the Signals page: found by Pulse itself (Slack channels, Salesforce opportunity notes), or put in by a person (typed, or call notes pasted in). */
 export type Origin = 'auto' | 'manual'
-export const ORIGIN_SOURCES: Record<Origin, string[]> = { auto: ['slack', 'salesforce'], manual: ['manual', 'notes'] }
+export const ORIGIN_SOURCES: Record<Origin, string[]> = { auto: ['slack', 'salesforce', 'hubspot'], manual: ['manual', 'notes'] }
 export const isOrigin = (s: string | undefined): s is Origin => s === 'auto' || s === 'manual'
 
 export type PulseAccess = 'edit' | 'view'
@@ -445,7 +446,7 @@ export async function splitTopic(db: Db, ctx: RequestContext, id: string, signal
 }
 
 /** The scheduled update for every workspace that has the preview on: new signals attach hourly, and everything not edited is regrouped about once a day. Never throws for one workspace. */
-export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>, salesforceFor?: (workspaceId: string) => Promise<SalesforceClient | null>): Promise<{ workspaces: number; regrouped: number; read: number }> {
+export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>, salesforceFor?: (workspaceId: string) => Promise<SalesforceClient | null>, hubspotFor?: (workspaceId: string) => Promise<HubspotClient | null>): Promise<{ workspaces: number; regrouped: number; read: number }> {
   const on = (await platformDb.query(`select workspace_id from core.workspace_features where feature = 'pulse' and enabled`)).rows as { workspace_id: string }[]
   let regrouped = 0
   let read = 0
@@ -461,7 +462,7 @@ export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: s
         }
       }
       // Designated feedback channels are read first, so what they add is grouped in the same run.
-      if (slackFor || salesforceFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, { slack: slackFor ? await slackFor(workspace_id) : null, salesforce: salesforceFor ? await salesforceFor(workspace_id) : null })).added
+      if (slackFor || salesforceFor || hubspotFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, { slack: slackFor ? await slackFor(workspace_id) : null, salesforce: salesforceFor ? await salesforceFor(workspace_id) : null, hubspot: hubspotFor ? await hubspotFor(workspace_id) : null })).added
       const state = (await db.query(`select last_regroup_at from core.pulse_state where workspace_id = $1`, [workspace_id])).rows[0]
       const due = !state?.last_regroup_at || Date.now() - new Date(state.last_regroup_at).getTime() > 20 * 3600_000
       await updateTopics(db, { workspaceId: workspace_id, userId: null }, due ? 'regroup' : 'attach')

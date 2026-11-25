@@ -3,7 +3,7 @@ import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, Checkbox, Tag } from '@carbon/react'
 import { Link } from 'react-router-dom'
 import type { PulseTopic } from '../../api/client'
-import { CHANNELS } from './channels'
+import { activeChannels } from './channels'
 import { money } from './money'
 import { trendTag } from './trend'
 import styles from './TopPriorities.module.scss'
@@ -21,9 +21,11 @@ const PLOT_H = H - PAD.top - PAD.bottom
 
 // Top Priorities: the topics ranked as cards on the left, and the impact map beside them. A dot and its card are one thing: choosing either opens the card, and an open card
 // darkens its dot. With Salesforce connected the height is the ARR behind a topic and the size is its accounts; without it the height is accounts and the size is signals.
-export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, selected, onToggle, onDismiss }: {
+export function TopPriorities({ rankBar, topics, allTopics, ordered, hasArr, canStart, selected, onToggle, onDismiss }: {
   rankBar: ReactNode
   topics: PulseTopic[]
+  /** Every topic, so the channels shown are the same as in the table whatever the top few hold. */
+  allTopics: PulseTopic[]
   ordered: PulseTopic[]
   hasArr: boolean
   canStart: boolean
@@ -32,7 +34,8 @@ export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, sele
   onDismiss: (topic: PulseTopic) => void
 }) {
   const [open, setOpen] = useState<string[]>([])
-  const max = Math.max(1, ...topics.flatMap((t) => CHANNELS.map((c) => t.channels[c.key] ?? 0)))
+  const channels = activeChannels(allTopics)
+  const max = Math.max(1, ...topics.flatMap((t) => channels.map((c) => t.channels[c.key] ?? 0)))
   const level = (n: number) => (n === 0 ? 0 : Math.min(4, 1 + Math.floor((n / max) * 3.999)))
   const maxSignals = Math.max(1, ...topics.map((t) => t.signals))
   const height = (t: PulseTopic) => (hasArr ? (t.arr ?? 0) : t.reach)
@@ -104,11 +107,11 @@ export function TopPriorities({ rankBar, topics, ordered, hasArr, canStart, sele
                     <p className={styles.sourcesHead}>
                       <span>Sources</span>
                       <strong>
-                        Heard in {t.channelCount} of {CHANNELS.length}
+                        Heard in {t.channelCount} of {channels.length}
                       </strong>
                     </p>
                     <div className={styles.cells}>
-                      {CHANNELS.map((c) => {
+                      {channels.map((c) => {
                         const n = t.channels[c.key] ?? 0
                         return (
                           <div key={c.key} className={styles.cell}>

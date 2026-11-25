@@ -7,13 +7,14 @@ import type { Db, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import { cleanChannel, SlackError, type SlackClient, type SlackMessage } from './slack.js'
 import { isFieldName, MAX_NOTE_FIELDS, SalesforceError, type OpportunityScope, type SalesforceClient } from './salesforce.js'
+import { HubspotError, type HubspotClient } from './hubspot.js'
 import { type Channel } from './pulse-topics.js'
 import { isRepeat, loadKnownIds, loadSeen } from './pulse-clean.js'
 
 export type SourceMode = 'keep' | 'review'
 export type Source = {
   id: string
-  kind: 'slack' | 'salesforce_opportunity'
+  kind: 'slack' | 'salesforce_opportunity' | 'hubspot_tickets'
   name: string
   channel: Channel
   mode: SourceMode
@@ -21,10 +22,11 @@ export type Source = {
   lastCheckedAt: string | null
   lastAdded: number | null
   lastError: string | null
-  /** For opportunity notes: which fields are read, from which opportunities, and the amount field. Null for a Slack channel. */
-  config: OpportunityConfig | null
+  /** For opportunity notes: which fields are read, from which opportunities, and the amount field. For HubSpot tickets: the categories read (none named: all). Null for a Slack channel. */
+  config: OpportunityConfig | TicketConfig | null
 }
 export type OpportunityConfig = { fields: string[]; scope: OpportunityScope; amountField: string }
+export type TicketConfig = { categories: string[] }
 export class SourceNotFound extends Error {}
 export class BadSource extends Error {}
 
@@ -42,7 +44,7 @@ const toSource = (r: Record<string, any>): Source => ({
   lastCheckedAt: r.last_checked_at ? new Date(r.last_checked_at).toISOString() : null,
   lastAdded: r.last_added ?? null,
   lastError: r.last_error ?? null,
-  config: r.kind === 'salesforce_opportunity' ? (r.config as OpportunityConfig) : null,
+  config: r.kind === 'salesforce_opportunity' ? (r.config as OpportunityConfig) : r.kind === 'hubspot_tickets' ? ({ categories: Array.isArray(r.config?.categories) ? r.config.categories : [] } as TicketConfig) : null,
 })
 const SELECT = `select id, kind, name, channel, mode, enabled, last_checked_at, last_added, last_error, config from core.pulse_sources`
 
@@ -93,6 +95,19 @@ export async function addOpportunitySource(db: Db, ctx: RequestContext, input: {
   })
 }
 
+/** Designates HubSpot support tickets as a source (one per workspace): every ticket changed in the last 90 days at first, or only the named categories. Needs the read-only HubSpot connection to read, not to be saved. */
+export async function addTicketSource(db: Db, ctx: RequestContext, input: { categories?: string[]; channel?: Channel }): Promise<Source> {
+  const categories = [...new Set((input.categories ?? []).map((c) => c.trim()).filter(Boolean))]
+  if (categories.length > 10 || categories.some((c) => c.length > 100)) throw new BadSource('Name up to ten ticket categories, each as it appears in HubSpot.')
+  return db.transaction(async (tx) => {
+    const dup = (await tx.query(`select 1 from core.pulse_sources where workspace_id = $1 and kind = 'hubspot_tickets'`, [ctx.workspaceId])).rows[0]
+    if (dup) throw new BadSource('Support tickets are already a source. Change or remove it instead.')
+    const row = (await tx.query(`insert into core.pulse_sources (workspace_id, kind, name, channel, mode, config, created_by) values ($1, 'hubspot_tickets', 'tickets', $2, 'keep', $3::jsonb, $4) returning id`, [ctx.workspaceId, input.channel ?? 'support_tickets', JSON.stringify({ categories }), ctx.userId])).rows[0]
+    await audit(tx, ctx, 'added', { id: row.id, name: 'HubSpot support tickets' })
+    return toSource((await tx.query(`${SELECT} where id = $1`, [row.id])).rows[0])
+  })
+}
+
 export async function updateSource(db: Db, ctx: RequestContext, id: string, patch: { channel?: Channel; mode?: SourceMode; enabled?: boolean }): Promise<Source> {
   return db.transaction(async (tx) => {
     const found = (await tx.query(`select name from core.pulse_sources where id = $1 and workspace_id = $2`, [id, ctx.workspaceId])).rows[0]
@@ -134,10 +149,10 @@ export function usableMessage(m: SlackMessage): string | null {
   return body.length >= MIN_LENGTH ? body.slice(0, 4000) : null
 }
 
-type Row = { id: string; kind: Source['kind']; name: string; ref: string | null; channel: Channel; mode: SourceMode; cursor_ts: string | null; config: OpportunityConfig | null }
+type Row = { id: string; kind: Source['kind']; name: string; ref: string | null; channel: Channel; mode: SourceMode; cursor_ts: string | null; config: (OpportunityConfig & Partial<TicketConfig>) | null }
 type Who = { workspaceId: string; userId: string | null }
 /** The connections a read may use; a missing one makes that kind of source say it is not connected. */
-export type Clients = { slack?: SlackClient | null; salesforce?: SalesforceClient | null }
+export type Clients = { slack?: SlackClient | null; salesforce?: SalesforceClient | null; hubspot?: HubspotClient | null }
 
 async function readSlack(db: Db, who: Who, slack: SlackClient, src: Row, now: Date): Promise<{ added: number; error: string | null; duplicates: number }> {
   let added = 0
@@ -210,7 +225,7 @@ async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null |
   try {
     if (!sf) throw new SalesforceError('not_connected')
     const cfg = src.config
-    if (!cfg) throw new SalesforceError('INVALID_FIELD')
+    if (!cfg?.fields) throw new SalesforceError('INVALID_FIELD')
     const since = cursor ?? soqlTime(new Date(now.getTime() - FIRST_LOOK_OPP_DAYS * 86_400_000))
     const opps = await sf.fetchOpportunities({ fields: cfg.fields, scope: cfg.scope, amountField: cfg.amountField, since })
     const kept = true // nothing waits for review: every signal counts at once, and a person dismisses a topic instead
@@ -251,8 +266,50 @@ async function readOpportunities(db: Db, who: Who, sf: SalesforceClient | null |
   return { added, error, duplicates }
 }
 
+const FIRST_LOOK_TICKET_DAYS = 90
+
+/**
+ * Reads HubSpot support tickets as signals: the subject and description of each ticket, with the company it belongs to and a link back. Only those are read (no agent notes, no
+ * conversations, no contact details). A ticket is read once (by its HubSpot id) however often it changes. Near-copies are NOT left out as they are elsewhere: many customers writing
+ * nearly the same ticket is exactly the pattern Pulse is looking for.
+ */
+async function readTickets(db: Db, who: Who, hs: HubspotClient | null | undefined, src: Row, now: Date): Promise<{ added: number; error: string | null; duplicates: number }> {
+  let added = 0
+  let error: string | null = null
+  let cursor = src.cursor_ts
+  try {
+    if (!hs) throw new HubspotError('not_connected')
+    const known = await loadKnownIds(db, who.workspaceId, 'hubspot')
+    const since = cursor ?? new Date(now.getTime() - FIRST_LOOK_TICKET_DAYS * 86_400_000).toISOString()
+    const categories = src.config?.categories?.length ? src.config.categories : null
+    const tickets = await hs.fetchTickets({ since, categories })
+    const rows = tickets.flatMap((t) => {
+      if (known.has(t.id)) return []
+      const body = [t.subject, t.content].filter(Boolean).join('. ').slice(0, 4000)
+      if (body.length < MIN_LENGTH) return []
+      return [{ workspace_id: who.workspaceId, body, kind: 'other', channel: src.channel, source: 'hubspot', source_label: `Ticket${t.category ? ` · ${t.category}` : ''}`, source_url: t.url, account: t.companyName, occurred_on: t.createdAt.slice(0, 10), status: 'kept', kept_at: now.toISOString(), external_id: t.id }]
+    })
+    if (rows.length) {
+      const made = await db.query(
+        `insert into core.pulse_signals (workspace_id, body, kind, channel, source, source_label, source_url, account, occurred_on, status, kept_at, external_id)
+         select workspace_id, body, kind, channel, source, source_label, source_url, account, occurred_on::date, status, kept_at::timestamptz, external_id from jsonb_to_recordset($1::jsonb) as t(workspace_id uuid, body text, kind text, channel text, source text, source_label text, source_url text, account text, occurred_on text, status text, kept_at text, external_id text)
+         on conflict (workspace_id, source, external_id) where external_id is not null do nothing returning id`,
+        [JSON.stringify(rows)],
+      )
+      added = made.rows.length
+    }
+    if (tickets.length) cursor = new Date(Date.parse(tickets[tickets.length - 1].modified) - 1000).toISOString()
+  } catch (err) {
+    error = err instanceof HubspotError ? err.message : 'HubSpot could not be reached.'
+    if (!(err instanceof HubspotError)) console.error('pulse ticket read failed', err instanceof Error ? err.name : 'error')
+  }
+  await db.query(`update core.pulse_sources set cursor_ts = $2, last_checked_at = now(), last_added = $3, last_error = $4 where id = $1`, [src.id, cursor, error ? null : added, error])
+  return { added, error, duplicates: 0 }
+}
+
 async function readSource(db: Db, who: Who, clients: Clients, src: Row, now: Date): Promise<{ added: number; error: string | null; duplicates: number }> {
   if (src.kind === 'salesforce_opportunity') return readOpportunities(db, who, clients.salesforce, src, now)
+  if (src.kind === 'hubspot_tickets') return readTickets(db, who, clients.hubspot, src, now)
   if (!clients.slack) {
     await db.query(`update core.pulse_sources set last_checked_at = now(), last_added = null, last_error = 'Slack is not connected yet.' where id = $1`, [src.id])
     return { added: 0, error: 'Slack is not connected yet.', duplicates: 0 }

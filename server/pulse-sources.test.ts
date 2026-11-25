@@ -57,7 +57,7 @@ test('sources: owners only, while the preview is on; a channel must exist; each 
   const changed = await (await call(owner, 'PATCH', `/pulse/sources/${src.id}`, { mode: 'keep', channel: 'call_notes' })).json()
   assert.equal(changed.mode, 'keep')
   assert.equal(changed.channel, 'call_notes')
-  assert.equal((await call(owner, 'PATCH', `/pulse/sources/${src.id}`, { channel: 'support_tickets' })).status, 422, 'the older channels are gone')
+  assert.equal((await call(owner, 'PATCH', `/pulse/sources/${src.id}`, { channel: 'conference' })).status, 422, 'a channel that is not in the list is refused')
   assert.equal((await call(owner, 'PATCH', `/pulse/sources/${src.id}`, {})).status, 422)
   assert.equal((await call(owner, 'DELETE', `/pulse/sources/${src.id}`)).status, 204)
   assert.equal((await call(owner, 'DELETE', `/pulse/sources/${src.id}`)).status, 404)

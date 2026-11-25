@@ -21,7 +21,6 @@
   &:focus-visible { outline: 0.125rem solid var(--at-link); outline-offset: 0.125rem; }
 }
 
-.actions { display: flex; flex-wrap: wrap; gap: var(--at-space-sm); }
 
 .cols {
   display: grid;

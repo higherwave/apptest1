@@ -6,6 +6,7 @@
 //        --site https://acme.atlassian.net --email me@acme.com --project ACME --yes                                   does it
 //   SF_SECRET=...        node db/set-integration.mjs --workspace acme --kind salesforce --secret-env SF_SECRET \
 //        --site https://acme.my.salesforce.com --client-id 3MVG... --arr-field ARR__c --yes                          Salesforce, read only (Pulse)
+//   HS_KEY=...           node db/set-integration.mjs --workspace acme --kind hubspot --secret-env HS_KEY --portal-id 12345678 --yes     HubSpot service key, read only (Pulse tickets)
 //   node db/set-integration.mjs --workspace acme --kind slack --remove --yes                                          disconnects it
 //
 // SETTINGS_ENCRYPTION_KEY (openssl rand -base64 32) must be the same key the app has in its environment, or it cannot read what is stored.
@@ -15,12 +16,18 @@ import { findConnectionString, loadEnvFile } from './migrate.mjs';
 import { sealSecret } from '../shared/secret-box.mjs';
 
 /** The row to store, or throws a plain message. Touches nothing. */
-export function buildRow(env, { kind, secret, site, email, project, clientId, arrField }) {
-  if (!['slack', 'jira', 'salesforce'].includes(kind)) throw new Error('--kind must be slack, jira or salesforce.');
+export function buildRow(env, { kind, secret, site, email, project, clientId, arrField, portalId }) {
+  if (!['slack', 'jira', 'salesforce', 'hubspot'].includes(kind)) throw new Error('--kind must be slack, jira, salesforce or hubspot.');
   if (!secret) throw new Error('The token is missing: name the environment variable that holds it with --secret-env.');
   if (kind === 'slack') {
     if (!/^xoxb-/.test(secret)) throw new Error('A Slack bot token starts with xoxb-.');
     return { kind, config: {}, secret_enc: sealSecret(env, secret) };
+  }
+  if (kind === 'hubspot') {
+    if (!/^[A-Za-z0-9._-]{20,300}$/.test(secret)) throw new Error('A HubSpot service key is one long token of letters, digits and dashes. Copy it whole.');
+    const portal = portalId === undefined || portalId === '' ? null : String(portalId).trim();
+    if (portal !== null && !/^\d{3,12}$/.test(portal)) throw new Error('--portal-id is your HubSpot account number (digits only, in the address after /contacts/ when you are signed in). It is optional: it only makes tickets link back to HubSpot.');
+    return { kind, config: portal ? { portalId: portal } : {}, secret_enc: sealSecret(env, secret) };
   }
   if (kind === 'salesforce') {
     let host = '';
@@ -43,7 +50,7 @@ export async function setIntegration(db, env, { slug, remove, ...input }) {
   const ws = (await db.query('select id from core.workspaces where slug = $1', [slug])).rows[0];
   if (!ws) throw new Error(`No workspace with the slug "${slug}".`);
   if (remove) {
-    if (!['slack', 'jira', 'salesforce'].includes(input.kind)) throw new Error('--kind must be slack, jira or salesforce.');
+    if (!['slack', 'jira', 'salesforce', 'hubspot'].includes(input.kind)) throw new Error('--kind must be slack, jira, salesforce or hubspot.');
     const r = await db.query('delete from core.workspace_integrations where workspace_id = $1 and kind = $2 returning kind', [ws.id, input.kind]);
     return { workspaceId: ws.id, kind: input.kind, action: r.rows.length ? 'removed' : 'nothing to remove' };
   }
@@ -60,7 +67,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const args = process.argv.slice(2);
   const flag = (n) => (args.includes(n) ? args[args.indexOf(n) + 1] : undefined);
   loadEnvFile();
-  const input = { slug: flag('--workspace'), kind: flag('--kind'), remove: args.includes('--remove'), site: flag('--site'), email: flag('--email'), project: flag('--project'), clientId: flag('--client-id'), arrField: flag('--arr-field') };
+  const input = { slug: flag('--workspace'), kind: flag('--kind'), remove: args.includes('--remove'), site: flag('--site'), email: flag('--email'), project: flag('--project'), clientId: flag('--client-id'), arrField: flag('--arr-field'), portalId: flag('--portal-id') };
   const secretEnv = flag('--secret-env');
   input.secret = secretEnv ? process.env[secretEnv] : undefined;
   const yes = args.includes('--yes');

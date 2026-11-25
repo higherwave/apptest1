@@ -3,6 +3,7 @@ import { Button, InlineNotification, TextInput } from '@carbon/react'
 import { friendlyMessage, type PulseWeights } from '../../api/client'
 import { useMe, usePulseWeights, useSetPulseWeights } from '../../api/hooks'
 import { CHANNELS } from '../pulse/channels'
+import { PulseHubspot } from './PulseHubspot'
 import { PulseOpportunities } from './PulseOpportunities'
 import { PulseSalesforce } from './PulseSalesforce'
 import { PulseSources } from './PulseSources'
@@ -82,6 +83,7 @@ export function PulseSettingsPage() {
       <PulseSources />
       <PulseSalesforce />
       <PulseOpportunities />
+      <PulseHubspot />
     </div>
   )
 }

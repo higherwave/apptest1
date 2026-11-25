@@ -153,7 +153,7 @@ test('topics: updating groups the kept signals, ranks them by weighted score, an
   assert.ok(trust.channelCount === 2 && trust.reach >= 3, 'heard in both channels')
 
   // Weights: boosting Slack changes every score at once, with no update, and the list stays in score order.
-  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, salesforce: 0.8, slack: 0.5 })
+  assert.deepEqual((await (await call(owner, 'GET', '/pulse/weights')).json()).weights, { call_notes: 1, salesforce: 0.8, slack: 0.5, support_tickets: 0.8 })
   const put = await call(owner, 'PUT', '/pulse/weights', { weights: { slack: 5 } })
   assert.equal(put.status, 200)
   const reranked = await (await call(owner, 'GET', '/pulse/topics')).json()
@@ -325,7 +325,7 @@ test('topics: a person dismisses a whole topic; it stays hidden through updates 
 test('praise counts a quarter in a topic score, and the breakdown says how many signals were praise', async () => {
   const { topicStats, PRAISE_FACTOR } = await import('./pulse-topics.js')
   const row = (kind: string) => ({ channel: 'call_notes' as const, kind, account: null, saidBy: null, occurredOn: '2026-11-18', createdAt: '2026-11-18T00:00:00Z' })
-  const stats = topicStats([row('complaint'), row('request'), row('praise'), row('praise')], { call_notes: 1, slack: 0.5, salesforce: 0.8 }, new Date('2026-11-20T12:00:00Z'))
+  const stats = topicStats([row('complaint'), row('request'), row('praise'), row('praise')], { call_notes: 1, slack: 0.5, salesforce: 0.8, support_tickets: 0.8 }, new Date('2026-11-20T12:00:00Z'))
   assert.equal(PRAISE_FACTOR, 0.25)
   assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 4, praise: 2, weight: 1, subtotal: 2.5 }], 'two in full and two at a quarter')
   assert.equal(stats.score, 2.5)

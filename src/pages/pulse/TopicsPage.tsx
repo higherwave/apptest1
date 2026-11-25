@@ -6,7 +6,7 @@ import { friendlyMessage, type PulseTopic } from '../../api/client'
 import { useDismissPulseTopic, useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
 import { AddCallNotes } from './AddCallNotes'
-import { CHANNELS } from './channels'
+import { activeChannels } from './channels'
 import { CreateProjectPanel } from './CreateProjectPanel'
 import { money, moneyFull } from './money'
 import { PulseNotFound } from './PulseNotFound'
@@ -45,7 +45,8 @@ export function TopicsPage() {
   if (!me.data.features.pulse) return <PulseNotFound />
   const list = topics.data
   const total = list?.topics.reduce((a, t) => a + t.signals, 0) ?? 0
-  const max = Math.max(1, ...(list?.topics.flatMap((t) => CHANNELS.map((c) => t.channels[c.key] ?? 0)) ?? [1]))
+  const channels = activeChannels(list?.topics ?? [])
+  const max = Math.max(1, ...(list?.topics.flatMap((t) => channels.map((c) => t.channels[c.key] ?? 0)) ?? [1]))
   const level = (n: number) => (n === 0 ? 0 : Math.min(4, 1 + Math.floor((n / max) * 3.999)))
   // ARR shows only once accounts have been copied from Salesforce (the server sends null otherwise).
   const hasArr = !!list?.topics.some((t) => t.arr !== null)
@@ -119,7 +120,7 @@ export function TopicsPage() {
             <TabPanel className={styles.tabPanel}>
               {tab === 0 && (
                 <>
-                  <TopPriorities rankBar={rankBarFor(true)} topics={orderedTopics.slice(0, TOP_N)} ordered={orderedTopics.slice(0, TOP_N)} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} />
+                  <TopPriorities rankBar={rankBarFor(true)} allTopics={list.topics} topics={orderedTopics.slice(0, TOP_N)} ordered={orderedTopics.slice(0, TOP_N)} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} />
                 </>
               )}
             </TabPanel>
@@ -152,7 +153,7 @@ export function TopicsPage() {
                         </TableHeader>
                         <TableHeader className={styles.rankCol}>#</TableHeader>
                         <TableHeader>Topic</TableHeader>
-                        {CHANNELS.map((c) => (
+                        {channels.map((c) => (
                           <TableHeader key={c.key} className={styles.chCol}>
                             {c.label}
                           </TableHeader>
@@ -200,7 +201,7 @@ export function TopicsPage() {
                                 </Button>
                               </div>
                             </TableCell>
-                            {CHANNELS.map((c) => {
+                            {channels.map((c) => {
                               const n = t.channels[c.key] ?? 0
                               return (
                                 <TableCell key={c.key} className={styles.chCol}>
@@ -211,7 +212,7 @@ export function TopicsPage() {
                               )
                             })}
                             <TableCell className={styles.numCol}>
-                              {t.channelCount} of {CHANNELS.length}
+                              {t.channelCount} of {channels.length}
                             </TableCell>
                             {hasArr && (
                               <TableCell className={styles.numCol} data-testid={`topic-arr-${t.id}`} title={t.arr !== null ? `${moneyFull(t.arr)}${t.arrUnmatched ? `; ${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce` : ''}` : undefined}>
@@ -239,7 +240,7 @@ export function TopicsPage() {
                           </TableRow>
                           {open === t.id && (
                             <TableRow className={styles.whyRow} data-testid={`why-row-${t.id}`}>
-                              <TableCell colSpan={CHANNELS.length + 6 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
+                              <TableCell colSpan={channels.length + 6 + (hasArr ? 1 : 0) + (hasPlay ? 1 : 0)}>
                                 <Why topic={t} />
                               </TableCell>
                             </TableRow>

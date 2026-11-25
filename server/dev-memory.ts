@@ -8,6 +8,7 @@ import { makeSlack, type SlackClient } from './slack.js'
 // @ts-expect-error plain ESM helper
 import { setIntegration } from '../db/set-integration.mjs'
 import { fillDemoSignals } from '../scripts/demo-pulse-signals.js'
+import { demoHubspotFetch } from './hubspot-demo.js'
 
 // ANCHOR_CX=true also loads the Anchor CX demo story (db/seed/anchor-cx/README.md).
 const { db, pglite } = await createDemoDatabase({ anchor: process.env.ANCHOR_CX === 'true' })
@@ -65,7 +66,15 @@ if (process.env.SALESFORCE_DEMO === 'true') {
     return new Response(JSON.stringify({ done: true, records: /FROM Opportunity/.test(soql) ? opportunities : accounts }))
   }
 }
-const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack, salesforceFetch })
+// HUBSPOT_DEMO=true connects a stand-in HubSpot holding Anchor CX support tickets (the health score, handoffs, manual reporting), read only, with a key the stand-in accepts.
+let hubspotFetch: ReturnType<typeof demoHubspotFetch> | undefined
+if (process.env.HUBSPOT_DEMO === 'true') {
+  env.SETTINGS_ENCRYPTION_KEY = env.SETTINGS_ENCRYPTION_KEY ?? Buffer.from('0123456789abcdef0123456789abcdef').toString('base64')
+  const slug = ((await pglite.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await setIntegration(pglite, env, { slug, kind: 'hubspot', secret: 'demo-hubspot-service-key-123456', portalId: '4455667' })
+  hubspotFetch = demoHubspotFetch(undefined, 'demo-hubspot-service-key-123456')
+}
+const app = createApp({ env, getDb: () => db, auth: testAuth ? fakeAuth() : undefined, slack: demoSlack, salesforceFetch, hubspotFetch })
 const root = new Hono()
 if (testCapture) {
   // CAPTURE_TEST=true: thumbnails can be switched on and off while the server runs, and may visit this machine's own pages.
@@ -100,6 +109,10 @@ async function setUpPulseDemo() {
   if (process.env.SALESFORCE_DEMO === 'true') {
     await call('POST', '/salesforce/sync')
     const src = await call('POST', '/sources/opportunities', { fields: ['NextStep', 'Description'], scope: 'both', mode: 'keep' })
+    if (src?.id) await call('POST', `/sources/${src.id}/check`)
+  }
+  if (process.env.HUBSPOT_DEMO === 'true') {
+    const src = await call('POST', '/sources/tickets', { categories: [] })
     if (src?.id) await call('POST', `/sources/${src.id}/check`)
   }
   await call('POST', '/topics/update')

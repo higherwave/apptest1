@@ -2057,7 +2057,7 @@ paths:
               required: [text]
               properties:
                 text: { type: string }
-                channel: { type: string, enum: [slack, call_notes, salesforce], description: 'Defaults to call_notes.' }
+                channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets], description: 'Defaults to call_notes.' }
                 sourceLabel: { type: [string, 'null'], description: 'What the notes are, for example "Renewal call with Northwind".' }
                 sourceUrl: { type: [string, 'null'], description: 'A link to the transcript or recording (http or https).' }
                 saidBy: { type: [string, 'null'], description: Who said it, when the notes are one person's words. }
@@ -2095,7 +2095,7 @@ paths:
               properties:
                 status: { type: string, enum: [new, kept, dismissed] }
                 kind: { type: string, enum: [complaint, request, praise, question, other] }
-                channel: { type: string, enum: [slack, call_notes, salesforce] }
+                channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
       responses:
         '200':
           description: The signal after the change.
@@ -2484,6 +2484,51 @@ paths:
         '403': { $ref: '#/components/responses/Error' }
         '404': { $ref: '#/components/responses/Error' }
         '422': { $ref: '#/components/responses/Error' }
+  /pulse/sources/tickets:
+    post:
+      operationId: addPulseTicketSource
+      summary: An owner designates HubSpot support tickets as a source (one per workspace), optionally only some categories. Read only (subject, description and category of each ticket, and its company); saved even before HubSpot is connected. Recorded in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewPulseTicketSource' }
+      responses:
+        '201':
+          description: The source.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseSource' }
+        '400': { $ref: '#/components/responses/Error' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+        '422': { $ref: '#/components/responses/Error' }
+  /pulse/hubspot:
+    get:
+      operationId: getPulseHubspot
+      summary: Whether HubSpot is connected for this workspace. Owners only. The connection is set by the operator, never typed into the app.
+      responses:
+        '200':
+          description: The connection.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseHubspot' }
+        '401': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
+  /pulse/hubspot/check:
+    post:
+      operationId: checkPulseHubspot
+      summary: Tests the HubSpot connection with one tiny read, and says why it failed if it did. Owners only.
+      responses:
+        '200':
+          description: The result.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PulseHubspot' }
+        '401': { $ref: '#/components/responses/Error' }
+        '403': { $ref: '#/components/responses/Error' }
+        '404': { $ref: '#/components/responses/Error' }
   /pulse/sources/{id}:
     patch:
       operationId: updatePulseSource
@@ -4192,8 +4237,8 @@ components:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes, salesforce], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
-        source: { type: string, enum: [manual, notes, slack, salesforce], description: 'Typed in, split out of notes, or read from a connected channel or Salesforce.' }
+        channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets], description: 'Where it was heard, from a fixed list; the ranking weights are set per channel.' }
+        source: { type: string, enum: [manual, notes, slack, salesforce, hubspot], description: 'Typed in, split out of notes, or read from a connected channel, Salesforce or HubSpot.' }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
         saidBy: { type: [string, 'null'] }
@@ -4211,7 +4256,7 @@ components:
       properties:
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes, salesforce] }
+        channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'], description: 'Must start with http:// or https://.' }
         saidBy: { type: [string, 'null'] }
@@ -4253,15 +4298,25 @@ components:
         accounts: { type: integer, description: 'Accounts with an ARR copied from Salesforce.' }
         syncedAt: { type: [string, 'null'], format: date-time }
         error: { type: [string, 'null'], description: 'Why the last copy failed, if it did.' }
+    PulseHubspot:
+      type: object
+      required: [connected, error]
+      properties:
+        connected: { type: boolean }
+        error: { type: [string, 'null'], description: 'Why the last test failed, if it did.' }
+    NewPulseTicketSource:
+      type: object
+      properties:
+        categories: { type: array, maxItems: 10, items: { type: string }, description: 'Only tickets in these categories (as written in HubSpot). None named: every ticket changed in the last 90 days, then new ones.' }
     PulseSource:
       type: object
       required: [id, kind, name, channel, mode, enabled, lastCheckedAt, lastAdded, lastError, config]
       properties:
         id: { type: string, format: uuid }
-        kind: { type: string, enum: [slack, salesforce_opportunity] }
+        kind: { type: string, enum: [slack, salesforce_opportunity, hubspot_tickets] }
         name: { type: string }
         config:
-          description: 'For opportunity notes: the fields read, which opportunities, and the amount field. Null for a Slack channel.'
+          description: 'For opportunity notes: the fields read, which opportunities, and the amount field. For HubSpot tickets: the categories read. Null for a Slack channel.'
           oneOf:
             - type: 'null'
             - type: object
@@ -4270,7 +4325,11 @@ components:
                 fields: { type: array, items: { type: string } }
                 scope: { type: string, enum: [open, lost, both] }
                 amountField: { type: string }
-        channel: { type: string, enum: [slack, call_notes, salesforce] }
+            - type: object
+              required: [categories]
+              properties:
+                categories: { type: array, items: { type: string } }
+        channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
         mode: { type: string, enum: [keep, review], description: 'keep: messages count at once. review: they wait for a person.' }
         enabled: { type: boolean }
         lastCheckedAt: { type: [string, 'null'], format: date-time }
@@ -4295,12 +4354,12 @@ components:
       required: [name]
       properties:
         name: { type: string, description: 'The Slack channel name, with or without #.' }
-        channel: { type: string, enum: [slack, call_notes, salesforce] }
+        channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
         mode: { type: string, enum: [keep, review] }
     UpdatePulseSource:
       type: object
       properties:
-        channel: { type: string, enum: [slack, call_notes, salesforce] }
+        channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
         mode: { type: string, enum: [keep, review] }
         enabled: { type: boolean }
     PulseWeights:
@@ -4309,11 +4368,12 @@ components:
       properties:
         weights:
           type: object
-          required: [slack, call_notes, salesforce]
+          required: [slack, call_notes, salesforce, support_tickets]
           properties:
             slack: { type: number }
             call_notes: { type: number }
             salesforce: { type: number }
+            support_tickets: { type: number }
     PulseTopic:
       type: object
       required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, inPlay, accounts, projects, researched]
@@ -4330,6 +4390,7 @@ components:
             slack: { type: integer }
             call_notes: { type: integer }
             salesforce: { type: integer }
+            support_tickets: { type: integer }
         channelCount: { type: integer }
         reach: { type: integer, description: 'Distinct accounts behind the signals, or people where no account is named.' }
         score: { type: number, description: 'The weighted sum of signals per channel, which `breakdown` shows in full.' }
@@ -4339,7 +4400,7 @@ components:
             type: object
             required: [channel, count, praise, weight, subtotal]
             properties:
-              channel: { type: string, enum: [slack, call_notes, salesforce] }
+              channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
               count: { type: integer, description: 'Every signal from this channel.' }
               praise: { type: integer, description: 'How many of those are praise, which count a quarter in the score.' }
               weight: { type: number }
@@ -4413,7 +4474,7 @@ components:
         id: { type: string }
         body: { type: string }
         kind: { type: string, enum: [complaint, request, praise, question, other] }
-        channel: { type: string, enum: [slack, call_notes, salesforce] }
+        channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
         sourceLabel: { type: [string, 'null'] }
         sourceUrl: { type: [string, 'null'] }
         saidBy: { type: [string, 'null'] }
@@ -4452,7 +4513,7 @@ components:
             signalId: { type: string }
             quote: { type: string }
             saidBy: { type: [string, 'null'] }
-            channel: { type: string, enum: [slack, call_notes, salesforce] }
+            channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
     PulseOrigin:
       type: object
       required: [topics, signals]

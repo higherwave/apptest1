@@ -7,7 +7,7 @@ import {
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
   type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
-  getPulsePreview, setPulsePreview, getPulseDemo, setPulseDemo, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, dismissPulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type SignalOrigin, type NewPulseSignal, type PulseSignal, type PulseStatus,
+  getPulsePreview, setPulsePreview, getPulseDemo, setPulseDemo, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, dismissPulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, getPulseHubspot, checkPulseHubspot, addPulseTicketSource, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type SignalOrigin, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
 import { getToken, subscribeToken } from './token'
@@ -477,6 +477,12 @@ const useSourceMutation = <V,>(fn: (v: V) => Promise<unknown>) => {
 }
 export const useAddPulseSource = () => useSourceMutation((v: Parameters<typeof addPulseSource>[0]) => addPulseSource(v))
 export const useAddPulseOpportunitySource = () => useSourceMutation((v: Parameters<typeof addPulseOpportunitySource>[0]) => addPulseOpportunitySource(v))
+export const useAddPulseTicketSource = () => useSourceMutation((v: Parameters<typeof addPulseTicketSource>[0]) => addPulseTicketSource(v))
+export const usePulseHubspot = (enabled = true) => useQuery({ queryKey: ['pulse', 'hubspot'], queryFn: getPulseHubspot, enabled, retry: false })
+export const useCheckPulseHubspot = () => {
+  const queryClient = useQueryClient()
+  return useMutation({ mutationFn: () => checkPulseHubspot(), onSuccess: (data) => queryClient.setQueryData(['pulse', 'hubspot'], data) })
+}
 export const useUpdatePulseSource = () => useSourceMutation((v: { id: string; patch: Parameters<typeof updatePulseSource>[1] }) => updatePulseSource(v.id, v.patch))
 export const useRemovePulseSource = () => useSourceMutation((id: string) => removePulseSource(id))
 export const useCheckPulseSource = () => {

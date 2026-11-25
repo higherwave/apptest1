@@ -49,11 +49,14 @@ export function PulseSources() {
       {sources.map((s) => (
         <div key={s.id} className={styles.source} data-testid={`source-${s.name}`}>
           <div className={styles.top}>
-            <span className={styles.name}>{s.kind === 'salesforce_opportunity' ? 'Salesforce opportunity notes' : `#${s.name}`}</span>
-            {s.config && (
+            <span className={styles.name}>{s.kind === 'salesforce_opportunity' ? 'Salesforce opportunity notes' : s.kind === 'hubspot_tickets' ? 'HubSpot support tickets' : `#${s.name}`}</span>
+            {s.config && 'fields' in s.config && (
               <span className={styles.detail}>
                 {s.config.fields.join(', ')} · {s.config.scope === 'open' ? 'open' : s.config.scope === 'lost' ? 'lost' : 'open and lost'} opportunities
               </span>
+            )}
+            {s.config && 'categories' in s.config && (
+              <span className={styles.detail}>{s.config.categories.length ? `categories: ${s.config.categories.join(', ')}` : 'every category'}</span>
             )}
             {!s.enabled && <Tag size="sm" type="gray">Off</Tag>}
             <span className={styles.detail}>

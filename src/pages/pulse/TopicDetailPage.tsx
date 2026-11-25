@@ -1,40 +1,35 @@
 import { useState } from 'react'
 import { ArrowLeft } from '@carbon/icons-react'
-import { Button, Select, SelectItem, Tag } from '@carbon/react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Select, SelectItem, Tag } from '@carbon/react'
+import { Link, useParams } from 'react-router-dom'
 import type { PulseChannel } from '../../api/client'
-import { useMe, usePulseTopic } from '../../api/hooks'
+import { useMe, usePulseTopic, usePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
-import { CHANNEL_LABEL, CHANNELS } from './channels'
-import { CreateProjectPanel } from './CreateProjectPanel'
+import { activeChannels, CHANNEL_LABEL, CHANNELS } from './channels'
 import { PulseNotFound } from './PulseNotFound'
 import { moneyFull, oppLine } from './money'
-import { useTopicSelection } from './selection'
 import styles from './TopicDetailPage.module.scss'
 
 const plural = (n: number, one: string) => `${n} ${n === 1 ? one : one + 's'}`
 const TREND = { new: 'New', rising: 'Rising', steady: 'Steady', fading: 'Fading' } as const
 
-// One topic: the customer words behind it, who raised it, and a way to start a project from it (or to add it to a larger choice on Topics).
+// One topic, for reference: the customer words behind it, who raised it, and why it ranks where it does. Starting a Signal Flow project is done from the list of topics, where the choice is made in context.
 export function TopicDetailPage() {
   const { id } = useParams()
   const me = useMe()
   const topic = usePulseTopic(id)
-  const navigate = useNavigate()
-  const { selected, toggle } = useTopicSelection()
+  const all = usePulseTopics()
   const [channel, setChannel] = useState<'all' | PulseChannel>('all')
-  const [creating, setCreating] = useState(false)
 
   if (!me.data) return null
   if (!me.data.features.pulse) return <PulseNotFound />
   if (topic.isError) return <PulseNotFound />
   const t = topic.data
-  const canStart = me.data.features.pulseEdit
   const quotes = t ? t.quotes.filter((q) => channel === 'all' || q.channel === channel) : []
 
   return (
     <div className={styles.page}>
-      <PageHero title={t?.title ?? 'Topic'} description={t ? `${plural(t.signals, 'kept signal')} from ${plural(t.reach, 'account')}, heard in ${t.channelCount} of ${CHANNELS.length} channels${t.arr !== null ? ` · ${moneyFull(t.arr)} ARR${t.arrUnmatched ? ` (${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce)` : ''}` : ''}` : 'Loading…'} glow="left" variant="wave" graphic="pulse">
+      <PageHero title={t?.title ?? 'Topic'} description={t ? `${plural(t.signals, 'kept signal')} from ${plural(t.reach, 'account')}, heard in ${t.channelCount} of ${activeChannels(all.data?.topics ?? [t]).length} channels${t.arr !== null ? ` · ${moneyFull(t.arr)} ARR${t.arrUnmatched ? ` (${t.arrUnmatched} of ${t.arrMatched + t.arrUnmatched} accounts not found in Salesforce)` : ''}` : ''}` : 'Loading…'} glow="left" variant="wave" graphic="pulse">
         {t && (
           <Tag type="purple" size="md">
             Rank #{t.rank} · score {t.score}
@@ -49,21 +44,6 @@ export function TopicDetailPage() {
 
       {t && (
         <>
-          <div className={styles.actions}>
-            <Button kind="primary" size="md" data-testid="dig-in" disabled={!canStart} onClick={() => setCreating(true)}>
-              Dig into this
-            </Button>
-            <Button kind="tertiary" size="md" data-testid="toggle-pick" onClick={() => toggle(t.id)}>
-              {selected.includes(t.id) ? 'Remove from selection' : 'Add to selection'}
-            </Button>
-            {selected.length > (selected.includes(t.id) ? 1 : 0) && (
-              <Button kind="ghost" size="md" onClick={() => navigate('/pulse')}>
-                Go to the {plural(selected.length, 'selected topic')}
-              </Button>
-            )}
-            {!canStart && <span className={styles.note}>Read-only: starting a Signal Flow project needs an editor.</span>}
-          </div>
-
           {t.inPlay && (
             <section className={styles.card} aria-label="What is at stake" data-testid="topic-in-play">
               <h2 className={styles.head}>What is at stake</h2>
@@ -197,7 +177,6 @@ export function TopicDetailPage() {
             </ul>
           </section>
 
-          <CreateProjectPanel topics={[t]} open={creating} onClose={() => setCreating(false)} />
         </>
       )}
     </div>

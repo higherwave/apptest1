@@ -5,14 +5,15 @@
 import type { Db, Env } from './db.js'
 import { jiraConfig, makeJira, type JiraConfig, type JiraFetch } from './jira.js'
 import { cleanInstanceUrl, isFieldName, makeSalesforce, type SalesforceClient, type SalesforceFetch } from './salesforce.js'
+import { cleanPortalId, makeHubspot, type HubspotClient, type HubspotFetch } from './hubspot.js'
 import { makeSlack, type SlackClient, type SlackFetch } from './slack.js'
 import { fallbackSlug } from './workspace-host.js'
 import { openSecret } from '../shared/secret-box.mjs'
 
 export type JiraClient = ReturnType<typeof makeJira>
-export type Integrations = { slack: SlackClient; jira: JiraClient | null; salesforce: SalesforceClient | null; source: { slack: 'own' | 'deployment' | 'none'; jira: 'own' | 'deployment' | 'none' } }
+export type Integrations = { slack: SlackClient; jira: JiraClient | null; salesforce: SalesforceClient | null; hubspot: HubspotClient | null; source: { slack: 'own' | 'deployment' | 'none'; jira: 'own' | 'deployment' | 'none' } }
 
-export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?: SlackClient; slackFetch?: SlackFetch; jiraFetch?: JiraFetch; salesforceFetch?: SalesforceFetch }) {
+export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?: SlackClient; slackFetch?: SlackFetch; jiraFetch?: JiraFetch; salesforceFetch?: SalesforceFetch; hubspotFetch?: HubspotFetch }) {
   const { env } = deps
   const cache = new Map<string, { at: number; value: Integrations }>()
   const homeSlack = deps.slack ?? makeSlack(env, deps.slackFetch)
@@ -52,7 +53,14 @@ export function makeIntegrations(deps: { env: Env; platformDb: () => Db; slack?:
       const field = String(sf.config?.arrField ?? '')
       if (secret && url && sf.config?.clientId && isFieldName(field)) salesforce = makeSalesforce({ instanceUrl: url, clientId: String(sf.config.clientId), clientSecret: secret, arrField: field }, deps.salesforceFetch)
     }
-    return { slack, jira, salesforce, source }
+    // HubSpot (read only, for Pulse's support tickets): like Salesforce, a workspace connects its own service key, or has none.
+    let hubspot: HubspotClient | null = null
+    const hs = own('hubspot')
+    if (hs) {
+      const token = openSecret(env, hs.secret_enc)
+      if (token) hubspot = makeHubspot({ token, portalId: cleanPortalId(hs.config?.portalId) }, deps.hubspotFetch)
+    }
+    return { slack, jira, salesforce, hubspot, source }
   }
 
   return async (workspaceId: string): Promise<Integrations> => {

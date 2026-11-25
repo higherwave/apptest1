@@ -1846,6 +1846,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/pulse/sources/tickets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** An owner designates HubSpot support tickets as a source (one per workspace), optionally only some categories. Read only (subject, description and category of each ticket, and its company); saved even before HubSpot is connected. Recorded in the audit log. */
+        post: operations["addPulseTicketSource"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/hubspot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether HubSpot is connected for this workspace. Owners only. The connection is set by the operator, never typed into the app. */
+        get: operations["getPulseHubspot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/pulse/hubspot/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tests the HubSpot connection with one tiny read, and says why it failed if it did. Owners only. */
+        post: operations["checkPulseHubspot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/pulse/sources/{id}": {
         parameters: {
             query?: never;
@@ -3188,12 +3239,12 @@ export interface components {
              * @description Where it was heard, from a fixed list; the ranking weights are set per channel.
              * @enum {string}
              */
-            channel: "slack" | "call_notes" | "salesforce";
+            channel: "slack" | "call_notes" | "salesforce" | "support_tickets";
             /**
-             * @description Typed in, split out of notes, or read from a connected channel or Salesforce.
+             * @description Typed in, split out of notes, or read from a connected channel, Salesforce or HubSpot.
              * @enum {string}
              */
-            source: "manual" | "notes" | "slack" | "salesforce";
+            source: "manual" | "notes" | "slack" | "salesforce" | "hubspot";
             sourceLabel: string | null;
             sourceUrl: string | null;
             saidBy: string | null;
@@ -3210,7 +3261,7 @@ export interface components {
             /** @enum {string} */
             kind?: "complaint" | "request" | "praise" | "question" | "other";
             /** @enum {string} */
-            channel?: "slack" | "call_notes" | "salesforce";
+            channel?: "slack" | "call_notes" | "salesforce" | "support_tickets";
             sourceLabel?: string | null;
             /** @description Must start with http:// or https://. */
             sourceUrl?: string | null;
@@ -3248,21 +3299,32 @@ export interface components {
             /** @description Why the last copy failed, if it did. */
             error: string | null;
         };
+        PulseHubspot: {
+            connected: boolean;
+            /** @description Why the last test failed, if it did. */
+            error: string | null;
+        };
+        NewPulseTicketSource: {
+            /** @description Only tickets in these categories (as written in HubSpot). None named: every ticket changed in the last 90 days, then new ones. */
+            categories?: string[];
+        };
         PulseSource: {
             /** Format: uuid */
             id: string;
             /** @enum {string} */
-            kind: "slack" | "salesforce_opportunity";
+            kind: "slack" | "salesforce_opportunity" | "hubspot_tickets";
             name: string;
-            /** @description For opportunity notes: the fields read, which opportunities, and the amount field. Null for a Slack channel. */
+            /** @description For opportunity notes: the fields read, which opportunities, and the amount field. For HubSpot tickets: the categories read. Null for a Slack channel. */
             config: null | {
                 fields: string[];
                 /** @enum {string} */
                 scope: "open" | "lost" | "both";
                 amountField: string;
+            } | {
+                categories: string[];
             };
             /** @enum {string} */
-            channel: "slack" | "call_notes" | "salesforce";
+            channel: "slack" | "call_notes" | "salesforce" | "support_tickets";
             /**
              * @description keep: messages count at once. review: they wait for a person.
              * @enum {string}
@@ -3295,13 +3357,13 @@ export interface components {
             /** @description The Slack channel name, with or without #. */
             name: string;
             /** @enum {string} */
-            channel?: "slack" | "call_notes" | "salesforce";
+            channel?: "slack" | "call_notes" | "salesforce" | "support_tickets";
             /** @enum {string} */
             mode?: "keep" | "review";
         };
         UpdatePulseSource: {
             /** @enum {string} */
-            channel?: "slack" | "call_notes" | "salesforce";
+            channel?: "slack" | "call_notes" | "salesforce" | "support_tickets";
             /** @enum {string} */
             mode?: "keep" | "review";
             enabled?: boolean;
@@ -3311,6 +3373,7 @@ export interface components {
                 slack: number;
                 call_notes: number;
                 salesforce: number;
+                support_tickets: number;
             };
         };
         PulseTopic: {
@@ -3326,6 +3389,7 @@ export interface components {
                 slack?: number;
                 call_notes?: number;
                 salesforce?: number;
+                support_tickets?: number;
             };
             channelCount: number;
             /** @description Distinct accounts behind the signals, or people where no account is named. */
@@ -3334,7 +3398,7 @@ export interface components {
             score: number;
             breakdown: {
                 /** @enum {string} */
-                channel: "slack" | "call_notes" | "salesforce";
+                channel: "slack" | "call_notes" | "salesforce" | "support_tickets";
                 /** @description Every signal from this channel. */
                 count: number;
                 /** @description How many of those are praise, which count a quarter in the score. */
@@ -3399,7 +3463,7 @@ export interface components {
             /** @enum {string} */
             kind: "complaint" | "request" | "praise" | "question" | "other";
             /** @enum {string} */
-            channel: "slack" | "call_notes" | "salesforce";
+            channel: "slack" | "call_notes" | "salesforce" | "support_tickets";
             sourceLabel: string | null;
             sourceUrl: string | null;
             saidBy: string | null;
@@ -3423,7 +3487,7 @@ export interface components {
                 quote: string;
                 saidBy: string | null;
                 /** @enum {string} */
-                channel: "slack" | "call_notes" | "salesforce";
+                channel: "slack" | "call_notes" | "salesforce" | "support_tickets";
             } | null;
         };
         PulseOrigin: {
@@ -7758,7 +7822,7 @@ export interface operations {
                      * @description Defaults to call_notes.
                      * @enum {string}
                      */
-                    channel?: "slack" | "call_notes" | "salesforce";
+                    channel?: "slack" | "call_notes" | "salesforce" | "support_tickets";
                     /** @description What the notes are, for example "Renewal call with Northwind". */
                     sourceLabel?: string | null;
                     /** @description A link to the transcript or recording (http or https). */
@@ -7810,7 +7874,7 @@ export interface operations {
                     /** @enum {string} */
                     kind?: "complaint" | "request" | "praise" | "question" | "other";
                     /** @enum {string} */
-                    channel?: "slack" | "call_notes" | "salesforce";
+                    channel?: "slack" | "call_notes" | "salesforce" | "support_tickets";
                 };
             };
         };
@@ -8362,6 +8426,80 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             422: components["responses"]["Error"];
+        };
+    };
+    addPulseTicketSource: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewPulseTicketSource"];
+            };
+        };
+        responses: {
+            /** @description The source. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseSource"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            422: components["responses"]["Error"];
+        };
+    };
+    getPulseHubspot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseHubspot"];
+                };
+            };
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    checkPulseHubspot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PulseHubspot"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     removePulseSource: {

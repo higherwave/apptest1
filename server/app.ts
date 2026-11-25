@@ -25,7 +25,7 @@ import {
   TemplateMissing, UnknownParticipant, VersionConflict,
 } from './projects.js'
 import { createProjectSchema, METHOD_OPTIONS, parseBody, savePlanSchema, saveTasksSchema, saveTranscriptsSchema, THEME_CATEGORIES, themePatchSchema,
-  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, updateSourceSchema } from './schemas.js'
+  createSpecSchema, changeRoleSchema, teamMemberRoleSchema, inviteMemberSchema, notificationPrefsSchema, editStepSchema, includeThemeSchema, boardSyncSchema, redoSchema, standaloneSpecSchema, checklistSchema, captureSchema, themeAreaSchema, createAreaSchema, acceptProposalSchema, dismissProposalSchema, updateAreaSchema, mergeAreaSchema, designSchema, createLaunchSchema, launchMeasuresSchema, launchReadingSchema, setUpLaunchSchema, launchAnswerSchema, launchLinkSchema, reviewerAwaySchema, teamSlackSchema, createTeamSchema, saveTeamSchema, approvalStepSchema, moveStorySchema, patchStorySchema, createTicketSchema, workflowSchema, projectWorkflowSchema, mapStageSchema, holdSchema, reopenSchema, setupSchema, pulsePreviewSchema, addSignalSchema, importNotesSchema, updateSignalSchema, pulseWeightsSchema, updateTopicsSchema, renameTopicSchema, mergeTopicSchema, splitTopicSchema, pulseQuestionsSchema, pulseProjectSchema, pulseViewerSchema, newSourceSchema, newOpportunitySourceSchema, newTicketSourceSchema, updateSourceSchema } from './schemas.js'
 import {
   CannotUndo, getBoard, getStory, moveStory, NoBoard, NothingToUndo, patchStory, saveChecklist, StoryNotFound, StoryVersionConflict, undoMove, UnknownChecklistItem,
 } from './stories.js'
@@ -54,8 +54,9 @@ import { getMeasureResults } from './measure-results.js'
 import { MeasureNotFound, MeasuresConflict, MeasuresLocked, NotLaunched, saveLaunchMeasures, saveReading } from './launch-measures.js'
 import { createProjectFromTopics, originOf, suggestFor, topicDetail, UnknownTopic } from './pulse-projects.js'
 import { salesforceStatus, syncAccounts } from './pulse-accounts.js'
+import { HubspotError, type HubspotFetch } from './hubspot.js'
 import type { SalesforceFetch } from './salesforce.js'
-import { addOpportunitySource, addSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
+import { addOpportunitySource, addSource, addTicketSource, BadSource, checkSource, listSources, removeSource, SourceNotFound, updateSource } from './pulse-sources.js'
 import { addSignal, BadSplit, dismissTopic, pulseDemoEnabled, setPulseDemo, getWeights, importNotes, listSignals, listTopics, listViewers, mergeTopic, NotGrantable, isOrigin, pulseAccess, pulseEnabled, setViewer, renameTopic, runPulseUpdates, setPulsePreview, setWeights, SignalNotFound, splitTopic, TopicNotFound, updateSignal, updateTopics } from './pulse.js'
 import { BadSetupStep, getSetup, markSetup, NotOptional, SetupLocked, SetupNotReady } from './setup.js'
 import { afterFirstTicket, afterRequirements, afterReopen, afterStoryboard } from './launch-updates.js'
@@ -71,7 +72,7 @@ import { createTeam, deleteTeam, listTeams, MembersManagedBySso, moveProject, Pe
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 import { T } from '../shared/terms.mjs'
 
-export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService; salesforceFetch?: SalesforceFetch }
+export type AppOptions = { env?: Env; getDb?: () => Db; provider?: AiProvider; auth?: AuthService; capture?: CaptureService | null; mailer?: Mailer; jiraFetch?: JiraFetch; slack?: SlackClient; pdf?: PdfService; salesforceFetch?: SalesforceFetch; hubspotFetch?: HubspotFetch }
 
 export function createApp(options: AppOptions = {}) {
   const env: Env = options.env ?? process.env
@@ -92,7 +93,7 @@ export function createApp(options: AppOptions = {}) {
   const slack = options.slack ?? makeSlack(env)
   const pdf = options.pdf ?? makePdf(env)
   // null while any JIRA_* setting is missing: the Jira hand-off then stays simulated.
-  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch, salesforceFetch: options.salesforceFetch })
+  const integrations = makeIntegrations({ env, platformDb, slack, jiraFetch: options.jiraFetch, salesforceFetch: options.salesforceFetch, hubspotFetch: options.hubspotFetch })
   // This workspace's own Slack client for the request (a workspace with no connection of its own gets one that is not live).
   const slackOf = async (c: Context) => (await integrations(c.get('ctx').workspaceId)).slack
   // null switches capture off (a test); undefined builds the real one. DESIGN_CAPTURE=false switches it off at request time.
@@ -1456,6 +1457,12 @@ export function createApp(options: AppOptions = {}) {
     const input = parseBody(newOpportunitySourceSchema, await readJson(c))
     return c.json(await addOpportunitySource(getDb(), c.get('ctx'), input).catch(sourceError), 201)
   })
+  app.post('/pulse/sources/tickets', withContext, async (c) => {
+    await pulseOnly(c, 'owner')
+    if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can designate a source.')
+    const input = parseBody(newTicketSourceSchema, await readJson(c))
+    return c.json(await addTicketSource(getDb(), c.get('ctx'), input).catch(sourceError), 201)
+  })
   app.patch('/pulse/sources/:id', withContext, async (c) => {
     await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can change a source.')
@@ -1472,7 +1479,7 @@ export function createApp(options: AppOptions = {}) {
     await pulseOnly(c, 'owner')
     if (c.get('ctx').role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can read a source.')
     const ctx = c.get('ctx')
-    const result = await checkSource(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, { slack: await slackOf(c), salesforce: (await integrations(ctx.workspaceId)).salesforce }, signalId(c)).catch(sourceError)
+    const result = await checkSource(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, { slack: await slackOf(c), salesforce: (await integrations(ctx.workspaceId)).salesforce, hubspot: (await integrations(ctx.workspaceId)).hubspot }, signalId(c)).catch(sourceError)
     c.header('Cache-Control', 'private, no-store')
     return c.json(result)
   })
@@ -1490,6 +1497,27 @@ export function createApp(options: AppOptions = {}) {
     await syncAccounts(getDb(), { workspaceId: ctx.workspaceId }, (await integrations(ctx.workspaceId)).salesforce)
     c.header('Cache-Control', 'private, no-store')
     return c.json(await salesforceStatus(getDb(), ctx, !!(await integrations(ctx.workspaceId)).salesforce))
+  })
+
+  // HubSpot (read only): whether the connection is there and works. The connection itself is set by the operator (node db/set-integration.mjs --kind hubspot), never typed into the app.
+  app.get('/pulse/hubspot', withReadContext, async (c) => {
+    await pulseOnly(c, 'owner')
+    c.header('Cache-Control', 'private, no-store')
+    return c.json({ connected: !!(await integrations(c.get('ctx').workspaceId)).hubspot, error: null })
+  })
+  app.post('/pulse/hubspot/check', withContext, limited('pulse_hubspot', 10), async (c) => {
+    await pulseOnly(c, 'owner')
+    const ctx = c.get('ctx')
+    if (ctx.role !== 'owner') throw new ApiError(403, 'forbidden', 'Only an owner can test the HubSpot connection.')
+    const hs = (await integrations(ctx.workspaceId)).hubspot
+    c.header('Cache-Control', 'private, no-store')
+    if (!hs) return c.json({ connected: false, error: null })
+    try {
+      await hs.check()
+      return c.json({ connected: true, error: null })
+    } catch (err) {
+      return c.json({ connected: true, error: err instanceof HubspotError ? err.message : 'HubSpot could not be reached.' })
+    }
   })
 
   // The Stories board ---------------------------------------------------------------------------------------
@@ -2132,7 +2160,7 @@ export function createApp(options: AppOptions = {}) {
       return null
     })
     // And the Pulse preview's topics: new signals attach each hour, everything not edited is regrouped about once a day. It never fails the reminders either.
-    const pulse = await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack, async (workspaceId) => (await integrations(workspaceId)).salesforce).catch((err) => {
+    const pulse = await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack, async (workspaceId) => (await integrations(workspaceId)).salesforce, async (workspaceId) => (await integrations(workspaceId)).hubspot).catch((err) => {
       console.error('pulse update failed', err instanceof Error ? err.message : err)
       return null
     })
