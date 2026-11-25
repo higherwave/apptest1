@@ -329,9 +329,20 @@ export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup
           and (select count(*) from core.pulse_topic_signals s where s.topic_id = t.id) >= coalesce(t.dismissed_signal_count, 0) + $2`,
       [ws, RESURFACE_AFTER],
     )
+    // Topics that ended up with the same name (an earlier update made a second one) are folded into the oldest, so a name appears once.
+    await mergeSameName(tx, ws)
+    const named = new Map<string, string>(((await tx.query(`select id, title from core.pulse_topics where workspace_id = $1 and status = 'active' order by created_at, id`, [ws])).rows as { id: string; title: string }[]).reverse().map((r) => [r.title.trim().toLowerCase(), r.id]))
     let created = 0
     for (const g of groupSignals(rest)) {
+      // New signals that group under the name of a topic that already exists join that topic, instead of starting a second one with the same name.
+      const same = named.get(g.title.trim().toLowerCase())
+      if (same) {
+        await insertMany(tx, 'core.pulse_topic_signals', g.ids.map((id) => ({ signal_id: id, topic_id: same, workspace_id: ws })))
+        attached += g.ids.length
+        continue
+      }
       const topic = (await tx.query(`insert into core.pulse_topics (workspace_id, title, created_by) values ($1, $2, $3) returning id`, [ws, g.title, who.userId])).rows[0]
+      named.set(g.title.trim().toLowerCase(), topic.id)
       await insertMany(tx, 'core.pulse_topic_signals', g.ids.map((id) => ({ signal_id: id, topic_id: topic.id, workspace_id: ws })))
       created++
     }
@@ -343,6 +354,21 @@ export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup
     const total = Number((await tx.query(`select count(*)::int as n from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows[0].n)
     return { topics: total, attached, created }
   })
+}
+
+/** Folds topics that share a name (ignoring capitals) into the oldest of them: its signals move over and the others are marked merged. A dismissed topic is left alone. */
+async function mergeSameName(tx: Queryable, ws: string): Promise<void> {
+  const rows = (await tx.query(`select id, lower(btrim(title)) as name from core.pulse_topics where workspace_id = $1 and status = 'active' and dismissed_at is null order by created_at, id`, [ws])).rows as { id: string; name: string }[]
+  const keep = new Map<string, string>()
+  for (const r of rows) {
+    const first = keep.get(r.name)
+    if (!first) {
+      keep.set(r.name, r.id)
+      continue
+    }
+    await tx.query(`update core.pulse_topic_signals set topic_id = $2 where topic_id = $1 and workspace_id = $3`, [r.id, first, ws])
+    await tx.query(`update core.pulse_topics set status = 'merged', merged_into = $2, updated_at = now() where id = $1`, [r.id, first])
+  }
 }
 
 /** Topics with every number computed from their kept signals and the weights, ranked by score. */

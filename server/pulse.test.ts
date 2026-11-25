@@ -366,3 +366,32 @@ test('the read-only demo visitor sees Pulse only when an owner chooses to show i
   const audit = (await pg.query<any>(`select verb, after from core.audit_log where entity = 'core.workspace_features' order by created_at`)).rows
   assert.ok(audit.some((r: any) => r.verb === 'turned on' && /read-only demo/.test(r.after.feature)), 'the demo switch is audited')
 })
+
+test('topics: a name appears once. New signals that group under an existing name join that topic, and duplicate names from before are folded into the oldest', async () => {
+  const { call, owner, pg, db } = await fixture()
+  const slug = ((await pg.query<any>('select slug from core.workspaces limit 1')).rows[0] as { slug: string }).slug
+  await call(owner, 'PUT', '/pulse/preview', { enabled: true })
+  await fillDemoSignals(db, slug, true)
+  let list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  const total = (l: any) => l.topics.reduce((a: number, t: any) => a + t.signals, 0)
+  const unique = (l: any) => new Set(l.topics.map((t: any) => t.title.toLowerCase())).size === l.topics.length
+  assert.ok(unique(list))
+  const before = total(list)
+
+  // Signals that read like reporting but share too few words with the existing topic to be attached to it: they group among themselves under the same name, and must join that topic, not start a second one.
+  for (const body of ['Every month leadership wants a portfolio report and building it eats four hours of my day.', 'The quarterly executive report has to be assembled manually from three exports each time.']) await call(owner, 'POST', '/pulse/signals', { body, channel: 'call_notes', account: 'Initech' })
+  list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  assert.ok(unique(list), 'no two topics share a name after new signals are grouped')
+  assert.equal(total(list), before + 2, 'and both signals are counted')
+
+  // A duplicate left by an earlier update is folded into the oldest on the next update.
+  const reporting = (await pg.query<any>(`select id from core.pulse_topics where title = 'Reporting and digests' and status = 'active'`)).rows[0].id
+  const twin = (await pg.query<any>(`insert into core.pulse_topics (workspace_id, title) select workspace_id, title from core.pulse_topics where id = $1 returning id`, [reporting])).rows[0].id
+  await pg.query(`update core.pulse_topic_signals set topic_id = $2 where topic_id = $1 and signal_id = (select signal_id from core.pulse_topic_signals where topic_id = $1 limit 1)`, [reporting, twin])
+  list = await (await call(owner, 'GET', '/pulse/topics')).json()
+  assert.ok(!unique(list), 'the setup really has two topics with the same name')
+  list = await (await call(owner, 'POST', '/pulse/topics/update', {})).json()
+  assert.ok(unique(list), 'the duplicate is folded into the oldest')
+  assert.equal(total(list), before + 2, 'with every signal still counted once')
+  assert.equal((await pg.query<any>(`select status, merged_into from core.pulse_topics where id = $1`, [twin])).rows[0].status, 'merged')
+})
