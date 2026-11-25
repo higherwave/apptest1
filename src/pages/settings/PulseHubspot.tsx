@@ -76,7 +76,7 @@ export function PulseHubspot() {
       {s?.error && <InlineNotification hideCloseButton lowContrast kind="warning" title="HubSpot would not answer" subtitle={s.error} data-testid="hubspot-error" />}
       {check.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not tested" subtitle={friendlyMessage(check.error)} />}
       {showForm && (
-        <div className={styles.add} data-testid="hubspot-connect-form">
+        <div className={styles.form} data-testid="hubspot-connect-form">
           <p className={styles.detail}>
             In HubSpot, open Development, Keys, Service keys, and create a service key that can only read. It needs at least <b>crm.objects.tickets.read</b> and <b>crm.objects.companies.read</b>. Paste it here. It is tried first, then stored
             encrypted, and never shown again.
@@ -93,7 +93,7 @@ export function PulseHubspot() {
       )}
       {connected && !has && (
         <>
-          <div className={styles.add}>
+          <div className={styles.form}>
             <TextInput id="ticket-categories" data-testid="ticket-categories" labelText="Only these ticket categories (optional)" helperText="Leave empty to read every ticket. Separate several with commas, as they are written in HubSpot." value={categories} onChange={(e) => setCategories(e.target.value)} />
           </div>
           {add.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not added" subtitle={friendlyMessage(add.error)} data-testid="ticket-add-error" />}
