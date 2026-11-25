@@ -6,7 +6,7 @@ import {
   addSampleWorkflows, createWorkflow, deleteWorkflow, getProjectBlueprint, listWorkflows, mapProjectStage, saveWorkflow, setProjectWorkflow,
   changeMember, getApprovals, saveApprovalStep, setApproverAway, inviteMember, listAudit, listUsage, listMembers, removeMember, listTeams, createTeam, saveTeam, deleteTeam,
   createProject, listAreaProposals, acceptAreaProposal, dismissAreaProposal, deleteProject, listHolds, placeHold, releaseHold, listTrash, restoreFromTrash, deleteFromTrash, listAreas, createArea, updateArea, mergeArea, retireArea, getMe, getSignInOptions, getProject, getSpec, listSpecs, getProjectStage, getTranscripts, listProjects, listTemplates, saveStudy, saveTasks, saveTranscripts, startAnalysis,
-  type AuditGroup, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
+  type AuditGroup, type DismissReason, type LaunchAnswerInput, type LaunchDetail, type SetUpLaunchInput, type WorkflowRequest, type DesignRequest, type MemberRole, type Board, type BoardStory, type ChecklistInput, type CreateProjectRequest, type Priority, type ProjectDetail, type StoryStatus,
   getPulsePreview, setPulsePreview, getPulseDemo, setPulseDemo, listPulseSignals, addPulseSignal, importPulseNotes, updatePulseSignal, listPulseTopics, updatePulseTopics, renamePulseTopic, mergePulseTopic, dismissPulseTopic, getPulseWeights, setPulseWeights, getPulseSalesforce, syncPulseSalesforce, getPulseHubspot, checkPulseHubspot, connectPulseHubspot, disconnectPulseHubspot, addPulseTicketSource, listPulseViewers, setPulseViewer, listPulseSources, addPulseSource, addPulseOpportunitySource, updatePulseSource, removePulseSource, checkPulseSource, getPulseTopic, suggestPulseQuestions, createPulseProject, getPulseOrigin, type PulseWeights, type SignalOrigin, type NewPulseSignal, type PulseSignal, type PulseStatus,
 } from './client'
 import { moved } from '../../shared/board.mjs'
@@ -426,7 +426,7 @@ export const useRenamePulseTopic = () => {
 }
 export const useDismissPulseTopic = () => {
   const queryClient = useQueryClient()
-  return useMutation({ mutationFn: (id: string) => dismissPulseTopic(id), onSuccess: setTopics(queryClient) })
+  return useMutation({ mutationFn: (v: { id: string; reason: DismissReason; comment?: string | null }) => dismissPulseTopic(v.id, { reason: v.reason, comment: v.comment }), onSuccess: setTopics(queryClient) })
 }
 export const useMergePulseTopic = () => {
   const queryClient = useQueryClient()

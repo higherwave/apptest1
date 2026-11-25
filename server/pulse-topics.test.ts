@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { CHANNELS as UI_CHANNELS, CHANNEL_LABEL as UI_LABEL } from '../src/pages/pulse/channels.js'
-import { bestTopic, CHANNELS, MAX_QUESTIONS, suggestQuestions, CHANNEL_LABEL, DEFAULT_WEIGHTS, groupSignals, terms, topicStats } from './pulse-topics.js'
+import { bestTopic, CHANNELS, QUIET_AFTER_DAYS, recencyFactor, MAX_QUESTIONS, suggestQuestions, CHANNEL_LABEL, DEFAULT_WEIGHTS, groupSignals, terms, topicStats } from './pulse-topics.js'
 
 const sig = (id: string, body: string) => ({ id, body })
 
@@ -61,7 +61,7 @@ test('a topic score is the weighted sum of its signals per channel, shown in ful
   assert.deepEqual(stats.channels, { call_notes: 2, slack: 2 })
   assert.equal(stats.channelCount, 2)
   assert.equal(stats.reach, 3, 'Northwind (twice, any capitals), Contoso and Dana, who has no account')
-  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 2, praise: 0, weight: 1, subtotal: 2 }, { channel: 'slack', count: 2, praise: 0, weight: 0.5, subtotal: 1 }])
+  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 2, praise: 0, faded: 0, weight: 1, subtotal: 2 }, { channel: 'slack', count: 2, praise: 0, faded: 0, weight: 0.5, subtotal: 1 }])
   assert.equal(stats.score, 3)
   assert.equal(stats.trend, 'rising', 'three in the last 14 days, one in the 14 before')
   assert.equal(topicStats([{ channel: 'slack', account: null, saidBy: null, occurredOn: '2026-11-19', createdAt: '2026-11-19T00:00:00Z' }], DEFAULT_WEIGHTS, today).trend, 'new')
@@ -90,4 +90,29 @@ test('suggested questions: one open question per topic, then one built on its st
   assert.deepEqual(suggestQuestions(topics, 'Survey').map((q) => q.prompt).filter((p) => /1 to 5/.test(p)).length > 0, true, 'wording follows the method')
   assert.deepEqual(suggestQuestions(topics, 'not a method'), suggestQuestions(topics, 'User Discussions'), 'an unknown method falls back')
   assert.equal(suggestQuestions([{ id: 'x', title: 'Solo', quotes: [] }], 'Survey').length, 2, 'no quote, no quote question')
+})
+
+test('older signals count less: in full for 30 days, then fading in a straight line to a quarter at 90 days', () => {
+  assert.deepEqual([0, 10, 30].map(recencyFactor), [1, 1, 1])
+  assert.equal(recencyFactor(60), 0.625, 'halfway through the fade')
+  assert.deepEqual([90, 200].map(recencyFactor), [0.25, 0.25])
+  const today = new Date('2026-12-01T12:00:00Z')
+  const at = (daysAgo: number) => new Date(today.getTime() - daysAgo * 86_400_000).toISOString().slice(0, 10)
+  const row = (daysAgo: number) => ({ channel: 'call_notes' as const, account: null, saidBy: null, occurredOn: at(daysAgo), createdAt: '2026-11-01T00:00:00Z' })
+  const stats = topicStats([row(2), row(30), row(90), row(120)], DEFAULT_WEIGHTS, today)
+  assert.equal(stats.score, 2.5, 'two in full (a day 30 signal still counts in full) and two at a quarter')
+  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 4, praise: 0, faded: 2, weight: 1, subtotal: 2.5 }], 'the breakdown says how many were older')
+  assert.equal(stats.signals, 4, 'every signal is still counted as heard')
+})
+
+test('a topic is quiet when its newest signal is over 60 days old, and loud again when something new arrives', () => {
+  const today = new Date('2026-12-01T12:00:00Z')
+  const at = (daysAgo: number) => new Date(today.getTime() - daysAgo * 86_400_000).toISOString().slice(0, 10)
+  const row = (daysAgo: number) => ({ channel: 'slack' as const, account: null, saidBy: null, occurredOn: at(daysAgo), createdAt: '2026-01-01T00:00:00Z' })
+  assert.equal(QUIET_AFTER_DAYS, 60)
+  const quiet = topicStats([row(70), row(90)], DEFAULT_WEIGHTS, today)
+  assert.deepEqual([quiet.quiet, quiet.lastHeardOn], [true, at(70)])
+  assert.equal(topicStats([row(59), row(90)], DEFAULT_WEIGHTS, today).quiet, false, 'one signal within the 60 days keeps it from being quiet')
+  assert.equal(topicStats([row(70), row(90), row(1)], DEFAULT_WEIGHTS, today).quiet, false, 'something new brings it back')
+  assert.deepEqual([topicStats([], DEFAULT_WEIGHTS, today).quiet, topicStats([], DEFAULT_WEIGHTS, today).lastHeardOn], [false, null])
 })

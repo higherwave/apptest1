@@ -427,15 +427,19 @@ export const RESURFACE_AFTER = 3
 
 /**
  * Dismisses a topic for everyone. It stays out of the lists until RESURFACE_AFTER or more new signals have joined it (updates still attach them), so a mistake costs little and nobody has to tidy up.
- * The topic counts as edited, so the daily regrouping does not drop the dismissal. The audit log records who did it and how strong the topic was.
+ * The topic counts as edited, so the daily regrouping does not drop the dismissal. The reason and comment are kept as a record (core.pulse_dismissals, for the matching to learn from), and the audit log records who did it, why and how strong the topic was.
  */
-export async function dismissTopic(db: Db, ctx: RequestContext, id: string): Promise<void> {
+export type DismissReason = 'addressed' | 'not_relevant' | 'duplicate' | 'other'
+export async function dismissTopic(db: Db, ctx: RequestContext, id: string, why: { reason: DismissReason; comment?: string | null }): Promise<void> {
   await db.transaction(async (tx) => {
     const t = (await tx.query(`select title from core.pulse_topics where id = $1 and workspace_id = $2 and status = 'active' and dismissed_at is null`, [id, ctx.workspaceId])).rows[0]
     if (!t) throw new TopicNotFound()
     const signals = Number((await tx.query(`select count(*)::int as n from core.pulse_topic_signals where topic_id = $1`, [id])).rows[0].n)
     await tx.query(`update core.pulse_topics set dismissed_at = now(), dismissed_signal_count = $2, dismissed_by = $3, edited = true, updated_at = now() where id = $1`, [id, signals, ctx.userId])
-    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.pulse_topics', entity_id: id, verb: 'dismissed', before: null, after: { topic: t.title, signals, returnsAfter: `${RESURFACE_AFTER} new signals` } }])
+    const comment = why.comment && why.comment.trim() ? why.comment.trim() : null
+    const ids = (await tx.query(`select signal_id from core.pulse_topic_signals where topic_id = $1`, [id])).rows.map((r) => r.signal_id as string)
+    await insertMany(tx, 'core.pulse_dismissals', [{ workspace_id: ctx.workspaceId, topic_id: id, topic_title: t.title, reason: why.reason, comment, signal_count: signals, signal_ids: `{${ids.join(',')}}`, created_by: ctx.userId }])
+    await insertMany(tx, 'core.audit_log', [{ workspace_id: ctx.workspaceId, actor_id: ctx.userId, entity: 'core.pulse_topics', entity_id: id, verb: 'dismissed', before: null, after: { topic: t.title, signals, reason: why.reason, ...(comment ? { comment } : {}), returnsAfter: `${RESURFACE_AFTER} new signals` } }])
   })
 }
 

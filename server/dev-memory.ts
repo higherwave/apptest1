@@ -115,6 +115,10 @@ async function setUpPulseDemo() {
     const src = await call('POST', '/sources/tickets', { categories: [] })
     if (src?.id) await call('POST', `/sources/${src.id}/check`)
   }
+  // Two old signals, so the local demo shows a Quiet topic (nothing heard for over two months): Onboarding, last mentioned about 95 days ago.
+  const old = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+  await call('POST', '/signals', { body: 'New admins take weeks to finish onboarding because the setup steps are unclear.', channel: 'call_notes', account: 'Contoso Health', saidBy: 'Priya Raman', occurredOn: old(95) })
+  await call('POST', '/signals', { body: 'Setting up a new region during onboarding needs an admin and nobody could tell us the order of the setup steps.', channel: 'call_notes', account: 'Fabrikam Retail', saidBy: 'Derek Hollis', occurredOn: old(110) })
   await call('POST', '/topics/update')
   console.log('Pulse demo set up: preview on, samples, Salesforce, topics')
 }

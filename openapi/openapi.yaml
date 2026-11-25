@@ -2189,9 +2189,19 @@ paths:
     post:
       operationId: dismissPulseTopic
       summary: >
-        Dismisses a topic for everyone (owners and editors). It stays out of the lists until three or more new signals have joined it, so a mistake costs little. The audit log records who did it. Returns the topics.
+        Dismisses a topic for everyone (owners and editors), with a reason (and an optional comment, required for "other"). It stays out of the lists until three or more new signals have joined it, so a mistake costs little. The reason is kept as a record for the matching to learn from, and the audit log records who did it and why. Returns the topics.
       parameters:
         - { name: id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, enum: [addressed, not_relevant, duplicate, other], description: 'Addressed in a release, not relevant, a duplicate of another topic, or something else (then a comment is required).' }
+                comment: { type: [string, 'null'], maxLength: 500 }
       responses:
         '200':
           description: The topics after the change.
@@ -4414,7 +4424,7 @@ components:
             support_tickets: { type: number }
     PulseTopic:
       type: object
-      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, arr, arrMatched, arrUnmatched, inPlay, accounts, projects, researched]
+      required: [id, title, edited, rank, signals, channels, channelCount, reach, score, breakdown, trend, lastHeardOn, quiet, arr, arrMatched, arrUnmatched, inPlay, accounts, projects, researched]
       properties:
         id: { type: string }
         title: { type: string }
@@ -4436,14 +4446,17 @@ components:
           type: array
           items:
             type: object
-            required: [channel, count, praise, weight, subtotal]
+            required: [channel, count, praise, faded, weight, subtotal]
             properties:
               channel: { type: string, enum: [slack, call_notes, salesforce, support_tickets] }
               count: { type: integer, description: 'Every signal from this channel.' }
               praise: { type: integer, description: 'How many of those are praise, which count a quarter in the score.' }
+              faded: { type: integer, description: 'How many are older than 30 days and so count less (down to a quarter at 90 days).' }
               weight: { type: number }
               subtotal: { type: number }
         trend: { type: string, enum: [new, rising, steady, fading] }
+        lastHeardOn: { type: [string, 'null'], description: 'The date (YYYY-MM-DD) of the newest signal.' }
+        quiet: { type: boolean, description: 'Nothing has been heard about it for over 60 days: it leaves Top Priorities but stays in All Topics.' }
         arr: { type: [number, 'null'], description: 'Annual recurring revenue of the distinct accounts behind the signals that were found in Salesforce. Null when no accounts have been copied from Salesforce.' }
         arrMatched: { type: integer, description: 'How many of the named accounts were found in Salesforce.' }
         arrUnmatched: { type: integer, description: 'How many were not found (so the ARR is a floor, not the whole).' }

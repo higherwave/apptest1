@@ -1,8 +1,8 @@
 import { Fragment, useEffect, useState } from 'react'
 import { ChevronDown, ChevronUp, Information } from '@carbon/icons-react'
-import { Button, Checkbox, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotification, Modal, OverflowMenu, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextInput } from '@carbon/react'
+import { Button, Checkbox, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotification, Modal, OverflowMenu, RadioButton, OverflowMenuItem, Select, SelectItem, Table, TableBody, TableCell, TableContainer, TableHead, TableHeader, TableRow, Tag, TextArea, TextInput } from '@carbon/react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { friendlyMessage, type PulseTopic } from '../../api/client'
+import { friendlyMessage, type DismissReason, type PulseTopic } from '../../api/client'
 import { useDismissPulseTopic, useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
 import { PageHero } from '../../shell/PageHero'
 import { AddCallNotes } from './AddCallNotes'
@@ -60,6 +60,8 @@ export function TopicsPage() {
         return by || a.rank - b.rank
       })
     : []
+  // Top Priorities leaves out quiet topics (nothing heard for about two months); they stay in All Topics.
+  const topPriorities = orderedTopics.filter((t) => !t.quiet).slice(0, TOP_N)
   // Owners and editors change things; a member who was only given view sees the topics, quotes and numbers.
   const canStart = me.data.features.pulseEdit
   // Anyone who can see Pulse can pick topics and look at what a project would start from; only an editor can create it, add notes, rename, merge or dismiss.
@@ -120,7 +122,11 @@ export function TopicsPage() {
             <TabPanel className={styles.tabPanel}>
               {tab === 0 && (
                 <>
-                  <TopPriorities rankBar={rankBarFor(true)} allTopics={list.topics} topics={orderedTopics.slice(0, TOP_N)} ordered={orderedTopics.slice(0, TOP_N)} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} />
+                  {topPriorities.length === 0 ? (
+                    <p className={styles.text} data-testid="top-empty">Nothing has been heard about any topic lately, so no topic is a priority right now. Every topic is in All Topics.</p>
+                  ) : (
+                    <TopPriorities rankBar={rankBarFor(true)} allTopics={list.topics} topics={topPriorities} ordered={topPriorities} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} />
+                  )}
                 </>
               )}
             </TabPanel>
@@ -319,23 +325,49 @@ function RenameModal({ topic, onClose }: { topic: PulseTopic | null; onClose: ()
   )
 }
 
-// Dismissing a topic hides it from everyone, so it asks first. Nothing needs tidying afterwards: the signals stay, and the topic comes back by itself if three or more new ones join it.
+// Dismissing a topic hides it from everyone, so it asks first, and asks why: the reason (and a comment, required for "Other") is kept so the matching can learn from it. Nothing needs tidying afterwards:
+// the signals stay, and the topic comes back by itself if three or more new ones join it.
+const REASONS: { key: DismissReason; label: string; hint: string }[] = [
+  { key: 'addressed', label: 'Addressed in a release', hint: 'It has been fixed or shipped, so it should stop counting.' },
+  { key: 'not_relevant', label: 'Not relevant', hint: 'It is not something this team acts on.' },
+  { key: 'duplicate', label: 'Duplicate of another topic', hint: 'It is the same thing as another topic (Merge may fit better).' },
+  { key: 'other', label: 'Other', hint: 'Say why in the comment.' },
+]
 function DismissModal({ topic, onClose }: { topic: PulseTopic | null; onClose: () => void }) {
   const dismiss = useDismissPulseTopic()
+  const [reason, setReason] = useState<DismissReason | null>(null)
+  const [comment, setComment] = useState('')
+  const [seen, setSeen] = useState<string | null>(null)
+  // Each topic starts with no reason picked and no comment.
+  if (topic && seen !== topic.id) {
+    setSeen(topic.id)
+    setReason(null)
+    setComment('')
+    dismiss.reset()
+  }
+  if (!topic && seen !== null) setSeen(null)
+  const needsComment = reason === 'other' && !comment.trim()
   const run = async () => {
-    if (!topic) return
+    if (!topic || !reason) return
     try {
-      await dismiss.mutateAsync(topic.id)
+      await dismiss.mutateAsync({ id: topic.id, reason, comment: comment.trim() || null })
       onClose()
     } catch {
       /* shown below */
     }
   }
   return (
-    <Modal open={!!topic} danger modalHeading="Dismiss this topic?" primaryButtonText={dismiss.isPending ? 'Dismissing…' : 'Dismiss topic'} secondaryButtonText="Cancel" primaryButtonDisabled={dismiss.isPending} onRequestClose={onClose} onRequestSubmit={run} data-testid="dismiss-modal">
+    <Modal open={!!topic} danger modalHeading="Dismiss this topic?" primaryButtonText={dismiss.isPending ? 'Dismissing…' : 'Dismiss topic'} secondaryButtonText="Cancel" primaryButtonDisabled={!reason || needsComment || dismiss.isPending} onRequestClose={onClose} onRequestSubmit={run} data-testid="dismiss-modal">
       <p className={styles.modalNote}>
         “{topic?.title}” leaves the lists for everyone. Its signals are kept, and the topic comes back by itself if three or more new signals join it.
       </p>
+      <div role="radiogroup" aria-label="Why is it being dismissed?" className={styles.reasons}>
+        <p className={styles.reasonsLabel}>Why is it being dismissed?</p>
+        {REASONS.map((r) => (
+          <RadioButton key={r.key} id={`dismiss-reason-${r.key}`} data-testid={`dismiss-reason-${r.key}`} name="dismiss-reason" labelText={`${r.label}: ${r.hint}`} value={r.key} checked={reason === r.key} onChange={() => setReason(r.key)} />
+        ))}
+      </div>
+      <TextArea id="dismiss-comment" data-testid="dismiss-comment" labelText={reason === 'other' ? 'Comment (required)' : 'Comment (optional)'} rows={3} maxCount={500} value={comment} invalid={needsComment && comment.length > 0} invalidText="Say why, in a few words." onChange={(e) => setComment(e.target.value)} />
       {dismiss.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Not dismissed" subtitle={friendlyMessage(dismiss.error)} />}
     </Modal>
   )

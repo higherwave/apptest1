@@ -9,4 +9,5 @@ export const TREND: Record<PulseTopic['trend'], { label: string; type: 'red' | '
 
 /** A topic with only two signals is just emerging: it sits at the bottom, and the usual trend tag takes over once it grows. */
 export const EMERGING_AT = 2
-export const trendTag = (t: Pick<PulseTopic, 'signals' | 'trend'>): { label: string; type: 'red' | 'blue' | 'gray' | 'green' | 'purple' } => (t.signals <= EMERGING_AT ? { label: 'Emerging', type: 'purple' } : TREND[t.trend])
+/** Quiet (nothing heard for about two months) comes first, then Emerging, then how the signals are trending. */
+export const trendTag = (t: Pick<PulseTopic, 'signals' | 'trend' | 'quiet'>): { label: string; type: 'red' | 'blue' | 'gray' | 'green' | 'purple' } => (t.quiet ? { label: 'Quiet', type: 'gray' } : t.signals <= EMERGING_AT ? { label: 'Emerging', type: 'purple' } : TREND[t.trend])

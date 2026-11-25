@@ -14,6 +14,7 @@ declare global {
 }
 
 const headers = { authorization: 'Bearer s3cret', 'content-type': 'application/json' }
+const WHY = { reason: 'not_relevant' }
 
 // The demo has David (owner), Alex (editor) and Sam (viewer). Each request is made as one person, with a new app so the identity cache never carries over.
 async function fixture() {
@@ -300,15 +301,23 @@ test('topics: a person dismisses a whole topic; it stays hidden through updates 
   const reporting = list.topics.find((t: any) => t.title === 'Reporting and digests')
   const before = list.topics.length
 
-  assert.equal((await call(sam, 'POST', `/pulse/topics/${reporting.id}/dismiss`)).status, 404, 'someone without access cannot tell it exists')
+  assert.equal((await call(sam, 'POST', `/pulse/topics/${reporting.id}/dismiss`, WHY)).status, 404, 'someone without access cannot tell it exists')
   await call(owner, 'PUT', `/pulse/viewers/${(await (await call(sam, 'GET', '/me')).json()).userId}`, { canView: true })
-  assert.equal((await call(sam, 'POST', `/pulse/topics/${reporting.id}/dismiss`)).status, 403, 'a viewer cannot dismiss')
-  assert.equal((await call(owner, 'POST', '/pulse/topics/00000000-0000-0000-0000-000000000000/dismiss')).status, 404)
-  list = await (await call(alex, 'POST', `/pulse/topics/${reporting.id}/dismiss`)).json()
+  assert.equal((await call(sam, 'POST', `/pulse/topics/${reporting.id}/dismiss`, WHY)).status, 403, 'a viewer cannot dismiss')
+  assert.equal((await call(owner, 'POST', '/pulse/topics/00000000-0000-0000-0000-000000000000/dismiss', WHY)).status, 404)
+  // A reason is required, "other" needs a comment, and nothing is dismissed by a refused request.
+  assert.equal((await call(alex, 'POST', `/pulse/topics/${reporting.id}/dismiss`, {})).status, 422, 'a reason is required')
+  assert.equal((await call(alex, 'POST', `/pulse/topics/${reporting.id}/dismiss`, { reason: 'because' })).status, 422, 'from the list')
+  assert.equal((await call(alex, 'POST', `/pulse/topics/${reporting.id}/dismiss`, { reason: 'other' })).status, 422, 'other needs a comment')
+  assert.equal((await call(alex, 'POST', `/pulse/topics/${reporting.id}/dismiss`, { reason: 'other', comment: '   ' })).status, 422)
+  assert.equal((await (await call(owner, 'GET', '/pulse/topics')).json()).topics.length, before, 'still all there')
+  list = await (await call(alex, 'POST', `/pulse/topics/${reporting.id}/dismiss`, { reason: 'addressed', comment: 'Shipped in the November release.' })).json()
   assert.equal(list.topics.length, before - 1, 'an editor can dismiss it, and it leaves the list')
-  assert.equal((await call(owner, 'POST', `/pulse/topics/${reporting.id}/dismiss`)).status, 404, 'already dismissed')
+  assert.equal((await call(owner, 'POST', `/pulse/topics/${reporting.id}/dismiss`, WHY)).status, 404, 'already dismissed')
   const audit = (await pg.query<any>(`select verb, after from core.audit_log where entity = 'core.pulse_topics'`)).rows
-  assert.deepEqual([audit.length, audit[0].verb, audit[0].after.signals], [1, 'dismissed', reporting.signals], 'the audit log says what was dismissed and how strong it was')
+  assert.deepEqual([audit.length, audit[0].verb, audit[0].after.signals, audit[0].after.reason, audit[0].after.comment], [1, 'dismissed', reporting.signals, 'addressed', 'Shipped in the November release.'], 'the audit log says what was dismissed, how strong it was and why')
+  const kept = (await pg.query<any>(`select topic_title, reason, comment, signal_count, cardinality(signal_ids) as ids from core.pulse_dismissals`)).rows
+  assert.deepEqual(kept, [{ topic_title: 'Reporting and digests', reason: 'addressed', comment: 'Shipped in the November release.', signal_count: reporting.signals, ids: reporting.signals }], 'the reason is kept as a record, with the signals it was about, for the matching to learn from')
 
   // The regrouping does not bring it back, and neither do one or two new signals about it.
   list = await (await call(owner, 'POST', '/pulse/topics/update', { mode: 'regroup' })).json()
@@ -327,7 +336,7 @@ test('praise counts a quarter in a topic score, and the breakdown says how many 
   const row = (kind: string) => ({ channel: 'call_notes' as const, kind, account: null, saidBy: null, occurredOn: '2026-11-18', createdAt: '2026-11-18T00:00:00Z' })
   const stats = topicStats([row('complaint'), row('request'), row('praise'), row('praise')], { call_notes: 1, slack: 0.5, salesforce: 0.8, support_tickets: 0.8 }, new Date('2026-11-20T12:00:00Z'))
   assert.equal(PRAISE_FACTOR, 0.25)
-  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 4, praise: 2, weight: 1, subtotal: 2.5 }], 'two in full and two at a quarter')
+  assert.deepEqual(stats.breakdown, [{ channel: 'call_notes', count: 4, praise: 2, faded: 0, weight: 1, subtotal: 2.5 }], 'two in full and two at a quarter')
   assert.equal(stats.score, 2.5)
 })
 

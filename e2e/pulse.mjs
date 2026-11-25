@@ -313,6 +313,18 @@ try {
   await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 10000 })
   ok('the topics grid gains a Support tickets column', await page.evaluate(() => [...document.querySelectorAll('[data-testid="topics-grid"] th')].some((th) => th.innerText.trim() === 'Support tickets')))
 
+  // A topic nothing has been heard about for over two months is Quiet: it leaves Top Priorities and stays in All Topics.
+  for (const body of ['New admins take weeks to finish onboarding because the setup steps are unclear.', 'Our onboarding checklist leaves the integrations step for last and nobody completes it.']) await api('POST', '/pulse/signals', { body, channel: 'call_notes', account: 'Umbrella', occurredOn: new Date(Date.now() - 100 * 86_400_000).toISOString().slice(0, 10) })
+  await api('POST', '/pulse/topics/update', {})
+  const quietTopic = (await api('GET', '/pulse/topics')).topics.find((t) => t.quiet)
+  ok('a topic whose newest signal is over 60 days old is marked quiet by the server', !!quietTopic && quietTopic.signals >= 2)
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 10000 })
+  ok('All Topics still lists it, tagged Quiet', await page.evaluate((id) => /Quiet/.test(document.querySelector(`[data-testid="trend-${id}"]`)?.innerText ?? ''), quietTopic.id))
+  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="top-priorities"]', { timeout: 10000 })
+  ok('Top Priorities leaves it out', await page.evaluate((id) => !document.querySelector(`[data-testid="card-${id}"]`) && !document.querySelector(`[data-testid="bubble-${id}"]`), quietTopic.id))
+
   // Top Priorities shows at most six topics; dismissing a topic asks first, hides it for everyone, and it returns after three new signals.
   await page.evaluate(() => sessionStorage.removeItem('signalflow.pulse.selection'))
   await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
@@ -327,9 +339,18 @@ try {
   await page.evaluate((id) => document.querySelector(`[data-testid="dismiss-${id}"]`).click(), gone.id)
   await page.waitForSelector('.cds--modal.is-visible', { timeout: 4000 })
   ok('Dismiss topic asks first, and says it comes back when three or more new signals join it', await page.evaluate((t) => { const m = document.querySelector('.cds--modal.is-visible').innerText; return m.includes('Dismiss this topic?') && m.includes(t) && /three or more new signals/.test(m) }, gone.title))
+  const dismissButton = () => page.evaluate(() => { const b = [...document.querySelectorAll('.cds--modal.is-visible button')].find((x) => /^Dismiss topic$/.test(x.innerText.trim())); return { disabled: b.disabled } })
+  ok('the dialog asks why, with four reasons, and Dismiss stays off until one is chosen', await page.evaluate(() => ['addressed', 'not_relevant', 'duplicate', 'other'].every((k) => !!document.querySelector(`#dismiss-reason-${k}`))) && (await dismissButton()).disabled === true)
+  await page.evaluate(() => document.querySelector('label[for="dismiss-reason-other"]').click())
+  ok('choosing Other makes a comment required', (await dismissButton()).disabled === true && /required/.test(await page.$eval('label[for="dismiss-comment"]', (el) => el.innerText)))
+  await page.type('#dismiss-comment', 'Shipped in the December release, customers have stopped asking.')
+  ok('with a comment, Dismiss is on', (await dismissButton()).disabled === false)
+  await page.evaluate(() => document.querySelector('label[for="dismiss-reason-addressed"]').click())
   await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => /^Dismiss topic$/.test(b.innerText.trim())).click())
   await page.waitForFunction((id) => !document.querySelector(`[data-testid="topic-${id}"]`), { timeout: 8000 }, gone.id)
   ok('the dismissed topic leaves the table, and its signals are kept', !(await api('GET', '/pulse/topics')).topics.some((t) => t.id === gone.id))
+  const logged = (await api('GET', '/audit?group=apps&limit=50')).data.find((e) => e.entity === 'core.pulse_topics' && e.verb === 'dismissed')
+  ok('the reason and comment are recorded with the dismissal', logged?.after?.reason === 'addressed' && /December release/.test(logged?.after?.comment ?? ''))
 
   // A read-only visitor never sees it.
   const visitor = await open(null, '/projects')

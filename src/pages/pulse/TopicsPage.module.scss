@@ -305,6 +305,19 @@
   box-shadow: var(--at-ring);
 }
 
+.reasons {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  margin-block: var(--at-space-md);
+}
+
+.reasonsLabel {
+  @include tokens.role('body-md');
+  margin: 0;
+  color: var(--at-ink);
+}
+
 .pickNote { color: var(--at-muted); }
 
 .pickText {

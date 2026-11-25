@@ -143,6 +143,12 @@ export const newOpportunitySourceSchema = z.object({
 export const newTicketSourceSchema = z.object({
   categories: z.array(z.string().trim().min(1).max(100)).max(10, 'Up to ten categories.').default([]),
 })
+export const DISMISS_REASONS = ['addressed', 'not_relevant', 'duplicate', 'other'] as const
+export const dismissTopicSchema = z
+  .object({ reason: z.enum(DISMISS_REASONS), comment: optionalText(500) })
+  .superRefine((v, ctx) => {
+    if (v.reason === 'other' && !v.comment) ctx.addIssue({ code: 'custom', path: ['comment'], message: 'Say why, in a few words.' })
+  })
 export const connectHubspotSchema = z.object({ token: z.string().trim().min(1, 'Paste the HubSpot service key.').max(400, 'That is too long to be a HubSpot service key.'), portalId: optionalText(20) })
 export const updateSourceSchema = z
   .object({ channel: channel.optional(), mode: z.enum(['keep', 'review']).optional(), enabled: z.boolean().optional() })

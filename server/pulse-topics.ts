@@ -161,10 +161,21 @@ export function bestTopic(body: string, topics: { id: string; bodies: string[] }
 // Ranking ----------------------------------------------------------------------------------------------------------------------
 
 export type RankSignal = { channel: Channel; kind?: string; account: string | null; saidBy: string | null; occurredOn: string | null; createdAt: string }
-/** `count` is every signal from the channel; `praise` is how many of those are praise, which count a quarter. `subtotal` is the weighted sum. */
-export type Breakdown = { channel: Channel; count: number; praise: number; weight: number; subtotal: number }
+/** `count` is every signal from the channel; `praise` is how many of those are praise, which count a quarter; `faded` is how many are older than RECENT_DAYS and so count less. `subtotal` is the weighted sum. */
+export type Breakdown = { channel: Channel; count: number; praise: number; faded: number; weight: number; subtotal: number }
 /** Praise says what keeps customers happy: worth logging, but not a problem to fix, so it counts a little. */
 export const PRAISE_FACTOR = 0.25
+/** A signal counts in full for RECENT_DAYS, then fades in a straight line to OLDEST_FACTOR of its weight at FADE_UNTIL_DAYS, and counts that much after. */
+export const RECENT_DAYS = 30
+export const FADE_UNTIL_DAYS = 90
+export const OLDEST_FACTOR = 0.25
+/** A topic nothing has been heard about for this long is Quiet. */
+export const QUIET_AFTER_DAYS = 60
+export const recencyFactor = (ageDays: number): number => {
+  if (ageDays <= RECENT_DAYS) return 1
+  if (ageDays >= FADE_UNTIL_DAYS) return OLDEST_FACTOR
+  return 1 - (1 - OLDEST_FACTOR) * ((ageDays - RECENT_DAYS) / (FADE_UNTIL_DAYS - RECENT_DAYS))
+}
 export type TopicStats = {
   signals: number
   channels: Partial<Record<Channel, number>>
@@ -174,33 +185,45 @@ export type TopicStats = {
   score: number
   breakdown: Breakdown[]
   trend: 'new' | 'rising' | 'steady' | 'fading'
+  /** The date (YYYY-MM-DD) of the newest signal, and whether that is over QUIET_AFTER_DAYS ago: a quiet topic leaves Top Priorities but stays in All Topics. */
+  lastHeardOn: string | null
+  quiet: boolean
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 const clean = (s: string | null) => (s && s.trim() && !/^unknown$/i.test(s.trim()) ? s.trim().toLowerCase() : null)
 
-/** Every number a topic shows, from its kept signals and the channel weights. The score is the weighted sum of signals per channel, and `breakdown` is that sum in full. */
+/** Every number a topic shows, from its kept signals and the channel weights. The score is the weighted sum of signals per channel (praise counts a quarter, and a signal older than 30 days counts less and less), and `breakdown` is that sum in full. */
 export function topicStats(signals: RankSignal[], weights: Record<Channel, number>, today: Date = new Date()): TopicStats {
+  const day = 86_400_000
+  const when = (s: RankSignal) => Date.parse(s.occurredOn ?? s.createdAt)
+  // Whole days: a signal dated 30 days ago is 30 days old, whatever the time of day it is read.
+  const age = (s: RankSignal) => Math.max(0, Math.floor((today.getTime() - when(s)) / day))
   const channels: Partial<Record<Channel, number>> = {}
-  for (const s of signals) channels[s.channel] = (channels[s.channel] ?? 0) + 1
+  const units: Partial<Record<Channel, number>> = {}
   const praised: Partial<Record<Channel, number>> = {}
-  for (const s of signals) if (s.kind === 'praise') praised[s.channel] = (praised[s.channel] ?? 0) + 1
-  const breakdown = CHANNELS.filter((c) => channels[c]).map((c) => {
-    const praise = praised[c] ?? 0
-    return { channel: c, count: channels[c]!, praise, weight: weights[c], subtotal: round2((channels[c]! - praise + praise * PRAISE_FACTOR) * weights[c]) }
-  })
+  const faded: Partial<Record<Channel, number>> = {}
+  for (const s of signals) {
+    channels[s.channel] = (channels[s.channel] ?? 0) + 1
+    const isPraise = s.kind === 'praise'
+    if (isPraise) praised[s.channel] = (praised[s.channel] ?? 0) + 1
+    if (age(s) > RECENT_DAYS) faded[s.channel] = (faded[s.channel] ?? 0) + 1
+    units[s.channel] = (units[s.channel] ?? 0) + (isPraise ? PRAISE_FACTOR : 1) * recencyFactor(age(s))
+  }
+  const breakdown = CHANNELS.filter((c) => channels[c]).map((c) => ({ channel: c, count: channels[c]!, praise: praised[c] ?? 0, faded: faded[c] ?? 0, weight: weights[c], subtotal: round2(units[c]! * weights[c]) }))
   const who = new Set<string>()
   for (const s of signals) {
     const k = clean(s.account) ?? (clean(s.saidBy) ? `person:${clean(s.saidBy)}` : null)
     if (k) who.add(k)
   }
-  const day = 86_400_000
-  const when = (s: RankSignal) => Date.parse(s.occurredOn ?? s.createdAt)
   const recent = signals.filter((s) => today.getTime() - when(s) <= 14 * day).length
   const before = signals.filter((s) => today.getTime() - when(s) > 14 * day && today.getTime() - when(s) <= 28 * day).length
   const older = signals.length - recent - before
   const trend: TopicStats['trend'] = older === 0 && before === 0 && recent > 0 ? 'new' : recent > before ? 'rising' : recent < before ? 'fading' : 'steady'
-  return { signals: signals.length, channels, channelCount: Object.keys(channels).length, reach: who.size, score: round2(breakdown.reduce((a, b) => a + b.subtotal, 0)), breakdown, trend }
+  const newest = signals.length ? Math.max(...signals.map(when)) : null
+  const lastHeardOn = newest !== null && Number.isFinite(newest) ? new Date(newest).toISOString().slice(0, 10) : null
+  const quiet = newest !== null && Number.isFinite(newest) && Math.floor((today.getTime() - newest) / day) > QUIET_AFTER_DAYS
+  return { signals: signals.length, channels, channelCount: Object.keys(channels).length, reach: who.size, score: round2(breakdown.reduce((a, b) => a + b.subtotal, 0)), breakdown, trend, lastHeardOn, quiet }
 }
 
 // What is at stake ---------------------------------------------------------------------------------------------------------------

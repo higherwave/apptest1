@@ -1632,7 +1632,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Dismisses a topic for everyone (owners and editors). It stays out of the lists until three or more new signals have joined it, so a mistake costs little. The audit log records who did it. Returns the topics. */
+        /** Dismisses a topic for everyone (owners and editors), with a reason (and an optional comment, required for "other"). It stays out of the lists until three or more new signals have joined it, so a mistake costs little. The reason is kept as a record for the matching to learn from, and the audit log records who did it and why. Returns the topics. */
         post: operations["dismissPulseTopic"];
         delete?: never;
         options?: never;
@@ -3413,11 +3413,17 @@ export interface components {
                 count: number;
                 /** @description How many of those are praise, which count a quarter in the score. */
                 praise: number;
+                /** @description How many are older than 30 days and so count less (down to a quarter at 90 days). */
+                faded: number;
                 weight: number;
                 subtotal: number;
             }[];
             /** @enum {string} */
             trend: "new" | "rising" | "steady" | "fading";
+            /** @description The date (YYYY-MM-DD) of the newest signal. */
+            lastHeardOn: string | null;
+            /** @description Nothing has been heard about it for over 60 days: it leaves Top Priorities but stays in All Topics. */
+            quiet: boolean;
             /** @description Annual recurring revenue of the distinct accounts behind the signals that were found in Salesforce. Null when no accounts have been copied from Salesforce. */
             arr: number | null;
             /** @description How many of the named accounts were found in Salesforce. */
@@ -8026,7 +8032,18 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @description Addressed in a release, not relevant, a duplicate of another topic, or something else (then a comment is required).
+                     * @enum {string}
+                     */
+                    reason: "addressed" | "not_relevant" | "duplicate" | "other";
+                    comment?: string | null;
+                };
+            };
+        };
         responses: {
             /** @description The topics after the change. */
             200: {
