@@ -61,7 +61,7 @@ export function TopicDetailPage() {
             <h2 className={styles.head}>In Signal Flow</h2>
             {t.researched.length > 0 ? (
               <p className={styles.note}>
-                Already researched:{' '}
+                Signal Flow match:{' '}
                 {t.researched.map((r, i) => (
                   <span key={r.id}>
                     {i > 0 && ', '}
@@ -73,7 +73,7 @@ export function TopicDetailPage() {
                 . Check what was learned before asking again.
               </p>
             ) : (
-              <p className={styles.note}>Not researched yet: no theme in Platform Insights covers this.</p>
+              <p className={styles.note}>No Signal Flow match: no theme in Platform Insights covers this.</p>
             )}
             {t.projects.length > 0 && (
               <p className={styles.note}>

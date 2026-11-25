@@ -187,7 +187,7 @@ export function TopicsPage() {
                                   </Tag>
                                   {t.researched.length > 0 && (
                                     <Tag type="teal" size="sm" data-testid={`researched-${t.id}`}>
-                                      Researched
+                                      Signal Flow Match
                                     </Tag>
                                   )}
                                   {t.projects.length > 0 && (

@@ -269,7 +269,7 @@ try {
   await page.evaluate(() => document.querySelector('[data-testid^="topic-play-"]').closest('tr').querySelector('[data-testid="topic-title"]').click())
   await page.waitForSelector('[data-testid="topic-in-play"]', { timeout: 8000 })
   ok("a topic's page says what is at stake, and quotes show the opportunity", await page.evaluate(() => /open opportunit/.test(document.querySelector('[data-testid="topic-in-play"]').innerText) && !!document.querySelector('[data-testid="quote-opportunity"]')))
-  ok("a topic's page says what Signal Flow already knows: themes that cover it, or that it is not researched yet", await page.evaluate(() => /Already researched|Not researched yet/.test(document.querySelector('[data-testid="topic-links"]')?.innerText ?? '')))
+  ok("a topic's page says what Signal Flow already knows: themes that cover it (a Signal Flow match), or that there is no match yet", await page.evaluate(() => /Signal Flow match|No Signal Flow match/.test(document.querySelector('[data-testid="topic-links"]')?.innerText ?? '')))
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="theme-search"]', { timeout: 8000 })
   ok('Platform Insights has no Heard in Pulse table: Pulse stays in its own app', !(await page.$('[data-testid="heard-in-pulse"]')))
@@ -358,7 +358,9 @@ try {
   await demo.waitForSelector('[data-testid="topic-quotes"]', { timeout: 8000 })
   ok("a topic's own page shows its quotes, and nothing to act on", await demo.evaluate(() => document.querySelectorAll('[data-testid="quote"]').length >= 1 && !document.querySelector('[data-testid="dig-in"]')))
   await api('PUT', '/pulse/demo', { enabled: false })
-  await demo.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
+  // The visitor's page keeps asking after the switch is off, so the network never goes quiet: wait for the words, not for idle.
+  await demo.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'domcontentloaded' })
+  await demo.waitForFunction(() => document.body.innerText.includes('Page not found'), { timeout: 15000 }).catch(() => {})
   ok('switched off again, the address does not exist for the visitor', (await text(demo)).includes('Page not found'))
 
   // Switched off again: gone for the owner too.

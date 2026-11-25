@@ -87,7 +87,7 @@ export function TopPriorities({ rankBar, topics, allTopics, ordered, hasArr, can
                     </Tag>
                     {t.researched.length > 0 && (
                       <Tag type="teal" size="sm">
-                        Researched
+                        Signal Flow Match
                       </Tag>
                     )}
                     {t.projects.length > 0 && (
