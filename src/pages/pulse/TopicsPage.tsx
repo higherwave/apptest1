@@ -4,6 +4,7 @@ import { Button, Checkbox, Tab, TabList, TabPanel, TabPanels, Tabs, InlineNotifi
 import { Link, useSearchParams } from 'react-router-dom'
 import { friendlyMessage, type DismissReason, type PulseTopic } from '../../api/client'
 import { useDismissPulseTopic, useMe, useMergePulseTopic, usePulseTopics, useRenamePulseTopic, useUpdatePulseTopics } from '../../api/hooks'
+import { SkeletonList, SkeletonRegion } from '../../components/Skeletons'
 import { PageHero } from '../../shell/PageHero'
 import { AddCallNotes } from './AddCallNotes'
 import { activeChannels } from './channels'
@@ -82,6 +83,11 @@ export function TopicsPage() {
     <div className={styles.page}>
       <PageHero title="Topics" description="What customers keep raising, found by Pulse in Slack, Salesforce and call notes, and ranked by how much each counts" glow="left" variant="wave" graphic="pulse" />
 
+      {topics.isPending && (
+        <SkeletonRegion label="Loading topics">
+          <SkeletonList rows={6} />
+        </SkeletonRegion>
+      )}
       {topics.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics could not be loaded" subtitle={friendlyMessage(topics.error)} />}
       {update.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics were not updated" subtitle={friendlyMessage(update.error)} />}
 

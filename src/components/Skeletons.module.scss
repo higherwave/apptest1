@@ -1,0 +1,78 @@
+@use '../tokens' as tokens;
+
+// Placeholders shown while a page's data is on its way: the page's own shapes in grey, so people see at once that it is loading and what is coming. The pieces are Carbon's skeleton components; only the layout is here.
+.region {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+}
+
+// Read out once as "Loading …", never piece by piece.
+.sr {
+  position: absolute;
+  inline-size: 0.0625rem;
+  block-size: 0.0625rem;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  padding: var(--at-space-md) var(--at-space-lg);
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: var(--at-space-md);
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(10rem, 2fr) repeat(3, minmax(7rem, 1fr));
+  gap: var(--at-space-md);
+  align-items: center;
+
+  @media (max-width: 48rem) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--at-hairline);
+  border-radius: var(--at-radius-lg);
+  background: var(--at-canvas);
+  overflow: hidden;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8rem 6rem;
+  gap: var(--at-space-md);
+  align-items: center;
+  padding: var(--at-space-md) var(--at-space-lg);
+
+  & + & { border-block-start: 1px solid var(--at-hairline); }
+
+  @media (max-width: 48rem) { grid-template-columns: minmax(0, 1fr); }
+}
+
+.quote {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-xs);
+  padding-block: var(--at-space-xs);
+
+  & + & { border-block-start: 1px solid var(--at-hairline); padding-block-start: var(--at-space-md); }
+}
+
+.block {
+  inline-size: 100%;
+  block-size: 2.5rem;
+}

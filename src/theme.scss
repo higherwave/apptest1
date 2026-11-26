@@ -615,3 +615,13 @@ html[data-input='pointer'] .cds--btn--tertiary:focus:not(:hover) { border-color:
   box-shadow: none;
   background: var(--at-surface-soft);
 }
+
+// Loading placeholders (Carbon's skeleton components, see src/components/Skeletons.tsx): the shimmer stops for people who ask for less motion.
+@media (prefers-reduced-motion: reduce) {
+  .cds--skeleton__text::before,
+  .cds--skeleton__placeholder::before,
+  .cds--skeleton__icon::before,
+  .cds--skeleton:not(.cds--skeleton__placeholder)::before {
+    animation: none !important;
+  }
+}

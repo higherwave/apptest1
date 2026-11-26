@@ -1,8 +1,9 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
-import { Button, Dropdown, InlineNotification, Loading, ProgressBar, Search, Tag } from '@carbon/react'
+import { Button, Dropdown, InlineNotification, ProgressBar, Search, Tag } from '@carbon/react'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { InsightsThemes, PulseTopic } from '../../api/client'
+import { SkeletonList, SkeletonRegion } from '../../components/Skeletons'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
 import { CategoryBadge } from '../themes/CategoryBadge'
 import { GroupBy } from './GroupBy'
@@ -234,7 +235,11 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
       <InsightsHeader title="Platform Insights" description="What the team has learned across research projects" />
       <ResumePanel />
       {errorText && <InlineNotification kind="error" lowContrast hideCloseButton title="Something went wrong" subtitle={errorText} />}
-      {state === 'loading' && <Loading small withOverlay={false} description="Loading insights" />}
+      {state === 'loading' && (
+        <SkeletonRegion label="Loading insights">
+          <SkeletonList cards={3} toolbar rows={6} />
+        </SkeletonRegion>
+      )}
       {state === 'empty' && <p className={styles.empty}>No themes yet. Analyze a project’s transcripts and its themes appear here.</p>}
       {state === 'ready' && overview && (
         <>

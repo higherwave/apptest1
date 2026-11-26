@@ -4,6 +4,7 @@ import { Select, SelectItem, Tag } from '@carbon/react'
 import { Link, useParams } from 'react-router-dom'
 import type { PulseChannel } from '../../api/client'
 import { useMe, usePulseTopic, usePulseTopics } from '../../api/hooks'
+import { SkeletonCard, SkeletonQuotes, SkeletonRegion } from '../../components/Skeletons'
 import { PageHero } from '../../shell/PageHero'
 import { activeChannels, CHANNEL_LABEL, CHANNELS } from './channels'
 import { PulseNotFound } from './PulseNotFound'
@@ -41,6 +42,14 @@ export function TopicDetailPage() {
         <ArrowLeft size={16} aria-hidden />
         All topics
       </Link>
+
+      {!t && (
+        <SkeletonRegion label="Loading the topic">
+          <SkeletonCard lines={2} headingWidth="24%" />
+          <SkeletonCard lines={3} headingWidth="28%" />
+          <SkeletonQuotes count={3} />
+        </SkeletonRegion>
+      )}
 
       {t && (
         <>
