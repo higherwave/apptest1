@@ -258,6 +258,91 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
   return summarize(db);
 }
 
+// The two later themes (T8 and T9, raised in studies 2 and 3) added to a workspace that already has the story, WITHOUT reloading it: a reload deletes and recreates the three
+// studies, and with them anything built on them by hand (a requirements document, a launch). Everything here is an insert or an update of a row this story owns, and each part is
+// skipped when it is already there, so it is safe to run again. The result is what a fresh load of the current story would have: the new lines at the end of eight transcripts (and
+// their utterances), the two themes with their quotes in studies 2 and 3, the two platform themes and what they roll up, and the sixth recommendation.
+export const LATER_THEMES = ['T8', 'T9'];
+export async function addLaterThemes(db, { workspaceId: WS, userId: USER }) {
+  const q = (sql, params) => db.query(sql, params);
+  const allParticipants = readParticipants();
+  const did = { utterances: 0, themes: 0, quotes: 0, platformThemes: 0, matches: 0, recommendations: 0 };
+
+  for (const [pi, proj] of D.PROJECTS.entries()) {
+    const wanted = LATER_THEMES.filter((tk) => proj.themes[tk]);
+    if (!wanted.length) continue;
+    const P = aid('project:' + proj.key);
+    if (!(await q('select 1 from core.projects where id = $1 and workspace_id = $2', [P, WS])).rows[0]) continue; // the story is not loaded here
+    const people = allParticipants.filter((p) => p.study === pi + 1);
+    const transcripts = proj.files.map((file, i) => {
+      const text = readFileSync(join(here, 'transcripts', file), 'utf8');
+      return { name: `Session ${i + 1} - ${people[i].name}${extname(file)}`, text };
+    });
+    const parsed = transcripts.map((t) => parseTranscript(t.text));
+
+    // 1. The new lines at the end of each transcript.
+    for (const [ti, t] of transcripts.entries()) {
+      const TR = aid(`transcript:${proj.key}:${ti}`);
+      const row = (await q('select raw_text, (select count(*)::int from research.utterances u where u.transcript_id = research.transcripts.id) as n from research.transcripts where id = $1', [TR])).rows[0];
+      if (!row) throw new Error(`${proj.name}: transcript ${ti + 1} is missing`);
+      if (row.raw_text === t.text) continue;
+      if (!t.text.startsWith(row.raw_text.trimEnd())) throw new Error(`${proj.name}: transcript ${ti + 1} was changed, not only added to: not touching it`);
+      const fresh = parsed[ti].slice(row.n);
+      const uttRows = [];
+      for (const [k, l] of fresh.entries()) {
+        const sk = lower(l.who);
+        if (!(await q('select 1 from research.transcript_speakers where id = $1', [aid(`spk:${proj.key}:${ti}:${sk}`)])).rows[0]) throw new Error(`${proj.name}: speaker ${l.who} is missing from transcript ${ti + 1}`);
+        uttRows.push({ id: aid(`utt:${proj.key}:${ti}:${row.n + k + 1}`), workspace_id: WS, transcript_id: TR, speaker_id: aid(`spk:${proj.key}:${ti}:${sk}`), position: row.n + k + 1, timestamp_label: l.ts, text: l.text });
+      }
+      await insert(db, 'research.utterances', uttRows);
+      await q('update research.transcripts set raw_text = $2, content_hash = $3 where id = $1', [TR, t.text, sha(t.text)]);
+      did.utterances += uttRows.length;
+    }
+    // The analysis run records what it was run on, so the study is not "out of date" because of lines that were added to match it.
+    await q('update core.agent_runs set input_hash = $2 where id = $1', [aid('run:analysis:' + proj.key), sha(transcripts.map((t) => `${t.name}:${sha(t.text)}`).join('|'))]);
+
+    // 2. The themes, with their quotes (each checked against the line it points to).
+    for (const tk of wanted) {
+      const id = aid(`theme:${proj.key}:${tk}`);
+      if ((await q('select 1 from research.themes where id = $1', [id])).rows[0]) continue;
+      const def = D.THEMES[tk];
+      const quotes = proj.themes[tk].quotes.map(([person, pos]) => {
+        const line = parsed[person]?.[pos - 1];
+        if (!line || line.mod || lower(line.who) !== lower(people[person].name)) throw new Error(`${proj.name} ${tk}: line ${pos} of transcript ${person} is not said by ${people[person].name}`);
+        return { t: person, u: pos, who: line.who };
+      });
+      const ppl = new Set(quotes.map((x) => x.who)).size;
+      const { score, prio } = scoreTheme({ ppl, total: people.length, mentions: quotes.length, sev: def.sev });
+      await insert(db, 'research.themes', [{
+        id, workspace_id: WS, project_id: P, run_id: aid('run:analysis:' + proj.key), title: def.title, category: catEnum[def.cat], stage_position: def.stage, severity: def.sev,
+        description: proj.themes[tk].desc, opportunity: def.opp, suggested_priority: lower(prio), suggested_effort: def.eff, effort_note: def.effNote, score: Number(score.toFixed(4)),
+      }]);
+      await insert(db, 'research.theme_quotes', quotes.map((qt) => ({ theme_id: id, utterance_id: aid(`utt:${proj.key}:${qt.t}:${qt.u}`), workspace_id: WS })));
+      did.themes++;
+      did.quotes += quotes.length;
+      // 3. What the theme rolls up into on Platform Insights.
+      if (!(await q('select 1 from insights.platform_themes where id = $1', [aid('pt:' + tk)])).rows[0]) {
+        const pos = Number((await q('select coalesce(max(position) + 1, 0)::int n from insights.platform_themes where workspace_id = $1', [WS])).rows[0].n);
+        await insert(db, 'insights.platform_themes', [{ id: aid('pt:' + tk), workspace_id: WS, title: def.title, category: catEnum[def.cat], position: pos }]);
+        did.platformThemes++;
+      }
+      await insert(db, 'insights.platform_theme_sources', [{ platform_theme_id: aid('pt:' + tk), theme_id: id, workspace_id: WS, match_method: 'auto', confidence: 0.9 }]);
+      did.matches++;
+    }
+  }
+
+  // 4. The recommendations that cover the later themes.
+  for (const [i, r] of D.RECOMMENDATIONS.entries()) {
+    if (!r.themes.some((tk) => LATER_THEMES.includes(tk))) continue;
+    if ((await q('select 1 from insights.recommendations where id = $1', [aid('rec:' + i)])).rows[0]) continue;
+    const pos = Number((await q('select coalesce(max(position) + 1, 0)::int n from insights.recommendations where workspace_id = $1', [WS])).rows[0].n);
+    await insert(db, 'insights.recommendations', [{ id: aid('rec:' + i), workspace_id: WS, title: r.title, why: r.why, priority: r.priority, position: pos }]);
+    await insert(db, 'insights.recommendation_themes', r.themes.map((tk) => ({ recommendation_id: aid('rec:' + i), platform_theme_id: aid('pt:' + tk), workspace_id: WS })));
+    did.recommendations++;
+  }
+  return did;
+}
+
 export async function summarize(db) {
   const count = async (sql, p) => Number((await db.query(sql, p)).rows[0].n);
   const ids = ANCHOR_PROJECT_IDS;

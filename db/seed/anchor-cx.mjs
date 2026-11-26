@@ -2,11 +2,14 @@
 //
 //   node seed/anchor-cx.mjs            show what exists and what would change (read-only)
 //   node seed/anchor-cx.mjs --yes      load it, in one transaction (run again to reload it)
+//   node seed/anchor-cx.mjs --add-themes [--yes]
+//                                      add only the two later themes (and their transcript lines) to a story that is already loaded, WITHOUT reloading it:
+//                                      a reload deletes the three studies and anything built on them by hand. Inserts and updates only; safe to run again.
 //
 // Only rows with this story's fixed ids are removed and recreated. See seed/anchor-cx/README.md for the story.
 import { fileURLToPath } from 'node:url';
 import { DEMO_SLUG } from './seed.mjs';
-import { ANCHOR_PROJECT_IDS, loadAnchorCx } from './anchor-cx/load.mjs';
+import { ANCHOR_PROJECT_IDS, addLaterThemes, loadAnchorCx } from './anchor-cx/load.mjs';
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { default: pg } = await import('pg');
@@ -24,6 +27,21 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const owner = (await client.query(`select user_id from core.memberships where workspace_id = $1 and role = 'owner' order by created_at limit 1`, [ws.id])).rows[0];
     if (!owner) { console.error('The demo workspace has no owner to attribute the projects to.'); process.exit(1); }
     const have = (await client.query('select count(*)::int n from core.projects where id = any($1::uuid[])', [ANCHOR_PROJECT_IDS])).rows[0].n;
+    if (process.argv.includes('--add-themes')) {
+      if (!have) { console.error('Anchor CX is not loaded here, so there is nothing to add the themes to.'); process.exit(1); }
+      console.log(`Anchor CX is loaded (${have} projects). Adding only the later themes: inserts and updates of rows this story owns, nothing deleted.`);
+      await client.query('begin');
+      try {
+        const did = await addLaterThemes(client, { workspaceId: ws.id, userId: owner.user_id });
+        if (!yes) { await client.query('rollback'); console.log('\nDry run (rolled back). It would add:'); } else { await client.query('commit'); console.log('\nAdded:'); }
+        for (const [k, v] of Object.entries(did)) console.log(`  ${k.padEnd(18)} ${v}`);
+        if (!yes) console.log('\nRe-run with --add-themes --yes to apply it.');
+      } catch (e) {
+        await client.query('rollback');
+        throw new Error('Nothing was changed: ' + e.message);
+      }
+      process.exit(0);
+    }
     console.log(have ? `Anchor CX is already loaded (${have} projects); it will be replaced.` : 'Anchor CX is not loaded yet; it will be added.');
     console.log(`Touches only: the Anchor CX projects, their platform themes and recommendations, in workspace "${DEMO_SLUG}".`);
     if (!yes) { console.log('\nDry run. Re-run with --yes to load it.'); process.exit(0); }

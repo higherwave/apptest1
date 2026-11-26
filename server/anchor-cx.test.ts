@@ -191,6 +191,58 @@ test('retiring the clinic demo leaves only Anchor CX, with its own journey, them
   assert.deepEqual(await retireClinic(db, ws), { projects: 0, platformThemes: 0, recommendations: 0, caseStudies: 0 }, 'a second run finds nothing')
 })
 
+test('adding the later themes to a story that is already loaded changes nothing else, and ends where a fresh load would', async () => {
+  const { db, get, pg } = await fixture()
+  // @ts-expect-error plain ESM
+  const { addLaterThemes, aid } = await import('../db/seed/anchor-cx/load.mjs')
+  const ws = (await pg.query<any>(`select id from core.workspaces where slug = 'higherwave-demo'`)).rows[0].id
+  const owner = (await pg.query<any>(`select user_id from core.memberships where workspace_id = $1 and role = 'owner' order by created_at limit 1`, [ws])).rows[0].user_id
+  const state = async () => ({
+    later: (await get('/insights/themes')).themes.filter((t: any) => /^(Account contacts|Nobody owns)/.test(t.title)).map((t: any) => [t.title, t.projectCount, t.participantCount, t.status, t.opportunity]),
+    utterances: Number((await pg.query<any>(`select count(*)::int n from research.utterances`)).rows[0].n),
+    quotes: Number((await pg.query<any>(`select count(*)::int n from research.theme_quotes`)).rows[0].n),
+    recs: Number((await pg.query<any>(`select count(*)::int n from insights.recommendations`)).rows[0].n),
+    hashes: (await pg.query<any>(`select id, input_hash from core.agent_runs where kind = 'analysis' order by id`)).rows,
+    texts: (await pg.query<any>(`select id, content_hash from research.transcripts order by id`)).rows,
+  })
+  const fresh = await state()
+  assert.equal(fresh.later.length, 2)
+
+  // Rewind to a workspace loaded before those themes existed: no T8 or T9 rows, and the eight transcripts without their last lines.
+  const themeIds = ['a2', 'a3'].flatMap((k) => ['T8', 'T9'].map((t) => aid(`theme:${k}:${t}`)))
+  await pg.query(`delete from research.theme_quotes where theme_id = any($1::uuid[])`, [themeIds])
+  await pg.query(`delete from insights.platform_theme_sources where theme_id = any($1::uuid[])`, [themeIds])
+  await pg.query(`delete from research.themes where id = any($1::uuid[])`, [themeIds])
+  await pg.query(`delete from insights.platform_themes where id = any($1::uuid[])`, [['T8', 'T9'].map((t) => aid('pt:' + t))])
+  await pg.query(`delete from insights.recommendation_themes where recommendation_id = $1`, [aid('rec:5')])
+  await pg.query(`delete from insights.recommendations where id = $1`, [aid('rec:5')])
+  // How many lines were added to each (study 2: participants 1 to 4, study 3: 1 to 4).
+  const added: Record<string, number[]> = { a2: [2, 4, 2, 4], a3: [2, 2, 2, 2] }
+  for (const [key, counts] of Object.entries(added)) {
+    for (const [ti, n] of counts.entries()) {
+      const id = aid(`transcript:${key}:${ti}`)
+      const raw = (await pg.query<any>(`select raw_text from research.transcripts where id = $1`, [id])).rows[0].raw_text as string
+      const total = Number((await pg.query<any>(`select count(*)::int n from research.utterances where transcript_id = $1`, [id])).rows[0].n)
+      const first = (await pg.query<any>(`select text from research.utterances where transcript_id = $1 and position = $2`, [id, total - n + 1])).rows[0].text as string
+      const at = raw.indexOf(first)
+      const cut = raw.includes('-->') ? raw.lastIndexOf('\n\n', at) : raw.lastIndexOf('\n', at)
+      await pg.query(`delete from research.utterances where transcript_id = $1 and position > $2`, [id, total - n])
+      await pg.query(`update research.transcripts set raw_text = $2 where id = $1`, [id, raw.slice(0, cut + 1)])
+    }
+  }
+  const old = await state()
+  assert.equal(old.later.length, 0, 'the rewound workspace has neither theme')
+  // Something built by hand on one of the studies, which a reload would have deleted.
+  await pg.query(`insert into delivery.launches (id, workspace_id, project_id, name, created_by, updated_by) values ($1, $2, $3, 'Renewal workspace', $4, $4)`, [aid('test:hand-built-launch'), ws, aid('project:a2'), owner])
+
+  const did = await addLaterThemes(db, { workspaceId: ws, userId: owner })
+  assert.deepEqual(did, { utterances: 20, themes: 4, quotes: 10, platformThemes: 2, matches: 4, recommendations: 1 })
+  const after = await state()
+  assert.deepEqual(after, fresh, 'the same as a fresh load: themes, utterances, quotes, recommendations, and the hashes that say the studies are not out of date')
+  assert.equal(Number((await pg.query<any>(`select count(*)::int n from delivery.launches where id = $1`, [aid('test:hand-built-launch')])).rows[0].n), 1, 'what was built by hand is still there')
+  assert.deepEqual(await addLaterThemes(db, { workspaceId: ws, userId: owner }), { utterances: 0, themes: 0, quotes: 0, platformThemes: 0, matches: 0, recommendations: 0 }, 'run again, it finds nothing to add')
+})
+
 test('the Anchor CX example workflow: adding it puts the three studies on it, and its journey is the aggregate with the four personas', async () => {
   const { app, get, pg } = await fixture()
   const auth = { authorization: 'Bearer s3cret' }
