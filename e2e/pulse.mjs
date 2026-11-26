@@ -521,6 +521,27 @@ try {
   await demo.waitForFunction(() => document.body.innerText.includes('Page not found'), { timeout: 15000 }).catch(() => {})
   ok('switched off again, the address does not exist for the visitor', (await text(demo)).includes('Page not found'))
 
+  // The note about signals that are in no topic sits under the impact map, at its left edge, with a link that explains topics and signals.
+  await api('POST', '/pulse/signals', { body: 'The zebra crossing outside our head office was repainted last week.', channel: 'call_notes', account: 'Wide World Importers' })
+  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="impact-map"]', { timeout: 8000 })
+  const note = await page.evaluate(() => {
+    const map = document.querySelector('[aria-label="Impact map"]').getBoundingClientRect()
+    const n = document.querySelector('[data-testid="topics-unsorted"]')
+    const r = n?.getBoundingClientRect()
+    return n ? { text: n.innerText, below: r.top >= map.bottom, left: Math.abs(r.left - map.left) < 2, link: !!n.querySelector('[data-testid="topic-vs-signal"]') } : null
+  })
+  ok('the "kept signals are not in a topic" note is under the impact map, at its left edge', !!note && note.below && note.left && /kept signals? (is|are) not in a topic: a signal on its own is not a topic yet\./.test(note.text), JSON.stringify(note))
+  ok('it ends with a link, "What’s the difference in a topic and a signal?"', !!note?.link && /What’s the difference in a topic and a signal\?/.test(note.text))
+  await page.hover('[data-testid="topic-vs-signal"]')
+  await page.waitForFunction(() => /A signal.*A topic/s.test(document.querySelector('[data-testid="topic-vs-signal-tip"]')?.innerText ?? '') && document.querySelector('[data-testid="topic-vs-signal-tip"]').offsetParent !== null, { timeout: 5000 })
+  ok('hovering it explains what a signal is and what a topic is', true)
+  await page.mouse.move(5, 5)
+  await page.waitForFunction(() => !document.querySelector('.cds--popover--open'), { timeout: 4000 })
+  ok('moving away closes the explanation', true)
+  await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="topics-grid"]', { timeout: 8000 })
+  ok('the note no longer sits at the bottom of the page on All Topics', !(await page.$('[data-testid="topics-unsorted"]')))
   // Switched off again: gone for the owner too.
   await page.goto(`${BASE}/settings/apps`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => document.querySelector('[data-testid="app-pulse"]')?.getAttribute('aria-checked') === 'true', { timeout: 8000 })

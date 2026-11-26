@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import type { PulseTopic } from '../../api/client'
 import { activeChannels } from './channels'
 import { money } from './money'
+import { TopicVsSignal } from './TopicVsSignal'
 import { trendTag } from './trend'
 import styles from './TopPriorities.module.scss'
 import { Why } from './Why'
@@ -21,8 +22,10 @@ const PLOT_H = H - PAD.top - PAD.bottom
 
 // Top Priorities: the topics ranked as cards on the left, and the impact map beside them. A dot and its card are one thing: choosing either opens the card, and an open card
 // darkens its dot. With Salesforce connected the height is the ARR behind a topic and the size is its accounts; without it the height is accounts and the size is signals.
-export function TopPriorities({ rankBar, topics, allTopics, ordered, hasArr, canStart, selected, onToggle, onDismiss }: {
+export function TopPriorities({ rankBar, topics, allTopics, ordered, hasArr, canStart, selected, onToggle, onDismiss, unsorted = 0 }: {
   rankBar: ReactNode
+  /** Kept signals that are in no topic yet: said under the map, with a note on what a topic is. */
+  unsorted?: number
   topics: PulseTopic[]
   /** Every topic, so the channels shown are the same as in the table whatever the top few hold. */
   allTopics: PulseTopic[]
@@ -145,6 +148,7 @@ export function TopPriorities({ rankBar, topics, allTopics, ordered, hasArr, can
       </ol>
       </div>
 
+      <div className={styles.mapCol}>
       <section className={styles.mapPanel} aria-label="Impact map">
         <div className={styles.mapHead}>
           <h2 className={styles.mapTitle}>Impact map</h2>
@@ -185,6 +189,12 @@ export function TopPriorities({ rankBar, topics, allTopics, ordered, hasArr, can
           })}
         </svg>
       </section>
+      {unsorted > 0 && (
+        <p className={styles.mapFootnote} data-testid="topics-unsorted">
+          {unsorted} kept {unsorted === 1 ? 'signal is' : 'signals are'} not in a topic: a signal on its own is not a topic yet. <TopicVsSignal />
+        </p>
+      )}
+      </div>
     </div>
   )
 }

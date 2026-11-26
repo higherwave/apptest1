@@ -148,7 +148,7 @@ export function TopicsPage() {
                   {topPriorities.length === 0 ? (
                     <p className={styles.text} data-testid="top-empty">Nothing has been heard about any topic lately, so no topic is a priority right now. Every topic is in All Topics.</p>
                   ) : (
-                    <TopPriorities rankBar={rankBarFor(true)} allTopics={list.topics} topics={topPriorities} ordered={topPriorities} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} />
+                    <TopPriorities rankBar={rankBarFor(true)} allTopics={list.topics} topics={topPriorities} ordered={topPriorities} hasArr={hasArr} canStart={canStart} selected={selected} onToggle={toggle} onDismiss={setDismissing} unsorted={list.unsorted} />
                   )}
                 </>
               )}
@@ -286,12 +286,6 @@ export function TopicsPage() {
           </TabPanels>
         </Tabs>
         </div>
-      )}
-
-      {list && list.unsorted > 0 && (
-        <p className={styles.footnote} data-testid="topics-unsorted">
-          {plural(list.unsorted, 'kept signal')} {list.unsorted === 1 ? 'is' : 'are'} not in a topic: a signal on its own is not a topic yet.
-        </p>
       )}
 
       {picked.length > 0 && (

@@ -193,15 +193,31 @@ $stack: 56.25rem; // below this the map goes above the cards
 }
 
 // ---- the map ---------------------------------------------------------------------------------------------------------------------------------
-.mapPanel {
+// The map and the note under it travel together when the page scrolls.
+.mapCol {
   position: sticky;
   inset-block-start: calc(4rem + var(--at-space-lg));
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-sm);
+  min-inline-size: 0;
+
+  @media (max-width: $stack) { position: static; order: 1; }
+}
+
+.mapPanel {
   border: 1px solid var(--at-hairline);
   border-radius: var(--at-radius-md);
   background: var(--at-canvas);
   overflow: hidden;
+}
 
-  @media (max-width: $stack) { position: static; order: 1; }
+// Left edge of the map, the same small text as the other notes on the page.
+.mapFootnote {
+  @include tokens.role('meta');
+  margin: 0;
+  color: var(--at-muted);
+  text-align: start;
 }
 
 .mapHead {

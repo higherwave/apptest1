@@ -1,0 +1,16 @@
+@use '../../tokens' as tokens;
+
+.wrap { display: inline-block; vertical-align: baseline; }
+
+// Link-style: the words, not a button. No box, the text colour of a link, left aligned with the line above.
+.link {
+  min-block-size: 0;
+  padding: 0;
+  @include tokens.role('meta');
+  color: var(--at-link);
+
+  &:hover { color: var(--at-link-active); background: transparent; }
+}
+
+.tip { inline-size: 22rem; max-inline-size: calc(100vw - 2rem); padding: var(--at-space-md); }
+.tipText { @include tokens.role('body-md'); margin: 0 0 var(--at-space-sm); color: var(--at-body); &:last-child { margin-block-end: 0; } }
