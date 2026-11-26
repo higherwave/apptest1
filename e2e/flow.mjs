@@ -18,6 +18,14 @@ await page.evaluateOnNewDocument(() => { try { localStorage.setItem('signal-flow
 await page.setViewport({ width: 1400, height: 900 })
 page.on('pageerror', (e) => ok('no page errors', false, e.message + ' ' + String(e.stack).split('\n').slice(1, 12).join(' | ')))
 const text = async () => page.evaluate(() => document.body.innerText)
+// A link that opens the quick-reference drawer: wait for its content, then follow "View details" to the full page.
+const throughDrawer = async (kind, ready, during) => {
+  await page.waitForSelector(`[data-testid="peek-${kind}"]`, { visible: true, timeout: 8000 })
+  await page.waitForFunction((k, r) => new RegExp(r).test(document.querySelector(`[data-testid="peek-${k}"]`)?.innerText ?? ''), { timeout: 8000 }, kind, ready)
+  await new Promise((r) => setTimeout(r, 500))
+  if (during) await during()
+  await page.evaluate((k) => document.querySelector(`[data-testid="peek-${k}"] [data-testid="peek-more"]`).click(), kind)
+}
 const waitText = (t, timeout = 8000) => page.waitForFunction((x) => document.body.innerText.toLowerCase().includes(x.toLowerCase()), { timeout }, t)
 const clickText = async (t, tag = 'button') => {
   const handle = await page.evaluateHandle((t, tag) => [...document.querySelectorAll(tag)].find((el) => el.innerText.trim() === t || el.textContent.trim() === t), t, tag)
@@ -1023,7 +1031,9 @@ try {
   await page.waitForFunction(() => window.__copied !== null, { timeout: 5000 })
   ok('Copy summary puts the theme on the clipboard as text (the summary, the project, what was expected and what was read) and says so', await page.evaluate(() => /1 worked across 1 project\./.test(window.__copied) && /We'll know this worked when/.test(window.__copied) && /Read: 38/.test(window.__copied) && /Copied/.test(document.querySelector('[data-testid^="measure-panel-"] [role="status"]').innerText)))
   ok('a project that is a case study is tagged and links to its row on Case studies', await page.evaluate((pid) => { const c = document.querySelector(`[data-testid="case-study-${pid}"]`); return !!c && /Case study/.test(c.innerText) && c.querySelector('a')?.getAttribute('href') === `/insights/case-studies?project=${pid}` }, projectId))
+  const measureUrl = page.url()
   await page.evaluate((pid) => document.querySelector(`[data-testid="case-study-${pid}"] a`).click(), projectId)
+  await throughDrawer('case', 'What happened', async () => ok('the case study link opens a drawer with the case scaled down (the problem, what was decided, what happened) and Measure stays where it was', page.url() === measureUrl && await page.evaluate(() => { const d = document.querySelector('[data-testid="peek-case"]'); return /The problem/.test(d.innerText) && /What we decided/.test(d.innerText) && /View details in Signal Flow/.test(d.querySelector('[data-testid="peek-more"]').innerText) })))
   await page.waitForSelector(`[data-testid="case-row-p-${projectId}"]`, { timeout: 8000 })
   ok('that link opens Case studies with the project’s row open', await page.evaluate((pid) => document.querySelector(`[data-testid="case-row-p-${pid}"]`)?.dataset.open === 'true' && document.querySelectorAll('[data-testid^="case-row-"][data-open="true"]').length === 1, projectId))
   // A reading that needs attention: the count appears, the project is no longer a case study, and "Show only these" narrows the list.
@@ -1189,6 +1199,7 @@ try {
   await page.click('[data-testid="group-none"]')
   await page.waitForFunction(() => !document.querySelector('[data-testid^="persona-area-"]'), { timeout: 5000 })
   await page.evaluate(() => document.querySelector('[data-testid^="customer-"][data-open="true"] button[class*="themeLink"]').click())
+  await throughDrawer('theme', 'Theme summary')
   await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 })
   ok('a theme in a persona opens that theme', true)
   // Group by Experience category: None is the default; grouping makes a section for each area, the themes with none last, and the choice is in the address.
@@ -1340,6 +1351,7 @@ try {
   await page.evaluate((id) => { const r = document.querySelector(`[data-testid="case-row-c-${id}"]`); if (r.dataset.open === 'false') r.querySelector('h3 button').click() }, cases[1].id)
   await page.waitForFunction((id) => document.querySelector(`[data-testid="case-row-c-${id}"]`).dataset.open === 'true', { timeout: 5000 }, cases[1].id)
   await clickText(chip.title)
+  await throughDrawer('theme', 'Theme summary')
   await page.waitForFunction((id) => location.pathname === '/insights/themes' && location.search === `?theme=${id}`, { timeout: 8000 }, chip.id)
   await page.waitForFunction((id) => document.querySelector(`[data-testid="platform-theme-${id}"]`)?.dataset.open === 'true', { timeout: 8000 }, chip.id)
   ok('a case study’s theme chip opens that theme’s row', true)
@@ -1347,7 +1359,7 @@ try {
   await page.waitForSelector('[data-testid^="journey-stage-"]', { timeout: 8000 })
   const journey = await (await fetch(`${API}/api/v1/insights/journey`)).json()
   ok('the platform journey uses the same map format: a dark stage row, then Themes, Pain points, Sentiment and Opportunity rows', await page.evaluate((j) => { const heads = [...document.querySelectorAll('[data-testid^="journey-stage-"]')]; const labels = [...document.querySelectorAll('[class*="rowLabel"]')].map((e) => e.textContent.trim()); const themes = [...document.querySelectorAll('article[data-category]')].map((a) => a.innerText); return heads.length === j.stages.length && heads.every((h, i) => h.innerText.toLowerCase().includes(j.stages[i].name.toLowerCase()) && h.innerText.toLowerCase().includes(`stage ${i + 1}`)) && labels.join() === 'Themes,Pain points,Sentiment,Opportunity' && j.stages.every((st) => st.themes.every((t) => themes.some((x) => x.includes(t.title)))) && !!document.querySelector('[role="img"][aria-label^="Sentiment by stage"]') && heads.length === document.querySelector('[data-columns]').getAttribute('data-columns') * 1 }, journey))
-  ok('a theme card on the journey opens that theme', await (async () => { await page.evaluate(() => document.querySelector('article[data-category] button').click()); await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 }); await page.goBack({ waitUntil: 'networkidle0' }); await page.waitForSelector('[data-testid^="journey-stage-"]'); return true })())
+  ok('a theme card on the journey opens that theme', await (async () => { await page.evaluate(() => document.querySelector('article[data-category] button').click()); await throughDrawer('theme', 'Theme summary'); await page.waitForFunction(() => location.pathname === '/insights/themes' && location.search.startsWith('?theme='), { timeout: 8000 }); await page.goBack({ waitUntil: 'networkidle0' }); await page.waitForSelector('[data-testid^="journey-stage-"]'); return true })())
   ok('the old Onboarding page is gone from the tabs', await page.evaluate(() => ![...document.querySelectorAll('[data-label]')].some((a) => a.dataset.label === 'Onboarding')))
   await page.goto(`${BASE}/insights/onboarding`, { waitUntil: 'networkidle0' })
   ok('and its old address leads to the journey', await page.evaluate(() => location.pathname === '/insights/journey'))

@@ -6,6 +6,7 @@ import { isPlainClick, peekHref } from './targets.js'
 test('each target links to its full page; a project opens on its themes once analyzed, on its plan before that', () => {
   assert.equal(peekHref({ kind: 'theme', id: 'abc' }), '/insights/themes?theme=abc')
   assert.equal(peekHref({ kind: 'topic', id: 'abc' }), '/pulse/topics/abc')
+  assert.equal(peekHref({ kind: 'case', id: 'abc' }), '/insights/case-studies?project=abc')
   assert.equal(peekHref({ kind: 'project', id: 'abc' }), '/projects/abc/plan')
   assert.equal(peekHref({ kind: 'project', id: 'abc' }, { status: 'draft' }), '/projects/abc/plan')
   assert.equal(peekHref({ kind: 'project', id: 'abc' }, { status: 'analyzed' }), '/projects/abc/themes')

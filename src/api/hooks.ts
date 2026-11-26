@@ -323,7 +323,7 @@ export const useGenerateStoryboard = (projectId: string) => {
     },
   })
 }
-export const useCaseBriefs = () => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs, staleTime: 30_000 })
+export const useCaseBriefs = (enabled = true) => useQuery({ queryKey: ['insights', 'briefs'], queryFn: listCaseBriefs, staleTime: 30_000, enabled })
 export const useCaseStudies = () => useQuery({ queryKey: ['insights', 'case-studies'], queryFn: listCaseStudies })
 
 // The Design table of a project. A save returns the row as it is now and is merged into the cached table.

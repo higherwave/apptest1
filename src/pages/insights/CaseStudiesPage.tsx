@@ -1,12 +1,13 @@
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
+import { usePeek } from '../../peek/context'
 import { useCaseBriefs, useCaseStudies } from '../../api/hooks'
 import { useGrouping } from './GroupBy'
 import { CaseStudiesView } from './CaseStudiesView'
 
 // Container: a row for each analysed project (its brief) and for each case study written by hand. A theme chip opens that theme.
 export function CaseStudiesPage() {
-  const navigate = useNavigate()
+  const peek = usePeek()
   const [params] = useSearchParams()
   const cases = useCaseStudies()
   const briefs = useCaseBriefs()
@@ -23,7 +24,7 @@ export function CaseStudiesPage() {
       onGroupBy={setGroupBy}
       errorText={error ? friendlyMessage(error) : undefined}
       onCopy={(text) => navigator.clipboard.writeText(text).then(() => true, () => false)}
-      onOpenTheme={(id) => navigate(`/insights/themes?theme=${id}`)}
+      onOpenTheme={(id) => peek.open({ kind: 'theme', id })}
     />
   )
 }

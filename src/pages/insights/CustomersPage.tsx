@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
+import { usePeek } from '../../peek/context'
 import { useCustomers } from '../../api/hooks'
 import { useGrouping } from './GroupBy'
 import { CustomersView } from './CustomersView'
@@ -7,6 +8,7 @@ import { CustomersView } from './CustomersView'
 // Container: customer profiles; a theme opens on the Themes screen and a quote opens the transcript it came from.
 export function CustomersPage() {
   const navigate = useNavigate()
+  const peek = usePeek()
   const customers = useCustomers()
   const [groupBy, setGroupBy] = useGrouping()
   const state = customers.isError ? 'error' : customers.isPending ? 'loading' : (customers.data?.groups ?? []).length === 0 ? 'empty' : 'ready'
@@ -17,7 +19,7 @@ export function CustomersPage() {
       groupBy={groupBy}
       onGroupBy={setGroupBy}
       errorText={customers.isError ? friendlyMessage(customers.error) : undefined}
-      onOpenTheme={(id) => navigate(`/insights/themes?theme=${id}`)}
+      onOpenTheme={(id) => peek.open({ kind: 'theme', id })}
       onOpenTranscripts={(projectId) => navigate(`/projects/${projectId}/transcripts`)}
     />
   )

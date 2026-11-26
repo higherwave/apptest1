@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useSearchParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
+import { usePeek } from '../../peek/context'
 import { useAddSampleWorkflows, useCreateWorkflow, useDeleteWorkflow, useMe, usePlatformJourney, useSaveWorkflow, useWorkflows } from '../../api/hooks'
 import { BlueprintActions } from './BlueprintActions'
 import { BlueprintEditor } from './BlueprintEditor'
@@ -10,7 +11,7 @@ import { ALL, PlatformJourneyView } from './PlatformJourneyView'
 // Container: the platform journey. Which workflow shows is in the address (`?workflow=<id>` or `?workflow=all`); with none chosen it opens on the
 // first workflow that has a project on it, else the first, else every study folded by stage name. Owners and editors edit the blueprint here.
 export function PlatformJourneyPage() {
-  const navigate = useNavigate()
+  const peek = usePeek()
   const [params, setParams] = useSearchParams()
   const me = useMe()
   const canEdit = me.data?.role === 'owner' || me.data?.role === 'editor'
@@ -73,7 +74,7 @@ export function PlatformJourneyPage() {
       state={state}
       journey={journey.data}
       errorText={journey.isError ? friendlyMessage(journey.error) : workflows.isError ? friendlyMessage(workflows.error) : sample.isError ? friendlyMessage(sample.error) : undefined}
-      onOpenTheme={(id) => navigate(`/insights/themes?theme=${id}`)}
+      onOpenTheme={(id) => peek.open({ kind: 'theme', id })}
       workflows={list}
       selected={selected}
       onSelect={choose}

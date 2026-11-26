@@ -1,7 +1,7 @@
 import { Copy } from '@carbon/icons-react'
 import { Button, Dropdown, Loading, Tag } from '@carbon/react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { Link } from 'react-router-dom'
+import { PeekLink } from '../../peek/PeekLink'
 import type { LaunchMeasure, MeasureResults } from '../../api/client'
 import { MEASURE_KINDS, readingText, sentenceText } from '../../../shared/measure.mjs'
 import { PageHero } from '../../shell/PageHero'
@@ -109,7 +109,7 @@ function ThemePanel({ theme, onCopy }: { theme: Theme; onCopy: MeasureViewProps[
           {p.caseStudy && (
             <p className={styles.caseLine} data-testid={`case-study-${p.projectId}`}>
               <Tag size="sm" type="green">Case study</Tag>
-              <Link to={`/insights/case-studies?project=${p.projectId}`}>View the case study</Link>
+              <PeekLink target={{ kind: 'case', id: p.projectId }}>View the case study</PeekLink>
             </p>
           )}
           <ul className={styles.results} aria-label={`Results for ${p.projectName}`}>

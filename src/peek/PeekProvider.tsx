@@ -1,6 +1,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { PeekContext } from './context'
+import { CasePeek } from './CasePeek'
 import { ProjectPeek } from './ProjectPeek'
 import type { PeekTarget } from './targets'
 import { ThemePeek } from './ThemePeek'
@@ -22,6 +23,7 @@ export function PeekProvider({ children }: { children: ReactNode }) {
       <ThemePeek id={target?.kind === 'theme' ? target.id : null} onClose={close} />
       <ProjectPeek id={target?.kind === 'project' ? target.id : null} onClose={close} />
       <TopicPeek id={target?.kind === 'topic' ? target.id : null} onClose={close} />
+      <CasePeek id={target?.kind === 'case' ? target.id : null} onClose={close} />
     </PeekContext.Provider>
   )
 }
