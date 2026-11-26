@@ -46,6 +46,15 @@ h1 span{color:#41454d;font-size:42px}
 .btn.primary{background:#2a2d34;color:#fff}.btn.primary:hover{background:#333840;color:#fff}
 .btn.secondary{background:#fff;color:#181d26;border-color:#ddd}.btn.secondary:hover{background:#f8fafc;color:#181d26}
 footer .brand{font-size:18px}
+/* Integrations: the tools {{appName}} connects to, right under the headline. */
+.integ{padding:56px 48px;border-top:1px solid #ddd}
+.integ-list{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;margin:28px 0 0;padding:0;list-style:none}
+.integ-list li{border:1px solid #ddd;border-radius:12px;padding:20px;background:#fff}
+.integ-list h3{margin:0;font-size:17px;line-height:1.3;font-weight:600;color:#181d26}
+.integ-list p{margin:8px 0 0;font-size:15px;line-height:1.5;color:#41454d}
+.integ-note{margin:20px 0 0;font-size:15px;line-height:1.5;color:#41454d;max-width:780px}
+@media(max-width:900px){.integ-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.integ{padding:40px 24px}.integ-list{grid-template-columns:minmax(0,1fr)}}
 .what{background:#f8fafc;border-top:1px solid #ddd;border-bottom:1px solid #ddd;padding:64px 48px}
 .wrap{max-width:960px;margin:0 auto}
 h2{margin:0;font-family:"Inter Tight",Inter,sans-serif;font-weight:400;font-size:28px;line-height:1.2;color:#181d26}
@@ -93,6 +102,15 @@ footer{background:#e4e5e8;padding:48px}.foot{max-width:960px;margin:0 auto}
 </div>
 </div>
 </main>
+<section class="integ" aria-labelledby="integ-h"><div class="wrap"><h2 id="integ-h">Integrations with Slack, Jira, Salesforce and HubSpot</h2>
+<ul class="integ-list">
+<li><h3>Slack</h3><p>Launch notifications, and the feedback channels you choose to listen to.</p></li>
+<li><h3>Jira</h3><p>Turn a story into a real ticket in your own project.</p></li>
+<li><h3>Salesforce</h3><p>Account revenue and opportunity notes, so you can see what is at stake. Read only.</p></li>
+<li><h3>HubSpot</h3><p>Support tickets as customer signals. Read only.</p></li>
+</ul>
+<p class="integ-note">Each workspace connects its own accounts in a few minutes. The keys are checked first, stored encrypted and never shown again.</p>
+</div></section>
 <section class="what"><div class="wrap"><h2>From research to requirements to ship</h2>
 <ol class="steps">
 <li class="step" style="--c:#a8d8c4"><span class="dot" aria-hidden="true">1</span><h3><a href="#r1">Plan the study</a></h3><p>Goals and participants on one page</p></li>
@@ -132,6 +150,7 @@ footer{background:#e4e5e8;padding:48px}.foot{max-width:960px;margin:0 auto}
 <footer><div class="foot"><div class="brand"><img src="/landing-icon.png" alt="">{{appName}}</div>
 <div class="legal"><p>Welcome to {{appName}}. This website is a development, testing, and demonstration environment used solely to showcase technical features and test functionality, including user authentication via Google Sign-In.</p>
 <p>Because this is a testing environment, please do not use real personal data, sensitive information, or production credentials when interacting with this site.</p>
+<p>Slack, Jira, Salesforce and HubSpot are trademarks of their respective owners. They are named here only to say what {{appName}} connects to. {{appName}} is not affiliated with or endorsed by them.</p>
 <p><a href="/privacy">Privacy policy</a> · <a href="/about">About</a> · {{appName}} is run by {{orgName}} ({{orgDomain}}).</p></div></div></footer>
 <script src="/landing-motion.js"></script>
 </body>
