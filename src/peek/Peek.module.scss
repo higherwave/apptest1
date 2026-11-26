@@ -1,0 +1,23 @@
+@use '../tokens' as tokens;
+
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--at-space-xs); }
+.facts { @include tokens.role('body-md'); margin: 0; color: var(--at-body); overflow-wrap: anywhere; }
+.muted { color: var(--at-muted); }
+.stats { display: flex; gap: var(--at-space-lg); margin: 0; }
+.stat { display: flex; flex-direction: column; gap: var(--at-space-xxs); }
+.statValue { @include tokens.role('heading-3'); margin: 0; color: var(--at-ink); }
+.statLabel { @include tokens.role('meta'); margin: 0; color: var(--at-muted); }
+.steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--at-space-sm); }
+.step { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: var(--at-space-sm); align-items: baseline; }
+.stepName { @include tokens.role('label-md'); color: var(--at-ink); }
+.stepState { @include tokens.role('meta'); grid-column: 1 / -1; color: var(--at-muted); overflow-wrap: anywhere; }
+.quotes { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--at-space-md); }
+.quote { margin: 0; padding-inline-start: var(--at-space-md); border-inline-start: 1px solid var(--at-hairline); }
+.words { @include tokens.role('body-md'); margin: 0; color: var(--at-body); overflow-wrap: anywhere; }
+.who { @include tokens.role('meta'); margin: var(--at-space-xxs) 0 0; color: var(--at-muted); overflow-wrap: anywhere; }
+.sum { display: flex; flex-direction: column; gap: var(--at-space-xxs); margin: 0; @include tokens.role('body-md'); }
+.sumRow, .sumTotal { display: flex; justify-content: space-between; gap: var(--at-space-sm); }
+.sumRow dt, .sumRow dd, .sumTotal dt, .sumTotal dd { margin: 0; }
+.sumTotal { padding-block-start: var(--at-space-xxs); border-block-start: 1px solid var(--at-hairline); color: var(--at-ink); }
+// The way out: the full page, at the bottom of the drawer where the buttons of the other panels are.
+.more { @include tokens.role('label-md'); display: inline-flex; align-items: center; gap: var(--at-space-xs); }

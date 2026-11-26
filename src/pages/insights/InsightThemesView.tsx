@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp } from '@carbon/icons-react'
 import { Button, Dropdown, InlineNotification, ProgressBar, Search, Tag } from '@carbon/react'
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { PeekLink } from '../../peek/PeekLink'
 import type { InsightsThemes, PulseTopic } from '../../api/client'
 import { SkeletonList, SkeletonRegion } from '../../components/Skeletons'
 import { AssignAreaPanel } from '../areas/AssignAreaPanel'
@@ -12,6 +12,7 @@ import { Sparkline } from './Sparkline'
 import { InsightsHeader } from './InsightsHeader'
 import { RecommendationStrip } from './RecommendationStrip'
 import { PriorityNote, RecentMerges, type Curation } from './ThemeCuration'
+import { RecommendationBlock, WhereFromBlock } from './ThemeBlocks'
 import { ORIGIN_LABEL, STATUS, teamConversations } from './labels'
 import styles from './InsightThemesView.module.scss'
 
@@ -115,7 +116,6 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
   })()
   const renderRow = (t: Row, overview: InsightsThemes) => {
                 const open = t.id === openId
-                const recs = overview.recommendations.filter((r) => r.themes.some((x) => x.id === t.id))
                 return (
                   <li key={t.id} className={styles.item} data-testid={`platform-theme-${t.id}`} data-open={open}>
                     <Button kind="ghost" size="md" className={styles.headButton} renderIcon={open ? ChevronUp : ChevronDown} aria-expanded={open} aria-controls={`theme-body-${t.id}`} onClick={() => onToggle(t.id)}>
@@ -147,30 +147,8 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                     </Button>
                     {open && (
                       <div id={`theme-body-${t.id}`} className={styles.detail}>
-                        <section aria-label="Recommendation" className={styles.banner} data-testid={`recommendation-${t.id}`}>
-                          <h3 className={styles.label}>Recommendation</h3>
-                          {recs.length === 0 ? (
-                            <p className={styles.text}>
-                              {t.opportunity ? `An opportunity: raised in ${plural(t.projectCount, 'project')} and no requirement addresses it yet.` : 'No recommendation yet.'}
-                            </p>
-                          ) : (
-                            recs.map((r) => (
-                              <p key={r.id} className={styles.text}>
-                                <strong>{r.title}</strong>
-                                {r.why ? ` ${r.why}` : ''}
-                              </p>
-                            ))
-                          )}
-                        </section>
-                        <section aria-label="Where this comes from">
-                          <h3 className={styles.label}>Where this comes from</h3>
-                          <p className={styles.text}>
-                            {t.origin === 'team'
-                              ? `Heard only in ${teamConversations(t.teamSessions)}, so no customer has raised it in a study yet and it does not count toward reach.`
-                              : `Raised by ${t.participantCount} of ${overview.totalParticipants} participants across ${t.projectCount} of ${plural(overview.projects.length, 'project')}.${t.teamSessions > 0 ? ` Also discussed in ${teamConversations(t.teamSessions)}, which confirms it but does not count toward reach.` : ''}`}
-                          </p>
-                          {t.aliases.length > 0 && <p className={styles.text}>Also known as: {t.aliases.join('; ')}.</p>}
-                        </section>
+                        <RecommendationBlock theme={t} overview={overview} />
+                        <WhereFromBlock theme={t} overview={overview} />
                         {t.needsReview && (
                           <section aria-label="Needs review" data-testid={`review-${t.id}`}>
                             <h3 className={styles.label}>Needs review</h3>
@@ -218,7 +196,7 @@ export function InsightThemesView({ state, overview, openId, errorText, onToggle
                                 {heard.map((p, i) => (
                                   <span key={p.id}>
                                     {i > 0 && ', '}
-                                    <Link to={`/pulse/topics/${p.id}`}>{p.title}</Link> ({p.signals} {p.signals === 1 ? 'signal' : 'signals'})
+                                    <PeekLink target={{ kind: 'topic', id: p.id }}>{p.title}</PeekLink> ({p.signals} {p.signals === 1 ? 'signal' : 'signals'})
                                   </span>
                                 ))}
                               </p>

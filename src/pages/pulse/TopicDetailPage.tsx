@@ -5,6 +5,7 @@ import { Link, useParams } from 'react-router-dom'
 import type { PulseChannel } from '../../api/client'
 import { useMe, usePulseTopic, usePulseTopics } from '../../api/hooks'
 import { SkeletonCard, SkeletonQuotes, SkeletonRegion } from '../../components/Skeletons'
+import { PeekLink } from '../../peek/PeekLink'
 import { PageHero } from '../../shell/PageHero'
 import { activeChannels, CHANNEL_LABEL, CHANNELS } from './channels'
 import { PulseNotFound } from './PulseNotFound'
@@ -74,9 +75,9 @@ export function TopicDetailPage() {
                 {t.researched.map((r, i) => (
                   <span key={r.id}>
                     {i > 0 && ', '}
-                    <Link to={`/insights/themes?theme=${r.id}`} data-testid="researched-link">
+                    <PeekLink target={{ kind: 'theme', id: r.id }} data-testid="researched-link">
                       {r.title}
-                    </Link>
+                    </PeekLink>
                   </span>
                 ))}
                 . Check what was learned before asking again.
@@ -90,9 +91,9 @@ export function TopicDetailPage() {
                 {t.projects.map((p, i) => (
                   <span key={p.id}>
                     {i > 0 && ', '}
-                    <Link to={`/projects/${p.id}/plan`} data-testid="project-link">
+                    <PeekLink target={{ kind: 'project', id: p.id }} data-testid="project-link">
                       {p.name}
-                    </Link>
+                    </PeekLink>
                   </span>
                 ))}
                 .

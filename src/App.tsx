@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AppShell } from './shell/AppShell'
 import { TourProvider } from './tour/TourProvider'
+import { PeekProvider } from './peek/PeekProvider'
 import { AuthGate } from './auth/AuthGate'
 import { SignInRoute } from './auth/SignInRoute'
 import { AreasPage } from './pages/areas/AreasPage'
@@ -58,7 +59,7 @@ export function App() {
     <AuthGate>
     <Routes>
       <Route path="sign-in" element={<SignInRoute />} />
-      <Route element={<TourProvider><AppShell /></TourProvider>}>
+      <Route element={<TourProvider><PeekProvider><AppShell /></PeekProvider></TourProvider>}>
         <Route index element={<Navigate to="/insights/themes" replace />} />
         <Route path="projects" element={<ProjectsPage />} />
         <Route path="projects/new" element={<NewTestPlanPage />} />

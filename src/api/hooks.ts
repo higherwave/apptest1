@@ -256,7 +256,7 @@ export const usePatchStory = (projectId: string) => useStoryEdit(projectId, (v: 
 export const useSaveChecklist = (projectId: string) => useStoryEdit(projectId, (v: { id: string; version: number; items: ChecklistInput[] }) => saveChecklist(v.id, v.version, v.items))
 
 // Platform Insights: read-only, so plain queries.
-export const useInsightsThemes = () => useQuery({ queryKey: ['insights', 'themes'], queryFn: getInsightsThemes })
+export const useInsightsThemes = (enabled = true) => useQuery({ queryKey: ['insights', 'themes'], queryFn: getInsightsThemes, enabled })
 export const usePlatformTheme = (id: string | null) => useQuery({ queryKey: ['insights', 'theme', id], queryFn: () => getPlatformTheme(id!), enabled: !!id })
 export const useMarkThemeReviewed = () => {
   const queryClient = useQueryClient()

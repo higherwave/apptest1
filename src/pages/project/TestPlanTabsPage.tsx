@@ -3,6 +3,7 @@ import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { friendlyMessage } from '../../api/client'
 import { useMe, useProject, usePulseOrigin, useSaveStudy, useSaveTasks, useTemplates } from '../../api/hooks'
 import { formFromProject, planChanged, taskFormFromProject, tasksChanged, toPlanRequest, toTasksRequest, validate, type FieldErrors, type PlanForm, type TaskForm } from '../testplan/form'
+import { usePeek } from '../../peek/context'
 import { TestPlanTabsView } from './TestPlanTabsView'
 import { useSaveFlow } from './useSaveFlow'
 
@@ -16,6 +17,7 @@ export function TestPlanTabsPage() {
   // The old second tab's address now opens the same page: the questions are beside the setup.
   const asked = useLocation().pathname.endsWith('/ask')
   const navigate = useNavigate()
+  const peek = usePeek()
   const project = useProject(projectId)
   const templates = useTemplates() // only for the list of test methods
   const me = useMe()
@@ -77,7 +79,7 @@ export function TestPlanTabsPage() {
       tasks={tasks ?? []}
       errors={errors}
       methodOptions={templates.data?.methodOptions ?? []}
-      fromPulse={origin.data ? { ...origin.data, onOpenTopic: (id) => navigate(`/pulse/topics/${id}`) } : undefined}
+      fromPulse={origin.data ? { ...origin.data, onOpenTopic: (id) => peek.open({ kind: 'topic', id }) } : undefined}
       errorText={project.isError ? friendlyMessage(project.error) : undefined}
       save={{
         dirty, canEdit, saving: flow.saving, conflict: flow.conflict, error: flow.error, savedAt: flow.savedAt, saveLabel: 'Save test plan',
