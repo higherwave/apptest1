@@ -5,7 +5,7 @@ import { MeasureView, type Result } from './MeasureView'
 
 const RESULTS = ['worked', 'needs_attention', 'too_early']
 
-// Container: Measure, the results across projects. The team, owner and result it is narrowed to live in the address (?team=, ?owner=, ?result=).
+// Container: Measure, the results across projects. The team, owner, project and result it is narrowed to live in the address (?team=, ?owner=, ?project=, ?result=).
 export function MeasurePage() {
   const [params, setParams] = useSearchParams()
   const results = useMeasureResults()
@@ -15,6 +15,7 @@ export function MeasurePage() {
   // A team or owner in the address that is not in the list (a stale link) is ignored rather than showing an empty page.
   const team = projects.some((p) => p.teamId === params.get('team')) ? params.get('team') : null
   const owner = projects.some((p) => p.ownerId === params.get('owner')) ? params.get('owner') : null
+  const project = projects.some((p) => p.projectId === params.get('project')) ? params.get('project') : null
   const result = RESULTS.includes(params.get('result') ?? '') ? (params.get('result') as Result) : null
   const set = (key: string, value: string | null) => {
     const p = new URLSearchParams(params)
@@ -22,5 +23,5 @@ export function MeasurePage() {
     else p.delete(key)
     setParams(p, { replace: true })
   }
-  return <MeasureView state={state} data={data} team={team} owner={owner} result={result} errorText={results.isError ? friendlyMessage(results.error) : undefined} onTeam={(id) => set('team', id)} onOwner={(id) => set('owner', id)} onResult={(r) => set('result', r)} onCopy={(text) => navigator.clipboard.writeText(text).then(() => true, () => false)} />
+  return <MeasureView state={state} data={data} team={team} owner={owner} project={project} result={result} errorText={results.isError ? friendlyMessage(results.error) : undefined} onTeam={(id) => set('team', id)} onProject={(id) => set('project', id)} onOwner={(id) => set('owner', id)} onResult={(r) => set('result', r)} onCopy={(text) => navigator.clipboard.writeText(text).then(() => true, () => false)} />
 }

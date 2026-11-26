@@ -1,5 +1,5 @@
 import { Copy } from '@carbon/icons-react'
-import { Button, Dropdown, Loading, Tag } from '@carbon/react'
+import { Button, ComboBox, Dropdown, Loading, Tag } from '@carbon/react'
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { PeekLink } from '../../peek/PeekLink'
 import type { LaunchMeasure, MeasureResults } from '../../api/client'
@@ -15,9 +15,12 @@ export type MeasureViewProps = {
   /** The team, owner and result the list is narrowed to, or null for all. */
   team: string | null
   owner: string | null
+  /** The project the card list is narrowed to, or null for all. */
+  project: string | null
   result: Result | null
   errorText?: string
   onTeam: (id: string | null) => void
+  onProject: (id: string | null) => void
   onOwner: (id: string | null) => void
   onResult: (r: Result | null) => void
   /** Puts text on the clipboard; false when the browser would not. */
@@ -142,16 +145,19 @@ function ThemeCard({ theme, selected, onSelect, inlinePanel }: { theme: Theme; s
 // Presentational: what the launches' measures showed after launch, by theme. Only what has a reading is here. The themes are the cards; the chosen one's projects and
 // results are beside them (or under the card on a narrower window). Narrowed to a team, an owner or a result.
 export function MeasureView(props: MeasureViewProps) {
-  const { state, data, team, owner, result, errorText } = props
+  const { state, data, team, owner, project, result, errorText } = props
   const wide = useWide()
   const [selectedId, setSelectedId] = useState<string | null | undefined>(undefined)
 
   const projectsAll = data ? data.themes.flatMap((t) => t.projects) : []
   const teams: Choice[] = [{ id: null, label: 'All teams' }, ...[...new Map(projectsAll.filter((p) => p.teamId).map((p) => [p.teamId as string, p.teamName ?? 'Team'])).entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))]
   const owners: Choice[] = [{ id: null, label: 'All owners' }, ...[...new Map(projectsAll.filter((p) => p.ownerId).map((p) => [p.ownerId as string, p.ownerName ?? 'Owner'])).entries()].map(([id, label]) => ({ id, label })).sort((a, b) => a.label.localeCompare(b.label))]
+  // The projects that have results, for the list's own filter (it is searchable, so a long list stays easy to use).
+  const projectChoices: Choice[] = [{ id: null, label: 'All' }, ...[...new Map(projectsAll.map((p) => [p.projectId, p.projectName])).entries()].map(([id, label]) => ({ id, label })).sort((x, y) => x.label.localeCompare(y.label, undefined, { sensitivity: 'base' }))]
+  const projectChoice = projectChoices.find((c) => c.id === project) ?? projectChoices[0]
   // The team and owner narrow what the counts are of; the result narrows the list too. A theme left with nothing is gone.
   const scoped: Theme[] = (data?.themes ?? [])
-    .map((t) => ({ ...t, projects: t.projects.filter((p) => (!team || p.teamId === team) && (!owner || p.ownerId === owner)) }))
+    .map((t) => ({ ...t, projects: t.projects.filter((p) => (!team || p.teamId === team) && (!owner || p.ownerId === owner) && (!project || p.projectId === project)) }))
     .filter((t) => t.projects.length > 0)
   // A measure can sit under several themes; the dropdown counts each one once.
   const countAll = (r: Result) => new Set(scoped.flatMap((t) => t.projects.flatMap((p) => p.measures.filter((m) => m.result === r).map((m) => m.id)))).size
@@ -171,7 +177,7 @@ export function MeasureView(props: MeasureViewProps) {
 
   return (
     <div className={styles.page}>
-      <PageHero title="Measure" description="Did it work? What each launch's measures showed after it went out, by theme, so the next study starts from results. Only what has been read is here." glow="left" variant="wave" />
+      <PageHero title="Measure" description="Did it work? What the measures across every project and launch showed once they were read, gathered by theme, so the next study starts from results. Only what has been read is here." glow="left" variant="wave" />
       {state === 'loading' && <Loading small withOverlay={false} description="Loading the results" />}
       {state === 'error' && <p className={styles.muted}>{errorText ?? 'The results could not be loaded.'}</p>}
       {state === 'empty' && (
@@ -205,11 +211,34 @@ export function MeasureView(props: MeasureViewProps) {
             <p className={styles.muted}>Nothing matches those choices.</p>
           ) : (
             <div className={styles.layout} data-wide={wide}>
+              <div className={styles.listCol}>
+              {projectChoices.length > 1 && (
+                <div className={styles.listTools}>
+                  <ComboBox
+                    id="measure-project"
+                    data-testid="measure-project"
+                    className={styles.projectBox}
+                    size="md"
+                    titleText="Project"
+                    placeholder="Search projects"
+                    items={projectChoices}
+                    itemToString={(c: Choice | null) => c?.label ?? ''}
+                    selectedItem={projectChoice}
+                    onChange={({ selectedItem }: { selectedItem?: Choice | null }) => props.onProject(selectedItem?.id ?? null)}
+                    shouldFilterItem={({ item, inputValue }: { item: Choice; inputValue: string | null }) => {
+                      // The box shows the current choice ("All"), so typing after it adds to that word: search for what was typed after it.
+                      const typed = (inputValue ?? '').startsWith(projectChoice.label) ? (inputValue ?? '').slice(projectChoice.label.length) : (inputValue ?? '')
+                      return !typed.trim() || item.label.toLowerCase().includes(typed.trim().toLowerCase())
+                    }}
+                  />
+                </div>
+              )}
               <ul className={styles.list} aria-label="Themes with results">
                 {shown.map((t) => (
                   <ThemeCard key={t.id ?? 'none'} theme={t} selected={t.id === selected?.id} onSelect={() => setSelectedId(t.id)} inlinePanel={!wide && t.id === selected?.id ? <ThemePanel theme={t} onCopy={props.onCopy} /> : undefined} />
                 ))}
               </ul>
+              </div>
               {wide && selected && <aside className={styles.aside}><ThemePanel theme={selected} onCopy={props.onCopy} /></aside>}
             </div>
           )}

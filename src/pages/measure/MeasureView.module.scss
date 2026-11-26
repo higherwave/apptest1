@@ -60,6 +60,21 @@
   background: var(--at-canvas);
 }
 
+.listCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--at-space-md);
+  min-inline-size: 0;
+}
+
+// At the top right of the card list.
+.listTools {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.projectBox { inline-size: min(100%, 18rem); }
+
 .list {
   display: flex;
   flex-direction: column;
