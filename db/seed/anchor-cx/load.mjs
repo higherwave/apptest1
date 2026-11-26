@@ -64,8 +64,46 @@ export const ANCHOR_PROJECT_IDS = D.PROJECTS.map((p) => aid('project:' + p.key))
 const PLATFORM_IDS = Object.keys(D.THEMES).map((k) => aid('pt:' + k));
 const REC_IDS = D.RECOMMENDATIONS.map((_, i) => aid('rec:' + i));
 
-export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
+// What is under the Anchor CX studies that this story did not put there: a requirements document, a launch (and its Slack thread), a transcript or a person someone added by hand. A reload deletes
+// the studies and everything under them, so it refuses while there is any (see loadAnchorCx). Edits to rows the story itself made (an answer on its launch, say) cannot be told apart from the
+// seed, so they are not counted here: a reload resets those.
+export async function handBuiltContent(db, workspaceId) {
+  const q = (sql, params) => db.query(sql, [ANCHOR_PROJECT_IDS, workspaceId, ...params]);
+  const own = (kind, count) => D.PROJECTS.flatMap((proj) => Array.from({ length: count(proj) }, (_, i) => aid(`${kind}:${proj.key}:${i}`)));
+  const found = [];
+  const add = (what, rows, label) => { if (rows.length) found.push({ what, count: rows.length, items: rows.slice(0, 5).map(label) }); };
+  add('requirements documents', (await q(`select s.id, s.name, p.name as project, s.status from delivery.specs s join core.projects p on p.id = s.project_id where s.project_id = any($1::uuid[]) and s.workspace_id = $2 and s.id <> $3`, [aid('spec:a1')])).rows, (r) => `${r.project}: ${r.name} (${r.status})`);
+  add('launches', (await q(`select l.id, l.name, p.name as project from delivery.launches l join core.projects p on p.id = l.project_id where l.project_id = any($1::uuid[]) and l.workspace_id = $2 and l.id <> $3`, [aid('launch:a1')])).rows, (r) => `${r.project}: ${r.name}`);
+  add('transcripts', (await q(`select t.id, t.name, p.name as project from research.transcripts t join core.projects p on p.id = t.project_id where t.project_id = any($1::uuid[]) and t.workspace_id = $2 and t.id <> all($3::uuid[])`, [own('transcript', (proj) => proj.files.length)])).rows, (r) => `${r.project}: ${r.name}`);
+  add('participants', (await q(`select pa.id, pa.name, p.name as project from research.participants pa join core.projects p on p.id = pa.project_id where pa.project_id = any($1::uuid[]) and pa.workspace_id = $2 and pa.id <> all($3::uuid[])`, [own('part', () => 4)])).rows, (r) => `${r.project}: ${r.name}`);
+  return found;
+}
+
+export class HandBuiltContentError extends Error {
+  constructor(found) {
+    super(`Reloading Anchor CX would delete content that was built by hand on its studies: ${found.map((f) => `${f.count} ${f.what} (${f.items.join('; ')}${f.count > f.items.length ? '; …' : ''})`).join(', ')}.`);
+    this.found = found;
+  }
+}
+
+// After a reload the studies are on no workflow (their link rows went with them). If the example workflow is in the workspace, put them back on it, mapping each stage by name.
+async function relinkExampleWorkflow(db, WS, USER) {
+  const flow = (await db.query(`select id from insights.workflows where workspace_id = $1 and lower(name) = 'customer success lifecycle'`, [WS])).rows[0];
+  if (!flow) return 0;
+  for (const P of ANCHOR_PROJECT_IDS) {
+    await db.query(`insert into insights.project_workflows (project_id, workspace_id, workflow_id, updated_by) values ($1, $2, $3, $4) on conflict (project_id) do nothing`, [P, WS, flow.id, USER]);
+    await db.query(`update research.study_stages ss set workflow_stage_id = fs.id from insights.workflow_stages fs where ss.study_id = $1 and fs.workflow_id = $2 and lower(fs.name) = lower(ss.name)`, [P, flow.id]);
+  }
+  return ANCHOR_PROJECT_IDS.length;
+}
+
+export async function loadAnchorCx(db, { workspaceId: WS, userId: USER, replaceHandBuilt = false }) {
   const q = (sql, params) => db.query(sql, params);
+  // Refuse to delete what people built by hand, unless that was asked for in so many words.
+  if (!replaceHandBuilt) {
+    const found = await handBuiltContent(db, WS);
+    if (found.length) throw new HandBuiltContentError(found);
+  }
 
   // Remove an earlier load of this story (cascades to everything under it).
   await q('delete from core.projects where id = any($1::uuid[])', [ANCHOR_PROJECT_IDS]);
@@ -254,6 +292,8 @@ export async function loadAnchorCx(db, { workspaceId: WS, userId: USER }) {
     await insert(db, 'insights.recommendations', D.RECOMMENDATIONS.map((r, i) => ({ id: aid('rec:' + i), workspace_id: WS, title: r.title, why: r.why, priority: r.priority, position: recOffset + i })));
     await insert(db, 'insights.recommendation_themes', D.RECOMMENDATIONS.flatMap((r, i) => r.themes.map((tk) => ({ recommendation_id: aid('rec:' + i), platform_theme_id: aid('pt:' + tk), workspace_id: WS }))));
   }
+
+  await relinkExampleWorkflow(db, WS, USER);
 
   return summarize(db);
 }

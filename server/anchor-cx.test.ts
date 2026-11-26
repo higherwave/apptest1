@@ -243,6 +243,35 @@ test('adding the later themes to a story that is already loaded changes nothing 
   assert.deepEqual(await addLaterThemes(db, { workspaceId: ws, userId: owner }), { utterances: 0, themes: 0, quotes: 0, platformThemes: 0, matches: 0, recommendations: 0 }, 'run again, it finds nothing to add')
 })
 
+test('a reload refuses to delete what was built by hand on the studies, says what it would delete, and puts the studies back on the example workflow', async () => {
+  const { app, db, get, pg } = await fixture()
+  // @ts-expect-error plain ESM
+  const { loadAnchorCx, handBuiltContent, HandBuiltContentError, aid } = await import('../db/seed/anchor-cx/load.mjs')
+  const auth = { authorization: 'Bearer s3cret' }
+  const ws = (await pg.query<any>(`select id from core.workspaces where slug = 'higherwave-demo'`)).rows[0].id
+  const owner = (await pg.query<any>(`select user_id from core.memberships where workspace_id = $1 and role = 'owner' order by created_at limit 1`, [ws])).rows[0].user_id
+  await app.request('/api/v1/workflows/sample', { method: 'POST', headers: auth })
+  assert.deepEqual(await handBuiltContent(db, ws), [], 'a story as loaded has nothing built by hand')
+
+  // Someone builds a launch on a study.
+  await pg.query(`insert into delivery.launches (id, workspace_id, project_id, name, created_by, updated_by) values ($1, $2, $3, 'Renewal workspace', $4, $4)`, [aid('test:launch'), ws, aid('project:a2'), owner])
+  const found = await handBuiltContent(db, ws)
+  assert.deepEqual(found.map((f: any) => [f.what, f.count]), [['launches', 1]])
+  assert.match(found[0].items[0], /Renewal workspace/)
+  await assert.rejects(loadAnchorCx(db, { workspaceId: ws, userId: owner }), (e: any) => e instanceof HandBuiltContentError && /1 launches/.test(e.message) && /Renewal workspace/.test(e.message))
+  assert.equal(Number((await pg.query<any>(`select count(*)::int n from delivery.launches where id = $1`, [aid('test:launch')])).rows[0].n), 1, 'nothing was deleted')
+
+  // Asked for in so many words, it reloads: the hand-built launch goes, and the studies are on the example workflow again.
+  await loadAnchorCx(db, { workspaceId: ws, userId: owner, replaceHandBuilt: true })
+  assert.equal(Number((await pg.query<any>(`select count(*)::int n from delivery.launches where id = $1`, [aid('test:launch')])).rows[0].n), 0)
+  const flow = (await get('/workflows')).data.find((w: any) => w.name === 'Customer success lifecycle')
+  assert.equal(flow.projectCount, 3, 'back on the workflow after the reload')
+  const journey = await get(`/insights/journey?workflow=${flow.id}`)
+  assert.ok(journey.stages.every((st: any) => st.projectCount === 3) && journey.stages.some((st: any) => st.personas.length > 0), 'with its research')
+  // And a plain reload of a story with nothing built by hand just works.
+  await loadAnchorCx(db, { workspaceId: ws, userId: owner })
+})
+
 test('the Anchor CX example workflow: adding it puts the three studies on it, and its journey is the aggregate with the four personas', async () => {
   const { app, get, pg } = await fixture()
   const auth = { authorization: 'Bearer s3cret' }

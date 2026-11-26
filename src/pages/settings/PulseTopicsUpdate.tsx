@@ -1,4 +1,5 @@
-import { Button, InlineNotification } from '@carbon/react'
+import { Button, InlineNotification, Modal } from '@carbon/react'
+import { useState } from 'react'
 import { friendlyMessage } from '../../api/client'
 import { usePulseTopics, useUpdatePulseTopics } from '../../api/hooks'
 import styles from './PulseSources.module.scss'
@@ -11,6 +12,7 @@ export function PulseTopicsUpdate() {
   const topics = usePulseTopics()
   const update = useUpdatePulseTopics()
   const updatedAt = topics.data?.updatedAt ?? null
+  const [confirming, setConfirming] = useState(false)
   return (
     <section className={styles.card} aria-label="Update topics" data-testid="pulse-update-card">
       <h2 className={styles.head}>Update topics</h2>
@@ -22,11 +24,32 @@ export function PulseTopicsUpdate() {
       </p>
       {update.isError && <InlineNotification hideCloseButton lowContrast kind="error" title="Topics were not updated" subtitle={friendlyMessage(update.error)} />}
       {update.isSuccess && !update.isPending && <InlineNotification hideCloseButton lowContrast kind="success" title="Topics updated" subtitle="The Topics page shows the new ranking." data-testid="topics-updated" />}
-      <div>
+      <div className={styles.actions}>
         <Button kind="tertiary" size="md" data-testid="topics-update" disabled={update.isPending} onClick={() => update.mutate('attach')}>
           {update.isPending ? 'Updating…' : 'Update topics'}
         </Button>
+        <Button kind="ghost" size="md" data-testid="topics-regroup" disabled={update.isPending} onClick={() => setConfirming(true)}>
+          Regroup all topics
+        </Button>
       </div>
+      <Modal
+        open={confirming}
+        size="sm"
+        modalHeading="Regroup all topics?"
+        modalLabel="Pulse"
+        primaryButtonText="Regroup"
+        secondaryButtonText="Cancel"
+        data-testid="regroup-confirm"
+        onRequestClose={() => setConfirming(false)}
+        onRequestSubmit={() => {
+          setConfirming(false)
+          update.mutate('regroup')
+        }}
+      >
+        <p>
+          Every signal is sorted again, by the AI model when it is switched on for this workspace (it uses some of the monthly AI budget) and by word matching when it is not. A topic you renamed, merged, split or dismissed stays as you set it; the others can be renamed or regrouped. Use it to see what the model makes of everything Pulse has heard, not for a routine update.
+        </p>
+      </Modal>
     </section>
   )
 }

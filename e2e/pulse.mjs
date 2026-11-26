@@ -9,6 +9,13 @@ const ok = (name, cond, extra = '') => { if (!cond) failed++; console.log(`${con
 
 const browser = await puppeteer.launch({ executablePath: process.env.CHROME_PATH || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', headless: 'new', args: ['--window-size=1400,1000', ...(process.env.CI ? ['--no-sandbox'] : [])] })
 const wait = (ms) => new Promise((r) => setTimeout(r, ms))
+// A page load that times out (a slow shared CI runner: the dev server was still optimizing, or the network never went quiet) is tried once more. A second timeout still fails the run.
+const retryOnTimeout = (p) => {
+  const go = p.goto.bind(p)
+  p.goto = async (...args) => {
+    try { return await go(...args) } catch (e) { if (!/timeout/i.test(String(e?.message))) throw e; console.log('  (page load timed out, trying once more)'); return go(...args) }
+  }
+}
 const text = (page) => page.evaluate(() => document.body.innerText)
 const waitText = (page, t, timeout = 10000) => page.waitForFunction((x) => document.body.innerText.toLowerCase().includes(x.toLowerCase()), { timeout }, t)
 // A button is clicked once it is enabled (one is briefly disabled while a change saves).
@@ -34,6 +41,7 @@ const open = async (token, path) => {
     if (t) { try { sessionStorage.setItem('signalflow.editToken', t) } catch { /* ignore */ } }
   }, token)
   page.on('pageerror', (e) => ok('no page errors', false, e.message))
+  retryOnTimeout(page)
   await page.goto(`${BASE}${path}`, { waitUntil: 'networkidle0' })
   return page
 }
@@ -382,6 +390,22 @@ try {
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="theme-search"]', { timeout: 8000 })
   ok('Platform Insights has no Heard in Pulse table: Pulse stays in its own app', !(await page.$('[data-testid="heard-in-pulse"]')))
+  // Settings, Pulse: Update topics (new signals only) and Regroup all topics (everything not edited, after a confirmation that says what changes).
+  await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="topics-regroup"]', { timeout: 8000 })
+  ok('Settings, Pulse says automatic updates are off and offers Update topics and Regroup all topics', await page.evaluate(() => { const c = document.querySelector('[data-testid="pulse-update-card"]').innerText; return /switched off for now/.test(c) && /Update topics/.test(c) && /Regroup all topics/.test(c) }))
+  await click(page, 'topics-regroup')
+  await page.waitForSelector('.cds--modal.is-visible', { timeout: 5000 })
+  ok('Regroup all topics asks first, and says what stays as it is', await page.evaluate(() => { const m = document.querySelector('.cds--modal.is-visible').innerText; return /Regroup all topics\?/.test(m) && /renamed, merged, split or dismissed stays as you set it/.test(m) && /monthly AI budget/.test(m) }))
+  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => /^Cancel$/.test(b.innerText.trim())).click())
+  await wait(500)
+  ok('Cancel closes it and changes nothing', await page.evaluate(() => !document.querySelector('.cds--modal.is-visible') && !document.querySelector('[data-testid="topics-updated"]')))
+  await click(page, 'topics-regroup')
+  await page.waitForSelector('.cds--modal.is-visible', { timeout: 5000 })
+  await wait(400)
+  await page.evaluate(() => [...document.querySelectorAll('.cds--modal.is-visible button')].find((b) => /^Regroup$/.test(b.innerText.trim())).click())
+  await page.waitForSelector('[data-testid="topics-updated"]', { timeout: 10000 })
+  ok('confirming regroups everything and says so', true)
   // HubSpot support tickets: connected by the operator; an owner designates the tickets, they are read as signals in their own channel, with the company and a link back.
   await page.goto(`${BASE}/settings/pulse`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="pulse-hubspot-card"]', { timeout: 8000 })

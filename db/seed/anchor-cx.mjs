@@ -2,6 +2,9 @@
 //
 //   node seed/anchor-cx.mjs            show what exists and what would change (read-only)
 //   node seed/anchor-cx.mjs --yes      load it, in one transaction (run again to reload it)
+//   node seed/anchor-cx.mjs --yes --replace-hand-built
+//                                      reload even though the studies hold content built by hand (a requirements document, a launch...): it is DELETED. Without this flag a
+//                                      reload refuses and says what it would delete. If the example workflow is in the workspace, the studies are put back on it.
 //   node seed/anchor-cx.mjs --add-themes [--yes]
 //                                      add only the two later themes (and their transcript lines) to a story that is already loaded, WITHOUT reloading it:
 //                                      a reload deletes the three studies and anything built on them by hand. Inserts and updates only; safe to run again.
@@ -9,7 +12,7 @@
 // Only rows with this story's fixed ids are removed and recreated. See seed/anchor-cx/README.md for the story.
 import { fileURLToPath } from 'node:url';
 import { DEMO_SLUG } from './seed.mjs';
-import { ANCHOR_PROJECT_IDS, addLaterThemes, loadAnchorCx } from './anchor-cx/load.mjs';
+import { ANCHOR_PROJECT_IDS, HandBuiltContentError, addLaterThemes, handBuiltContent, loadAnchorCx } from './anchor-cx/load.mjs';
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const { default: pg } = await import('pg');
@@ -43,17 +46,25 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       process.exit(0);
     }
     console.log(have ? `Anchor CX is already loaded (${have} projects); it will be replaced.` : 'Anchor CX is not loaded yet; it will be added.');
+    if (have) {
+      const found = await handBuiltContent(client, ws.id);
+      if (found.length) {
+        console.log('\nA reload would DELETE content built by hand on these studies:');
+        for (const f of found) console.log(`  ${f.count} ${f.what}: ${f.items.join('; ')}${f.count > f.items.length ? '; …' : ''}`);
+        console.log(process.argv.includes('--replace-hand-built') ? '\n--replace-hand-built was given: it will be deleted.' : '\nA reload will refuse while this is here. To add to the story instead, use --add-themes; to reload anyway, add --replace-hand-built.');
+      }
+    }
     console.log(`Touches only: the Anchor CX projects, their platform themes and recommendations, in workspace "${DEMO_SLUG}".`);
     if (!yes) { console.log('\nDry run. Re-run with --yes to load it.'); process.exit(0); }
     await client.query('begin');
     try {
-      const summary = await loadAnchorCx(client, { workspaceId: ws.id, userId: owner.user_id });
+      const summary = await loadAnchorCx(client, { workspaceId: ws.id, userId: owner.user_id, replaceHandBuilt: process.argv.includes('--replace-hand-built') });
       await client.query('commit');
       console.log('\nLoaded:');
       for (const [k, v] of Object.entries(summary)) console.log(`  ${k.padEnd(18)} ${v}`);
     } catch (e) {
       await client.query('rollback');
-      throw new Error('Load failed and was rolled back: ' + e.message);
+      throw new Error((e instanceof HandBuiltContentError ? 'Nothing was changed (rolled back): ' : 'Load failed and was rolled back: ') + e.message);
     }
   } finally {
     await client.end();
