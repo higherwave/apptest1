@@ -41,7 +41,7 @@ export const APPS: Record<AppKey, AppDef> = {
     items: [
       { to: '/pulse', label: 'Topics', match: (p) => p === '/pulse' || startsWith('/pulse/topics')(p) },
     ],
-    hasTour: false, // no Pulse tour yet
+    hasTour: true,
     owns: startsWith('/pulse'),
   },
 }

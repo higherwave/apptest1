@@ -1,22 +1,29 @@
 import { CheckmarkFilled } from '@carbon/icons-react'
 import { Button, Modal } from '@carbon/react'
 import brand from '../../brand/brand.json'
+import type { AppKey } from '../shell/apps'
 import { TOURS } from './tours'
 import styles from './WelcomeDialog.module.scss'
 
-type Props = { open: boolean; finished: string[]; starting: boolean; onStart: (id: string) => void; onClose: () => void }
+type Props = { open: boolean; app: AppKey; finished: string[]; starting: boolean; onStart: (id: string) => void; onClose: () => void }
 
 // The welcome screen: what Signal Flow is, in the story the demo tells, and the tours to pick from. Opens on a read-only visitor's first
 // visit and any time from "Take a tour" in the header.
-export function WelcomeDialog({ open, finished, starting, onStart, onClose }: Props) {
+export function WelcomeDialog({ open, app, finished, starting, onStart, onClose }: Props) {
   return (
-    <Modal open={open} passiveModal size="md" modalLabel="Welcome" modalHeading={`Welcome to ${brand.appName}`} onRequestClose={onClose} className={styles.dialog}>
-      <p className={styles.lead}>
-        Meet Anchor CX, a company that makes software for customer-success teams. Its leaders wanted to know why customers had stopped trusting the account health score. {brand.appName} is how the team found out: it turns what customers say into themes, then requirements, then tickets ready for Jira.
-      </p>
+    <Modal open={open} passiveModal size="md" modalLabel="Welcome" modalHeading={`Welcome to ${app === 'pulse' ? 'Pulse' : brand.appName}`} onRequestClose={onClose} className={styles.dialog}>
+      {app === 'pulse' ? (
+        <p className={styles.lead}>
+          Meet Anchor CX, a company that makes software for customer-success teams. Customers tell it things all day, in Slack, in sales notes, in support tickets and on calls. Pulse reads those places and groups what is about the same thing into topics, ranked by how much each counts, so the team knows what is worth researching next.
+        </p>
+      ) : (
+        <p className={styles.lead}>
+          Meet Anchor CX, a company that makes software for customer-success teams. Its leaders wanted to know why customers had stopped trusting the account health score. {brand.appName} is how the team found out: it turns what customers say into themes, then requirements, then tickets ready for Jira.
+        </p>
+      )}
       <p className={styles.lead}>Everything here is a read-only sample. Take a short guided tour, or look around on your own.</p>
       <div className={styles.tours} role="list">
-        {TOURS.map((t) => (
+        {TOURS.filter((t) => t.app === app).map((t) => (
           <div className={styles.tour} role="listitem" key={t.id}>
             <div>
               <h3 className={styles.name}>

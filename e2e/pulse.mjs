@@ -60,7 +60,7 @@ try {
   await page.goto(`${BASE}/pulse?tab=all`, { waitUntil: 'networkidle0' })
   await waitText(page, 'No topics yet')
   ok('/pulse opens Topics, with Pulse as the app in the header and Topics as its only item', (await page.evaluate(() => document.querySelector('[data-testid="app-brand"]').innerText.trim())) === 'Pulse' && (await page.evaluate(() => [...document.querySelectorAll('[data-nav] a')].map((a) => a.dataset.label).filter((l) => l !== 'Settings').join('|'))) === 'Topics')
-  ok('Pulse has no Take a tour button in its header: there is no Pulse tour yet', !(await page.$('[data-testid="take-a-tour"]')))
+  ok('Pulse has a Take a tour button in its header', !!(await page.$('[data-testid="take-a-tour"]')))
   await page.goto(`${BASE}/pulse/signals`, { waitUntil: 'networkidle0' })
   await page.waitForFunction(() => location.pathname === '/pulse' && location.search === '?tab=all', { timeout: 8000 })
   ok('the old Signals address leads to All Topics: there is no Signals page', true)
@@ -358,6 +358,27 @@ try {
     await page.keyboard.press('Escape')
     await page.waitForFunction(() => !document.querySelector('.cds--modal.is-visible'), { timeout: 4000 })
   } else console.log('  skip  this demo topic has no Signal Flow match, so the theme drawer is not exercised here')
+  // The Pulse tour: Take a tour offers Pulse's own tour (not Signal Flow's), and every step finds what it points at, across the Topics tabs and a topic's page.
+  await page.goto(`${BASE}/pulse`, { waitUntil: 'networkidle0' })
+  await page.waitForSelector('[data-testid="top-priorities"]', { timeout: 8000 })
+  await click(page, 'take-a-tour')
+  await page.waitForSelector('[data-testid="start-pulse"]', { visible: true, timeout: 5000 })
+  ok('Take a tour in Pulse offers the Pulse tour only, in Pulse\'s own words', await page.evaluate(() => !document.querySelector('[data-testid="start-insights"]') && !document.querySelector('[data-testid="start-project"]') && /Pulse reads those places/.test(document.querySelector('.cds--modal.is-visible').innerText)))
+  await click(page, 'start-pulse')
+  const steps = []
+  for (let i = 0; i < 12; i++) {
+    await page.waitForFunction(() => { const d = document.querySelector('[data-testid="tour"] [role="dialog"]'); return d && d.dataset.state !== 'finding' }, { timeout: 15000 })
+    await wait(250)
+    steps.push(await page.evaluate(() => { const d = document.querySelector('[data-testid="tour"] [role="dialog"]'); return { title: d.querySelector('h2').innerText, state: d.dataset.state, path: location.pathname + location.search } }))
+    if ((await page.$eval('[data-testid="tour-next"]', (b) => b.innerText.trim())) === 'Done') { await click(page, 'tour-next'); break }
+    const before = steps.at(-1).title
+    await click(page, 'tour-next')
+    await page.waitForFunction((t) => document.querySelector('[data-testid="tour"] h2')?.innerText !== t, { timeout: 8000 }, before)
+  }
+  ok('the Pulse tour has 8 steps and ends', steps.length === 8 && !(await page.$('[data-testid="tour"]')), `${steps.length} seen`)
+  const lost = steps.map((s, i) => [s, i + 1]).filter(([s, i]) => s.state === 'center' && i !== steps.length)
+  ok('every step of the Pulse tour finds what it points at', lost.length === 0, lost.map(([s, i]) => `${i} "${s.title}"`).join('; '))
+  ok('the tour moves between the Top Priorities tab, All Topics and a topic\'s page', steps[1].path === '/pulse' && steps[3].path === '/pulse?tab=all' && /^\/pulse\/topics\//.test(steps[4].path) && steps[6].path === '/pulse?tab=all', steps.map((s) => s.path).join(' | '))
   await page.goto(`${BASE}/insights/themes`, { waitUntil: 'networkidle0' })
   await page.waitForSelector('[data-testid="theme-search"]', { timeout: 8000 })
   ok('Platform Insights has no Heard in Pulse table: Pulse stays in its own app', !(await page.$('[data-testid="heard-in-pulse"]')))

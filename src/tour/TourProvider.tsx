@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
-import { getProjectStage, listProjects } from '../api/client'
+import { getProjectStage, listProjects, listPulseTopics } from '../api/client'
 import { appFor } from '../shell/apps'
 import { useMe } from '../api/hooks'
 import { TourOverlay } from './TourOverlay'
@@ -24,6 +24,15 @@ async function pickProject(): Promise<string | null> {
   return (analyzed[0] ?? projects[0])?.id ?? null
 }
 
+// The topic the Pulse tour opens: the strongest one, so its page has quotes, accounts and a score to show.
+async function pickTopic(): Promise<string | null> {
+  try {
+    return (await listPulseTopics()).topics[0]?.id ?? null
+  } catch {
+    return null
+  }
+}
+
 type Running = { tour: Tour; steps: TourStep[]; index: number }
 
 // Holds the welcome screen and the running tour. The welcome screen opens by itself the first time a read-only visitor arrives, and any
@@ -45,6 +54,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // The first visit of a read-only visitor (anonymous or signed in as a viewer) opens the welcome screen, unless they landed in an app with no tour (Pulse). People who can edit ask for it.
+  const app = appFor(pathname).key
   const firstVisit = me.data?.role === 'viewer' && !memory.welcomed && !pathname.startsWith('/sign-in') && appFor(pathname).hasTour
   const welcome = (asked || firstVisit) && !running
 
@@ -60,8 +70,10 @@ export function TourProvider({ children }: { children: ReactNode }) {
       setStarting(true)
       try {
         const project = tour.steps.some((s) => s.route.includes(':project')) ? await pickProject() : null
-        // Without a sample project the steps about it are left out, and the tour says so by ending early.
-        const steps = tour.steps.filter((s) => !s.route.includes(':project') || project).map((s) => ({ ...s, route: project ? s.route.replace(':project', project) : s.route }))
+        const topic = tour.steps.some((s) => s.route.includes(':topic')) ? await pickTopic() : null
+        // Without a sample project or topic the steps about it are left out, and the tour says so by ending early.
+        const fill = (route: string) => route.replace(':project', project ?? '').replace(':topic', topic ?? '')
+        const steps = tour.steps.filter((s) => (!s.route.includes(':project') || project) && (!s.route.includes(':topic') || topic)).map((s) => ({ ...s, route: fill(s.route) }))
         if (steps.length === 0) return
         setAsked(false)
         remember({ welcomed: true })
@@ -78,7 +90,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
     if (running && running.index === running.steps.length - 1) {
       const finished = [...new Set([...memory.finished, running.tour.id])]
       remember({ finished })
-      if (TOURS.some((t) => !finished.includes(t.id))) setAsked(true)
+      if (TOURS.some((t) => t.app === running.tour.app && !finished.includes(t.id))) setAsked(true)
     }
     setRunning(null)
   }, [memory.finished, remember, running])
@@ -88,7 +100,7 @@ export function TourProvider({ children }: { children: ReactNode }) {
   return (
     <TourContext.Provider value={api}>
       {children}
-      <WelcomeDialog open={welcome} finished={memory.finished} starting={starting} onStart={start} onClose={closeWelcome} />
+      <WelcomeDialog open={welcome} app={app} finished={memory.finished} starting={starting} onStart={start} onClose={closeWelcome} />
       {running && (
         <TourOverlay
           key={`${running.tour.id}:${running.index}`}

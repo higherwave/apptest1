@@ -496,7 +496,8 @@ test('GET /projects/:id: unknown, malformed and other-workspace ids are 404', as
 test('GET /projects/:id/stage: the server decides which steps are open', async () => {
   await withFresh(async ({ app, pg }) => {
     const idOf = async (name: string) => ((await pg.query<any>(`select id from core.projects where name = $1`, [name])).rows[0] as { id: string }).id
-    const tabs = async (name: string) => (await expectSpec(await app.request(`/api/v1/projects/${await idOf(name)}/stage`), '/projects/{id}/stage')).tabs
+    // As someone who can edit (the demo token): a person who can only read gets steps with nothing in them locked, see the test below.
+    const tabs = async (name: string) => (await expectSpec(await app.request(`/api/v1/projects/${await idOf(name)}/stage`, { headers: auth }), '/projects/{id}/stage')).tabs
     const open = (t: any) => Object.fromEntries(Object.entries(t).map(([k, v]: [string, any]) => [k, v.enabled]))
     // Published board: everything open.
     assert.ok(Object.values(open(await tabs('Clinic booking, usability round 1'))).every(Boolean))
@@ -509,6 +510,33 @@ test('GET /projects/:id/stage: the server decides which steps are open', async (
     assert.deepEqual(open(draft), { plan: true, participants: true, transcripts: true, themes: false, storyboard: false, prio: false, requirements: false, design: false, stories: false, launch: false })
     assert.equal(draft.themes.hint, 'Save and analyze a transcript first')
   })
+})
+
+test('GET /projects/:id/stage: someone who can only read sees a step with nothing in it locked, with the reason; an editor can still open it to create it', async () => {
+  const { pglite: pg, db } = await createDemoDatabase()
+  const editor = createApp({ env: TOKEN, getDb: () => db })
+  const viewer = createApp({ env: { ...TOKEN, DEV_USER_EMAIL: 'sam@demo.signalflow.example' }, getDb: () => db })
+  const id = async (name: string) => ((await pg.query<any>(`select id from core.projects where name = $1`, [name])).rows[0] as { id: string }).id
+  const tabs = async (app: ReturnType<typeof createApp>, name: string, headers: Record<string, string> = auth) => (await expectSpec(await app.request(`/api/v1/projects/${await id(name)}/stage`, { headers }), '/projects/{id}/stage')).tabs
+  const round2 = 'Clinic booking, round 2'
+  // Analysed, with no storyboard, no requirements document and no launch.
+  await pg.query(`delete from research.storyboards where project_id = $1`, [await id(round2)])
+  await pg.query(`delete from delivery.launches where project_id = $1`, [await id(round2)])
+  await pg.query(`delete from delivery.specs where project_id = $1`, [await id(round2)])
+  const e = await tabs(editor, round2)
+  assert.deepEqual([e.storyboard.enabled, e.requirements.enabled, e.launch.enabled], [true, true, true], 'an editor opens them to create them')
+  const v = await tabs(viewer, round2)
+  assert.deepEqual([v.themes.enabled, v.prio.enabled], [true, true], 'what exists is open')
+  assert.deepEqual([v.storyboard.enabled, v.storyboard.hint], [false, 'The storyboard has not been written yet'])
+  assert.deepEqual([v.requirements.enabled, v.requirements.hint], [false, 'Requirements have not been started'])
+  assert.deepEqual([v.launch.enabled, v.launch.hint], [false, 'No launch has been started'])
+  assert.deepEqual([v.design.enabled, v.stories.enabled], [false, false])
+  // The same viewer, once those exist, sees them open.
+  await pg.query(`insert into research.storyboards (project_id, workspace_id, draft, prompt_version, source) select p.id, p.workspace_id, '{}'::jsonb, 'test', 'template' from core.projects p where p.id = $1`, [await id(round2)])
+  assert.equal((await tabs(viewer, round2)).storyboard.enabled, true, 'a written storyboard opens for a reader')
+  // A project that has all of it is open for everyone.
+  const done = await tabs(viewer, 'Clinic booking, usability round 1')
+  assert.deepEqual([done.requirements.enabled, done.design.enabled, done.stories.enabled], [true, true, true], 'a project with published requirements is open for a reader, as far as it goes')
 })
 
 test('saving needs If-Match: without it, 428 precondition_required', async () => {
@@ -760,7 +788,7 @@ test('the simulated analysis reproduces the prototype: 9 themes, same order, sam
   // Now the project is analysed, and its steps are open.
   const list = (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === id)
   assert.deepEqual([list.status, list.themes, list.sessions, list.highPriority], ['analyzed', 9, 3, 6])
-  const tabs = (await (await app.request(`/api/v1/projects/${id}/stage`)).json()).tabs
+  const tabs = (await (await app.request(`/api/v1/projects/${id}/stage`, { headers: auth })).json()).tabs
   assert.deepEqual([tabs.themes.enabled, tabs.requirements.enabled, tabs.stories.enabled], [true, true, false])
   const after = await (await app.request(`/api/v1/projects/${id}/transcripts`)).json()
   assert.deepEqual([after.hasAnalysis, after.needsAnalysis], [true, false])
@@ -817,7 +845,7 @@ test('removing every transcript retires the analysis: the project is a draft aga
   assert.deepEqual([body.transcripts.length, body.hasAnalysis, body.needsAnalysis], [0, false, false])
   const card = (await (await app.request('/api/v1/projects')).json()).data.find((p: any) => p.id === id)
   assert.deepEqual([card.status, card.themes, card.sessions], ['draft', 0, 0])
-  const tabs = (await (await app.request(`/api/v1/projects/${id}/stage`)).json()).tabs
+  const tabs = (await (await app.request(`/api/v1/projects/${id}/stage`, { headers: auth })).json()).tabs
   assert.equal(tabs.themes.enabled, false)
 })
 
@@ -1233,7 +1261,7 @@ test('publishing needs every step approved, then makes requirements and stories 
   // Published: the document is final and the project's Stories step opens.
   const published = await (await app.request(`/api/v1/specs/${spec.id}`)).json()
   assert.deepEqual([published.status, !!published.publishedAt, published.canPublish], ['published', true, false])
-  const tabs = (await (await app.request(`/api/v1/projects/${round2}/stage`)).json()).tabs
+  const tabs = (await (await app.request(`/api/v1/projects/${round2}/stage`, { headers: auth })).json()).tabs
   assert.equal(tabs.stories.enabled, true)
   assert.equal((await call('POST', `/specs/${spec.id}/publish`, undefined, published.version)).status, 409, 'cannot publish twice')
 })
@@ -1379,7 +1407,7 @@ test('deleting a document removes its steps and stories; a stand-alone one takes
   await pg.query(`update delivery.specs set status = 'draft', published_at = null where id = $1`, [seeded.id])
   assert.equal((await call('DELETE', `/specs/${seeded.id}`)).status, 204)
   assert.equal((await pg.query<any>(`select count(*)::int n from delivery.stories where spec_id = $1`, [seeded.id])).rows[0].n, 0)
-  assert.equal((await (await app.request(`/api/v1/projects/${p1}/stage`)).json()).tabs.stories.enabled, false, 'Stories locks again')
+  assert.equal((await (await app.request(`/api/v1/projects/${p1}/stage`, { headers: auth })).json()).tabs.stories.enabled, false, 'Stories locks again')
   const sa = await (await call('POST', '/specs/standalone', { name: 'Temp', what: 'x' })).json()
   assert.equal((await call('DELETE', `/specs/${sa.id}`)).status, 204)
   assert.equal((await pg.query<any>(`select count(*)::int n from core.projects where kind = 'standalone'`)).rows[0].n, 0)

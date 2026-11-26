@@ -3,7 +3,7 @@ import { T } from '../../shared/terms.mjs'
 // The guided tours. Written as a story: Anchor CX makes software for customer-success teams, and its product leaders have asked why
 // customers stopped trusting the account health score. Each step points at a real part of the screen (a CSS selector) on a real page
 // (a route); where a step has no target, or the target is not on the page, the card simply sits in the middle of the screen.
-// ":project" in a route is the sample project the tour walks through.
+// ":project" in a route is the sample project the tour walks through; ":topic" is the Pulse topic the Pulse tour opens (the strongest one). A route may carry a query ("/pulse?tab=all").
 
 export type TourStep = {
   title: string
@@ -15,7 +15,9 @@ export type TourStep = {
 }
 
 export type Tour = {
-  id: 'insights' | 'project'
+  id: 'insights' | 'project' | 'pulse'
+  /** The app the tour belongs to: the welcome screen and the header's Take a tour offer only the tours of the app a person is in. */
+  app: 'signal-flow' | 'pulse'
   title: string
   summary: string
   /** Minutes to read through it, as promised on the welcome screen. */
@@ -26,6 +28,7 @@ export type Tour = {
 export const TOURS: Tour[] = [
   {
     id: 'insights',
+    app: 'signal-flow',
     title: 'The view from the top',
     summary: 'See what Anchor CX has learned across all of its research, rolled up for product leaders.',
     minutes: 2,
@@ -81,6 +84,7 @@ export const TOURS: Tour[] = [
   },
   {
     id: 'project',
+    app: 'signal-flow',
     title: 'From conversation to Jira ticket',
     summary: 'Follow one Anchor CX research project from customer conversations to tickets ready for Jira, and on to the launch decision.',
     minutes: 3,
@@ -143,6 +147,62 @@ export const TOURS: Tour[] = [
         title: 'That is the whole path',
         body: 'From a customer\'s own words to a launch decision, with the evidence kept at every step. Back on Platform Insights, the same project rolls up with all the others.',
         route: '/projects/:project/launch',
+      },
+    ],
+  },
+  {
+    id: 'pulse',
+    app: 'pulse',
+    title: 'What customers keep telling you',
+    summary: 'See how Pulse turns what customers say in Slack, sales notes, support tickets and calls into a ranked list of topics worth researching.',
+    minutes: 2,
+    steps: [
+      {
+        title: 'Everything customers say, sorted for you',
+        body: 'Anchor CX hears from customers all day: in Slack, in sales notes, in support tickets and on calls. Nobody has time to read it all, and the same complaint gets heard by five different people. Pulse reads those places and groups what is about the same thing into topics, so the pattern shows up without anyone sorting by hand.',
+        route: '/pulse',
+        target: 'main h1',
+      },
+      {
+        title: 'Start with what counts most',
+        body: 'The top topics come first. Each card says how many signals are behind it, how many accounts raised it, and how much revenue those accounts represent. A topic heard in direct customer words counts more than one heard second-hand, and the card shows the numbers behind its rank.',
+        route: '/pulse',
+        target: '[data-testid^="card-"]',
+      },
+      {
+        title: 'Impact against how often it comes up',
+        body: 'The map puts every top topic on two things at once: how widely it is heard and how much money is behind it. A topic in the top right is both common and costly, which is where research is worth the time.',
+        route: '/pulse',
+        target: '[data-testid="impact-map"]',
+      },
+      {
+        title: 'Every topic, and why it ranks where it does',
+        body: 'All Topics lists every pattern Pulse found. A topic shows where it was heard, whether it is rising or fading, and whether Signal Flow already has research on it, so nobody asks customers a question the team has already answered. The weights behind each score are visible, never hidden.',
+        route: '/pulse?tab=all',
+        target: '[data-testid="topics-grid"]',
+      },
+      {
+        title: 'The customer\'s own words',
+        body: 'Open a topic to read what people actually said, with where and who said it. The score is the sum of the signals times how much each place counts, laid out line by line, and a signal counts a little less as it gets older.',
+        route: '/pulse/topics/:topic',
+        target: '[data-testid="topic-quotes"]',
+      },
+      {
+        title: 'Which accounts, and what is at stake',
+        body: 'The accounts and people behind a topic are possible research participants, with the revenue from Salesforce beside each account. Open deals that mention the topic show what is riding on it.',
+        route: '/pulse/topics/:topic',
+        target: '[data-testid="topic-accounts"]',
+      },
+      {
+        title: 'From a pattern to a research project',
+        body: 'Pick the topics worth digging into and start a Signal Flow project from them in one click. Pulse drafts about one session\'s worth of questions from what customers said, each with the words that prompted it. Pulse tells you what to ask; Signal Flow is where you ask it.',
+        route: '/pulse?tab=all',
+        target: '[data-testid^="pick-"]',
+      },
+      {
+        title: 'That is Pulse',
+        body: 'What customers say, grouped and ranked, with the evidence one click away. When a project starts from a topic, the topic links to it, and what the research learns shows up in Signal Flow\'s Platform Insights.',
+        route: '/pulse',
       },
     ],
   },

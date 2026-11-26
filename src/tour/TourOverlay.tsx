@@ -9,7 +9,12 @@ const PAD = 6 // the spotlight stands this far off the thing it points at
 const WAIT_MS = 6000 // how long to wait for a page and its data before the card simply sits in the middle
 const rem = (px: number) => `${px / 16}rem`
 
-const onRoute = (pathname: string, route: string) => pathname === route || pathname.startsWith(`${route}/`)
+// A step's route may carry a query ("/pulse?tab=all"): the page is right only when its path matches and, if the route has a query, the page's query is that one.
+const onRoute = (where: { pathname: string; search: string }, route: string) => {
+  const [path, query = ''] = route.split('?')
+  const here = where.pathname === path || where.pathname.startsWith(`${path}/`)
+  return here && (!query || where.search === `?${query}`)
+}
 
 // The first element a selector finds that is actually showing.
 function findTarget(selector: string): Element | null {
@@ -42,11 +47,11 @@ export function TourOverlay({ tour, steps, index, onBack, onNext, onEnd }: Props
   const last = index === steps.length - 1
   const navigate = useNavigate()
   // The page the router has drawn. The address bar changes first, while the old page is still on screen, so it is not used to decide a page is ready.
-  const { pathname } = useLocation()
-  const here = useRef(pathname)
+  const { pathname, search } = useLocation()
+  const here = useRef({ pathname, search })
   useEffect(() => {
-    here.current = pathname
-  }, [pathname])
+    here.current = { pathname, search }
+  }, [pathname, search])
   const root = useRef<HTMLDivElement>(null)
   const card = useRef<HTMLDivElement>(null)
   const next = useRef<HTMLButtonElement>(null)

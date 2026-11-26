@@ -212,20 +212,30 @@ export type StageInfo = { tabs: Record<StepKey, { enabled: boolean; hint: string
 //   Themes, Storyboard, Priorities, Requirements: the current analysis has at least one theme.
 //   Design and Stories: a requirements document of this project is published. (Measure is a place of its own, across projects.)
 //   Launch: the project has themes, so the go signals can start early; the answers come as the work does.
-export async function getProjectStage(db: Queryable, workspaceId: string, projectId: string): Promise<StageInfo | undefined> {
+// A person who can only READ the project (the read-only demo visitor, a viewer, a leader looking at another team's project) cannot start what is missing, so a step that has nothing to show yet
+// is locked for them, with the reason, instead of opening on an empty page they can do nothing with: the storyboard until it is written, Requirements until a document exists, Launch until one has started.
+export async function getProjectStage(db: Queryable, workspaceId: string, projectId: string, canEdit = true): Promise<StageInfo | undefined> {
   const summary = await getProjectSummary(db, workspaceId, projectId)
   if (!summary) return undefined
-  const published = (await db.query(`select exists (select 1 from delivery.specs where project_id = $1 and status = 'published') as published`, [projectId])).rows[0].published as boolean
+  const exists = async (sql: string) => (await db.query(`select exists (${sql}) as yes`, [projectId])).rows[0].yes as boolean
+  const published = await exists(`select 1 from delivery.specs where project_id = $1 and status = 'published'`)
   const analyzed = summary.themes > 0
   const open = { enabled: true, hint: null }
   const needAnalysis = { enabled: analyzed, hint: analyzed ? null : 'Save and analyze a transcript first' }
+  // Steps whose content has to be created first. An editor opens them to create it; a reader sees them locked until it exists.
+  const madeFirst = async (sql: string, why: string) => {
+    if (!analyzed || canEdit) return needAnalysis
+    return (await exists(sql)) ? open : { enabled: false, hint: why }
+  }
   return {
     tabs: {
       plan: open, participants: open, transcripts: open,
-      themes: needAnalysis, storyboard: needAnalysis, prio: needAnalysis, requirements: needAnalysis,
+      themes: needAnalysis, prio: needAnalysis,
+      storyboard: await madeFirst(`select 1 from research.storyboards where project_id = $1`, 'The storyboard has not been written yet'),
+      requirements: await madeFirst(`select 1 from delivery.specs where project_id = $1`, 'Requirements have not been started'),
       design: { enabled: published, hint: published ? null : 'Publish the requirements first' },
       stories: { enabled: published, hint: published ? null : 'Publish the requirements first' },
-      launch: needAnalysis,
+      launch: await madeFirst(`select 1 from delivery.launches where project_id = $1`, 'No launch has been started'),
     },
   }
 }

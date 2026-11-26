@@ -69,7 +69,7 @@ import { aiMode, makeAi, recentAiProblems, workspaceBudget, spendByTeam, spentTh
 import { NoTranscripts, runAnalysis } from './analysis.js'
 import { getPlatformTheme, getThemesOverview, listCaseStudies, markThemeReviewed, refreshPlatformMatches } from './insights.js'
 import { acceptSuggestion, AlreadyAssigned, assignThemeArea, clearThemeArea, NotFiledByHand, autoMergeDuplicates, dismissSuggestion, DuplicateTitle, findMergeSuggestions, listMerges, MergeHistoryMissing, mergeThemes, PlatformThemeMissing, renameTheme, SameTheme, undoMerge, writeRankRationales } from './platform-themes.js'
-import { editableTeamIds, enforceProjectScope, newProjectTeam, visibleTeamIds } from './teams.js'
+import { editableTeamIds, enforceProjectScope, newProjectTeam, projectAccess, visibleTeamIds } from './teams.js'
 import { createTeam, deleteTeam, listTeams, MembersManagedBySso, moveProject, PersonNotInWorkspace, ProjectNotFound as TeamProjectNotFound, removeTeamMember, saveTeam, setTeamMember, setTeamSlackChannel, TeamIsDefault, TeamNameTaken, TeamNotEmpty, TeamNotFound } from './team-admin.js'
 import { getTheme, listThemes, patchTheme, setThemeArea, resetPriorityOverrides, ThemeConflict, ThemeNotFound, ThemeSuperseded } from './themes.js'
 import { T } from '../shared/terms.mjs'
@@ -892,7 +892,10 @@ export function createApp(options: AppOptions = {}) {
   })
 
   app.get('/projects/:id/stage', withReadContext, async (c) => {
-    const stage = await getProjectStage(getDb(), c.get('ctx').workspaceId, projectId(c))
+    // Someone who can only read this project cannot start what is missing, so a step with nothing in it is locked for them (see getProjectStage).
+    const ctx = c.get('ctx')
+    const access = await projectAccess(getDb(), ctx, projectId(c))
+    const stage = await getProjectStage(getDb(), ctx.workspaceId, projectId(c), !!access && access.role !== 'viewer')
     if (!stage) throw new ApiError(404, 'not_found', 'No such project.')
     cacheHeaders(c)
     c.header('Vary', 'Authorization')
