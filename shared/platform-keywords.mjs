@@ -14,4 +14,6 @@ export const PLATFORM_KEYWORDS = {
   'Reporting to leadership is manual and out of date': ['report\\w*', 'spreadsheets?', 'slides', 'quarterly'],
   'Playbooks should adapt to the customer segment': ['playbooks?', 'segments?', 'rigid'],
   'The customer timeline saves real time': ['timeline'],
+  'Account contacts and owners are out of date, so check-ins start with the wrong people': ['contacts?', 'account owner', 'stakeholders?', 'last confirmed', 'who owns'],
+  'Nobody owns a risk alert once it fires': ['owner and a due time', 'picked up', 'nobody.s name', 'who has it', 'who gets it'],
 };

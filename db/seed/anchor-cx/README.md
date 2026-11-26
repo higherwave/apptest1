@@ -50,8 +50,14 @@ These run through all three studies, which is what makes the cross-project views
 | Reporting to leadership is manual and out of date | CS ops, executives | Pain point |
 | Playbooks should adapt to the customer segment | CSMs, CS ops | Expectation |
 | The customer timeline saves real time | CSMs, support leads, executives | Delight |
+| Account contacts and owners are out of date, so check-ins start with the wrong people | CSMs, support leads, executives (studies 2 and 3 only) | Pain point |
+| Nobody owns a risk alert once it fires | Support leads, CS ops, executives (studies 2 and 3 only) | Pain point |
 
 Study 1 finds the problems, study 2 shows the risk-factor panel starting to earn trust, and study 3 shows leaders wanting digests and board-ready answers.
+
+The last two themes came up unprompted in studies 2 and 3 only, and no requirement in study 1 answers them, so they are **open opportunities** (on the Opportunity row of Platform Insights > Journeys, at stages 1 and 3, beside the reporting theme at stage 5). Their quotes are the last lines of the eight transcripts they come from; keep new lines at the end of a transcript so the quote positions in `data.mjs` stay right.
+
+After reloading the story on a workspace that already has the example workflow, run `npx tsx scripts/demo-workflow-link.ts --yes` (or add the example again): a reload recreates the studies, which come back on no workflow.
 
 ## A story to tell with the results
 

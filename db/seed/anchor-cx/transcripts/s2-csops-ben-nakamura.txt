@@ -9,3 +9,5 @@
 00:02:41 Ben Nakamura: This is still manual for me. I export to a spreadsheet and build the quarterly review by hand. Two days of work, easily.
 00:03:05 Ben Nakamura: If leaders could drill from the portfolio down to an account without asking me, I'd get my week back.
 00:03:27 Ben Nakamura: The alerts rules page is clearer than before. I'd like to test a rule against last month's data before turning it on, so I know it won't be noisy.
+00:03:48 Moderator: What would make the alert rules more useful?
+00:04:01 Ben Nakamura: I'd want every alert to have an owner and a due time. Right now I can't tell whether anyone looked at it, so I can't tell whether the rule is working.

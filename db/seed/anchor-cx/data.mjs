@@ -22,7 +22,11 @@ export const THEMES = {
   T6: { title: 'Playbooks should adapt to the customer segment', cat: 'Expectation', stage: 4, sev: -0.3, eff: 2, effNote: 'Playbook steps become optional by segment; one playbook replaces many clones.',
     opp: 'Make playbook steps optional by customer segment' },
   T7: { title: 'The customer timeline saves real time', cat: 'Delight', stage: 0, sev: 0.8, eff: 1, effNote: 'Already built; the work is keeping it central.',
-    opp: 'Keep the customer timeline at the center of every account view' },
+    opp: 'Keep the customer timeline at the center of every account view' },  // Two that came up unprompted in the later studies and that no requirement answers yet, so they are open opportunities on Platform Insights > Journeys.
+  T8: { title: 'Account contacts and owners are out of date, so check-ins start with the wrong people', cat: 'Pain point', stage: 0, sev: -0.6, eff: 1, effNote: 'Syncs contacts and owners from the CRM and shows when each was last confirmed.',
+    opp: 'Show who owns each account and who the real contacts are, with the date each was last confirmed' },
+  T9: { title: 'Nobody owns a risk alert once it fires', cat: 'Pain point', stage: 2, sev: -0.6, eff: 2, effNote: 'Needs an owner, a due time and a picked-up status on every alert, in the alert and case systems.',
+    opp: 'Give every risk alert an owner and a due time, and show when it was picked up' },
 };
 
 export const RECOMMENDATIONS = [
@@ -36,6 +40,8 @@ export const RECOMMENDATIONS = [
     why: 'About two in twenty alerts matter, so people mute them and risk reaches leaders late. Executives asked for a weekly digest instead.' },
   { title: 'Generate the portfolio report and a board-ready export', priority: 'medium', themes: ['T5'],
     why: 'CS operations spends about two days a quarter building the review by hand, and the numbers are old by the time leaders see them.' },
+  { title: 'Keep owners and contacts visible on every account and every alert', priority: 'medium', themes: ['T8', 'T9'],
+    why: 'Both came up unprompted in the later studies: the contacts and owners on an account are out of date, and an alert with nobody’s name on it sits for a day. Neither is in the first release.' },
 ];
 
 const TASKS_DISCOVERY = [
@@ -105,6 +111,10 @@ export const PROJECTS = [
         quotes: [[0, 9], [2, 2]] },
       T7: { desc: 'The timeline on the right was singled out again as what people use to remember what happened.',
         quotes: [[0, 10], [1, 7]] },
+      T8: { desc: 'The contacts and the account owner on the page were out of date: a champion had left, and a ticket still named the old success manager. People wanted to see when each was last confirmed.',
+        quotes: [[0, 14], [1, 15], [3, 12]] },
+      T9: { desc: 'An alert with nobody’s name on it gets assumed to be someone else’s and sits. Support, operations and executives all asked for an owner and a due time on every alert.',
+        quotes: [[1, 13], [2, 13], [3, 14]] },
     },
   },
   {
@@ -129,6 +139,10 @@ export const PROJECTS = [
         quotes: [[2, 9]] },
       T7: { desc: 'The timeline came up unprompted again, and leaders asked that it stay central.',
         quotes: [[0, 10], [1, 3], [3, 9]] },
+      T8: { desc: 'Stale contacts and owners undermine a digest or a board view: a CSM saw months-old contacts, and an executive finds out in the meeting that the owner is wrong.',
+        quotes: [[0, 12], [3, 12]] },
+      T9: { desc: 'The early-warning flag only helps if someone owns it. Support and operations want an owner and a due time on every flag, so the speed of pick-up can be reported.',
+        quotes: [[1, 11], [2, 12]] },
     },
   },
 ];

@@ -8,3 +8,5 @@
 00:02:11 Samir Qureshi: A lot. A summary of what changed in my accounts each Monday is far better than a flood of alerts. Alerts were noise, this tells me what matters.
 00:02:37 Samir Qureshi: But it has to be timely. If the data is two days old I'll not trust it.
 00:02:56 Samir Qureshi: And please keep the timeline. Seeing the story of the account in order is the best thing in the product.
+00:03:17 Moderator: Anything else that would make you trust the digest?
+00:03:30 Samir Qureshi: When I clicked an account the contacts were months old. I'd trust the digest more if it said who the real contacts are and when that was last checked.

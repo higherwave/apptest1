@@ -122,31 +122,51 @@ export async function sampleMissing(db: Queryable, workspaceId: string): Promise
 }
 
 /**
- * Adds the example workflows that are not there yet (matched by name), and puts on each new one the projects that are on no workflow and whose journey
- * stages all match its stages by name (so the Anchor CX studies land on the Anchor CX workflow, and nothing else is touched). Returns every workflow.
+ * Puts on a workflow the projects that are on no workflow and whose journey stages all match its stages by name (so the Anchor CX studies land on the Anchor
+ * CX workflow, and nothing else is touched). Returns the names of the projects it put on.
+ */
+async function linkMatchingStudies(tx: Queryable, ctx: RequestContext, flowId: string): Promise<string[]> {
+  const flow = (await getWorkflow(tx, ctx.workspaceId, flowId))!
+  const free = (
+    await tx.query(
+      `select p.id, p.name from core.projects p where p.workspace_id = $1 and not exists (select 1 from insights.project_workflows pw where pw.project_id = p.id)
+       and exists (select 1 from research.study_stages ss where ss.study_id = p.id) order by p.created_at, p.id`,
+      [ctx.workspaceId],
+    )
+  ).rows
+  const linked: string[] = []
+  for (const { id: projectId, name } of free) {
+    const names = (await tx.query(`select name from research.study_stages where study_id = $1`, [projectId])).rows.map((r) => r.name as string)
+    if (names.length >= 3 && names.every((n) => matchStage(n, flow.stages))) {
+      await applyProjectWorkflow(tx, ctx, projectId, flow.id)
+      linked.push(name as string)
+    }
+  }
+  return linked
+}
+
+/**
+ * Adds the example workflows that are not there yet (matched by name), and puts on each one the projects that are on no workflow and whose journey stages all
+ * match its stages by name. For a workflow that is already there this still links studies that have since lost their place: reloading the Anchor CX demo
+ * recreates its studies, so they come back on no workflow until this runs again. Returns every workflow.
  */
 export async function addSampleWorkflows(db: Db, ctx: RequestContext): Promise<Workflow[]> {
   return db.transaction(async (tx) => {
-    await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [`workflows:${ctx.workspaceId}`])
-    for (const sample of SAMPLE_WORKFLOWS) {
-      const there = (await tx.query(`select 1 from insights.workflows where workspace_id = $1 and lower(name) = lower($2)`, [ctx.workspaceId, sample.name])).rows[0]
-      if (there) continue
-      const id = await insertWorkflow(tx, ctx, sample)
-      const flow = (await getWorkflow(tx, ctx.workspaceId, id))!
-      const free = (
-        await tx.query(
-          `select p.id from core.projects p where p.workspace_id = $1 and not exists (select 1 from insights.project_workflows pw where pw.project_id = p.id)
-           and exists (select 1 from research.study_stages ss where ss.study_id = p.id)`,
-          [ctx.workspaceId],
-        )
-      ).rows
-      for (const { id: projectId } of free) {
-        const names = (await tx.query(`select name from research.study_stages where study_id = $1`, [projectId])).rows.map((r) => r.name as string)
-        if (names.length >= 3 && names.every((n) => matchStage(n, flow.stages))) await applyProjectWorkflow(tx, ctx, projectId, flow.id)
-      }
-    }
+    await linkSampleStudies(tx, ctx)
     return listWorkflows(tx, ctx.workspaceId)
   })
+}
+
+/** Creates the example workflows that are missing and links matching studies to each example; the names of the studies linked. For the endpoint above and the repair script. */
+export async function linkSampleStudies(tx: Queryable, ctx: RequestContext): Promise<string[]> {
+  await tx.query(`select pg_advisory_xact_lock(hashtext($1))`, [`workflows:${ctx.workspaceId}`])
+  const linked: string[] = []
+  for (const sample of SAMPLE_WORKFLOWS) {
+    const there = (await tx.query(`select id from insights.workflows where workspace_id = $1 and lower(name) = lower($2)`, [ctx.workspaceId, sample.name])).rows[0]
+    const id = there ? (there.id as string) : await insertWorkflow(tx, ctx, sample)
+    linked.push(...(await linkMatchingStudies(tx, ctx, id)))
+  }
+  return linked
 }
 
 /** What a save changed, in plain lines for the audit log (at most twelve). */

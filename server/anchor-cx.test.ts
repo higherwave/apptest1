@@ -14,10 +14,10 @@ declare global {
 }
 
 async function fixture() {
-  const { db } = await createDemoDatabase({ anchor: true })
+  const { db, pglite: pg } = await createDemoDatabase({ anchor: true })
   const app = createApp({ env: { DEV_TOKEN: 's3cret' }, getDb: () => db })
   const get = async (path: string) => (await app.request('/api/v1' + path)).json()
-  return { app, db, get }
+  return { app, db, get, pg }
 }
 
 const ANCHOR = ['Health score trust', 'Renewal workspace', 'Portfolio reporting']
@@ -57,13 +57,13 @@ test('each Anchor CX project has a plan, four participants with session lengths,
   assert.deepEqual([...platforms].sort(), ['meet', 'teams', 'zoom'])
 })
 
-test('Platform Insights rolls the seven Anchor CX themes up across all three studies', async () => {
+test('Platform Insights rolls the nine Anchor CX themes up across the three studies', async () => {
   const { get } = await fixture()
   const body = await get('/insights/themes')
   assert.equal(body.projects.length, 6, 'three original and three Anchor CX')
   const titles = Object.values(DATA.THEMES).map((t: any) => t.title)
   const anchor = body.themes.filter((t: any) => titles.includes(t.title))
-  assert.equal(anchor.length, 7)
+  assert.equal(anchor.length, 9)
   const trust = anchor.find((t: any) => t.title === DATA.THEMES.T1.title)
   assert.equal(trust.projectCount, 3)
   assert.equal(trust.participantCount, 12, 'everyone, in all three studies')
@@ -75,7 +75,15 @@ test('Platform Insights rolls the seven Anchor CX themes up across all three stu
   assert.equal(anchor.find((t: any) => t.title === DATA.THEMES.T2.title).status, 'worked')
   assert.equal(anchor.find((t: any) => t.title === DATA.THEMES.T4.title).status, 'too_early')
   assert.equal(anchor.find((t: any) => t.title === DATA.THEMES.T3.title).status, 'in_progress')
-  assert.equal(body.recommendations.length, 4 + 5)
+  // The two that came up in the later studies and that no requirement answers: open opportunities, in two studies each, on stages 1 and 3.
+  for (const [key, stage] of [['T8', 0], ['T9', 2]] as const) {
+    const t = anchor.find((x: any) => x.title === DATA.THEMES[key].title)
+    assert.deepEqual([t.projectCount, t.status, t.opportunity], [2, 'not_addressed', true], key)
+    assert.ok(t.participantCount >= 4, `${key} was raised by several people`)
+    const journey = (await get('/insights/journey')).stages.find((x: any) => x.name === DATA.STAGES[stage])
+    assert.ok(journey.themes.some((x: any) => x.title === t.title && x.opportunity), `${key} is an opportunity on stage ${stage + 1}`)
+  }
+  assert.equal(body.recommendations.length, 4 + 6)
   assert.ok(body.recommendations.some((r: any) => /why the health score changed/.test(r.title) && r.themes.length === 1))
 })
 
@@ -174,8 +182,8 @@ test('retiring the clinic demo leaves only Anchor CX, with its own journey, them
   assert.deepEqual(await retireClinic(db, ws), { projects: 4, platformThemes: 5, recommendations: 4, caseStudies: 4 })
   assert.deepEqual((await get('/projects')).data.map((p: any) => p.name).sort(), [...ANCHOR].sort())
   const themes = await get('/insights/themes')
-  assert.equal(themes.themes.length, 7)
-  assert.equal(themes.recommendations.length, 5)
+  assert.equal(themes.themes.length, 9)
+  assert.equal(themes.recommendations.length, 6)
   assert.equal(themes.totalParticipants, 12)
   assert.equal((await get('/insights/journey')).stages.length, 5, 'only the Anchor CX stages')
   assert.equal((await get('/insights/case-studies')).data.length, 0, 'no written case studies, but the project brief remains')
@@ -184,7 +192,7 @@ test('retiring the clinic demo leaves only Anchor CX, with its own journey, them
 })
 
 test('the Anchor CX example workflow: adding it puts the three studies on it, and its journey is the aggregate with the four personas', async () => {
-  const { app, get } = await fixture()
+  const { app, get, pg } = await fixture()
   const auth = { authorization: 'Bearer s3cret' }
   const before = await get('/workflows')
   assert.deepEqual([before.data, before.sampleMissing], [[], true])
@@ -216,4 +224,12 @@ test('the Anchor CX example workflow: adding it puts the three studies on it, an
   assert.deepEqual([...personas].sort(), ['CS Operations Manager', 'Customer Success Manager', 'Executive', 'Support Lead'])
   // Adding it again changes nothing.
   assert.equal((await (await app.request('/api/v1/workflows/sample', { method: 'POST', headers: auth })).json()).data.length, 1)
+  // Reloading the demo recreates the studies, which come back on no workflow: adding the example again (or running scripts/demo-workflow-link.ts) puts them back.
+  await pg.query(`delete from insights.project_workflows`)
+  assert.equal((await get('/workflows')).data[0].projectCount, 0, 'the studies are on no workflow, as after a reload')
+  const again = await (await app.request('/api/v1/workflows/sample', { method: 'POST', headers: auth })).json()
+  assert.equal(again.data.find((w: any) => w.name === 'Customer success lifecycle').projectCount, 3, 'the three studies are back on it')
+  assert.equal(again.data.length, 1, 'and no second workflow was made')
+  const back = await get(`/insights/journey?workflow=${flow.id}`)
+  assert.ok(back.stages.every((s: any) => s.projectCount === 3) && back.stages.some((s: any) => s.personas.length > 0), 'the journey has its research again')
 })
