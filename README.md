@@ -150,6 +150,16 @@ step. The reply must match a schema, cite only themes in the document, and use o
 and saves together, so a failed draft changes nothing. Creating a document that cannot be drafted removes it again. `AI_DRAFT_MODEL`
 optionally picks another model for drafting.
 
+Pulse topic grouping (`server/ai-pulse-topics.ts`, prompt `pulse-topics-v1`, model `claude-sonnet-5-5`, `AI_TOPIC_MODEL` to change it) sorts customer
+signals into topics and says what kind each one is (complaint, request, question, praise, other). Only the text and channel of the signals go to the model
+(contact details masked; no names, accounts or ARR), with the titles and a few examples of the existing topics. It is called before any transaction is opened.
+A topic keeps its row when a regroup puts the same group back, a topic a person renamed, merged, split or dismissed is never regrouped (signals can still join
+it, and it is shown to the model, so a dismissed topic is not recreated under another name), and every number on a topic is computed from the signal ids. Only a
+signal still marked `other` gets a kind, so one a person set is never changed. When the month's budget or credit is used up the simulation does the same job
+and the Topics page says so (`core.pulse_state.grouped_*`). **Scheduled Pulse updates are paused** unless `PULSE_SCHEDULED_UPDATES=true` is set: the hourly job
+then reads no sources and changes no topics (its answer says `pulse: { paused: true }`), so demo data does not move and no model call is made on a schedule.
+"Update topics" in Settings, Pulse still works by hand. Set the variable to `true` in Vercel to switch the hourly and daily updates back on.
+
 Theme matching (`server/ai-matching.ts`, prompt `theme-match-v3`, model `claude-haiku-5-5`, `AI_MATCH_MODEL` to change it) runs after each
 analysis. Only current themes that have no platform theme yet are sent (tags already given stay put, so the numbers do not shuffle and
 each call stays small). The model puts each one under an existing platform theme or names a new one; matches below 0.6 confidence are

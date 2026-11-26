@@ -3649,6 +3649,19 @@ export interface components {
             toReview: number;
             /** @description Kept signals added since topics were last updated. */
             sinceUpdate: number;
+            /** @description True when Pulse updates itself on a schedule (hourly, with a full regrouping about daily); false while that is paused, when topics change only when someone presses Update topics. */
+            scheduledUpdates: boolean;
+            /** @description How topics were last grouped, for the note on the Topics page; null before the first update. `by` is `model` when an AI model sorted the signals and `simulation` for the built-in word-overlap grouping; `fallback` says why the simulation ran when it was a fallback (the month's AI budget or the account's credit was used up). */
+            grouping: null | {
+                /** @enum {string} */
+                by: "model" | "simulation";
+                /** @description The model that sorted them, when `by` is `model`. */
+                model: string | null;
+                /** @enum {string|null} */
+                fallback: "budget" | "credit" | null;
+                /** Format: date-time */
+                at: string;
+            };
         };
         Setup: {
             categories: {
@@ -6674,6 +6687,13 @@ export interface operations {
                             /** @description Kept, not sent: the recipient limit is on, or the address is a placeholder. */
                             held: number;
                             failed: number;
+                        };
+                        /** @description What the same run did for Pulse (absent if that step failed). `paused` is true while scheduled Pulse updates are switched off (PULSE_SCHEDULED_UPDATES is not `true`): nothing is read and no topics change. */
+                        pulse?: {
+                            paused?: boolean;
+                            workspaces?: number;
+                            regrouped?: number;
+                            read?: number;
                         };
                         /** @description What the same run cleaned up under the retention rules (absent if that step failed, which never fails the reminders). */
                         retention?: {

@@ -1164,6 +1164,14 @@ paths:
                       sent: { type: integer }
                       held: { type: integer, description: 'Kept, not sent: the recipient limit is on, or the address is a placeholder.' }
                       failed: { type: integer }
+                  pulse:
+                    type: object
+                    description: 'What the same run did for Pulse (absent if that step failed). `paused` is true while scheduled Pulse updates are switched off (PULSE_SCHEDULED_UPDATES is not `true`): nothing is read and no topics change.'
+                    properties:
+                      paused: { type: boolean }
+                      workspaces: { type: integer }
+                      regrouped: { type: integer }
+                      read: { type: integer }
                   retention:
                     type: object
                     description: What the same run cleaned up under the retention rules (absent if that step failed, which never fails the reminders).
@@ -4736,7 +4744,7 @@ components:
         signals: { type: integer }
     PulseTopicList:
       type: object
-      required: [topics, weights, updatedAt, unsorted, toReview, sinceUpdate]
+      required: [topics, weights, updatedAt, unsorted, toReview, sinceUpdate, grouping, scheduledUpdates]
       properties:
         topics: { type: array, items: { $ref: '#/components/schemas/PulseTopic' } }
         weights: { $ref: '#/components/schemas/PulseWeights/properties/weights' }
@@ -4744,6 +4752,18 @@ components:
         unsorted: { type: integer, description: 'Kept signals that are in no topic.' }
         toReview: { type: integer, description: 'Signals waiting to be kept or dismissed.' }
         sinceUpdate: { type: integer, description: 'Kept signals added since topics were last updated.' }
+        scheduledUpdates: { type: boolean, description: 'True when Pulse updates itself on a schedule (hourly, with a full regrouping about daily); false while that is paused, when topics change only when someone presses Update topics.' }
+        grouping:
+          description: How topics were last grouped, for the note on the Topics page; null before the first update. `by` is `model` when an AI model sorted the signals and `simulation` for the built-in word-overlap grouping; `fallback` says why the simulation ran when it was a fallback (the month's AI budget or the account's credit was used up).
+          oneOf:
+            - type: 'null'
+            - type: object
+              required: [by, model, fallback, at]
+              properties:
+                by: { type: string, enum: [model, simulation] }
+                model: { type: [string, 'null'], description: 'The model that sorted them, when `by` is `model`.' }
+                fallback: { type: [string, 'null'], enum: [budget, credit, null] }
+                at: { type: string, format: date-time }
     Setup:
       type: object
       required: [categories, done, total, complete]

@@ -5,6 +5,8 @@
 // every signal), weighted by how rare the word is. When the model is switched on, a provider-seam version replaces `groupSignals` and keeps the
 // same shape: topics are only ever sets of signal ids, and every count and score below is computed from those ids, never written by a model.
 
+import type { PulseGroupInput, PulseGroupOutput } from './ai-pulse-topics.js'
+
 // The channels a signal can be heard in: customer-meeting transcripts, Slack, Salesforce opportunity notes and support tickets (HubSpot, 2026-11-25). The database still allows the older values.
 export const CHANNELS = ['call_notes', 'slack', 'salesforce', 'support_tickets'] as const
 export type Channel = (typeof CHANNELS)[number]
@@ -156,6 +158,24 @@ export function bestTopic(body: string, topics: { id: string; bodies: string[] }
     if (shared >= 1 && score > bestScore + 1e-9) { best = t.id; bestScore = score }
   }
   return bestScore >= 0.4 ? best : null
+}
+
+/**
+ * The simulated provider's version of the model's job, with the same input and output: a signal joins the existing topic it fits best (against every topic when updating
+ * new signals; against only the ones a person touched when regrouping, since the rest are being regrouped), and what is left is grouped among itself. It never says what kind a signal is.
+ */
+export function simulateGrouping(input: PulseGroupInput): PulseGroupOutput {
+  const candidates = (input.mode === 'regroup' ? input.topics.filter((t) => t.fixed || t.dismissed) : input.topics).map((t) => ({ id: t.id, bodies: [...t.bodies] }))
+  const assignments: { signalId: string; topicId: string }[] = []
+  const rest: GroupInput[] = []
+  for (const sig of input.signals) {
+    const into = bestTopic(sig.body, candidates)
+    if (into) {
+      assignments.push({ signalId: sig.id, topicId: into })
+      candidates.find((t) => t.id === into)!.bodies.push(sig.body)
+    } else rest.push({ id: sig.id, body: sig.body })
+  }
+  return { assignments, groups: groupSignals(rest), kinds: [] }
 }
 
 // Ranking ----------------------------------------------------------------------------------------------------------------------

@@ -1302,18 +1302,20 @@ export function createApp(options: AppOptions = {}) {
     }
   })
 
+  // The topic list, plus whether Pulse updates itself on a schedule (PULSE_SCHEDULED_UPDATES), so a screen never says "every hour" while that is paused.
+  const topicList = async (c: Context, origin?: 'auto' | 'manual') => ({ ...(await listTopics(getDb(), c.get('ctx'), new Date(), origin)), scheduledUpdates: env.PULSE_SCHEDULED_UPDATES === 'true' })
   app.get('/pulse/topics', withReadContext, async (c) => {
     await pulseOnly(c)
     c.header('Cache-Control', 'private, no-store')
-    return c.json(await listTopics(getDb(), c.get('ctx'), new Date(), originParam(c)))
+    return c.json(await topicList(c, originParam(c)))
   })
   app.post('/pulse/topics/update', withContext, limited('pulse_update', 20), async (c) => {
     await pulseOnly(c, 'edit')
     const input = parseBody(updateTopicsSchema, await readJson(c))
     const ctx = c.get('ctx')
-    await updateTopics(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, input.mode)
+    await updateTopics(getDb(), { workspaceId: ctx.workspaceId, userId: ctx.userId }, input.mode, ai)
     c.header('Cache-Control', 'private, no-store')
-    return c.json(await listTopics(getDb(), ctx))
+    return c.json(await topicList(c))
   })
   const topicError = (err: unknown): never => {
     if (err instanceof TopicNotFound) throw new ApiError(404, 'not_found', 'Not found.')
@@ -1371,7 +1373,7 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       topicError(err)
     }
-    return c.json(await listTopics(getDb(), c.get('ctx')))
+    return c.json(await topicList(c))
   })
   app.post('/pulse/topics/:id/dismiss', withContext, limited('pulse_dismiss', 60), async (c) => {
     await pulseOnly(c, 'edit')
@@ -1382,7 +1384,7 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       topicError(err)
     }
-    return c.json(await listTopics(getDb(), c.get('ctx')))
+    return c.json(await topicList(c))
   })
   app.post('/pulse/topics/:id/merge', withContext, async (c) => {
     await pulseOnly(c, 'edit')
@@ -1393,7 +1395,7 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       topicError(err)
     }
-    return c.json(await listTopics(getDb(), c.get('ctx')))
+    return c.json(await topicList(c))
   })
   app.post('/pulse/topics/:id/split', withContext, async (c) => {
     await pulseOnly(c, 'edit')
@@ -1404,7 +1406,7 @@ export function createApp(options: AppOptions = {}) {
     } catch (err) {
       topicError(err)
     }
-    return c.json(await listTopics(getDb(), c.get('ctx')))
+    return c.json(await topicList(c))
   })
   // What a signal from each channel counts for. Any owner of a workspace with Pulse on can read it; only an owner changes it (today the two are the same people).
   app.get('/pulse/weights', withReadContext, async (c) => {
@@ -2254,11 +2256,15 @@ export function createApp(options: AppOptions = {}) {
       console.error('retention run failed', err instanceof Error ? err.message : err)
       return null
     })
-    // And the Pulse preview's topics: new signals attach each hour, everything not edited is regrouped about once a day. It never fails the reminders either.
-    const pulse = await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack, async (workspaceId) => (await integrations(workspaceId)).salesforce, async (workspaceId) => (await integrations(workspaceId)).hubspot).catch((err) => {
-      console.error('pulse update failed', err instanceof Error ? err.message : err)
-      return null
-    })
+    // And Pulse: new signals attach each hour, everything not edited is regrouped about once a day. PAUSED unless PULSE_SCHEDULED_UPDATES is "true" (it is off by default, so
+    // demo data does not change and no model call is made on a schedule); the code stays, and "Update topics" still works by hand. It never fails the reminders either.
+    const pulse =
+      env.PULSE_SCHEDULED_UPDATES !== 'true'
+        ? { paused: true }
+        : await runPulseUpdates(platformDb(), async (workspaceId) => (await integrations(workspaceId)).slack, async (workspaceId) => (await integrations(workspaceId)).salesforce, async (workspaceId) => (await integrations(workspaceId)).hubspot, ai).catch((err) => {
+            console.error('pulse update failed', err instanceof Error ? err.message : err)
+            return null
+          })
     return c.json({ ...digest, launches, ...(retention ? { retention } : {}), ...(pulse ? { pulse } : {}) })
   })
 

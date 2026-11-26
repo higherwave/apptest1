@@ -4,7 +4,7 @@
 // demo visitor and an owner who has not switched it on all get the same answer as for a page that does not exist. `pulseOn` is the ONE place that decides; every
 // /pulse route and the menu (through /me) ask it. Do not re-derive it in a handler or a screen.
 import type { RequestContext } from './context.js'
-import type { Db, Queryable } from './db.js'
+import type { Db, Env, Queryable } from './db.js'
 import { insertMany } from './sql.js'
 import type { SlackClient } from './slack.js'
 import { checkAllSources } from './pulse-sources.js'
@@ -13,7 +13,9 @@ import { linksFor } from './pulse-links.js'
 import { accountRows, arrByName, arrFor, syncAccounts, SYNC_DUE_MS } from './pulse-accounts.js'
 import type { SalesforceClient } from './salesforce.js'
 import type { HubspotClient } from './hubspot.js'
-import { bestTopic, CHANNELS, DEFAULT_WEIGHTS, groupSignals, isChannel, playStats, topicStats, type Channel, type InPlay, type TopicStats } from './pulse-topics.js'
+import { callAiWithFallback, simulatedProvider, type Ai } from './ai.js'
+import { MAX_SIGNALS_PER_CALL, type PulseGroupInput, type PulseGroupOutput } from './ai-pulse-topics.js'
+import { CHANNELS, CHANNEL_LABEL, DEFAULT_WEIGHTS, isChannel, playStats, topicStats, type Channel, type InPlay, type TopicStats } from './pulse-topics.js'
 
 export { CHANNELS, isChannel, type Channel }
 
@@ -289,39 +291,79 @@ export type TopicList = {
   toReview: number
   /** Kept signals added since topics were last updated. */
   sinceUpdate: number
+  /** How topics were last grouped (an AI model, or the built-in simulation and why), or null before the first update. */
+  grouping: Grouping | null
 }
 
 type Actor = { workspaceId: string; userId: string | null }
 
+/** What was used to group topics last time, for the note on the Topics page. */
+export type Grouping = { by: 'model' | 'simulation'; model: string | null; fallback: 'budget' | 'credit' | null; at: string }
+
+// With no `ai` given (the tests, a script) the grouping is the built-in word-overlap one and nothing is spent.
+const SIMULATED_AI: Ai = { provider: simulatedProvider, env: {} as Env }
+
 /**
- * Brings topics up to date with the kept signals. `attach`: signals that were un-kept leave their topic, a new signal joins the topic it fits best, and what fits nowhere is grouped
- * among itself. `regroup`: first drops every topic a person has not touched, then does the same, so everything not edited is grouped afresh. A topic a person renamed, merged or split is
- * never regrouped. Rankings only change here, never when a signal is merely kept, so a page does not shift while someone reads it.
+ * Brings topics up to date with the kept signals. `attach`: signals that were un-kept leave their topic, and each new signal joins the topic it fits best or is grouped with others
+ * like it. `regroup`: every signal not in a topic a person touched is sorted afresh, but a topic keeps its row (and so its id, its links and its name) whenever the same group comes
+ * back. A topic a person renamed, merged, split or dismissed is never regrouped; signals may still join it, so a dismissed topic is not recreated under a new name. Rankings only change
+ * here, never when a signal is merely kept, so a page does not shift while someone reads it.
+ *
+ * The model is called BEFORE any transaction is opened (what it answers is checked and then applied in one). When it cannot be used because the month's budget or credit
+ * is spent, the simulation does the same job and the note says so; any other failure leaves everything as it was.
  */
-export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup'): Promise<{ topics: number; attached: number; created: number }> {
+export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup', ai: Ai = SIMULATED_AI): Promise<{ topics: number; attached: number; created: number }> {
+  const ws = who.workspaceId
+  // 1. Read what the grouping needs.
+  const signalRows = (await db.query(`select id, body, channel from core.pulse_signals where workspace_id = $1 and status = 'kept' order by occurred_on desc nulls last, created_at, id`, [ws])).rows as { id: string; body: string; channel: string }[]
+  const topicRows = (await db.query(`select id, title, edited, dismissed_at is not null as dismissed from core.pulse_topics where workspace_id = $1 and status = 'active' order by created_at, id`, [ws])).rows as { id: string; title: string; edited: boolean; dismissed: boolean }[]
+  const memberOf = new Map<string, string>(((await db.query(`select signal_id, topic_id from core.pulse_topic_signals where workspace_id = $1`, [ws])).rows as { signal_id: string; topic_id: string }[]).map((r) => [r.signal_id, r.topic_id]))
+  const untouched = new Set(topicRows.filter((t) => !t.edited && !t.dismissed).map((t) => t.id))
+  const bodies = new Map<string, string[]>()
+  for (const r of signalRows) {
+    const t = memberOf.get(r.id)
+    if (t) bodies.set(t, [...(bodies.get(t) ?? []), r.body])
+  }
+  // The signals to sort: those in no topic, and (regrouping) those in a topic nobody touched. A live model sees a bounded number, newest first; the rest are sorted next time.
+  let pool = signalRows.filter((r) => !memberOf.has(r.id) || (mode === 'regroup' && untouched.has(memberOf.get(r.id)!)))
+  if (ai.provider.live) pool = pool.slice(0, MAX_SIGNALS_PER_CALL)
+  const input: PulseGroupInput = {
+    mode,
+    signals: pool.map((r) => ({ id: r.id, body: r.body, channel: CHANNEL_LABEL[r.channel as Channel] ?? r.channel })),
+    topics: topicRows.map((t) => ({ id: t.id, title: t.title, bodies: bodies.get(t.id) ?? [], fixed: t.edited, dismissed: t.dismissed })),
+  }
+
+  // 2. Ask, outside any transaction. Nothing to sort means nothing to ask (an hour with no new signals costs nothing).
+  let output: PulseGroupOutput = { assignments: [], groups: [], kinds: [] }
+  let note: { by: 'model' | 'simulation'; model: string | null; fallback: 'budget' | 'credit' | null } | null = null
+  if (pool.length) {
+    const asked = await callAiWithFallback(db, ai, ws, 'pulse_topics', (p) => (p.groupPulse ?? simulatedProvider.groupPulse!)(input))
+    output = asked.value.output
+    const live = ai.provider.live && !asked.fallback
+    note = { by: live ? 'model' : 'simulation', model: live ? asked.value.model ?? null : null, fallback: asked.fallback ?? null }
+  }
+
+  // 3. Apply it, checking each reference again: the signals and topics may have changed since they were read.
   return db.transaction(async (tx) => {
-    const ws = who.workspaceId
     await tx.query(`delete from core.pulse_topic_signals where workspace_id = $1 and signal_id in (select id from core.pulse_signals where workspace_id = $1 and status <> 'kept')`, [ws])
-    if (mode === 'regroup') await tx.query(`delete from core.pulse_topics where workspace_id = $1 and edited = false and status = 'active'`, [ws])
-    // Topics a person edited that are now empty stay out of the way; an untouched empty one is just removed.
-    await tx.query(`delete from core.pulse_topics t where t.workspace_id = $1 and t.status = 'active' and not exists (select 1 from core.pulse_topic_signals s where s.topic_id = t.id)`, [ws])
-
-    const loose = (await tx.query(`select id, body from core.pulse_signals where workspace_id = $1 and status = 'kept' and id not in (select signal_id from core.pulse_topic_signals) order by occurred_on desc nulls last, created_at, id`, [ws])).rows as { id: string; body: string }[]
-    const existing = (await tx.query(`select t.id, s.body from core.pulse_topics t join core.pulse_topic_signals ts on ts.topic_id = t.id join core.pulse_signals s on s.id = ts.signal_id where t.workspace_id = $1 and t.status = 'active'`, [ws])).rows as { id: string; body: string }[]
-    const byTopic = new Map<string, string[]>()
-    for (const r of existing) byTopic.set(r.id, [...(byTopic.get(r.id) ?? []), r.body])
-    const topics = [...byTopic.entries()].map(([id, bodies]) => ({ id, bodies }))
-
-    let attached = 0
-    const rest: { id: string; body: string }[] = []
-    for (const sig of loose) {
-      const into = bestTopic(sig.body, topics)
-      if (into) {
-        await tx.query(`insert into core.pulse_topic_signals (signal_id, topic_id, workspace_id) values ($1, $2, $3)`, [sig.id, into, ws])
-        topics.find((t) => t.id === into)!.bodies.push(sig.body)
-        attached++
-      } else rest.push(sig)
+    if (mode === 'regroup' && pool.length) {
+      await tx.query(
+        `delete from core.pulse_topic_signals where workspace_id = $1 and signal_id = any($2::uuid[]) and topic_id in (select id from core.pulse_topics where workspace_id = $1 and edited = false and status = 'active')`,
+        [ws, pool.map((r) => r.id)],
+      )
     }
+    const active = new Set(((await tx.query(`select id from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows as { id: string }[]).map((r) => r.id))
+    const free = new Set(((await tx.query(`select id from core.pulse_signals where workspace_id = $1 and status = 'kept' and id not in (select signal_id from core.pulse_topic_signals)`, [ws])).rows as { id: string }[]).map((r) => r.id))
+    const asked = new Set(pool.map((r) => r.id))
+    let attached = 0
+    const join: { signal_id: string; topic_id: string; workspace_id: string }[] = []
+    for (const a of output.assignments) {
+      if (!active.has(a.topicId) || !free.has(a.signalId) || !asked.has(a.signalId)) continue
+      free.delete(a.signalId)
+      join.push({ signal_id: a.signalId, topic_id: a.topicId, workspace_id: ws })
+      attached++
+    }
+    await insertMany(tx, 'core.pulse_topic_signals', join)
     // A dismissed topic comes back once three or more new signals have joined it since it was dismissed.
     await tx.query(
       `update core.pulse_topics t set dismissed_at = null, dismissed_signal_count = null, dismissed_by = null, updated_at = now()
@@ -333,23 +375,39 @@ export async function updateTopics(db: Db, who: Actor, mode: 'attach' | 'regroup
     await mergeSameName(tx, ws)
     const named = new Map<string, string>(((await tx.query(`select id, title from core.pulse_topics where workspace_id = $1 and status = 'active' order by created_at, id`, [ws])).rows as { id: string; title: string }[]).reverse().map((r) => [r.title.trim().toLowerCase(), r.id]))
     let created = 0
-    for (const g of groupSignals(rest)) {
-      // New signals that group under the name of a topic that already exists join that topic, instead of starting a second one with the same name.
+    for (const g of output.groups) {
+      const ids = g.ids.filter((id) => free.has(id) && asked.has(id))
+      if (!ids.length) continue
+      ids.forEach((id) => free.delete(id))
+      // A group named like a topic that already exists (an untouched one that is being regrouped, or any other) joins it, instead of starting a second one with the same name.
       const same = named.get(g.title.trim().toLowerCase())
       if (same) {
-        await insertMany(tx, 'core.pulse_topic_signals', g.ids.map((id) => ({ signal_id: id, topic_id: same, workspace_id: ws })))
-        attached += g.ids.length
+        await insertMany(tx, 'core.pulse_topic_signals', ids.map((id) => ({ signal_id: id, topic_id: same, workspace_id: ws })))
+        attached += ids.length
         continue
       }
       const topic = (await tx.query(`insert into core.pulse_topics (workspace_id, title, created_by) values ($1, $2, $3) returning id`, [ws, g.title, who.userId])).rows[0]
       named.set(g.title.trim().toLowerCase(), topic.id)
-      await insertMany(tx, 'core.pulse_topic_signals', g.ids.map((id) => ({ signal_id: id, topic_id: topic.id, workspace_id: ws })))
+      await insertMany(tx, 'core.pulse_topic_signals', ids.map((id) => ({ signal_id: id, topic_id: topic.id, workspace_id: ws })))
       created++
     }
+    // What the model said each signal is. Only a signal still marked "other" is changed, so a kind a person set is never second-guessed.
+    const typed = output.kinds.filter((k) => k.kind !== 'other' && asked.has(k.signalId))
+    if (typed.length) {
+      await tx.query(
+        `update core.pulse_signals s set kind = v.kind from unnest($1::uuid[], $2::text[]) as v(id, kind) where s.id = v.id and s.workspace_id = $3 and s.kind = 'other'`,
+        [typed.map((k) => k.signalId), typed.map((k) => k.kind), ws],
+      )
+    }
+    // Topics nobody belongs to any more are removed (a regrouped topic that did not come back).
+    await tx.query(`delete from core.pulse_topics t where t.workspace_id = $1 and t.status = 'active' and not exists (select 1 from core.pulse_topic_signals s where s.topic_id = t.id)`, [ws])
     await tx.query(
-      `insert into core.pulse_state (workspace_id, updated_at, last_regroup_at, updated_by) values ($1, now(), case when $2 then now() end, $3)
-       on conflict (workspace_id) do update set updated_at = now(), last_regroup_at = case when $2 then now() else core.pulse_state.last_regroup_at end, updated_by = excluded.updated_by`,
-      [ws, mode === 'regroup', who.userId],
+      `insert into core.pulse_state (workspace_id, updated_at, last_regroup_at, updated_by, grouped_by, grouped_model, grouped_fallback, grouped_at)
+       values ($1, now(), case when $2 then now() end, $3, $4, $5, $6, case when $4::text is not null then now() end)
+       on conflict (workspace_id) do update set updated_at = now(), last_regroup_at = case when $2 then now() else core.pulse_state.last_regroup_at end, updated_by = excluded.updated_by,
+         grouped_by = coalesce(excluded.grouped_by, core.pulse_state.grouped_by), grouped_model = case when excluded.grouped_by is null then core.pulse_state.grouped_model else excluded.grouped_model end,
+         grouped_fallback = case when excluded.grouped_by is null then core.pulse_state.grouped_fallback else excluded.grouped_fallback end, grouped_at = coalesce(excluded.grouped_at, core.pulse_state.grouped_at)`,
+      [ws, mode === 'regroup', who.userId, note?.by ?? null, note?.model ?? null, note?.fallback ?? null],
     )
     const total = Number((await tx.query(`select count(*)::int as n from core.pulse_topics where workspace_id = $1 and status = 'active'`, [ws])).rows[0].n)
     return { topics: total, attached, created }
@@ -409,7 +467,7 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
     .sort((a, b) => b.score - a.score || b.signals - a.signals || a.title.localeCompare(b.title))
   const links = await linksFor(db, ws, topics)
   const ranked: Topic[] = topics.map(({ bodies: _bodies, ...t }, i) => ({ ...t, rank: i + 1, projects: links.get(t.id)?.projects ?? [], researched: links.get(t.id)?.researched ?? [] }))
-  const state = (await db.query(`select updated_at from core.pulse_state where workspace_id = $1`, [ws])).rows[0]
+  const state = (await db.query(`select updated_at, grouped_by, grouped_model, grouped_fallback, grouped_at from core.pulse_state where workspace_id = $1`, [ws])).rows[0]
   const counts = (
     await db.query(
       `select count(*) filter (where status = 'new')::int as to_review,
@@ -419,7 +477,8 @@ export async function listTopics(db: Queryable, ctx: RequestContext, today: Date
       [ws, state ? new Date(state.updated_at).toISOString() : null],
     )
   ).rows[0]
-  return { topics: ranked, weights, updatedAt: state ? new Date(state.updated_at).toISOString() : null, unsorted: counts.unsorted, toReview: counts.to_review, sinceUpdate: counts.since }
+  return { topics: ranked, weights, updatedAt: state ? new Date(state.updated_at).toISOString() : null, unsorted: counts.unsorted, toReview: counts.to_review, sinceUpdate: counts.since,
+    grouping: state?.grouped_by ? { by: state.grouped_by, model: state.grouped_model ?? null, fallback: state.grouped_fallback ?? null, at: new Date(state.grouped_at ?? state.updated_at).toISOString() } : null }
 }
 
 /** How many new signals bring a dismissed topic back. */
@@ -476,7 +535,7 @@ export async function splitTopic(db: Db, ctx: RequestContext, id: string, signal
 }
 
 /** The scheduled update for every workspace that has the preview on: new signals attach hourly, and everything not edited is regrouped about once a day. Never throws for one workspace. */
-export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>, salesforceFor?: (workspaceId: string) => Promise<SalesforceClient | null>, hubspotFor?: (workspaceId: string) => Promise<HubspotClient | null>): Promise<{ workspaces: number; regrouped: number; read: number }> {
+export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: string) => Promise<SlackClient>, salesforceFor?: (workspaceId: string) => Promise<SalesforceClient | null>, hubspotFor?: (workspaceId: string) => Promise<HubspotClient | null>, ai?: Ai): Promise<{ workspaces: number; regrouped: number; read: number }> {
   const on = (await platformDb.query(`select workspace_id from core.workspace_features where feature = 'pulse' and enabled`)).rows as { workspace_id: string }[]
   let regrouped = 0
   let read = 0
@@ -495,7 +554,7 @@ export async function runPulseUpdates(platformDb: Db, slackFor?: (workspaceId: s
       if (slackFor || salesforceFor || hubspotFor) read += (await checkAllSources(db, { workspaceId: workspace_id, userId: null }, { slack: slackFor ? await slackFor(workspace_id) : null, salesforce: salesforceFor ? await salesforceFor(workspace_id) : null, hubspot: hubspotFor ? await hubspotFor(workspace_id) : null })).added
       const state = (await db.query(`select last_regroup_at from core.pulse_state where workspace_id = $1`, [workspace_id])).rows[0]
       const due = !state?.last_regroup_at || Date.now() - new Date(state.last_regroup_at).getTime() > 20 * 3600_000
-      await updateTopics(db, { workspaceId: workspace_id, userId: null }, due ? 'regroup' : 'attach')
+      await updateTopics(db, { workspaceId: workspace_id, userId: null }, due ? 'regroup' : 'attach', ai)
       if (due) regrouped++
     } catch (err) {
       console.error('pulse update failed', err instanceof Error ? err.message : err)

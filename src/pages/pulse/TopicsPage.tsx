@@ -20,6 +20,11 @@ import styles from './TopicsPage.module.scss'
 /** Top Priorities shows this many topics; All Topics has them all. */
 const TOP_N = 6
 const plural = (n: number, one: string, many = one + 's') => `${n} ${n === 1 ? one : many}`
+// "claude-sonnet-5-5" reads as "Claude Sonnet 5.5".
+const modelName = (id: string | null) => {
+  const m = id?.match(/^claude-([a-z]+)-(\d+)(?:-(\d+))?$/)
+  return m ? `Claude ${m[1].charAt(0).toUpperCase()}${m[1].slice(1)} ${m[2]}${m[3] ? `.${m[3]}` : ''}` : 'an AI model'
+}
 const when = (iso: string | null) => (iso ? new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : null)
 
 // Pulse's default page: what customers keep raising, ranked. Topics are kept signals grouped together; each row says how many were heard in which channel (the numbers are always
@@ -94,9 +99,21 @@ export function TopicsPage() {
       {list && list.sinceUpdate > 0 && (
         <ul className={styles.notes} aria-label="Waiting">
           <li data-testid="topics-since">
-            {plural(list.sinceUpdate, 'signal')} added since topics were last updated. Topics update by themselves every hour.
+            {plural(list.sinceUpdate, 'signal')} added since topics were last updated.{' '}
+            {list.scheduledUpdates ? 'Topics update by themselves every hour.' : canStart ? 'Update topics in Settings, Pulse to include them.' : 'They are included the next time an owner or editor updates topics.'}
           </li>
         </ul>
+      )}
+
+      {list && list.topics.length > 0 && list.grouping && (
+        <p className={styles.howFormed} data-testid="topics-how">
+          {list.grouping.by === 'model'
+            ? `How these topics were formed: ${modelName(list.grouping.model)} read the text of each signal and decided which belong together and what to call the group. Every count, score and dollar figure is calculated from the signals, never written by the AI. A topic you rename, merge, split or dismiss stays as you set it.`
+            : list.grouping.fallback
+              ? `How these topics were formed: by matching shared words, because ${list.grouping.fallback === 'budget' ? 'this month’s AI budget is used up' : 'the AI account has run out of credit'}. Every count, score and dollar figure is calculated from the signals. A topic you rename, merge, split or dismiss stays as you set it.`
+              : 'How these topics were formed: by matching words that signals share. Every count, score and dollar figure is calculated from the signals. A topic you rename, merge, split or dismiss stays as you set it.'}
+          {list.grouping.at ? ` Last grouped ${when(list.grouping.at)}.` : ''}
+        </p>
       )}
 
       {list && !list.topics.length && (

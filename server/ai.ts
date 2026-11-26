@@ -9,6 +9,8 @@ import type { MatchInput, Placement } from './ai-matching.js'
 import type { DedupeInput, MergeGroup } from './ai-dedupe.js'
 import type { RationaleInput, Rationale } from './ai-rationale.js'
 import type { StoryboardDraft, StoryboardInput } from './ai-storyboard.js'
+import type { PulseGroupInput, PulseGroupOutput } from './ai-pulse-topics.js'
+import { simulateGrouping } from './pulse-topics.js'
 
 // The one seam between the app and any model. Each method has the input and output of the simulated function it replaces
 // (shared/providers.mjs) and returns the value with what the call cost, so the app never needs to know which provider ran.
@@ -33,10 +35,12 @@ export type AiProvider = {
   writeRationales?(input: RationaleInput): Promise<Priced<{ rationales: Rationale[]; promptVersion: string }>>
   /** Writes the model-written parts of a project's Storyboard. Providers without it use a plain draft from the same themes. */
   writeStoryboard?(input: StoryboardInput): Promise<Priced<{ draft: StoryboardDraft; promptVersion: string }>>
+  /** Pulse: sorts customer signals into topics and says what kind each is. Providers without it use the word-overlap grouping. */
+  groupPulse?(input: PulseGroupInput): Promise<Priced<{ output: PulseGroupOutput; promptVersion: string; model?: string }>>
   analyzeProject?(input: AnalysisInput): Promise<Priced<{ themes: ReturnType<Fn<'analyze'>>; promptVersion: string }>>
 }
 export type Ai = { provider: AiProvider; env: Env }
-export type Purpose = 'analysis' | 'spec_step' | 'theme_match' | 'storyboard'
+export type Purpose = 'analysis' | 'spec_step' | 'theme_match' | 'storyboard' | 'pulse_topics'
 
 const FREE: Usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 }
 
@@ -47,6 +51,7 @@ export const simulatedProvider: AiProvider = {
   analyze: async (...a) => ({ value: analyze(...a), usage: FREE }),
   buildSteps: async (...a) => ({ value: buildSteps(...a), usage: FREE }),
   matchThemes: async (...a) => ({ value: matchThemes(...a), usage: FREE }),
+  groupPulse: async (input) => ({ value: { output: simulateGrouping(input), promptVersion: 'simulated' }, usage: FREE }),
 }
 
 // Live providers register here by name (AI_PROVIDER). A factory returns nothing when it is not fully configured (no key), so the app stays simulated.

@@ -404,3 +404,130 @@ test('topics: a name appears once. New signals that group under an existing name
   assert.equal(total(list), before + 2, 'with every signal still counted once')
   assert.equal((await pg.query<any>(`select status, merged_into from core.pulse_topics where id = $1`, [twin])).rows[0].status, 'merged')
 })
+
+// AI grouping -------------------------------------------------------------------------------------------------------------------------------------
+// A stand-in for the live model: it answers with whatever `decide` returns for what it was sent, and is "live" so its calls are budgeted and recorded.
+import { makeAi, simulatedProvider, type AiProvider } from './ai.js'
+import { updateTopics, listTopics } from './pulse.js'
+import { ApiError } from './errors.js'
+import type { PulseGroupInput, PulseGroupOutput } from './ai-pulse-topics.js'
+
+const fakeModel = (decide: (input: PulseGroupInput) => PulseGroupOutput, seen: PulseGroupInput[] = []): AiProvider => ({
+  ...simulatedProvider,
+  name: 'fake',
+  live: true,
+  groupPulse: async (input) => {
+    seen.push(input)
+    return { value: { output: decide(input), promptVersion: 'test', model: 'claude-sonnet-5-5' }, usage: { inputTokens: 1000, outputTokens: 200, costUsd: 0.004, model: 'claude-sonnet-5-5' } }
+  },
+})
+
+async function withSamples() {
+  const f = await fixture()
+  const row = (await f.pg.query<any>('select id, slug from core.workspaces limit 1')).rows[0] as { id: string; slug: string }
+  await fillDemoSignals(f.db, row.slug, true)
+  await f.call(f.owner, 'PUT', '/pulse/preview', { enabled: true })
+  const wdb = f.db.inWorkspace(row.id)
+  const who = { workspaceId: row.id, userId: null }
+  return { ...f, ws: row.id, wdb, who }
+}
+
+test('AI grouping: topics take the model’s names, kinds are set only where a person has not, and a regroup keeps a topic’s row when the same group comes back', async () => {
+  const { pg, wdb, who, call, owner } = await withSamples()
+  const ids = (await pg.query<any>(`select id from core.pulse_signals where status = 'kept' order by id`)).rows.map((r: any) => r.id as string)
+  await pg.query(`update core.pulse_signals set kind = 'request' where id = $1`, [ids[1]]) // a person chose this one
+  await pg.query(`update core.pulse_signals set kind = 'other'`)
+  await pg.query(`update core.pulse_signals set kind = 'request' where id = $1`, [ids[1]])
+  const seen: PulseGroupInput[] = []
+  const first = fakeModel((i) => ({
+    assignments: [],
+    groups: [{ title: 'Alpha problem', ids: i.signals.slice(0, 8).map((s) => s.id) }, { title: 'Beta problem', ids: i.signals.slice(8, 14).map((s) => s.id) }],
+    kinds: i.signals.map((s, n) => ({ signalId: s.id, kind: n === 0 ? 'praise' : n === 1 ? 'complaint' : 'other' })),
+  }), seen)
+  await updateTopics(wdb, who, 'regroup', makeAi({}, first))
+  assert.equal(seen.length, 1)
+  assert.ok(seen[0].signals.every((s) => !('account' in s) && !('saidBy' in s)), 'only text and channel go to the model')
+  let list = await listTopics(wdb, { workspaceId: who.workspaceId } as any)
+  assert.deepEqual(list.topics.map((t) => t.title).sort(), ['Alpha problem', 'Beta problem'])
+  assert.deepEqual([list.grouping?.by, list.grouping?.model, list.grouping?.fallback], ['model', 'claude-sonnet-5-5', null], 'the page can say an AI model grouped them')
+  const kinds = Object.fromEntries((await pg.query<any>(`select id, kind from core.pulse_signals`)).rows.map((r: any) => [r.id, r.kind]))
+  assert.equal(kinds[seen[0].signals[0].id], 'praise', 'the model’s kind is saved')
+  assert.equal(kinds[ids[1]], 'request', 'a kind a person set is never second-guessed')
+  assert.deepEqual((await pg.query<any>(`select purpose, provider, cost_usd::float8 as cost from core.ai_usage`)).rows, [{ purpose: 'pulse_topics', provider: 'fake', cost: 0.004 }], 'the call is recorded against the budget')
+
+  // Regrouping: the model is shown the existing topics, and putting the same signals back into them keeps their rows.
+  const before = Object.fromEntries((await pg.query<any>(`select title, id from core.pulse_topics`)).rows.map((r: any) => [r.title, r.id]))
+  const again = fakeModel((i) => {
+    const t = Object.fromEntries(i.topics.map((x) => [x.title, x.id]))
+    return { assignments: i.signals.map((s, n) => ({ signalId: s.id, topicId: n < 8 ? t['Alpha problem'] : t['Beta problem'] })), groups: [], kinds: [] }
+  }, seen)
+  await updateTopics(wdb, who, 'regroup', makeAi({}, again))
+  const after = Object.fromEntries((await pg.query<any>(`select title, id from core.pulse_topics where status = 'active'`)).rows.map((r: any) => [r.title, r.id]))
+  assert.deepEqual(after, before, 'same topics, same rows: links and dismissals follow the id')
+  assert.ok(seen[1].topics.some((t) => t.title === 'Alpha problem' && t.bodies.length === 8), 'the model is shown what is in each topic')
+
+  // Nothing new to sort: the model is not called, so an hour with no new signals costs nothing.
+  await updateTopics(wdb, who, 'attach', makeAi({}, fakeModel(() => { throw new Error('called with nothing to sort') })))
+  assert.equal(Number((await pg.query<any>(`select count(*)::int as n from core.ai_usage`)).rows[0].n), 2)
+  void call; void owner
+})
+
+test('AI grouping: a dismissed topic is shown to the model, new signals about it join it, and it is not recreated under another name', async () => {
+  const { pg, wdb, who, call, owner } = await withSamples()
+  await updateTopics(wdb, who, 'regroup', makeAi({}, fakeModel((i) => ({ assignments: [], groups: [{ title: 'Alpha problem', ids: i.signals.slice(0, 8).map((s) => s.id) }, { title: 'Beta problem', ids: i.signals.slice(8, 14).map((s) => s.id) }], kinds: [] }))))
+  const alpha = (await pg.query<any>(`select id from core.pulse_topics where title = 'Alpha problem'`)).rows[0].id as string
+  assert.equal((await call(owner, 'POST', `/pulse/topics/${alpha}/dismiss`, { reason: 'addressed' })).status, 200)
+  await call(owner, 'POST', '/pulse/signals', { body: 'Still the same alpha trouble every single week.', channel: 'slack' })
+  const seen: PulseGroupInput[] = []
+  const model = fakeModel((i) => ({ assignments: i.signals.filter((s) => s.body.startsWith('Still the same alpha')).map((s) => ({ signalId: s.id, topicId: i.topics.find((t) => t.title === 'Alpha problem')!.id })), groups: [], kinds: [] }), seen)
+  const n = (await pg.query<any>(`select count(*)::int as n from core.pulse_topic_signals where topic_id = $1`, [alpha])).rows[0].n
+  await updateTopics(wdb, who, 'regroup', makeAi({}, model))
+  assert.deepEqual(seen[0].topics.filter((t) => t.title === 'Alpha problem').map((t) => [t.dismissed, t.fixed]), [[true, true]], 'the model is told it is hidden by a person')
+  assert.equal(Number((await pg.query<any>(`select count(*)::int as n from core.pulse_topic_signals where topic_id = $1`, [alpha])).rows[0].n), n + 1, 'the new signal joined it (one or two do not bring it back)')
+  assert.deepEqual((await pg.query<any>(`select title from core.pulse_topics where status = 'active' and title like 'Alpha%'`)).rows, [{ title: 'Alpha problem' }], 'no second topic about the same thing')
+  assert.ok(!(await listTopics(wdb, { workspaceId: who.workspaceId } as any)).topics.some((t) => t.title === 'Alpha problem'), 'and it is still hidden')
+})
+
+test('AI grouping: when the month’s AI budget is spent the simulation groups instead and the page says so; an unusable reply changes nothing', async () => {
+  const { pg, wdb, who, ws } = await withSamples()
+  await pg.query(`update core.workspaces set ai_monthly_usd = 0 where id = $1`, [ws])
+  await updateTopics(wdb, who, 'regroup', makeAi({}, fakeModel(() => { throw new Error('the model must not be called over budget') })))
+  let list = await listTopics(wdb, { workspaceId: ws } as any)
+  assert.equal(list.topics.length, 4, 'the simulation made the usual four topics')
+  assert.deepEqual([list.grouping?.by, list.grouping?.fallback, list.grouping?.model], ['simulation', 'budget', null])
+
+  await pg.query(`update core.workspaces set ai_monthly_usd = 50 where id = $1`, [ws])
+  const titles = (await pg.query<any>(`select title from core.pulse_topics order by title`)).rows
+  const broken: AiProvider = { ...simulatedProvider, name: 'fake', live: true, groupPulse: async () => { const { ModelOutputError } = await import('./ai-analysis.js'); throw new ModelOutputError(['not json']) } }
+  await assert.rejects(updateTopics(wdb, who, 'regroup', makeAi({}, broken)), (e) => e instanceof ApiError && e.code === 'ai_output_unusable')
+  assert.deepEqual((await pg.query<any>(`select title from core.pulse_topics order by title`)).rows, titles, 'nothing was changed')
+  list = await listTopics(wdb, { workspaceId: ws } as any)
+  assert.equal(list.grouping?.by, 'simulation', 'and the note still describes what the topics really are')
+})
+
+test('the scheduled Pulse update is paused unless PULSE_SCHEDULED_UPDATES is "true"; updating by hand still works', async () => {
+  const { pg, db, call, owner } = await withSamples()
+  const cron = (env: Record<string, string>) => createApp({ env: { DEV_TOKEN: 's3cret', CRON_SECRET: 'cron-s3cret', ...env }, getDb: () => db }).request('/api/v1/cron/digest', { headers: { authorization: 'Bearer cron-s3cret' } })
+  let body = await (await cron({})).json()
+  assert.deepEqual(body.pulse, { paused: true }, 'off by default: nothing is read and no topics change')
+  assert.equal(Number((await pg.query<any>(`select count(*)::int as n from core.pulse_topics`)).rows[0].n), 0)
+  body = await (await cron({ PULSE_SCHEDULED_UPDATES: 'false' })).json()
+  assert.deepEqual(body.pulse, { paused: true })
+  body = await (await cron({ PULSE_SCHEDULED_UPDATES: 'true' })).json()
+  assert.equal(body.pulse.workspaces, 1, 'switched on: it runs as before')
+  assert.ok(Number((await pg.query<any>(`select count(*)::int as n from core.pulse_topics`)).rows[0].n) > 0)
+  await pg.query(`delete from core.pulse_topics`)
+  assert.equal((await call(owner, 'POST', '/pulse/topics/update', {})).status, 200, 'the Update topics button works whatever the flag says')
+})
+
+test('the topic list says whether Pulse updates itself, and the grouping note reaches the screen', async () => {
+  const { pg, db, call } = await withSamples()
+  const app = (env: Record<string, string>) => createApp({ env: { DEV_TOKEN: 's3cret', ...env }, getDb: () => db })
+  assert.equal((await (await call(app({}), 'GET', '/pulse/topics')).json()).scheduledUpdates, false, 'paused by default')
+  assert.equal((await (await call(app({ PULSE_SCHEDULED_UPDATES: 'true' }), 'GET', '/pulse/topics')).json()).scheduledUpdates, true)
+  assert.equal((await (await call(app({}), 'GET', '/pulse/topics')).json()).grouping, null, 'before the first update there is nothing to say')
+  await call(app({}), 'POST', '/pulse/topics/update', { mode: 'regroup' })
+  const g = (await (await call(app({}), 'GET', '/pulse/topics')).json()).grouping
+  assert.deepEqual([g.by, g.model, g.fallback], ['simulation', null, null], 'no model is configured here, so it says the built-in grouping ran')
+  void pg
+})

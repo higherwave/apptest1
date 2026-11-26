@@ -8,6 +8,7 @@ import { matchWithModel } from './ai-matching.js'
 import { dedupeWithModel } from './ai-dedupe.js'
 import { rationalesWithModel } from './ai-rationale.js'
 import { storyboardWithModel } from './ai-storyboard.js'
+import { groupWithModel } from './ai-pulse-topics.js'
 import { simulatedProvider, type AiProvider, type Usage } from './ai.js'
 
 export const DEFAULT_ANALYSIS_MODEL = 'claude-sonnet-5-5'
@@ -78,6 +79,9 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
   const draftCall = draftModel === model ? call : anthropicCall(env, draftModel, fetchImpl)
   const matchModel = env.AI_MATCH_MODEL && PRICES[env.AI_MATCH_MODEL] ? env.AI_MATCH_MODEL : DEFAULT_MATCH_MODEL
   const matchCall = anthropicCall(env, matchModel, fetchImpl)
+  // Pulse topics: accuracy matters most, so the stronger model unless AI_TOPIC_MODEL says otherwise.
+  const topicModel = env.AI_TOPIC_MODEL && PRICES[env.AI_TOPIC_MODEL] ? env.AI_TOPIC_MODEL : DEFAULT_ANALYSIS_MODEL
+  const topicCall = topicModel === model ? call : anthropicCall(env, topicModel, fetchImpl)
   return {
     ...simulatedProvider,
     name: 'anthropic',
@@ -101,6 +105,10 @@ export function anthropicProvider(env: Env, fetchImpl?: typeof fetch): AiProvide
     writeStoryboard: async (input) => {
       const r = await storyboardWithModel(draftCall, input)
       return { value: { draft: r.draft, promptVersion: r.promptVersion }, usage: r.usage }
+    },
+    groupPulse: async (input) => {
+      const r = await groupWithModel(topicCall, input)
+      return { value: { output: r.output, promptVersion: r.promptVersion, model: r.usage.model }, usage: r.usage }
     },
     draftStep: async (input) => {
       const r = await draftWithModel(draftCall, input)
